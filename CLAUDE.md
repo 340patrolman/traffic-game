@@ -48,6 +48,17 @@
 * 캐시: 스크립트 주소 `?v=X`(index.html·sw.js 둘 다) + sw CACHE 이름을 배포 때마다 올린다. GitHub Pages 는 max-age=600 이라 안 올리면 새 HTML 이 옛 JS 를 부른다(키보드 먹통 원인).
 * 검증: `_verify_tail.js`(기능 전체) · `_ic_tail.js`(IC 32구간 + 링 자동 조종 주행) · `_probe_tail.js`(도로 끝) · `_shot_tail.js`(장면 스크린샷). `?norender=1` 로 헤드리스에서 빠르게 돈다. 브라우저 페인이 숨겨지면 rAF 가 멈추므로 `step()` 만 믿는다.
 
+## v0.6.3~ 추가(2026-09-06 밤)
+
+* 지도 = 강남·서초 축약(`city.roadNamesV/H`, `hName(j,x)` 로 서초대로|테헤란로, `LANDMARK_BLOCKS`, `inSchoolZone`, `hasStub`). 모든 격자 도로 4차로(`AVENUE_V/H` 전부). 한강은 `riverZ(x)`(북쪽 동서), `hBase` 가 강 둔치를 평탄화. 스텁은 IC 8곳만.
+* IC 이름·안내표지: `terrain.js` `IC_INFO`, `gantry(L,i,textA,textB)`(A/B 방향 글 따로), `TG.tex.hwSign('줄1|줄2')`.
+* 순찰차 도색은 데칼: `TG.tex.liverySide(flip)/liveryHood()` + `vehmesh.sideDecal/hoodDecal`(DoubleSide 필수, 로프트 띠는 흰색).
+* 차내: 눈은 `wsBase − 0.95`, 카메라 near 0.12(핸들·손). 핸들 그룹 `steer3d` 에 손·소매 포함.
+* 키보드: `input.js` `codeOf(e)` — `e.code` 가 비면 `e.key`(한글 자모 포함)로 복원. 방향지시등 `Comma/Period`, 주행 모드 `KeyN`, 미니맵 `Equal/Minus`.
+* 교통 AI: `car.trait`(phone/litter/animal), `car.signal`·깜빡이, 4차로 차로 변경(`lcShift` 를 `car.extra` 로 반영, `noSignalViolator` → 'nosignal', 정지선 32m 안 → 'solidline'), `lcForce` 는 테스트용. `flag(car,type,node,seen)` 은 목격 없이도 기록(퀴즈 정답 근거).
+* 플레이어: `player.signal`, 차로 변경 판정(`checkRules` 8-2, 앞 교차로 정지선 30m 안 = 실선), 감속 안내(8-3, `hud.hintNow`), `driveMode` sport 배율, `windLat`(강풍).
+* 날씨 `auto`(기기 시계·달)/`random`/`windy`. 실제 기상 연동은 「네트워크 0」 규칙상 하지 않는다.
+
 ## 확인 절차
 
 `index.html`을 브라우저로 연다(파일 또는 정적 서버). 콘솔에 `[TG]` 로그 외 에러가 없어야 한다.

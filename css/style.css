@@ -152,3 +152,13 @@ label.opt input{width:20px;height:20px}
 .stats .lesson{margin-top:12px;padding:10px;border-radius:10px;background:rgba(255,207,63,.12);color:var(--accent);font-weight:700;font-size:14px}
 .stats .reason{margin-top:8px;color:var(--bad);font-size:13px}
 #loadfail{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#3a1418;border:1px solid var(--bad);padding:10px 16px;border-radius:10px;font-size:13px;z-index:20;max-width:90vw;text-align:center}
+/* 방향지시등 */
+.sig{font-size:16px;color:#3a4048;margin:0 4px;transition:color .1s}
+.sig.on{color:#ffa000;text-shadow:0 0 6px rgba(255,160,0,.8)}
+.dmode{margin-left:6px;font-size:11px;font-weight:800;color:#9fc0ff;border:1px solid rgba(159,192,255,.5);border-radius:6px;padding:1px 6px}
+.dmode.sport{color:#ff8a5c;border-color:rgba(255,138,92,.6)}
+.sigs{position:fixed;left:calc(24px + var(--sa-l));bottom:calc(190px + var(--sa-b));display:flex;gap:10px}
+body.portrait .sigs{bottom:calc(215px + var(--sa-b))}
+.tbtn.sig{width:52px;height:44px;border-radius:12px;background:rgba(255,160,0,.12);border-color:rgba(255,160,0,.6);font-size:16px;flex-direction:row;gap:4px}
+.tbtn.sig span{font-size:11px}
+.tbtn.sig.active{background:rgba(255,160,0,.55);animation:blink .5s steps(2) infinite}

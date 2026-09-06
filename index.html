@@ -13,14 +13,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.6.3">
+<link rel="stylesheet" href="css/style.css?v=0.6.4">
 </head>
 <body>
 <canvas id="game"></canvas>
 
 <div id="hud">
   <div id="speedbox" class="panel">
-    <div class="speedrow"><span id="speed">0</span><span class="unit">km/h</span><span id="gear" class="gear" style="display:none">R 후진</span></div>
+    <div class="speedrow"><span id="sigL" class="sig">◀</span><span id="speed">0</span><span class="unit">km/h</span><span id="sigR" class="sig">▶</span><span id="gear" class="gear" style="display:none">R 후진</span><span id="driveMode" class="dmode">N</span></div>
     <div id="section" class="section">시내 · 제한 50</div>
     <div id="stopbarWrap"><div class="lbl">정지거리 <span id="stopdist">—</span></div><div class="bar"><div id="stopbar"></div></div></div>
     <div id="gap" class="gap"></div>
@@ -45,6 +45,7 @@
       <div class="arrow left">◀<span>좌</span></div><div class="arrow right"><span>우</span>▶</div>
       <div id="stickNub"></div></div>
   </div>
+  <div class="sigs"><div class="tbtn sig" id="btnSigL" title="좌 방향지시등(,)">◀<span>좌</span></div><div class="tbtn sig" id="btnSigR" title="우 방향지시등(.)"><span>우</span>▶</div></div>
   <div class="cluster right">
     <div class="tbtn siren" id="btnSiren" title="경광등"><svg viewBox="0 0 40 24" width="34" height="20"><rect x="2" y="4" width="16" height="14" rx="3" fill="#ff3b30"/><rect x="22" y="4" width="16" height="14" rx="3" fill="#2a60ff"/><rect x="0" y="18" width="40" height="4" rx="2" fill="#dde3ea"/></svg><span>경광등</span></div>
     <div class="tbtn enf" id="btnEnforce" title="단속: 화면의 차량·보행자를 터치하면 위반 객관식이 뜹니다. 버튼은 앞쪽 위반 의심 대상을 자동으로 고릅니다"><span class="ico">🚨</span><span>단속</span></div>
@@ -100,6 +101,7 @@
     <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
+    <label class="opt"><span>주행 모드</span><select id="optDrive" style="flex:1"><option value="normal">노말 (부드럽게)</option><option value="sport">스포츠 (가속·조향 응답 ↑)</option></select></label>
     <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="auto">🕒 자동(시계·계절)</option><option value="random">🎲 랜덤</option><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option><option value="windy">💨 강풍 (옆바람)</option></select></label>
     <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
     <button id="btnResume" class="primary">계속</button>
@@ -136,28 +138,28 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.6.3"></script>
-<script src="js/config.js?v=0.6.3"></script>
-<script src="js/rng.js?v=0.6.3"></script>
-<script src="js/save.js?v=0.6.3"></script>
-<script src="js/perf.js?v=0.6.3"></script>
-<script src="js/textures.js?v=0.6.3"></script>
-<script src="js/audio.js?v=0.6.3"></script>
-<script src="js/city.js?v=0.6.3"></script>
-<script src="js/world.js?v=0.6.3"></script>
-<script src="js/terrain.js?v=0.6.3"></script>
-<script src="js/weather.js?v=0.6.3"></script>
-<script src="js/signals.js?v=0.6.3"></script>
-<script src="js/vehmesh.js?v=0.6.3"></script>
-<script src="js/vehicle.js?v=0.6.3"></script>
-<script src="js/traffic.js?v=0.6.3"></script>
-<script src="js/peds.js?v=0.6.3"></script>
-<script src="js/enforcement.js?v=0.6.3"></script>
-<script src="js/study.js?v=0.6.3"></script>
-<script src="js/hud.js?v=0.6.3"></script>
-<script src="js/minimap.js?v=0.6.3"></script>
-<script src="js/input.js?v=0.6.3"></script>
-<script src="js/main.js?v=0.6.3"></script>
+<script src="lib/three.min.js?v=0.6.4"></script>
+<script src="js/config.js?v=0.6.4"></script>
+<script src="js/rng.js?v=0.6.4"></script>
+<script src="js/save.js?v=0.6.4"></script>
+<script src="js/perf.js?v=0.6.4"></script>
+<script src="js/textures.js?v=0.6.4"></script>
+<script src="js/audio.js?v=0.6.4"></script>
+<script src="js/city.js?v=0.6.4"></script>
+<script src="js/world.js?v=0.6.4"></script>
+<script src="js/terrain.js?v=0.6.4"></script>
+<script src="js/weather.js?v=0.6.4"></script>
+<script src="js/signals.js?v=0.6.4"></script>
+<script src="js/vehmesh.js?v=0.6.4"></script>
+<script src="js/vehicle.js?v=0.6.4"></script>
+<script src="js/traffic.js?v=0.6.4"></script>
+<script src="js/peds.js?v=0.6.4"></script>
+<script src="js/enforcement.js?v=0.6.4"></script>
+<script src="js/study.js?v=0.6.4"></script>
+<script src="js/hud.js?v=0.6.4"></script>
+<script src="js/minimap.js?v=0.6.4"></script>
+<script src="js/input.js?v=0.6.4"></script>
+<script src="js/main.js?v=0.6.4"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

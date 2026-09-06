@@ -79,5 +79,5 @@ TG.CONFIG = {
   // --- 근무·점수 ---
   SHIFT_SECONDS: 360,
   SCORE: { correct: 30, wrongChoice: 10, noViolation: -5, redLight: -10, speeding: -5, centerline: -5,
-           crash: -8, pedestrian: -100, cornerFail: -2 },
+           crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5 },
 };

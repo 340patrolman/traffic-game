@@ -130,6 +130,11 @@
     this.brakeLamp.position.set(0, hy, -l / 2 - 0.02); this.brakeLamp.visible = false; g.add(this.brakeLamp);
     this.revLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     this.revLamp.position.set(0, hy - 0.12, -l / 2 - 0.02); this.revLamp.visible = false; g.add(this.revLamp);
+    // 방향지시등(앞뒤 모서리 4개, 주황). this.signal = 'L'|'R'|null, 0.5초 주기로 깜빡인다. +x 가 왼쪽
+    var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }); this.blinkL = []; this.blinkR = []; this.signal = null; this.sigT = 0;
+    [[1, l / 2 + 0.01], [1, -l / 2 - 0.01], [-1, l / 2 + 0.01], [-1, -l / 2 - 0.01]].forEach(function (bp) {
+      var b = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.09, 0.05), blinkMat); b.position.set(bp[0] * w * 0.40, hy + 0.10, bp[1]); b.visible = false; g.add(b); (bp[0] > 0 ? this.blinkL : this.blinkR).push(b);
+    }, this);
     // 바퀴(앞바퀴 조향)
     this.wheels = [];
     var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -181,7 +186,8 @@
     var c = this.controls, s = this.spec, T = this.telemetry, city = this.city;
     var want = TG.clamp(c.steer, -1, 1);
     want = TG.clamp(want + this.laneAssist(want), -1, 1);
-    var rate = Math.abs(want) < Math.abs(this.steer) ? 6 : 3.2;   // 풀 조향까지 0.3초: 키를 톡 쳐도 확 꺾이지 않는다
+    var sport = this.driveMode === 'sport', SP = sport ? 1.28 : 1;   // 스포츠 모드: 가속·조향 응답·그립 한계가 조금씩 올라간다
+    var rate = (Math.abs(want) < Math.abs(this.steer) ? 6 : 3.2) * SP;   // 풀 조향까지 0.3초: 키를 톡 쳐도 확 꺾이지 않는다
     this.steer += TG.clamp(want - this.steer, -rate * dt, rate * dt);
     this.brakeLevel = c.brake > 0 ? Math.min(1, this.brakeLevel + dt * 5) : 0;
 
@@ -211,7 +217,7 @@
     } else if (c.throttle > 0) {
       this.stopT = 0;
       if (vF < -0.2) vF += s.brake * dt;
-      else vF += c.throttle * s.accel * (1 - Math.max(0, vF) / s.maxSpeed) * surface * dt;
+      else vF += c.throttle * s.accel * SP * (1 - Math.max(0, vF) / s.maxSpeed) * surface * dt;
     } else this.stopT = 0;
     vF -= vF * (onRoad ? 0.025 : 0.9) * dt;
     if (Math.abs(vF) < 0.4 * dt + 0.02 && c.throttle === 0 && !wantRev) vF = 0; else vF -= Math.sign(vF) * 0.35 * dt;
@@ -219,8 +225,8 @@
     this.gear = vF < -0.05 ? 'R' : 'D';
 
     // 조향 기하 → 요구 횡가속 → 그립 한계
-    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / 14);   // 속도가 오르면 같은 조향에 덜 꺾인다(예민함 완화)
-    var kappa = Math.tan(delta) / s.wheelbase, aDem = vF * vF * kappa, limit = s.latMax * surface, ratio = Math.abs(aDem) / limit;
+    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / (sport ? 11 : 14));   // 속도가 오르면 같은 조향에 덜 꺾인다(예민함 완화). 스포츠는 조금 더 직결
+    var kappa = Math.tan(delta) / s.wheelbase, aDem = vF * vF * kappa, limit = s.latMax * surface * (sport ? 1.05 : 1), ratio = Math.abs(aDem) / limit;
     var yawRate, gripK = s.grip * surface;
     if (ratio <= 1) yawRate = vF * kappa;
     else { yawRate = vF * kappa / ratio; vL += Math.sign(kappa) * (Math.abs(aDem) - limit) * 0.35 * dt; gripK *= 0.45; }   // 한계 초과 시 미끄러짐을 조금 줄여 「단단한」 느낌
@@ -260,6 +266,8 @@
     this.roll += (groundRoll + rollT - this.roll) * Math.min(1, dt * 8);
     this.brakeLamp.visible = (c.brake > 0 || wantRev) && vF > 0.3;
     this.revLamp.visible = this.gear === 'R';
+    this.sigT += dt; var sigOn = this.signal && ((this.sigT * 1.6) % 1) < 0.5;
+    for (var bi = 0; bi < this.blinkL.length; bi++) { this.blinkL[bi].visible = !!(sigOn && this.signal === 'L'); this.blinkR[bi].visible = !!(sigOn && this.signal === 'R'); }
     if (this.view === 'cockpit') { this.clT += dt; if (this.clT > 0.1) { this.clT = 0; this.drawCluster(); } }
     var spin = vF * dt / 0.34;
     for (var i = 0; i < 4; i++) { this.wheels[i].rotation.x += spin; if (i < 2) this.wheels[i].rotation.y = delta; }

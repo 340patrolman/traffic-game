@@ -229,6 +229,21 @@
     // 미니맵 확대·축소: 미니맵 터치(단계 순환) · +/- 키
     input.onKey('Equal', function () { if (minimap) minimap.setZoom(minimap.zoom * 2); });
     input.onKey('Minus', function () { if (minimap) minimap.setZoom(minimap.zoom / 2); });
+    // 방향지시등: , / . 키 · 좌우 버튼. 같은 쪽을 다시 누르면 끈다. 회전이 끝나거나 8초가 지나면 자동으로 꺼진다(checkRules).
+    function setSignal(side) {
+      if (!player || G.state !== 'play') return;
+      player.signal = player.signal === side ? null : side; player.sigT = 0; player.sigHead = player.heading; player.sigAge = 0;
+      $('btnSigL').classList.toggle('active', player.signal === 'L'); $('btnSigR').classList.toggle('active', player.signal === 'R'); TG.audio.ui();
+    }
+    G.setSignal = setSignal;
+    input.bindTap($('btnSigL'), function () { setSignal('L'); }); input.bindTap($('btnSigR'), function () { setSignal('R'); });
+    input.onKey('Comma', function () { setSignal('L'); }); input.onKey('Period', function () { setSignal('R'); });
+    // 주행 모드: 노말 / 스포츠(일시정지 메뉴 · N 키)
+    var optDr = $('optDrive');
+    function applyDrive(m) { settings.drive = m === 'sport' ? 'sport' : 'normal'; TG.save.set('settings', settings); if (optDr) optDr.value = settings.drive; var dm = $('driveMode'); if (dm) { dm.textContent = settings.drive === 'sport' ? 'S' : 'N'; dm.classList.toggle('sport', settings.drive === 'sport'); } }
+    if (optDr) optDr.addEventListener('change', function () { applyDrive(optDr.value); });
+    input.onKey('KeyN', function () { applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노말 모드', 'info', 1500); });
+    applyDrive(settings.drive || 'normal');
     // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
     // 화면의 차량·보행자를 터치하면 선택(빨간 고리 + 이름표). 「단속」(E) 을 누르면 차량은 정차 유도, 보행자는 계도·통고 화면.
     var ray = new THREE.Raycaster(), tapStart = null, dragId = null;
@@ -493,6 +508,43 @@
     // 7) 물에 빠짐 → 마지막 도로 위치로
     rules.saveT -= dt;
     if (frame.onRoad && T.speed < 25 && rules.saveT <= 0) { rules.saveT = 0.5; rules.lastRoad = { x: player.pos.x, z: player.pos.z, h: player.heading }; }
+    // 8-1) 방향지시등: 회전이 끝나면(헤딩 55° 이상 변화) 또는 8초 뒤 자동 해제. HUD 화살표 깜빡임
+    if (player.signal) {
+      player.sigAge = (player.sigAge || 0) + dt;
+      var turned = Math.abs(TG.wrapAngle(player.heading - (player.sigHead || player.heading))) > 0.96;
+      if ((turned && player.sigAge > 1.5) || player.sigAge > 8) { player.signal = null; var bL = document.getElementById('btnSigL'), bR = document.getElementById('btnSigR'); if (bL) bL.classList.remove('active'); if (bR) bR.classList.remove('active'); }
+    }
+    var sigOnHud = player.signal && ((player.sigT * 1.6) % 1) < 0.5, eL = document.getElementById('sigL'), eR = document.getElementById('sigR');
+    if (eL) eL.classList.toggle('on', !!(sigOnHud && player.signal === 'L')); if (eR) eR.classList.toggle('on', !!(sigOnHud && player.signal === 'R'));
+    // 8-2) 플레이어 차로 변경 판정(4차로 격자): 차로 인덱스가 바뀌면 방향지시등 없음 → 감점, 정지선 30m 안(실선) → 감점. 경광등 추격 중은 특례
+    if (frame.kind === 'grid' && frame.lanes === 2 && T.speed > 3) {
+      var laneNow = frame.lateral > (C.LANE_OFF + C.LANE2_OFF) / 2 ? 1 : 0, roadKey = frame.axis + frame.idx;
+      if (rules.laneKey === roadKey && rules.laneIdx !== undefined && laneNow !== rules.laneIdx && !player.siren) {
+        // 실선 구간 = 진행 방향 앞 교차로의 정지선까지 30m 안(뒤쪽 교차로는 무관)
+        var dLc = TG.headingToDir(player.heading), nLc = city.nodeAhead(player.pos.x, player.pos.z, dLc, 0), fLc = TG.DIR_VEC[dLc];
+        var dNode = nLc ? (nLc.x - player.pos.x) * fLc[0] + (nLc.z - player.pos.z) * fLc[1] - city.stopDist(nLc, dLc) : 99;
+        if (dNode >= 0 && dNode < 30) penalize('solidline', '실선 구간 차로 변경', '교차로 앞 실선에서는 차로를 바꾸지 않는다');
+        else if (!player.signal) penalize('nosignal', '방향지시등 없이 차로 변경', '차로를 바꾸기 3초 전에 방향지시등(, 또는 .)');
+        else hud.hint('차로 변경 — 방향지시등 확인');
+      }
+      rules.laneKey = roadKey; rules.laneIdx = laneNow;
+    } else if (frame.kind !== 'grid') { rules.laneKey = null; }
+    // 8-3) 감속 시점 안내: 앞 교차로 신호가 적·황이고 정지거리가 남은 거리에 가까워지면 「지금 감속」. 굽은 길은 곡률로 권장 속도.
+    rules.brakeCd = (rules.brakeCd || 0) - dt;
+    if (rules.brakeCd <= 0 && T.speed > 6 && player.controls.brake < 0.2 && !player.siren) {
+      if (frame.kind === 'grid') {
+        var dAh = TG.headingToDir(player.heading), nAh = city.nodeAhead(player.pos.x, player.pos.z, dAh, 0);
+        if (nAh) {
+          var fA = TG.DIR_VEC[dAh], distN = (nAh.x - player.pos.x) * fA[0] + (nAh.z - player.pos.z) * fA[1] - city.stopDist(nAh, dAh), stS = signals.state(nAh, (dAh === 0 || dAh === 2) ? 'v' : 'h');
+          if (distN > 0 && (stS.s === 'red' || (stS.s === 'yellow' && distN > 12)) && distN < T.stopDist + 14) { hud.hintNow('지금 감속 — 정지선 ' + Math.round(distN) + 'm · 정지거리 ' + Math.round(T.stopDist) + 'm'); rules.brakeCd = 5; }
+          else if (distN > 0 && stS.s === 'green' && stS.remain < 3 && distN < T.stopDist + 20 && distN > T.stopDist) { hud.hintNow('곧 황색 — 정지선 ' + Math.round(distN) + 'm, 지금이면 안전하게 설 수 있다'); rules.brakeCd = 6; }
+        }
+      } else if (frame.kind === 'link' && frame.link) {
+        var Lk = frame.link, ii = frame.i, kmax = 0, ki = 0;
+        for (var kk = 1; kk <= 18; kk++) { var pk = Lk.P(ii + (frame.dirA ? kk : -kk)); if (pk.kappa > kmax) { kmax = pk.kappa; ki = kk; } }
+        if (kmax > 0.016) { var vRec2 = Math.sqrt(player.spec.latMax * 0.9 / kmax), dCurve = ki * 3; if (T.speed > vRec2 * 1.1 && dCurve < T.stopDist + 15) { hud.hintNow('감속 시점 — 앞 코너 권장 ' + Math.round(vRec2 * 3.6) + 'km/h (' + Math.round(dCurve) + 'm 앞)'); rules.brakeCd = 8; } }
+      }
+    }
     // 구덩이·경사에 빠져 못 나오거나(가속해도 3초 이상 제자리) 도로 밖 낮은 곳에 2.5초 이상 있으면 마지막 도로로 복귀
     var pushing = (player.controls.throttle > 0.3 || player.controls.reverse > 0) && T.speed < 0.4;
     rules.stuckT = pushing ? (rules.stuckT || 0) + dt : 0;
@@ -595,7 +647,7 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
-    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading);
+    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading); player.driveMode = settings.drive || 'normal';
     weather.update(dt, camera.position);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);
