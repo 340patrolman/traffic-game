@@ -1,0 +1,128 @@
+// Web Audio 합성. 오디오 파일 0개. 첫 사용자 입력 뒤에 컨텍스트를 연다.
+TG.audio = (function () {
+  var ctx = null, master = null, muted = false, ready = false;
+  var engine = null, skid = null, siren = null, sirenOn = false, wind = null, ambient = null;
+  // 현장 소리: 바람(속도에 비례한 저역 노이즈) + 도심 웅웅거림(저음 화음) — 모두 합성
+  function buildAmbient() {
+    var src = ctx.createBufferSource(); src.buffer = noiseBuffer(2.0); src.loop = true;
+    var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500; f.Q.value = 0.7;
+    var g = ctx.createGain(); g.gain.value = 0;
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+    wind = { g: g, f: f };
+    var g2 = ctx.createGain(); g2.gain.value = 0.02;
+    [55, 82.4, 110].forEach(function (fr, i) { var o = ctx.createOscillator(); o.type = i === 1 ? 'triangle' : 'sine'; o.frequency.value = fr; var lf = ctx.createGain(); lf.gain.value = 0.5; o.connect(lf); lf.connect(g2); o.start(); });
+    g2.connect(master);
+    ambient = { g: g2 };
+  }
+  // 앰프(차량 확성기) 안내: 브라우저 내장 음성(오프라인, 파일 없음). 음성이 없으면 차임만.
+  function pa(text) {
+    if (!ready) return;
+    blip(880, 0.12, 'square', 0.15); setTimeout(function () { blip(1174, 0.16, 'square', 0.15); }, 150);
+    try {
+      if (!window.speechSynthesis) return;
+      var u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 0.9; u.volume = muted ? 0 : 1;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) { /* 음성 미지원 브라우저 */ }
+  }
+
+  function ensure() {
+    if (ready) return true;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    try {
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = muted ? 0 : 0.6;
+      master.connect(ctx.destination);
+      buildEngine(); buildSkid(); buildSiren(); buildAmbient();
+      ready = true;
+    } catch (e) { return false; }
+    return true;
+  }
+  function resume() {
+    if (!ensure()) return;
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function noiseBuffer(sec) {
+    var len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+
+  function buildEngine() {
+    var o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
+    o1.type = 'sawtooth'; o2.type = 'triangle';
+    var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; f.Q.value = 2;
+    var g = ctx.createGain(); g.gain.value = 0.0;
+    o1.connect(f); o2.connect(f); f.connect(g); g.connect(master);
+    o1.start(); o2.start();
+    engine = { o1: o1, o2: o2, f: f, g: g };
+  }
+  function buildSkid() {
+    var src = ctx.createBufferSource(); src.buffer = noiseBuffer(1.5); src.loop = true;
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 1.4;
+    var g = ctx.createGain(); g.gain.value = 0;
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+    skid = { g: g, f: f };
+  }
+  function buildSiren() {
+    var o = ctx.createOscillator(); o.type = 'square';
+    var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+    var g = ctx.createGain(); g.gain.value = 0;
+    o.frequency.value = 700;
+    o.connect(f); f.connect(g); g.connect(master); o.start();
+    siren = { o: o, g: g, phase: 0 };
+  }
+
+  // 매 프레임: rpm 0..1, throttle 0..1, skidLevel 0..1
+  function update(dt, rpm, throttle, skidLevel) {
+    if (!ready) return;
+    var base = 55 + rpm * 160;
+    engine.o1.frequency.setTargetAtTime(base, ctx.currentTime, 0.05);
+    engine.o2.frequency.setTargetAtTime(base * 1.5, ctx.currentTime, 0.05);
+    engine.f.frequency.setTargetAtTime(300 + rpm * 900 + throttle * 400, ctx.currentTime, 0.08);
+    engine.g.gain.setTargetAtTime(0.05 + rpm * 0.08 + throttle * 0.04, ctx.currentTime, 0.1);
+    skid.g.gain.setTargetAtTime(skidLevel > 0 ? 0.05 + skidLevel * 0.22 : 0, ctx.currentTime, 0.05);
+    if (wind) { wind.g.gain.setTargetAtTime(rpm * rpm * 0.16, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + rpm * 900, ctx.currentTime, 0.2); }
+    skid.f.frequency.setTargetAtTime(1400 + skidLevel * 900, ctx.currentTime, 0.1);
+    if (sirenOn) {
+      siren.phase += dt;
+      var t = siren.phase % 1.4;                 // 웨일: 0.7초 상승, 0.7초 하강
+      var k = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.7;
+      siren.o.frequency.setTargetAtTime(600 + k * 700, ctx.currentTime, 0.02);
+    }
+  }
+  function setSiren(on) {
+    sirenOn = on;
+    if (!ready) return;
+    siren.g.gain.setTargetAtTime(on ? 0.12 : 0, ctx.currentTime, 0.05);
+  }
+
+  function blip(freq, dur, type, vol) {
+    if (!ready) return;
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.value = vol || 0.25;
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + dur);
+  }
+  function thump(strength) {
+    if (!ready) return;
+    var src = ctx.createBufferSource(); src.buffer = noiseBuffer(0.3);
+    var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400;
+    var g = ctx.createGain(); g.gain.value = 0.4 * Math.min(1, strength);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+    blip(60, 0.25, 'sine', 0.5 * Math.min(1, strength));
+  }
+  function ui() { blip(880, 0.06, 'square', 0.08); }
+  function good() { blip(660, 0.12, 'triangle', 0.2); setTimeout(function () { blip(990, 0.18, 'triangle', 0.2); }, 110); }
+  function bad() { blip(220, 0.25, 'sawtooth', 0.18); }
+  function alert() { blip(1200, 0.1, 'square', 0.12); setTimeout(function () { blip(1200, 0.1, 'square', 0.12); }, 140); }
+
+  function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.6, ctx.currentTime, 0.05); }
+
+  return { resume: resume, update: update, setSiren: setSiren, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
+           setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
+})();

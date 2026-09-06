@@ -1,0 +1,17 @@
+순찰길 (traffic-game) — third-party notices
+
+1. three.js r128 (lib/three.min.js)
+   Copyright 2010-2021 Three.js Authors — MIT License (lib/THREE.LICENSE)
+   The UMD build was taken as-is from the neon-mayhem repository's vendored copy.
+
+2. Design references (no code copied verbatim; patterns adapted and rewritten):
+   - overdrive-city — Copyright (c) 2026 appleweiping — MIT License
+     https://github.com/appleweiping/overdrive-city
+     Adapted ideas: per-tile road map as single source of truth; forward/lateral
+     velocity split with exponential lateral decay as the arcade drive model.
+   - neon-mayhem — Copyright pranshuparmar — Apache License 2.0
+     https://github.com/pranshuparmar/neon-mayhem
+     Adapted ideas: frame-time EMA that scales NEW spawns only (never culls);
+     touch buttons with touchcancel release; inline file:// load watchdog.
+
+Everything else in this repository is original work under the MIT License (LICENSE).

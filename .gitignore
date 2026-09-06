@@ -1,0 +1,4 @@
+# reference clones — never part of the deliverable
+ref/
+.DS_Store
+Thumbs.db

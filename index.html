@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>순찰길 — 교통경찰 순찰</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="순찰길: 브라우저에서 바로 실행되는 3인칭 교통경찰 순찰 게임. 시내·교외·순환고속도로. 빌드 없음, 서버 없음, 에셋 없음.">
+<meta name="theme-color" content="#0f1420">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚓</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="speedbox" class="panel">
+    <div class="speedrow"><span id="speed">0</span><span class="unit">km/h</span><span id="gear" class="gear" style="display:none">R 후진</span></div>
+    <div id="section" class="section">시내 · 제한 50</div>
+    <div id="stopbarWrap"><div class="lbl">정지거리 <span id="stopdist">—</span></div><div class="bar"><div id="stopbar"></div></div></div>
+    <div id="gap" class="gap"></div>
+  </div>
+  <div id="scorebox" class="panel">
+    <div><span class="lbl">점수</span> <b id="score">0</b></div>
+    <div><span class="lbl">남은 시간</span> <b id="timer">6:00</b></div>
+    <div><span class="lbl">단속</span> <b id="stops">0</b>건 <span id="sirenState"></span></div>
+  </div>
+  <canvas id="minimap" width="236" height="232"></canvas>
+  <div id="notice" class="notice"></div>
+  <div id="target"></div>
+  <div id="hint"></div>
+  <div id="vignette"></div>
+</div>
+
+<!-- 터치 조작: 왼쪽 원형 조이스틱(조향·가속·브레이크) + 오른쪽 원형 버튼 -->
+<div id="touch">
+  <div id="stickZone">
+    <div id="stickBase"><div class="ring"></div><div class="cross"></div>
+      <div class="arrow up">▲<span>가속</span></div><div class="arrow down"><span>제동·후진</span>▼</div>
+      <div class="arrow left">◀<span>좌</span></div><div class="arrow right"><span>우</span>▶</div>
+      <div id="stickNub"></div></div>
+  </div>
+  <div class="cluster right">
+    <div class="tbtn siren" id="btnSiren" title="경광등"><svg viewBox="0 0 40 24" width="34" height="20"><rect x="2" y="4" width="16" height="14" rx="3" fill="#ff3b30"/><rect x="22" y="4" width="16" height="14" rx="3" fill="#2a60ff"/><rect x="0" y="18" width="40" height="4" rx="2" fill="#dde3ea"/></svg><span>경광등</span></div>
+    <div class="tbtn rev" data-btn="rev"><span class="ico">▼</span><span>후진</span></div>
+    <div class="tbtn brake" data-btn="brake"><span class="ico">■</span><span>브레이크</span></div>
+    <div class="tbtn gas" data-btn="gas"><span class="ico">▲</span><span>가속</span></div>
+  </div>
+  <div class="tbtn small" id="btnPause">❚❚</div>
+  <div class="tbtn small view" id="btnView" title="시점 전환">시점</div>
+</div>
+
+<!-- 인트로: 도로교통법의 목적 → 그것을 실현하는 경찰 → 타이틀 -->
+<div id="intro" class="overlay intro">
+  <div id="introLines" class="intro-lines"></div>
+  <button id="introSkip" class="skip">건너뛰기 ▸</button>
+</div>
+
+<div id="title" class="overlay">
+  <div class="card">
+    <div class="badge">SEOUL POLICE · 교통순찰</div>
+    <h1>순찰길</h1>
+    <div class="sub">시내 · 교외 · 순환고속도로 순찰 근무</div>
+    <div class="cars">
+      <button class="carpick" data-car="sedan"><b>순찰 세단(중형)</b><span>낮은 무게중심 · 코너 한계 높음</span></button>
+      <button class="carpick" data-car="suv"><b>순찰 전기 SUV</b><span>가속 빠름 · 코너에서 일찍 한계</span></button>
+      <button class="carpick" data-car="flag"><b>순찰 대형 세단</b><span>플래그십 · 고해상도 차체</span></button>
+    </div>
+    <div class="views"><span class="lbl">시점</span>
+      <button class="viewpick" data-view="chase">추적(3인칭)</button>
+      <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
+    </div>
+    <button id="btnStart" class="primary">출동</button>
+    <div id="best" class="best"></div>
+    <div class="controls">
+      <div>터치: 왼쪽 조이스틱(좌우 조향 · 위 가속 · 아래 브레이크) · 오른쪽 ▲가속 ■브레이크 ▼후진 · 경광등</div>
+      <div>키보드: <b>←→</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크(정지 후 계속 누르면 후진) <b>R</b> 후진 <b>L</b> 경광등 <b>C</b> 시점 전환 <b>H</b> 교육 안내 <b>Esc</b> 일시정지</div>
+      <div class="dim">위반을 직접 목격한 차량 뒤에 경광등을 켜고 붙으면 우측으로 정차합니다. 그 뒤 갓길에 안전하게 서면 고지 화면이 열립니다. 무단횡단 보행자 옆에 경광등 켜고 서면 계도.</div>
+    </div>
+    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.2</div>
+  </div>
+</div>
+
+<div id="pause" class="overlay">
+  <div class="card">
+    <h2>일시정지</h2>
+    <label class="opt"><input type="checkbox" id="optHints"> 교육 안내 표시</label>
+    <label class="opt"><input type="checkbox" id="optStopbar"> 정지거리 바 표시</label>
+    <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
+    <button id="btnResume" class="primary">계속</button>
+    <button id="btnQuit" class="ghost">근무 종료</button>
+  </div>
+</div>
+
+<div id="ticket" class="overlay light">
+  <div class="card">
+    <div class="tbar"><div id="ticketTimer"></div></div>
+    <div id="ticketQuestion" class="q">위반 내용을 고르세요</div>
+    <div id="ticketOptions" class="opts"></div>
+    <div id="ticketResult" class="result"></div>
+    <button id="btnTicketClose" class="primary">확인</button>
+  </div>
+</div>
+
+<div id="end" class="overlay">
+  <div class="card">
+    <h2>근무 결과</h2>
+    <div id="endStats" class="stats"></div>
+    <button id="btnAgain" class="primary">다시 근무</button>
+  </div>
+</div>
+
+<div id="loadfail">게임 파일을 불러오지 못했습니다. 폴더째로 열거나 정적 서버로 열어 주세요.</div>
+
+<script>
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    if (window.TG && window.THREE && TG.game && TG.game.state !== 'boot') return;
+    document.getElementById('loadfail').style.display = 'block';
+  }, 4000);
+});
+</script>
+<script src="lib/three.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/save.js"></script>
+<script src="js/perf.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/city.js"></script>
+<script src="js/world.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/vehmesh.js"></script>
+<script src="js/vehicle.js"></script>
+<script src="js/traffic.js"></script>
+<script src="js/peds.js"></script>
+<script src="js/enforcement.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/minimap.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+// 지형·교외·순환 고속도로.
+//  - 지형: 높이 함수 hBase(x,z) = 구릉 + 산 봉우리 + 동쪽 바다 + 도시 평탄화. 강(river)은 따로 더해 다리 밑을 판다.
+//  - 도로(링크): 스플라인 샘플 4m 간격. 종류: ring(순환 고속도로 3차로·1차로 버스전용, 닫힌 고리) / connE(도시 동쪽 출구 ↔ 링 동쪽, 교외 굽은 길)
+//    / connN(도시 북쪽 출구 ↔ 링 북쪽, 진입로) / 램프 4개(각 접속부 진입·진출, 일방통행). 램프는 우회전으로만 이어져 평면 교차가 없다.
+//  - 방향 A = 샘플 증가 방향. 링 A 는 시계 방향(안쪽 차로), B 는 바깥 차로. 접속부는 A 방향에만 붙는다(한 번 올라타면 계속 돈다).
+TG.buildTerrain = function (scene, city, cfg) {
+  var STEP = cfg.LINK_STEP;
+  function hash(ix, iz) { var n = (ix * 374761393 + iz * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; }
+  function sm(t) { return t * t * (3 - 2 * t); }
+  function noise(x, z) {
+    var ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+    var a = hash(ix, iz), b = hash(ix + 1, iz), c = hash(ix, iz + 1), d = hash(ix + 1, iz + 1), u = sm(fx), v = sm(fz);
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+  }
+  function fbm(x, z) { return noise(x, z) * 0.6 + noise(x * 2.1 + 7, z * 2.1 + 3) * 0.28 + noise(x * 4.3 + 1, z * 4.3 + 9) * 0.12; }
+  function sstep(a, b, x) { var t = TG.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+
+  var PEAKS = [[-250, -720, 190, 320], [420, -880, 230, 360], [1050, -600, 170, 300], [-700, -100, 170, 300], [-680, 520, 130, 240],
+               [300, 1000, 170, 300], [950, 950, 140, 260], [-350, 950, 120, 240], [1200, 300, 90, 200]];
+  function shoreX(z) { return 830 + 40 * Math.sin(z / 170); }
+  function hBase(x, z) {
+    var h = fbm(x / 260, z / 260) * 11 - 3;
+    var m = 0;
+    for (var i = 0; i < PEAKS.length; i++) { var p = PEAKS[i], dx = (x - p[0]) / p[3], dz = (z - p[1]) / p[3]; m += p[2] * Math.exp(-(dx * dx + dz * dz) * 1.6); }
+    h += m * (0.85 + 0.3 * fbm(x / 90, z / 90));
+    var ts = sstep(shoreX(z) - 70, shoreX(z) + 40, x);
+    h = h * (1 - ts) + (-6) * ts;
+    var ddx = Math.max(-70 - x, x - 390, 0), ddz = Math.max(-70 - z, z - 390, 0);
+    return h * sstep(0, 90, Math.hypot(ddx, ddz));
+  }
+  function riverX(z) { return 470 + 25 * Math.sin(z / 180 + 1); }
+  function river(x, z) { var d = Math.abs(x - riverX(z)); return -4 * (1 - sstep(9, 17, d)); }
+
+  // ---------- 링크 빌더 ----------
+  var links = [];
+  function cr(p0, p1, p2, p3, t) { var t2 = t * t, t3 = t2 * t; return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3); }
+  // CP: 제어점 배열. closed 면 고리. kind: 'highway'|'suburb'|'ramp'|'onramp'|'offramp'
+  function buildLink(id, CP, kind, closed) {
+    var fine = [], n = CP.length;
+    function at(i) { return closed ? CP[((i % n) + n) % n] : CP[TG.clamp(i, 0, n - 1)]; }
+    var segs = closed ? n : n - 1;
+    for (var i = 0; i < segs; i++) for (var k = 0; k < 24; k++) {
+      var t = k / 24, a = at(i - 1), b = at(i), c = at(i + 1), d = at(i + 2);
+      fine.push([cr(a[0], b[0], c[0], d[0], t), cr(a[1], b[1], c[1], d[1], t)]);
+    }
+    if (!closed) fine.push([CP[n - 1][0], CP[n - 1][1]]); else fine.push([CP[0][0], CP[0][1]]);
+    var pts = [], acc = 0, s = 0;
+    pts.push({ x: fine[0][0], z: fine[0][1], s: 0 });
+    for (var j = 1; j < fine.length; j++) {
+      var dx = fine[j][0] - fine[j - 1][0], dz = fine[j][1] - fine[j - 1][1], dd = Math.hypot(dx, dz), from = 0;
+      while (dd > 0 && acc + (dd - from) >= STEP) {
+        var need = STEP - acc, u = (from + need) / dd;
+        s += STEP; pts.push({ x: fine[j - 1][0] + dx * u, z: fine[j - 1][1] + dz * u, s: s }); from += need; acc = 0;
+      }
+      acc += dd - from;
+    }
+    if (closed && Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].z - pts[0].z) < STEP * 0.6) pts.pop();
+    var N = pts.length;
+    function P(i) { return closed ? pts[((i % N) + N) % N] : pts[TG.clamp(i, 0, N - 1)]; }
+    for (var q = 0; q < N; q++) {
+      var a2 = P(q - 1), b2 = P(q + 1), tx = b2.x - a2.x, tz = b2.z - a2.z, tl = Math.hypot(tx, tz) || 1;
+      pts[q].tx = tx / tl; pts[q].tz = tz / tl; pts[q].rx = -tz / tl; pts[q].rz = tx / tl; pts[q].hb = hBase(pts[q].x, pts[q].z);
+    }
+    for (var pass = 0; pass < 3; pass++) {
+      var out = [];
+      for (var q2 = 0; q2 < N; q2++) { var sum = 0; for (var w = -6; w <= 6; w++) sum += P(q2 + w).hb; out.push(sum / 13); }
+      for (var q3 = 0; q3 < N; q3++) pts[q3].hb = out[q3];
+    }
+    var isHW = kind === 'highway';
+    for (var q4 = 0; q4 < N; q4++) {
+      var p = pts[q4];
+      p.y = Math.max(0, p.hb); p.bridge = river(p.x, p.z) < -1.2; p.kind = kind; p.f = isHW ? 1 : 0;
+      p.half = isHW ? cfg.HW_HALF : (kind === 'onramp' || kind === 'offramp') ? 4.6 : cfg.ROAD_HALF;
+      var p0 = P(q4 - 2), p1 = P(q4 + 2);
+      p.kappa = Math.abs(TG.wrapAngle(Math.atan2(p1.tx, p1.tz) - Math.atan2(p0.tx, p0.tz))) / (4 * STEP);
+      p.link = null; p.i = q4;
+    }
+    var link = { id: id, pts: pts, N: N, closed: closed, kind: kind, oneWay: kind === 'onramp' || kind === 'offramp', total: pts[N - 1].s,
+                 exitsA: [], exitsB: [], nextA: null, nextB: null, prevA: null, prevB: null, P: P };
+    for (var q5 = 0; q5 < N; q5++) pts[q5].link = link;
+    links.push(link);
+    return link;
+  }
+
+  // ---------- 순환 고속도로(타원) + 연결로 + 램프 ----------
+  var CXC = 160, CZC = 160, RA = 440, RB = 420;
+  var ringCP = [];
+  for (var th = 0; th < 40; th++) { var ang = th / 40 * Math.PI * 2; ringCP.push([CXC + RA * Math.cos(ang) + Math.sin(ang * 3) * 12, CZC + RB * Math.sin(ang) + Math.cos(ang * 2) * 10]); }
+  var ring = buildLink('ring', ringCP, 'highway', true);
+  // 링 위 접속점: 동쪽(θ≈0) / 북쪽(θ≈-90°)
+  function ringIndexNear(x, z) { var best = 0, bd = 1e9; for (var i = 0; i < ring.N; i++) { var d = Math.hypot(ring.pts[i].x - x, ring.pts[i].z - z); if (d < bd) { bd = d; best = i; } } return best; }
+  var jE = ringIndexNear(CXC + RA, CZC), jN = ringIndexNear(CXC, CZC - RB);
+  var JE = ring.pts[jE], JN = ring.pts[jN];
+  // 동쪽 연결로(교외 굽은 길): 노드(4,2) 동쪽 스텁 끝 → 링 동쪽 안쪽 가장자리
+  var eEnd = [JE.x - 15, JE.z], eStart = [city.xs[4] + cfg.ROAD_HALF + cfg.SIDEWALK_W + 4, city.zs[2]];
+  var connE = buildLink('connE', [[eStart[0] - 30, eStart[1]], eStart, [400, 150], [452, 196], [500, 178], [545, 130], [565, 165], eEnd, [eEnd[0] + 30, eEnd[1]]].slice(0), 'suburb', false);
+  // 북쪽 연결로(진입로): 노드(2,0) 북쪽 스텁 끝 → 링 북쪽 안쪽
+  var nStart = [city.xs[2], city.zs[0] - cfg.ROAD_HALF - cfg.SIDEWALK_W - 4], nEnd = [JN.x, JN.z + 15];
+  var connN = buildLink('connN', [[nStart[0], nStart[1] + 30], nStart, [162, -80], [150, -140], [158, -200], nEnd, [nEnd[0], nEnd[1] - 30]], 'ramp', false);
+  // 스플라인의 첫/끝 팬텀 제어점 때문에 링크 끝이 약간 넘친다 → 실제 시작·끝 샘플 인덱스를 잡아둔다
+  function trimLink(link, start, end) {
+    var a = 0, b = link.N - 1, ba = 1e9, bb = 1e9;
+    for (var i = 0; i < link.N; i++) { var da = Math.hypot(link.pts[i].x - start[0], link.pts[i].z - start[1]); if (da < ba) { ba = da; a = i; } var db = Math.hypot(link.pts[i].x - end[0], link.pts[i].z - end[1]); if (db < bb) { bb = db; b = i; } }
+    link.pts = link.pts.slice(a, b + 1); link.N = link.pts.length;
+    for (var k = 0; k < link.N; k++) { link.pts[k].i = k; link.pts[k].s -= link.pts[0].s; }
+    link.P = function (i) { return link.pts[TG.clamp(i, 0, link.N - 1)]; };
+    link.total = link.pts[link.N - 1].s;
+  }
+  trimLink(connE, eStart, eEnd); trimLink(connN, nStart, nEnd);
+
+  // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로(안쪽에서 9m) 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
+  function ramps(conn, j, tag) {
+    var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
+    var LO = cfg.HW_LANES[2];
+    function L(k) { var p = ring.P(j + k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
+    var on = buildLink('on' + tag, [[J.x - tc[0] * 60 + rc[0] * 2, J.z - tc[1] * 60 + rc[1] * 2], [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2],
+      [J.x - tc[0] * 20 + rc[0] * 5, J.z - tc[1] * 20 + rc[1] * 5], L(4), L(9), L(12)], 'onramp', false);
+    var off = buildLink('off' + tag, [L(-12), L(-9), L(-4), [J.x - tc[0] * 20 - rc[0] * 5, J.z - tc[1] * 20 - rc[1] * 5],
+      [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2], [J.x - tc[0] * 60 - rc[0] * 2, J.z - tc[1] * 60 - rc[1] * 2]], 'offramp', false);
+    trimLink(on, [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2], L(9));
+    trimLink(off, L(-9), [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2]);
+    // 연결 정보: 연결로 A 끝 → on → 링 A(j+9). 링 A(j−9 지점 결정) → off → 연결로 B(끝 42m 전 지점부터 도시 방향)
+    var connEndIdx = conn.N - 1 - Math.round(42 / STEP);
+    conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
+    on.nextA = { link: ring, index: (j + 9) % ring.N, merge: true };
+    ring.exitsA.push({ atIndex: ((j - 9) % ring.N + ring.N) % ring.N, decideIndex: ((j - 24) % ring.N + ring.N) % ring.N, link: off });
+    off.nextA = { link: conn, index: connEndIdx, dirA: false };
+    return { on: on, off: off };
+  }
+  var rE = ramps(connE, jE, 'E'), rN = ramps(connN, jN, 'N');
+  // 도시 격자 연결
+  connE.cityStart = { node: city.nodes[4][2], dir: 1 };   // 노드(4,2)에서 동쪽으로 나가면 connE A
+  connE.cityEnd = { node: city.nodes[4][2], dir: 3 };     // connE B 끝 → 노드(4,2)에 서쪽 방향으로 접근
+  connN.cityStart = { node: city.nodes[2][0], dir: 2 };
+  connN.cityEnd = { node: city.nodes[2][0], dir: 0 };
+
+  // ---------- 공간 해시(모든 링크) ----------
+  var CELL = 24, grid = {};
+  links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]); } });
+  // 가장 가까운 링크 지점. 램프는 링·연결로보다 우선순위가 낮다(겹치는 곳에서 본선 기준).
+  function nearest(x, z, allowRamp) {
+    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), best = null, bd = 1e9;
+    for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
+      var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
+      for (var m = 0; m < list.length; m++) {
+        var p = list[m], d2 = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
+        if (!allowRamp && p.link.oneWay) d2 += 36;   // 램프는 6m 페널티
+        if (d2 < bd) { bd = d2; best = p; }
+      }
+    }
+    if (!best) return null;
+    var L = best.link, i = best.i, br = null, brd = 1e9;
+    for (var sgn = -1; sgn <= 0; sgn++) {
+      var i0 = i + sgn, i1 = i0 + 1;
+      if (!L.closed && (i0 < 0 || i1 >= L.N)) continue;
+      var A = L.P(i0), B = L.P(i1), vx = B.x - A.x, vz = B.z - A.z, L2 = vx * vx + vz * vz || 1;
+      var tt = TG.clamp(((x - A.x) * vx + (z - A.z) * vz) / L2, 0, 1);
+      var px = A.x + vx * tt, pz = A.z + vz * tt, dd = Math.hypot(x - px, z - pz);
+      if (dd < brd) { brd = dd; br = { link: L, i: tt < 0.5 ? A.i : B.i, p: tt < 0.5 ? A : B, x: px, z: pz, y: A.y + (B.y - A.y) * tt, tx: A.tx, tz: A.tz }; }
+    }
+    if (!br) br = { link: L, i: i, p: best, x: best.x, z: best.z, y: best.y, tx: best.tx, tz: best.tz };
+    br.lateral = (x - br.x) * (-br.tz) + (z - br.z) * br.tx;
+    br.dist = Math.abs(br.lateral);
+    return br;
+  }
+  function heightAt(x, z) {
+    var rv = river(x, z), h = hBase(x, z) + rv;
+    var q = nearest(x, z, true);
+    if (q && q.dist < 36) {
+      var t = 1 - sstep(q.p.half + 4, 36, q.dist);
+      if (rv > -1.0) h = h * (1 - t) + (q.y - 0.12) * t;
+      else if (q.dist < q.p.half + 2) h = Math.min(h, q.y - 1.5);
+    }
+    return h;
+  }
+  function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9; }
+  function limitOf(kind) { return kind === 'highway' ? cfg.HW_LIMIT_KMH : kind === 'suburb' ? cfg.SUB_LIMIT_KMH : 80; }
+  function laneOffsets(p) { return p.f > 0.5 ? cfg.HW_LANES.slice() : [cfg.LANE_OFF]; }
+  function shoulderOf(p) { return p.f > 0.5 ? cfg.HW_SHOULDER : (p.link.oneWay ? 3.4 : cfg.SHOULDER_OFF); }
+
+  // ---------- 메시 ----------
+  var G = TG.GeoBuilder, lambertVC = new THREE.MeshLambertMaterial({ vertexColors: true });
+  function mesh(geo, mat, cast, receive) { var m = new THREE.Mesh(geo, mat); m.castShadow = !!cast; m.receiveShadow = !!receive; m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m); return m; }
+  function rgb(hex) { return [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]; }
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+
+  var X0 = -900, X1 = 1400, Z0 = -1000, Z1 = 1200, TS = 20;
+  var NX = Math.floor((X1 - X0) / TS) + 1, NZ = Math.floor((Z1 - Z0) / TS) + 1;
+  var tg = new THREE.BufferGeometry(), tp = [], tc = [], ti = [];
+  var C_SAND = rgb(0xd8c79a), C_GRASS = rgb(0x7ea45c), C_F1 = rgb(0x8db35f), C_F2 = rgb(0x9fc06a), C_HILL = rgb(0x5e8c47), C_FOREST = rgb(0x466f3a), C_ROCK = rgb(0x8d8a84), C_SNOW = rgb(0xf2f4f7), C_BED = rgb(0x6e6a5a);
+  for (var iz = 0; iz < NZ; iz++) for (var ix = 0; ix < NX; ix++) {
+    var wx = X0 + ix * TS, wz = Z0 + iz * TS, hh = heightAt(wx, wz), col;
+    tp.push(wx, hh, wz);
+    if (hh < -0.8) col = C_BED;
+    else if (hh < 0.6) col = mix(C_SAND, C_GRASS, sstep(-0.8, 0.6, hh));
+    else if (hh < 14) { var field = (Math.floor(wx / 60) + Math.floor(wz / 60)) % 2 === 0; col = mix(field ? C_F1 : C_F2, C_HILL, sstep(3, 14, hh)); }
+    else if (hh < 70) col = mix(C_HILL, C_FOREST, sstep(14, 70, hh));
+    else if (hh < 130) col = mix(C_FOREST, C_ROCK, sstep(70, 130, hh));
+    else col = mix(C_ROCK, C_SNOW, sstep(130, 185, hh));
+    if (wx > -70 && wx < 390 && wz > -70 && wz < 390) col = rgb(0x7a9c58);
+    tc.push(col[0], col[1], col[2]);
+  }
+  for (var iz2 = 0; iz2 < NZ - 1; iz2++) for (var ix2 = 0; ix2 < NX - 1; ix2++) { var a0 = iz2 * NX + ix2, b0 = a0 + 1, c0 = a0 + NX, d0 = c0 + 1; ti.push(a0, c0, b0, b0, c0, d0); }
+  tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.setIndex(ti); tg.computeVertexNormals();
+  mesh(tg, lambertVC, false, true);
+
+  var waterMat = new THREE.MeshLambertMaterial({ map: TG.tex.water(), transparent: true, opacity: 0.88 });
+  var wg = new G(); wg.rect(1120, 100, 700, 2300, 0, -1.0, 0xffffff);
+  var wgeo = wg.build(), wuv = wgeo.attributes.uv.array; for (var u = 0; u < wuv.length; u += 2) { wuv[u] *= 40; wuv[u + 1] *= 130; } wgeo.attributes.uv.needsUpdate = true;
+  mesh(wgeo, waterMat, false, false);
+  var rg = new G();
+  for (var rz2 = Z0; rz2 < Z1; rz2 += 20) { var xa = riverX(rz2), xb = riverX(rz2 + 20); rg.quad([xa - 18, -1.3, rz2], [xa + 18, -1.3, rz2], [xb + 18, -1.3, rz2 + 20], [xb - 18, -1.3, rz2 + 20], [0, 1, 0], 0xffffff, [[0, rz2 / 20], [2, rz2 / 20], [2, rz2 / 20 + 1], [0, rz2 / 20 + 1]]); }
+  mesh(rg.build(), waterMat, false, false);
+
+  var sky = new THREE.SphereGeometry(2200, 28, 14), spos = sky.attributes.position, scol = [], ZEN = rgb(0x3f7fd6), HOR = rgb(0xdbe9f6);
+  for (var sv = 0; sv < spos.count; sv++) { var yy = spos.getY(sv) / 2200, tcol = mix(HOR, ZEN, sstep(-0.05, 0.6, yy)); scol.push(tcol[0], tcol[1], tcol[2]); }
+  sky.setAttribute('color', new THREE.Float32BufferAttribute(scol, 3));
+  var skyMesh = new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); skyMesh.renderOrder = -10; scene.add(skyMesh);
+  var cg = new G(), crng = TG.makeRNG(77);
+  for (var ci = 0; ci < 18; ci++) { var cx2 = -800 + crng() * 2200, cz2 = -900 + crng() * 2000, cw = 180 + crng() * 200; cg.rect(cx2, cz2, cw, cw * 0.5, crng() * 3, 260 + crng() * 100, 0xffffff); }
+  mesh(cg.build(), new THREE.MeshBasicMaterial({ map: TG.tex.cloud(), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), false, false);
+
+  // 도로 리본(링크 전부)
+  var road = new G(), mark = new G(), props = new G(), walls = [], busTextGeo = new G(), signFaces = {};
+  var YEL = 0xf0c000, WHT = 0xf2f2ee, BLU = 0x2f6fd6;
+  function Pt(p, off, lift) { return [p.x + p.rx * off, p.y + (lift || 0), p.z + p.rz * off]; }
+  function ribbon(gb, a, b, oa, ob, lift, color, uvS) {
+    var A0 = Pt(a, oa, lift), B0 = Pt(a, ob, lift), A1 = Pt(b, oa, lift), B1 = Pt(b, ob, lift);
+    gb.quad(A0, B0, B1, A1, [0, 1, 0], color, uvS ? [[oa / uvS, a.s / uvS], [ob / uvS, a.s / uvS], [ob / uvS, b.s / uvS], [oa / uvS, b.s / uvS]] : null);
+  }
+  function wallQuad(gb, a, b, off, h0, h1, color) {
+    var A0 = Pt(a, off, h0), A1 = Pt(a, off, h1), B0 = Pt(b, off, h0), B1 = Pt(b, off, h1);
+    gb.quad(A0, B0, B1, A1, [a.rx, 0, a.rz], color, null); gb.quad(B0, A0, A1, B1, [-a.rx, 0, -a.rz], color, null);
+  }
+  function face(kind, x, y, z, rot, w, h) { (signFaces[kind] = signFaces[kind] || new G()).vquad(x, y, z, w, h, rot, 0xffffff, null); }
+  links.forEach(function (L) {
+    var segs = L.closed ? L.N : L.N - 1;
+    for (var i = 0; i < segs; i++) {
+      var p = L.P(i), q = L.P(i + 1), half = p.half, hw = p.f > 0.5, ramp = L.oneWay;
+      ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);
+      wallQuad(props, p, q, -half, -4, 0.02, 0x6b6a5e); wallQuad(props, p, q, half, -4, 0.02, 0x6b6a5e);
+      var LIFT = ramp ? 0.07 : 0.05;
+      if (ramp) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
+      else if (!hw) {
+        ribbon(mark, p, q, -0.3, -0.15, LIFT, YEL); ribbon(mark, p, q, 0.15, 0.3, LIFT, YEL);
+        ribbon(mark, p, q, 3.63, 3.77, LIFT, WHT); ribbon(mark, p, q, -3.77, -3.63, LIFT, WHT);
+      } else {
+        var dash = (i % 2) === 0;
+        for (var side = -1; side <= 1; side += 2) {
+          ribbon(mark, p, q, side * 3.6, side * 3.8, LIFT, BLU);
+          if (dash) ribbon(mark, p, q, side * 7.23, side * 7.37, LIFT, WHT);
+          ribbon(mark, p, q, side * 10.63, side * 10.77, LIFT, WHT);
+          wallQuad(props, p, q, side * (half - 0.4), 0.55, 0.85, 0xd9dde2);
+          if (i % 2 === 0) { var gp = Pt(p, side * (half - 0.4), 0); props.box(gp[0], gp[1] + 0.4, gp[2], 0.12, 0.8, 0.12, 0x8f959c, {}); }
+          var w0 = Pt(p, side * (half - 0.4), 0), w1 = Pt(q, side * (half - 0.4), 0); walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2] });
+        }
+        wallQuad(props, p, q, -0.35, 0, 0.85, 0xb9b6ad); wallQuad(props, p, q, 0.35, 0, 0.85, 0xb9b6ad); ribbon(props, p, q, -0.35, 0.35, 0.85, 0xc8c5bc);
+        var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2] });
+        if (i % 10 === 0) {
+          var pp = Pt(p, 0, 0), rot = Math.atan2(p.rx, p.rz);
+          props.cylinder(pp[0], pp[1] + 0.8, pp[2], 0.14, 0.1, 11, 6, 0x8f959c);
+          props.box(pp[0] + p.rx * 3, pp[1] + 11.6, pp[2] + p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot }); props.box(pp[0] - p.rx * 3, pp[1] + 11.6, pp[2] - p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot });
+          props.box(pp[0] + p.rx * 5.6, pp[1] + 11.4, pp[2] + p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {}); props.box(pp[0] - p.rx * 5.6, pp[1] + 11.4, pp[2] - p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {});
+        }
+        if (i % 30 === 0) for (var dirn = -1; dirn <= 1; dirn += 2) {
+          var rot2 = Math.atan2(p.tx * dirn, p.tz * dirn), off = dirn * cfg.HW_LANES[0];
+          busTextGeo.rect(p.x + p.rx * off + p.tx * dirn * 6, p.z + p.rz * off + p.tz * dirn * 6, 2.2, 4 * 2.4, rot2 + Math.PI, p.y + 0.06, 0xffffff);
+        }
+      }
+      if (p.bridge) {
+        for (var s3 = -1; s3 <= 1; s3 += 2) {
+          wallQuad(props, p, q, s3 * (half + 0.2), 0, 1.1, 0xc9cdd2);
+          var bp = Pt(p, s3 * (half + 0.2), 0), bq = Pt(q, s3 * (half + 0.2), 0);
+          props.box(bp[0], bp[1] + 0.55, bp[2], 0.16, 1.1, 0.16, 0x8f959c, {});
+          walls.push({ x1: bp[0], z1: bp[2], x2: bq[0], z2: bq[2] });
+        }
+        ribbon(props, p, q, -half - 0.3, half + 0.3, -0.9, 0xa9a59c);
+        if (i % 5 === 0) { var pc = Pt(p, 0, 0); props.box(pc[0], pc[1] - 4, pc[2], half * 1.2, 8, 1.6, 0x9d9a91, { rotY: Math.atan2(p.tx, p.tz) }); }
+      }
+      // 제한속도 표지(200m 마다, 양방향; 램프 제외)
+      if (!ramp && i % 50 === 25) for (var dn = -1; dn <= 1; dn += 2) {
+        if (hw && dn === 0) continue;
+        var offS = dn * (half + 1.6), sx = p.x + p.rx * offS, sz = p.z + p.rz * offS, rotS = Math.atan2(p.tx * dn, p.tz * dn) + Math.PI;
+        props.cylinder(sx, p.y, sz, 0.06, 0.05, 2.9, 5, 0x8f959c);
+        var lim = limitOf(p.kind); face(lim === 100 ? 'limit100' : lim === 80 ? 'limit80' : 'limit60', sx, p.y + 2.75, sz, rotS, 0.9, 0.9);
+      }
+    }
+  });
+  // 안내 갠트리
+  function gantry(L, i, text) {
+    var p5 = L.P(i);
+    for (var dn2 = -1; dn2 <= 1; dn2 += 2) {
+      var offG = dn2 * (p5.half + 1.2), gx = p5.x + p5.rx * offG, gz = p5.z + p5.rz * offG;
+      props.cylinder(gx, p5.y, gz, 0.18, 0.15, 6.5, 6, 0x4a4f55);
+      var rotG = Math.atan2(p5.tx * dn2, p5.tz * dn2) + Math.PI, cxg = p5.x + p5.rx * dn2 * (p5.half * 0.5), czg = p5.z + p5.rz * dn2 * (p5.half * 0.5);
+      props.box((gx + cxg) / 2, p5.y + 6.6, (gz + czg) / 2, 0.2, 0.2, Math.hypot(gx - cxg, gz - czg), 0x4a4f55, { rotY: Math.atan2(p5.rx, p5.rz) });
+      face('hw:' + text, cxg, p5.y + 5.4, czg, rotG, 6, 2.2);
+    }
+  }
+  gantry(ring, (jE + 20) % ring.N, '순환고속도로 · 1차로 버스전용'); gantry(ring, (jN + 20) % ring.N, '순환고속도로 · 제한 100');
+  gantry(ring, (jE - 40 + ring.N) % ring.N, '동쪽 출구 500m'); gantry(ring, (jN - 40 + ring.N) % ring.N, '북쪽 출구 500m');
+  gantry(connE, 8, '교외 도로 · 급커브 주의'); gantry(connN, 8, '고속도로 진입로');
+  mesh(busTextGeo.build(), new THREE.MeshBasicMaterial({ map: TG.tex.roadText('버스전용', '#2f6fd6'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), false, false);
+  mesh(road.build(), new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }), false, true);
+  mesh(mark.build(), new THREE.MeshBasicMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), false, false);
+  Object.keys(signFaces).forEach(function (k) {
+    var tex = k.indexOf('hw:') === 0 ? TG.tex.hwSign(k.slice(3)) : TG.tex.sign(k);
+    mesh(signFaces[k].build(), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide }), false, false);
+  });
+
+  // 나무·농가
+  var trees = new G(), trng = TG.makeRNG(1234), placed = 0;
+  function tree(x, z, sc, dark) {
+    var y = heightAt(x, z), col = dark ? [0x3f6b32, 0x476f38, 0x385f2c][placed % 3] : [0x4f8a3a, 0x5c9a42, 0x437a33][placed % 3];
+    trees.cylinder(x, y, z, 0.22 * sc, 0.16 * sc, 2.4 * sc, 5, 0x6b4a2b);
+    trees.cylinder(x, y + 1.6 * sc, z, 2.1 * sc, 0.9 * sc, 2.2 * sc, 6, col, false);
+    trees.cylinder(x, y + 3.2 * sc, z, 1.6 * sc, 0.6 * sc, 2.0 * sc, 6, col, false);
+    trees.cylinder(x, y + 4.6 * sc, z, 1.1 * sc, 0.1, 1.8 * sc, 6, col, true);
+    placed++;
+  }
+  for (var tI = 0; tI < 4000 && placed < 1500; tI++) {
+    var tx2 = -880 + trng() * 2260, tz2 = -980 + trng() * 2160;
+    if (tx2 > -80 && tx2 < 400 && tz2 > -80 && tz2 < 400) continue;
+    var hh2 = hBase(tx2, tz2) + river(tx2, tz2);
+    if (hh2 < 0.3 || hh2 > 120) continue;
+    var q8 = nearest(tx2, tz2, true); if (q8 && q8.dist < q8.p.half + 6) continue;
+    if (trng() > (hh2 < 14 ? 0.22 : 0.8)) continue;
+    tree(tx2, tz2, hh2 < 14 ? 0.9 + trng() * 0.6 : 1.4 + trng() * 1.4, hh2 > 30);
+  }
+  for (var i5 = 6; i5 < connE.N - 6; i5 += 8) { var p6 = connE.P(i5); if (p6.bridge) continue; for (var dn3 = -1; dn3 <= 1; dn3 += 2) tree(p6.x + p6.rx * dn3 * (p6.half + 3.5), p6.z + p6.rz * dn3 * (p6.half + 3.5), 0.9 + (i5 % 3) * 0.15, false); }
+  mesh(trees.build(), lambertVC, true, false);
+  mesh(props.build(), lambertVC, true, false);
+  var farm = new G(), frng = TG.makeRNG(55);
+  for (var fi = 0; fi < 40; fi++) {
+    var fx = -250 + frng() * 850, fz = -230 + frng() * 800, fh = hBase(fx, fz);
+    if (fx > -80 && fx < 400 && fz > -80 && fz < 400) continue;
+    if (fh < 0.5 || fh > 12) continue;
+    var q9 = nearest(fx, fz, true); if (!q9 || q9.dist < 24 || q9.dist > 120) continue;
+    var fw = 8 + frng() * 8, fd = 6 + frng() * 6, fy = heightAt(fx, fz);
+    farm.box(fx, fy + 1.8, fz, fw, 3.6, fd, [0xe8e2d4, 0xd9cfc0, 0xc9d3dd][fi % 3], {});
+    farm.box(fx, fy + 4.0, fz, fw + 0.6, 0.8, fd + 0.6, [0x8a4a3a, 0x3b4a58, 0x6d4f3a][fi % 3], {});
+  }
+  mesh(farm.build(), lambertVC, true, true);
+
+  return {
+    links: links, ring: ring, connE: connE, connN: connN, rampsE: rE, rampsN: rN, walls: walls, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    heightAt: heightAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    // 도시 노드에서 나가는 출구: {link, dirA:true}
+    exitFor: function (node, dir) {
+      if (node === connE.cityStart.node && dir === connE.cityStart.dir) return { link: connE, dirA: true };
+      if (node === connN.cityStart.node && dir === connN.cityStart.dir) return { link: connN, dirA: true };
+      return null;
+    },
+  };
+};

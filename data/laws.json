@@ -1,0 +1,107 @@
+{
+  "schema": "tg-laws/2",
+  "notice": "이 파일이 법령 수치의 유일한 출처다. 코드에 범칙금·벌점·조문을 하드코딩하지 않는다. verified:false 항목은 화면에 「확인 중」으로 표시된다(candidate 값이 있으면 「확인 중 · T-Book 참고값」으로 함께 보인다). 값은 소유자가 도로교통법 시행령 별표8(범칙금)·시행규칙 별표28(벌점) 원문과 대조해 verified:true 로 바꾼다. 게임은 법령의 정본이 아니다 — T-Book 이 정본.",
+  "updated": "2026-09-06",
+  "currency": "KRW",
+  "vehicleClasses": ["승용", "승합", "이륜", "자전거"],
+  "act": {
+    "name": "도로교통법",
+    "purposeArticle": "제1조",
+    "purpose": "이 법은 도로에서 일어나는 교통상의 위험과 장해를 방지하고 제거하여 안전하고 원활한 교통을 확보함을 목적으로 한다.",
+    "verified": false
+  },
+  "violations": [
+    {
+      "id": "signal",
+      "name": "신호·지시 위반",
+      "short": "신호위반",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": "제5조", "verified": false, "candidate_source": "T-Book v21.88" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8",
+                "candidate": { "승용": 60000 }, "candidate_source": "T-Book v21.88" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28", "candidate": 15, "candidate_source": "T-Book v21.88" },
+      "verified": false,
+      "teach": "적색 신호에서는 정지선 앞에 정지. 황색 신호에 정지선을 넘지 못했다면 정지."
+    },
+    {
+      "id": "centerline",
+      "name": "중앙선 침범",
+      "short": "중앙선 침범",
+      "enabled": false,
+      "law": { "act": "도로교통법", "article": "제13조제3항", "verified": false, "candidate_source": "T-Book v21.88" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8",
+                "candidate": { "승용": 60000 }, "candidate_source": "T-Book v21.88" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": "노란 중앙선은 넘지 않는다. 유턴도 허용 구간에서만."
+    },
+    {
+      "id": "pedestrian",
+      "name": "보행자 보호의무 위반",
+      "short": "보행자 보호 위반",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": "제27조", "verified": false, "candidate_source": "T-Book v21.88" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8",
+                "candidate": { "승용": 60000 }, "candidate_source": "T-Book v21.88" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28", "candidate": 10, "candidate_source": "T-Book v21.88" },
+      "verified": false,
+      "teach": "횡단보도에 보행자가 있으면 정지선 앞에서 일시정지."
+    },
+    {
+      "id": "unsafe",
+      "name": "안전운전 의무 위반",
+      "short": "안전운전 위반",
+      "enabled": false,
+      "law": { "act": "도로교통법", "article": null, "verified": false },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": null
+    },
+    {
+      "id": "buslane",
+      "name": "고속도로 버스전용차로 통행 위반",
+      "short": "버스전용차로 위반",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": null, "verified": false },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": "고속도로 1차로 버스전용차로는 지정된 승합차만. 9인승 이상이라도 6명 이상 탑승해야 한다."
+    },
+    {
+      "id": "jaywalk",
+      "name": "보행자 통행방법 위반(무단횡단)",
+      "short": "무단횡단",
+      "enabled": true,
+      "subject": "보행자",
+      "law": { "act": "도로교통법", "article": null, "verified": false },
+      "fine": { "보행자": null, "verified": false, "source": "도로교통법 시행령 별표9" },
+      "points": { "value": null, "verified": false, "source": null },
+      "verified": false,
+      "teach": "횡단보도·신호가 있는 곳에서는 신호에 따라 건넌다. 차도 한가운데 횡단은 사고의 지름길."
+    },
+    {
+      "id": "motorcycle",
+      "name": "이륜차 위반(보도 주행·신호위반)",
+      "short": "이륜차 위반",
+      "enabled": false,
+      "law": { "act": "도로교통법", "article": null, "verified": false },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": null
+    },
+    {
+      "id": "bicycle",
+      "name": "자전거 위반",
+      "short": "자전거 위반",
+      "enabled": false,
+      "law": { "act": "도로교통법", "article": null, "verified": false },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": null
+    }
+  ]
+}
