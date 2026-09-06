@@ -175,7 +175,7 @@
     });
     input.bindTap($('btnStart'), function () { start(settings.car); });
     // 날씨·시간대: 타이틀 버튼 + 일시정지 메뉴 선택
-    function applyWeather(name) { settings.weather = name; TG.save.set('settings', settings); weather.set(name); document.querySelectorAll('.wpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-weather') === name); }); var ow = $('optWeather'); if (ow) ow.value = name; }
+    function applyWeather(name) { settings.weather = name; TG.save.set('settings', settings); weather.set(name === 'auto' || name === 'random' ? weather.pick(name) : name); document.querySelectorAll('.wpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-weather') === name); }); var ow = $('optWeather'); if (ow) ow.value = name; }
     document.querySelectorAll('.wpick').forEach(function (b) { input.bindTap(b, function () { applyWeather(b.getAttribute('data-weather')); }); });
     if ($('optWeather')) $('optWeather').addEventListener('change', function () { applyWeather($('optWeather').value); });
     applyWeather(settings.weather);
@@ -226,6 +226,9 @@
     function pa() { if (G.state !== 'play') return; TG.audio.resume(); TG.audio.pa(PA_LINES[paIdx % PA_LINES.length]); hud.notice('📢 ' + PA_LINES[paIdx % PA_LINES.length], 'info', 2200); paIdx++; }
     input.bindTap($('btnPA'), pa);
     input.onKey('KeyM', pa);
+    // 미니맵 확대·축소: 미니맵 터치(단계 순환) · +/- 키
+    input.onKey('Equal', function () { if (minimap) minimap.setZoom(minimap.zoom * 2); });
+    input.onKey('Minus', function () { if (minimap) minimap.setZoom(minimap.zoom / 2); });
     // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
     // 화면의 차량·보행자를 터치하면 선택(빨간 고리 + 이름표). 「단속」(E) 을 누르면 차량은 정차 유도, 보행자는 계도·통고 화면.
     var ray = new THREE.Raycaster(), tapStart = null, dragId = null;
@@ -335,6 +338,7 @@
     C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
     coach = { cd: 0, lastCorner: -1, apexDone: -1 };
+    if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
@@ -591,7 +595,7 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
-    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip;
+    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading);
     weather.update(dt, camera.position);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);

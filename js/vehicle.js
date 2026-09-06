@@ -230,6 +230,7 @@
     if (vF < 0) yawRate = -yawRate * 0.7;
     this.heading += yawRate * dt; this.yawPrev = yawRate;
     vL *= Math.exp(-gripK * dt);
+    if (this.windLat && Math.abs(vF) > 3) vL += this.windLat * (0.6 + Math.min(1, Math.abs(vF) / 25)) * dt;   // 강풍: 옆으로 밀린다(빠를수록 더)
 
     var fx2 = Math.sin(this.heading), fz2 = Math.cos(this.heading), rx2 = -fz2, rz2 = fx2;
     this.vx = fx2 * vF + rx2 * vL; this.vz = fz2 * vF + rz2 * vL;

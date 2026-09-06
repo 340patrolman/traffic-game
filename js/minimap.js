@@ -34,20 +34,31 @@ TG.Minimap = function (canvas, city, terrain) {
     g.fillText('서초구', mx(60), mz(300)); g.fillText('강남구', mx(260), mz(300)); g.fillText('강남역', mx(160), mz(152));
     g.fillStyle = '#cfe0ff'; g.font = '7px sans-serif'; g.fillText('테헤란로', mx(250), mz(172)); g.fillText('서초대로', mx(70), mz(172)); g.fillText('반포대로', mx(0), mz(60) - 4); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
   })();
+  // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.
+  this.zoom = 1; this.levels = [1, 2, 4];
+  this.cycleZoom = function () { var i = this.levels.indexOf(this.zoom); this.zoom = this.levels[(i + 1) % this.levels.length]; return this.zoom; };
+  this.setZoom = function (z) { this.zoom = TG.clamp(z, 1, 4); };
+  var self = this;
+  canvas.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); self.cycleZoom(); });
   this.draw = function (player, cars, target) {
     ctx.clearRect(0, 0, W, H);
+    var zm = self.zoom;
+    ctx.save();
+    if (zm > 1 && player) { ctx.translate(W / 2, H / 2); ctx.scale(zm, zm); ctx.translate(-mx(player.pos.x), -mz(player.pos.z)); }
     ctx.drawImage(base, 0, 0);
     for (var i = 0; i < cars.length; i++) {
       var c = cars[i]; if (!c.violation && c !== target) continue;
       ctx.fillStyle = c === target ? '#ff3b30' : '#ff9f0a';
-      ctx.beginPath(); ctx.arc(mx(c.pos.x), mz(c.pos.z), c === target ? 4 : 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx(c.pos.x), mz(c.pos.z), (c === target ? 4 : 3) / Math.sqrt(zm), 0, Math.PI * 2); ctx.fill();
     }
     if (player) {
-      var px = mx(player.pos.x), pz = mz(player.pos.z), h = player.heading;
-      ctx.save(); ctx.translate(px, pz); ctx.rotate(Math.PI - h);   // heading 0(+z) 이 캔버스 아래쪽
+      var px = mx(player.pos.x), pz = mz(player.pos.z), h = player.heading, s = 1 / Math.sqrt(zm);
+      ctx.save(); ctx.translate(px, pz); ctx.rotate(Math.PI - h); ctx.scale(s, s);   // heading 0(+z) 이 캔버스 아래쪽
       ctx.fillStyle = '#4d8dff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4, 5); ctx.lineTo(0, 2.5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
     }
+    ctx.restore();
+    if (zm > 1) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(W - 30, 4, 26, 14); ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('×' + zm, W - 17, 15); }
   };
 };

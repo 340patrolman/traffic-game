@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.6.1">
+<link rel="stylesheet" href="css/style.css?v=0.6.2">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -79,7 +79,7 @@
       <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
     </div>
     <div class="views"><span class="lbl">날씨</span>
-      <button class="wpick" data-weather="clear">☀ 맑음</button><button class="wpick" data-weather="sunset">🌇 석양</button><button class="wpick" data-weather="night">🌙 밤</button><button class="wpick" data-weather="rain">🌧 비</button><button class="wpick" data-weather="snow">❄ 눈</button>
+      <button class="wpick" data-weather="auto">🕒 자동</button><button class="wpick" data-weather="random">🎲 랜덤</button><button class="wpick" data-weather="clear">☀ 맑음</button><button class="wpick" data-weather="sunset">🌇 석양</button><button class="wpick" data-weather="night">🌙 밤</button><button class="wpick" data-weather="rain">🌧 비</button><button class="wpick" data-weather="snow">❄ 눈</button><button class="wpick" data-weather="windy">💨 강풍</button>
     </div>
     <button id="btnStart" class="primary">출동</button>
     <div id="best" class="best"></div>
@@ -100,7 +100,7 @@
     <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
-    <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option></select></label>
+    <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="auto">🕒 자동(시계·계절)</option><option value="random">🎲 랜덤</option><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option><option value="windy">💨 강풍 (옆바람)</option></select></label>
     <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
     <button id="btnResume" class="primary">계속</button>
     <button id="btnRecover" class="ghost">🛣 도로로 복귀(빠졌을 때)</button>
@@ -136,28 +136,28 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.6.1"></script>
-<script src="js/config.js?v=0.6.1"></script>
-<script src="js/rng.js?v=0.6.1"></script>
-<script src="js/save.js?v=0.6.1"></script>
-<script src="js/perf.js?v=0.6.1"></script>
-<script src="js/textures.js?v=0.6.1"></script>
-<script src="js/audio.js?v=0.6.1"></script>
-<script src="js/city.js?v=0.6.1"></script>
-<script src="js/world.js?v=0.6.1"></script>
-<script src="js/terrain.js?v=0.6.1"></script>
-<script src="js/weather.js?v=0.6.1"></script>
-<script src="js/signals.js?v=0.6.1"></script>
-<script src="js/vehmesh.js?v=0.6.1"></script>
-<script src="js/vehicle.js?v=0.6.1"></script>
-<script src="js/traffic.js?v=0.6.1"></script>
-<script src="js/peds.js?v=0.6.1"></script>
-<script src="js/enforcement.js?v=0.6.1"></script>
-<script src="js/study.js?v=0.6.1"></script>
-<script src="js/hud.js?v=0.6.1"></script>
-<script src="js/minimap.js?v=0.6.1"></script>
-<script src="js/input.js?v=0.6.1"></script>
-<script src="js/main.js?v=0.6.1"></script>
+<script src="lib/three.min.js?v=0.6.2"></script>
+<script src="js/config.js?v=0.6.2"></script>
+<script src="js/rng.js?v=0.6.2"></script>
+<script src="js/save.js?v=0.6.2"></script>
+<script src="js/perf.js?v=0.6.2"></script>
+<script src="js/textures.js?v=0.6.2"></script>
+<script src="js/audio.js?v=0.6.2"></script>
+<script src="js/city.js?v=0.6.2"></script>
+<script src="js/world.js?v=0.6.2"></script>
+<script src="js/terrain.js?v=0.6.2"></script>
+<script src="js/weather.js?v=0.6.2"></script>
+<script src="js/signals.js?v=0.6.2"></script>
+<script src="js/vehmesh.js?v=0.6.2"></script>
+<script src="js/vehicle.js?v=0.6.2"></script>
+<script src="js/traffic.js?v=0.6.2"></script>
+<script src="js/peds.js?v=0.6.2"></script>
+<script src="js/enforcement.js?v=0.6.2"></script>
+<script src="js/study.js?v=0.6.2"></script>
+<script src="js/hud.js?v=0.6.2"></script>
+<script src="js/minimap.js?v=0.6.2"></script>
+<script src="js/input.js?v=0.6.2"></script>
+<script src="js/main.js?v=0.6.2"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

@@ -1,6 +1,6 @@
 // 날씨·시간대: 맑음 · 석양 · 밤 · 비 · 눈. 조명(반구광·태양)·안개·하늘색·노면색·입자(비/눈)·가로등 불빛·전조등을 한 곳에서 바꾼다.
 // 노면 그립도 여기서 정한다(비 0.78 · 눈 0.62). 파일 0개 — 입자 점 텍스처도 캔버스로 만든다.
-TG.WEATHERS = { clear: 1, sunset: 1, night: 1, rain: 1, snow: 1 };
+TG.WEATHERS = { clear: 1, sunset: 1, night: 1, rain: 1, snow: 1, windy: 1, auto: 1, random: 1 };
 TG.Weather = function (scene, world, terrain, city, renderer) {
   var self = this;
   this.name = 'clear'; this.grip = 1; this.dark = false;
@@ -10,8 +10,31 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     night:  { label: '밤',    hemi: [0x2a3a5c, 0x0e1116, 0.42], sun: [0x9fb4ff, 0.22, 90],  fog: [0x0a0f1c, 110, 900],  sky: [0x04070e, 0x131a2c], exposure: 0.95, road: 0xb8bcc6, ground: 0x9aa3b8, grip: 1.0, particles: null, dark: true },
     rain:   { label: '비',    hemi: [0x9aa6b5, 0x55534d, 0.62], sun: [0xc0c8d0, 0.45, 100], fog: [0x9fa9b5, 90, 700],   sky: [0x5c6673, 0xaab3bd], exposure: 0.95, road: 0x7d8186, ground: 0xc7cbcf, grip: 0.78, particles: 'rain' },
     snow:   { label: '눈',    hemi: [0xe8f0ff, 0xb9c0c8, 0.85], sun: [0xffffff, 0.65, 100], fog: [0xe6ecf2, 100, 800],  sky: [0x9fb0c4, 0xf0f4f8], exposure: 1.0,  road: 0xd9dde2, ground: 0xf4f7fa, grip: 0.62, particles: 'snow' },
+    windy:  { label: '강풍',  hemi: [0xc9d3dc, 0x6e6a60, 0.7],  sun: [0xe8e2d0, 0.8, 90],   fog: [0xb9c2cc, 140, 900],  sky: [0x5f7290, 0xc7ced6], exposure: 0.98, road: 0xf2f2f2, ground: 0xe6e3da, grip: 0.95, particles: 'dust', wind: 1 },
   };
   this.presets = PRESETS;
+  this.wind = 0; this.gust = 0; this.windDir = [1, 0.2];   // 서→동 바람(월드 벡터)
+  // 자동/랜덤: 기기 시계·달로 시간대와 계절을 정한다(네트워크 없음 — 실제 기상 연동은 「네트워크 요청 0」 규칙에 어긋난다).
+  this.pick = function (mode) {
+    var names = ['clear', 'sunset', 'night', 'rain', 'snow', 'windy'];
+    if (mode === 'random') return names[Math.floor(Math.random() * names.length)];
+    var d = new Date(), h = d.getHours(), m = d.getMonth() + 1, r = Math.random();
+    var winter = m === 12 || m <= 2, monsoon = m >= 6 && m <= 8;
+    if (r < (monsoon ? 0.35 : 0.15)) return 'rain';
+    if (winter && r < 0.4) return 'snow';
+    if (r < 0.5 && (m === 3 || m === 4 || m === 11)) return 'windy';
+    if (h >= 20 || h < 6) return 'night';
+    if ((h >= 17 && h < 20) || (h >= 6 && h < 8)) return 'sunset';
+    return 'clear';
+  };
+  // 바람이 차에 주는 옆 방향 힘(m/s²): 진행 방향 오른쪽 성분. 돌풍은 시간에 따라 출렁인다.
+  this.lateralGust = function (heading) {
+    if (!self.wind) return 0;
+    var rx = -Math.cos(heading), rz = Math.sin(heading);   // right = (-fz, fx)
+    var t = performance.now() / 1000, g = 0.55 + 0.45 * Math.sin(t * 0.9) * Math.sin(t * 0.23 + 1.7);
+    self.gust = g;
+    return (self.windDir[0] * rx + self.windDir[1] * rz) * self.wind * g * 3.2;
+  };
   function rgb(hex) { return [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]; }
   function sstep(a, b, x) { var t = TG.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
   // 하늘 돔 정점색 다시 칠하기(terrain 과 같은 공식)
@@ -33,6 +56,7 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
   }
   var rainMat = new THREE.PointsMaterial({ size: 1.4, map: dotTex('rain'), transparent: true, depthWrite: false, opacity: 0.55, color: 0xdfe8f2, sizeAttenuation: true });
   var snowMat = new THREE.PointsMaterial({ size: 0.5, map: dotTex('snow'), transparent: true, depthWrite: false, opacity: 0.95, color: 0xffffff, sizeAttenuation: true });
+  var dustMat = new THREE.PointsMaterial({ size: 0.35, map: dotTex('snow'), transparent: true, depthWrite: false, opacity: 0.35, color: 0xd8cfb8, sizeAttenuation: true });
   var points = new THREE.Points(geo, rainMat); points.visible = false; points.frustumCulled = false; scene.add(points);
   var kind = null, center = new THREE.Vector3();
   // 가로등 불빛(밤): 램프 머리 위치에 가산 혼합 점
@@ -55,7 +79,8 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     var M = TG.mats || { road: [], ground: [] };
     M.road.forEach(function (m) { m.color.setHex(P.road); });
     M.ground.forEach(function (m) { m.color.setHex(P.ground); });
-    kind = P.particles; points.visible = !!kind; if (kind) points.material = kind === 'rain' ? rainMat : snowMat;
+    kind = P.particles; points.visible = !!kind; if (kind) points.material = kind === 'rain' ? rainMat : kind === 'dust' ? dustMat : snowMat;
+    self.wind = P.wind || 0;
     lampPts.visible = !!P.dark; spot.visible = !!P.dark; spot.intensity = P.dark ? 2.2 : 0;
     if (terrain.waterMat) terrain.waterMat.opacity = P.dark ? 0.95 : 0.88;
     (M.facade || []).forEach(function (m) { m.emissive.setHex(P.dark ? 0x7a6a44 : 0x000000); m.emissiveMap = P.dark ? m.map : null; m.needsUpdate = true; });   // 밤: 창문 불빛
@@ -63,12 +88,14 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
   this.update = function (dt, cam) {
     if (!kind) return;
     center.copy(cam);
-    var fall = kind === 'rain' ? 26 : 2.2, drift = kind === 'rain' ? 4 : 1.2, t = performance.now() / 1000;
+    var fall = kind === 'rain' ? 26 : kind === 'dust' ? 0.6 : 2.2, drift = kind === 'rain' ? 4 : kind === 'dust' ? 14 * (0.5 + self.gust) : 1.2, t = performance.now() / 1000;
     for (var i = 0; i < N; i++) {
       var ix = i * 3, y = pos[ix + 1] - fall * spd[i] * dt;
       if (y < center.y - 6) { y += 40; pos[ix] = center.x + (Math.random() - 0.5) * 70; pos[ix + 2] = center.z + (Math.random() - 0.5) * 70; }
       pos[ix + 1] = y;
-      if (kind === 'snow') pos[ix] += Math.sin(t * 1.3 + sway[i]) * drift * dt; else pos[ix + 2] -= drift * dt;
+      if (kind === 'snow') pos[ix] += Math.sin(t * 1.3 + sway[i]) * drift * dt;
+      else if (kind === 'dust') { pos[ix] += self.windDir[0] * drift * dt; pos[ix + 2] += self.windDir[1] * drift * dt; }
+      else pos[ix + 2] -= drift * dt;
       var dx = pos[ix] - center.x, dz = pos[ix + 2] - center.z;
       if (dx > 35) pos[ix] -= 70; else if (dx < -35) pos[ix] += 70;
       if (dz > 35) pos[ix + 2] -= 70; else if (dz < -35) pos[ix + 2] += 70;
