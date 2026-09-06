@@ -64,6 +64,11 @@ body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-
 .tbtn.rev{width:66px;height:66px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.5);margin-bottom:6px}
 .tbtn.rev .ico{font-size:20px}
 .tbtn.siren{width:66px;height:66px;background:rgba(77,141,255,.22);border-color:rgba(77,141,255,.8);margin-bottom:6px}
+.tbtn.pa{width:60px;height:60px;background:rgba(255,207,63,.16);border-color:rgba(255,207,63,.7);margin-bottom:8px}
+.tbtn.pa .ico{font-size:20px}
+.tbtn.pa.held{background:rgba(255,207,63,.45)}
+body.portrait .tbtn.pa{width:56px;height:56px}
+label.opt input[type=range]{width:auto;height:auto;margin:0 8px}
 .tbtn.siren.active{background:rgba(255,93,93,.5);border-color:#fff;animation:blink .6s steps(2) infinite}
 .tbtn.small{position:fixed;top:calc(64px + var(--sa-t));right:calc(10px + var(--sa-r));width:40px;height:40px;font-size:13px;border-radius:10px}
 body.portrait #stickZone{width:52vw;height:38vh}

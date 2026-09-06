@@ -152,6 +152,18 @@
     optH.addEventListener('change', function () { settings.hints = optH.checked; hud.setHints(optH.checked); TG.save.set('settings', settings); });
     optS.addEventListener('change', function () { settings.stopbar = optS.checked; hud.setStopbar(optS.checked); TG.save.set('settings', settings); });
     optA.addEventListener('change', function () { settings.sound = optA.checked; TG.audio.setMuted(!optA.checked); TG.save.set('settings', settings); });
+    // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
+    if (typeof settings.volume !== 'number') settings.volume = 0.3;
+    var optV = $('optVolume'), optVV = $('optVolumeVal');
+    optV.value = Math.round(settings.volume * 100); optVV.textContent = optV.value + '%';
+    TG.audio.setVolume(settings.volume);
+    optV.addEventListener('input', function () { settings.volume = optV.value / 100; optVV.textContent = optV.value + '%'; TG.audio.setVolume(settings.volume); TG.save.set('settings', settings); });
+    // 앰프(확성기): 버튼·M 키. 누를 때마다 안내 문구를 돌아가며 방송
+    var PA_LINES = ['앞 차량, 우측 가장자리에 정차하십시오', '서행하십시오, 전방에 보행자가 있습니다', '무단횡단은 위험합니다, 횡단보도를 이용하십시오', '순찰 중입니다, 안전 운전 부탁드립니다'];
+    var paIdx = 0;
+    function pa() { if (G.state !== 'play') return; TG.audio.resume(); TG.audio.pa(PA_LINES[paIdx % PA_LINES.length]); hud.notice('📢 ' + PA_LINES[paIdx % PA_LINES.length], 'info', 2200); paIdx++; }
+    input.bindTap($('btnPA'), pa);
+    input.onKey('KeyM', pa);
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro(); });

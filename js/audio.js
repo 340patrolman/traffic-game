@@ -1,6 +1,7 @@
 // Web Audio 합성. 오디오 파일 0개. 첫 사용자 입력 뒤에 컨텍스트를 연다.
 TG.audio = (function () {
-  var ctx = null, master = null, muted = false, ready = false;
+  var ctx = null, master = null, muted = false, ready = false, volume = 0.32;   // 기본 음량: 은은하게(전체 마스터 0.32)
+  function setVolume(v) { volume = TG.clamp(v, 0, 1); if (master && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05); }
   var engine = null, skid = null, siren = null, sirenOn = false, wind = null, ambient = null;
   // 현장 소리: 바람(속도에 비례한 저역 노이즈) + 도심 웅웅거림(저음 화음) — 모두 합성
   function buildAmbient() {
@@ -9,7 +10,7 @@ TG.audio = (function () {
     var g = ctx.createGain(); g.gain.value = 0;
     src.connect(f); f.connect(g); g.connect(master); src.start();
     wind = { g: g, f: f };
-    var g2 = ctx.createGain(); g2.gain.value = 0.02;
+    var g2 = ctx.createGain(); g2.gain.value = 0.012;
     [55, 82.4, 110].forEach(function (fr, i) { var o = ctx.createOscillator(); o.type = i === 1 ? 'triangle' : 'sine'; o.frequency.value = fr; var lf = ctx.createGain(); lf.gain.value = 0.5; o.connect(lf); lf.connect(g2); o.start(); });
     g2.connect(master);
     ambient = { g: g2 };
@@ -32,7 +33,7 @@ TG.audio = (function () {
     try {
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : 0.6;
+      master.gain.value = muted ? 0 : volume;
       master.connect(ctx.destination);
       buildEngine(); buildSkid(); buildSiren(); buildAmbient();
       ready = true;
@@ -109,7 +110,7 @@ TG.audio = (function () {
       engine.o1.frequency.setTargetAtTime(base, now, 0.04);
       engine.o2.frequency.setTargetAtTime(base * 1.5, now, 0.04);
       engine.f.frequency.setTargetAtTime(260 + rpmSm * 1100 + throttle * 500, now, 0.06);
-      engine.g.gain.setTargetAtTime((shiftT > 0 ? 0.04 : 0.06) + rpmSm * 0.09 + throttle * 0.05, now, 0.08);
+      engine.g.gain.setTargetAtTime((shiftT > 0 ? 0.025 : 0.04) + rpmSm * 0.06 + throttle * 0.035, now, 0.08);
       if (ev) { ev.g.gain.setTargetAtTime(0, now, 0.1); ev.ag.gain.setTargetAtTime(0, now, 0.1); }
     } else {
       if (!ev) buildEV();
@@ -118,7 +119,7 @@ TG.audio = (function () {
       ev.o.frequency.setTargetAtTime(whine, now, 0.05); ev.o2.frequency.setTargetAtTime(whine * 2.01, now, 0.05);
       ev.f.frequency.setTargetAtTime(400 + kmh * 30, now, 0.1);
       var load = throttle * 0.8 + (decel ? 0.5 : 0) + speedNorm * 0.3;
-      ev.g.gain.setTargetAtTime(kmh > 1 ? 0.012 + load * 0.035 : 0, now, 0.1);
+      ev.g.gain.setTargetAtTime(kmh > 1 ? 0.008 + load * 0.022 : 0, now, 0.1);
       // AVAS: 25km/h 이하에서 천천히 물결치는 2음 패드(전기차 저속 경고음)
       ev.t += dt;
       var avas = kmh > 0.5 && kmh < 25 ? (0.012 + 0.008 * Math.sin(ev.t * 3)) * (1 - kmh / 25) : 0;
@@ -126,7 +127,7 @@ TG.audio = (function () {
       ev.a1.frequency.setTargetAtTime(330 + kmh * 4, now, 0.2); ev.a2.frequency.setTargetAtTime(415 + kmh * 5, now, 0.2);
     }
     skid.g.gain.setTargetAtTime(skidLevel > 0 ? 0.05 + skidLevel * 0.22 : 0, ctx.currentTime, 0.05);
-    if (wind) { wind.g.gain.setTargetAtTime(speedNorm * speedNorm * 0.16, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + speedNorm * 900, ctx.currentTime, 0.2); }
+    if (wind) { wind.g.gain.setTargetAtTime(speedNorm * speedNorm * 0.09, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + speedNorm * 900, ctx.currentTime, 0.2); }
     skid.f.frequency.setTargetAtTime(1400 + skidLevel * 900, ctx.currentTime, 0.1);
     if (sirenOn) {
       siren.phase += dt;
@@ -138,7 +139,7 @@ TG.audio = (function () {
   function setSiren(on) {
     sirenOn = on;
     if (!ready) return;
-    siren.g.gain.setTargetAtTime(on ? 0.12 : 0, ctx.currentTime, 0.05);
+    siren.g.gain.setTargetAtTime(on ? 0.07 : 0, ctx.currentTime, 0.05);
   }
 
   function blip(freq, dur, type, vol) {
@@ -163,8 +164,8 @@ TG.audio = (function () {
   function bad() { blip(220, 0.25, 'sawtooth', 0.18); }
   function alert() { blip(1200, 0.1, 'square', 0.12); setTimeout(function () { blip(1200, 0.1, 'square', 0.12); }, 140); }
 
-  function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.6, ctx.currentTime, 0.05); }
+  function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

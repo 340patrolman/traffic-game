@@ -41,6 +41,7 @@
   </div>
   <div class="cluster right">
     <div class="tbtn siren" id="btnSiren" title="경광등"><svg viewBox="0 0 40 24" width="34" height="20"><rect x="2" y="4" width="16" height="14" rx="3" fill="#ff3b30"/><rect x="22" y="4" width="16" height="14" rx="3" fill="#2a60ff"/><rect x="0" y="18" width="40" height="4" rx="2" fill="#dde3ea"/></svg><span>경광등</span></div>
+    <div class="tbtn pa" id="btnPA" title="앰프(확성기) 안내"><span class="ico">📢</span><span>앰프</span></div>
     <div class="tbtn rev" data-btn="rev"><span class="ico">▼</span><span>후진</span></div>
     <div class="tbtn brake" data-btn="brake"><span class="ico">■</span><span>브레이크</span></div>
     <div class="tbtn gas" data-btn="gas"><span class="ico">▲</span><span>가속</span></div>
@@ -86,6 +87,7 @@
     <label class="opt"><input type="checkbox" id="optHints"> 교육 안내 표시</label>
     <label class="opt"><input type="checkbox" id="optStopbar"> 정지거리 바 표시</label>
     <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
+    <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
     <button id="btnResume" class="primary">계속</button>
     <button id="btnQuit" class="ghost">근무 종료</button>
   </div>
