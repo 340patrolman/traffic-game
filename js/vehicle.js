@@ -178,8 +178,8 @@
     var desired = roadH + Math.atan2(e, 14), dh = desired - this.heading;
     dh = Math.atan2(Math.sin(dh), Math.cos(dh));
     if (Math.abs(dh) > 0.9) return 0;
-    var a = dh * 2.0 - (this.yawPrev || 0) * 0.6;
-    return TG.clamp(a, -0.35, 0.35);
+    var strong = this.easy !== false, a = dh * (strong ? 2.8 : 2.0) - (this.yawPrev || 0) * 0.6;   // 초보 보조: 더 세게 붙잡는다
+    return TG.clamp(a, strong ? -0.5 : -0.35, strong ? 0.5 : 0.35);
   };
 
   P.update = function (dt) {
@@ -187,7 +187,7 @@
     var want = TG.clamp(c.steer, -1, 1);
     want = TG.clamp(want + this.laneAssist(want), -1, 1);
     var sport = this.driveMode === 'sport', SP = sport ? 1.28 : 1;   // 스포츠 모드: 가속·조향 응답·그립 한계가 조금씩 올라간다
-    var rate = (Math.abs(want) < Math.abs(this.steer) ? 6 : 3.2) * SP;   // 풀 조향까지 0.3초: 키를 톡 쳐도 확 꺾이지 않는다
+    var rate = (Math.abs(want) < Math.abs(this.steer) ? 6 : (this.easy !== false ? 2.4 : 3.2)) * SP;   // 풀 조향까지 0.3~0.4초: 키를 톡 쳐도 확 꺾이지 않는다(초보 보조는 더 느긋하게)
     this.steer += TG.clamp(want - this.steer, -rate * dt, rate * dt);
     this.brakeLevel = c.brake > 0 ? Math.min(1, this.brakeLevel + dt * 5) : 0;
 
@@ -204,6 +204,7 @@
 
     // 종방향: 가속 / 제동 / 후진
     var brk = c.brake * this.brakeLevel;
+    if (this.easy !== false && this.autoBrake > 0 && c.throttle < 0.9) brk = Math.max(brk, this.autoBrake);   // 초보 보조: 감속 시점 안내와 함께 살짝 제동(가속을 꽉 밟으면 무시)
     var wantRev = c.reverse > 0;
     if (wantRev && vF < 0.6) {                       // 후진 버튼: 거의 정지면 즉시 후진
       vF = Math.max(-s.revMax, vF - 3.0 * dt); this.stopT = 1;
@@ -225,7 +226,7 @@
     this.gear = vF < -0.05 ? 'R' : 'D';
 
     // 조향 기하 → 요구 횡가속 → 그립 한계
-    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / (sport ? 11 : 14));   // 속도가 오르면 같은 조향에 덜 꺾인다(예민함 완화). 스포츠는 조금 더 직결
+    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / (sport ? 11 : (this.easy !== false ? 17 : 14)));   // 속도가 오르면 같은 조향에 덜 꺾인다(예민함 완화). 스포츠는 조금 더 직결
     var kappa = Math.tan(delta) / s.wheelbase, aDem = vF * vF * kappa, limit = s.latMax * surface * (sport ? 1.05 : 1), ratio = Math.abs(aDem) / limit;
     var yawRate, gripK = s.grip * surface;
     if (ratio <= 1) yawRate = vF * kappa;

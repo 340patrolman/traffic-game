@@ -5,6 +5,8 @@
   var renderer, scene, camera, canvas, city, world, terrain, signals, traffic, peds, player, input, enforcement, minimap, weather, hud = TG.hud;
   var settings = TG.save.get('settings', { hints: true, stopbar: true, sound: true, car: 'sedan' });
   if (typeof settings.hints !== 'boolean') settings = { hints: true, stopbar: true, sound: true, car: 'sedan' };
+  // v2: 소유자 「운전이 너무 예민·어렵다」 → 차선 유지 보조·초보 운전 보조(자동 감속)를 모두에게 켠다(옛 저장값 무시)
+  if ((settings.v || 0) < 2) { settings.assist = true; settings.easy = true; settings.v = 2; TG.save.set('settings', settings); }
   if (settings.cam !== 'cockpit') settings.cam = 'chase';
   if (!C.CARS[settings.car]) settings.car = 'flag';
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
@@ -33,7 +35,15 @@
     city.attachTerrain(terrain);
     weather = new TG.Weather(scene, world, terrain, city, renderer); G.weather = weather;
     if (!TG.WEATHERS[settings.weather]) settings.weather = 'clear';
-    weather.set(settings.weather);
+    // 티북 연동: 티북의 「교통경찰GAME」 링크가 ?w=날씨종류&temp=기온&t=테마 를 붙여 오면 그 값으로 시간대·날씨를 맞춘다(설정보다 우선, 이번 실행만)
+    (function () {
+      var q = new URLSearchParams(location.search), w = q.get('w'), temp = q.get('temp'), th = q.get('t');
+      if (!w && !temp && !th) return;
+      var name = weather.fromTBook(w, temp, th);
+      G.tbLink = { kind: w || '', temp: temp !== null && temp !== '' && !isNaN(parseFloat(temp)) ? Math.round(parseFloat(temp)) : null, theme: th || '', preset: name };
+      log('티북 연동 날씨: ' + JSON.stringify(G.tbLink));
+    })();
+    weather.set(G.tbLink ? G.tbLink.preset : settings.weather);
     signals = new TG.Signals(city, world, C);
     var rng = TG.makeRNG((Date.now() & 0xffff) + 1);
     traffic = new TG.Traffic(scene, city, signals, C, rng); traffic.terrain = terrain;
@@ -214,6 +224,8 @@
     if (optAs) optAs.checked = settings.assist !== false; if (optP) optP.checked = settings.pano === true;
     if (optAs) optAs.addEventListener('change', function () { settings.assist = optAs.checked; if (player) player.assist = optAs.checked; TG.save.set('settings', settings); });
     if (optP) optP.addEventListener('change', function () { settings.pano = optP.checked; TG.save.set('settings', settings); resize(); });
+    var optE = $('optEasy');
+    if (optE) { optE.checked = settings.easy !== false; optE.addEventListener('change', function () { settings.easy = optE.checked; TG.save.set('settings', settings); }); }
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
     var optV = $('optVolume'), optVV = $('optVolumeVal');
@@ -223,7 +235,24 @@
     // 앰프(확성기): 버튼·M 키. 누를 때마다 안내 문구를 돌아가며 방송
     var PA_LINES = ['앞 차량, 우측 가장자리에 정차하십시오', '서행하십시오, 전방에 보행자가 있습니다', '무단횡단은 위험합니다, 횡단보도를 이용하십시오', '순찰 중입니다, 안전 운전 부탁드립니다'];
     var paIdx = 0;
-    function pa() { if (G.state !== 'play') return; TG.audio.resume(); TG.audio.pa(PA_LINES[paIdx % PA_LINES.length]); hud.notice('📢 ' + PA_LINES[paIdx % PA_LINES.length], 'info', 2200); paIdx++; }
+    // 앰프는 대상을 가려 방송한다: 가까운 무단횡단 보행자 → 보행자용, 위반 차량(이륜차·자전거는 따로) → 차량용, 없으면 일반 안내를 돌아가며.
+    function paTarget() {
+      var best = null, bd = 1e9, pf = player.forward();
+      peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 45 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
+      traffic.cars.forEach(function (c) { if (!c.violation && !c.trait) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 60 && dx * pf[0] + dz * pf[1] > -3 && d < bd) { bd = d; best = { kind: c.isMoto ? 'moto' : c.isBike ? 'bike' : 'car', car: c }; } });
+      return best;
+    }
+    function pa() {
+      if (G.state !== 'play') return; TG.audio.resume();
+      var tgt = paTarget(), line;
+      if (tgt && tgt.kind === 'ped') line = tgt.ped.jayKind === 'red' ? '보행자, 정지하세요. 보행 신호를 기다리세요' : '보행자, 정지하세요. 횡단보도로 건너세요';
+      else if (tgt && tgt.kind === 'bike') line = '자전거, 정지하세요. 내려서 끌고 가세요';
+      else if (tgt && tgt.kind === 'moto') line = '이륜차, 정지하세요. 우측 가장자리에 정차하십시오';
+      else if (tgt && tgt.kind === 'car') line = (tgt.car.isBus ? '앞 버스' : tgt.car.type === 'truck' ? '앞 화물차' : '앞 차량') + ', 우측 가장자리에 정차하십시오';
+      else { line = PA_LINES[paIdx % PA_LINES.length]; paIdx++; }
+      TG.audio.pa(line); hud.notice('📢 ' + line, 'info', 2400);
+      if (tgt) selectTarget(tgt);
+    }
     input.bindTap($('btnPA'), pa);
     input.onKey('KeyM', pa);
     // 미니맵 확대·축소: 미니맵 터치(단계 순환) · +/- 키
@@ -235,7 +264,7 @@
       player.signal = player.signal === side ? null : side; player.sigT = 0; player.sigHead = player.heading; player.sigAge = 0;
       $('btnSigL').classList.toggle('active', player.signal === 'L'); $('btnSigR').classList.toggle('active', player.signal === 'R'); TG.audio.ui();
     }
-    G.setSignal = setSignal;
+    G.setSignal = setSignal; G.paOnce = function () { pa(); };
     input.bindTap($('btnSigL'), function () { setSignal('L'); }); input.bindTap($('btnSigR'), function () { setSignal('R'); });
     input.onKey('Comma', function () { setSignal('L'); }); input.onKey('Period', function () { setSignal('R'); });
     // 주행 모드: 노말 / 스포츠(일시정지 메뉴 · N 키)
@@ -330,6 +359,9 @@
       if (!best) { hud.notice('대상이 없습니다 — 화면에서 차량이나 보행자를 터치해 고르세요', 'warn', 2400); return; }
       sel = best; selectTarget(sel);
     }
+    // 단속 버튼: 먼저 위반 사실을 알리고(화면·앰프) 단속 절차(객관식)로 들어간다
+    var vName = sel.kind === 'car' ? (sel.car.violation ? (enforcement.nameOf ? enforcement.nameOf(sel.car.violation.type) : sel.car.violation.type) : null) : (sel.ped && (sel.ped.jayLive || sel.ped.jayDone) ? '무단횡단' : null);
+    if (vName) { hud.notice('🚨 위반 확인: ' + vName + ' — 단속합니다', 'alert', 2600); TG.audio.resume(); TG.audio.pa((sel.kind === 'car' ? '앞 차량, ' : '보행자, ') + vName + '. 정지하세요'); }
     if (enforcement.quiz(sel)) selectTarget(null);
   }
   function toggleSiren() {
@@ -353,7 +385,8 @@
     C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
     coach = { cd: 0, lastCorner: -1, apexDone: -1 };
-    if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
+    if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
+    else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
@@ -536,13 +569,13 @@
         var dAh = TG.headingToDir(player.heading), nAh = city.nodeAhead(player.pos.x, player.pos.z, dAh, 0);
         if (nAh) {
           var fA = TG.DIR_VEC[dAh], distN = (nAh.x - player.pos.x) * fA[0] + (nAh.z - player.pos.z) * fA[1] - city.stopDist(nAh, dAh), stS = signals.state(nAh, (dAh === 0 || dAh === 2) ? 'v' : 'h');
-          if (distN > 0 && (stS.s === 'red' || (stS.s === 'yellow' && distN > 12)) && distN < T.stopDist + 14) { hud.hintNow('지금 감속 — 정지선 ' + Math.round(distN) + 'm · 정지거리 ' + Math.round(T.stopDist) + 'm'); rules.brakeCd = 5; }
+          if (distN > 0 && (stS.s === 'red' || (stS.s === 'yellow' && distN > 12)) && distN < T.stopDist + (player.easy ? 24 : 14)) { hud.hintNow('지금 감속 — 정지선 ' + Math.round(distN) + 'm · 정지거리 ' + Math.round(T.stopDist) + 'm' + (player.easy ? ' (보조 제동)' : '')); rules.brakeCd = 5; if (player.easy) player.autoBrake = 0.7; }
           else if (distN > 0 && stS.s === 'green' && stS.remain < 3 && distN < T.stopDist + 20 && distN > T.stopDist) { hud.hintNow('곧 황색 — 정지선 ' + Math.round(distN) + 'm, 지금이면 안전하게 설 수 있다'); rules.brakeCd = 6; }
         }
       } else if (frame.kind === 'link' && frame.link) {
         var Lk = frame.link, ii = frame.i, kmax = 0, ki = 0;
         for (var kk = 1; kk <= 18; kk++) { var pk = Lk.P(ii + (frame.dirA ? kk : -kk)); if (pk.kappa > kmax) { kmax = pk.kappa; ki = kk; } }
-        if (kmax > 0.016) { var vRec2 = Math.sqrt(player.spec.latMax * 0.9 / kmax), dCurve = ki * 3; if (T.speed > vRec2 * 1.1 && dCurve < T.stopDist + 15) { hud.hintNow('감속 시점 — 앞 코너 권장 ' + Math.round(vRec2 * 3.6) + 'km/h (' + Math.round(dCurve) + 'm 앞)'); rules.brakeCd = 8; } }
+        if (kmax > 0.016) { var vRec2 = Math.sqrt(player.spec.latMax * 0.9 / kmax), dCurve = ki * 3; if (T.speed > vRec2 * 1.1 && dCurve < T.stopDist + 15) { hud.hintNow('감속 시점 — 앞 코너 권장 ' + Math.round(vRec2 * 3.6) + 'km/h (' + Math.round(dCurve) + 'm 앞)' + (player.easy ? ' (보조 제동)' : '')); rules.brakeCd = 8; if (player.easy) player.autoBrake = 0.45; } }
       }
     }
     // 구덩이·경사에 빠져 못 나오거나(가속해도 3초 이상 제자리) 도로 밖 낮은 곳에 2.5초 이상 있으면 마지막 도로로 복귀
@@ -647,7 +680,8 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
-    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading); player.driveMode = settings.drive || 'normal';
+    player.assist = settings.assist !== false; player.easy = settings.easy !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading); player.driveMode = settings.drive || 'normal';
+    player.autoBrake = Math.max(0, (player.autoBrake || 0) - dt * 0.4);   // 초보 보조 자동 감속은 안내가 뜰 때 걸리고 서서히 풀린다
     weather.update(dt, camera.position);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);

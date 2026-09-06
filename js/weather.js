@@ -1,6 +1,6 @@
 // 날씨·시간대: 맑음 · 석양 · 밤 · 비 · 눈. 조명(반구광·태양)·안개·하늘색·노면색·입자(비/눈)·가로등 불빛·전조등을 한 곳에서 바꾼다.
 // 노면 그립도 여기서 정한다(비 0.78 · 눈 0.62). 파일 0개 — 입자 점 텍스처도 캔버스로 만든다.
-TG.WEATHERS = { clear: 1, sunset: 1, night: 1, rain: 1, snow: 1, windy: 1, auto: 1, random: 1 };
+TG.WEATHERS = { clear: 1, sunset: 1, night: 1, rain: 1, snow: 1, windy: 1, cloudy: 1, auto: 1, random: 1 };
 TG.Weather = function (scene, world, terrain, city, renderer) {
   var self = this;
   this.name = 'clear'; this.grip = 1; this.dark = false;
@@ -12,8 +12,22 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     snow:   { label: '눈',    hemi: [0xe8f0ff, 0xb9c0c8, 0.85], sun: [0xffffff, 0.65, 100], fog: [0xe6ecf2, 100, 800],  sky: [0x9fb0c4, 0xf0f4f8], exposure: 1.0,  road: 0xd9dde2, ground: 0xf4f7fa, grip: 0.62, particles: 'snow' },
     windy:  { label: '강풍',  hemi: [0xc9d3dc, 0x6e6a60, 0.7],  sun: [0xe8e2d0, 0.8, 90],   fog: [0xb9c2cc, 140, 900],  sky: [0x5f7290, 0xc7ced6], exposure: 0.98, road: 0xf2f2f2, ground: 0xe6e3da, grip: 0.95, particles: 'dust', wind: 1 },
   };
+  PRESETS.cloudy = { label: '흐림', hemi: [0xbfc8d2, 0x66635b, 0.7], sun: [0xd9dbdd, 0.55, 95], fog: [0xb4bcc6, 160, 1000], sky: [0x6f7f92, 0xc3cad2], exposure: 0.97, road: 0xeeeeee, ground: 0xe3e2dc, grip: 1.0, particles: null };
   this.presets = PRESETS;
   this.wind = 0; this.gust = 0; this.windDir = [1, 0.2];   // 서→동 바람(월드 벡터)
+  // 티북(T-Book) 연동: 티북이 「교통경찰GAME」 링크에 붙여 준 현재 날씨(open-meteo 종류)·기온·테마를 게임 프리셋으로 바꾼다.
+  // 게임은 네트워크도, 티북의 tb_ 저장소도 읽지 않는다 — URL 쿼리(?w=rain&temp=3&t=dark)만 받는다.
+  this.fromTBook = function (kind, temp, theme) {
+    var k = String(kind || '').toLowerCase(), tnum = parseFloat(temp), night = theme === 'dark' || theme === 'night', h = new Date().getHours();
+    var precip = /rain|heavy|shower|thunder|drizzle/.test(k), snow = /snow|sleet/.test(k) || (precip && !isNaN(tnum) && tnum <= 0);
+    if (snow) return 'snow';
+    if (precip) return 'rain';
+    if (/wind|storm/.test(k)) return 'windy';
+    if (night || h >= 20 || h < 6) return 'night';
+    if (/cloud|fog|overcast/.test(k)) return 'cloudy';
+    if ((h >= 17 && h < 20) || (h >= 6 && h < 8)) return 'sunset';
+    return 'clear';
+  };
   // 자동/랜덤: 기기 시계·달로 시간대와 계절을 정한다(네트워크 없음 — 실제 기상 연동은 「네트워크 요청 0」 규칙에 어긋난다).
   this.pick = function (mode) {
     var names = ['clear', 'sunset', 'night', 'rain', 'snow', 'windy'];
