@@ -43,10 +43,16 @@ TG.Enforcement = function (game) {
     if (law && law.teach) out.push(law.teach);
     return out;
   }
-  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)', none: '위반 없음' };
+  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
+                phone: '운전 중 휴대전화 사용', litter: '차 밖으로 물건(꽁초) 던지기', animal: '동물을 안고 운전', nosignal: '방향지시등 없이 차로 변경', solidline: '실선 구간 차로 변경', none: '위반 없음' };
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
-    var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'unsafe'];
+    var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'nosignal'];
+    // 이 차량에 기록된 위반이 기본 보기에 없으면(휴대전화·꽁초·동물·실선 등) 하나를 바꿔 넣는다 — 정답이 항상 보기 안에 있게
+    var v = car.violation && car.violation.type;
+    if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
+    else if (!v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
+    else if (!v) { var extra = ['phone', 'litter', 'animal', 'solidline'][Math.floor(Math.random() * 4)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
     var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
     return out;

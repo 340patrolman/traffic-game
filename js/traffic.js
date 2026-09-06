@@ -17,6 +17,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
                  van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8] };
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
+  var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
+  var litterMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a }), litters = [];
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
   // ---------- 격자 경로 ----------
@@ -132,6 +134,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       busLaneViolator: false, busLaneT: 0, running: null, violation: null, unseen: 0, mode: 'drive', extra: 0, yieldT: 0, radius: T.l * 0.36,
       braking: false, spawnT: self.time, straight: !!opts.straight, wantsExit: !!opts.wantsExit, stayRing: !!opts.stayRing, route: null,
       laneIdx: opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1),
+      // 운전자 습관(위반 소재): phone(휴대전화) · litter(꽁초 던지기) · animal(동물 안고 운전). 방향지시등 없이 차로 변경(noSignalViolator), 실선 구간 변경은 위치로 판정.
+      trait: opts.trait !== undefined ? opts.trait : (type !== 'bus' && rng() < 0.14 ? TG.pick(rng, ['phone', 'litter', 'animal']) : null),
+      signal: null, signalT: 0, lcShift: 0, lcCd: 6 + rng() * 20, noSignalViolator: opts.noSignalViolator !== undefined ? opts.noSignalViolator : (violator && rng() < 0.6), traitT: rng() * 6, litterT: 6 + rng() * 10,
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
@@ -139,6 +144,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
     var bl = new THREE.Mesh(new THREE.BoxGeometry(T.w * 0.8, 0.14, 0.06), brakeMat); bl.position.set(0, T.pts[1][1] * 0.82 + 0.08, -T.l / 2 - 0.03); bl.visible = false; g.add(bl); car.brakeLamp = bl;
     var sp = new THREE.Sprite(markerMat); sp.scale.set(1.6, 1.6, 1); sp.position.set(0, (T.bus ? 4.2 : 3.2), 0); sp.visible = false; g.add(sp); car.marker = sp;
+    // 방향지시등(앞뒤 모서리, 주황) — +x 가 차 왼쪽
+    var hy2 = T.pts[1][1] * 0.82 + 0.08; car.blinkL = []; car.blinkR = [];
+    [[1, T.l / 2 + 0.02], [1, -T.l / 2 - 0.02], [-1, T.l / 2 + 0.02], [-1, -T.l / 2 - 0.02]].forEach(function (bp) {
+      var b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.05), blinkMat); b.position.set(bp[0] * T.w * 0.40, hy2 + 0.06, bp[1]); b.visible = false; g.add(b); (bp[0] > 0 ? car.blinkL : car.blinkR).push(b);
+    });
+    // 습관 소품: 휴대전화(운전석 머리 옆, 밝은 화면) / 반려동물(운전석 창가, 갈색)
+    if (car.trait === 'phone') { var ph = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 0.09), phoneMat); ph.position.set(T.w * 0.30, T.belt + 0.30, T.l * 0.06); ph.rotation.z = 0.3; g.add(ph); }
+    if (car.trait === 'animal') { var dg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.24), dogMat); dg.position.set(T.w * 0.40, T.belt + 0.22, T.l * 0.10); g.add(dg); var dh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.12), dogMat); dh.position.set(T.w * 0.44, T.belt + 0.34, T.l * 0.19); g.add(dh); }
     g.position.set(x, 0, z); g.rotation.y = heading; g.userData.car = car; scene.add(g); car.mesh = g;
     cars.push(car);
     return car;
@@ -273,6 +286,34 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (onLink && cur.kind === 'highway' && car.route && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
       if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null, true); } }
     } else car.busLaneT = 0;
+    // ---- 방향지시등·차로 변경·운전자 습관 ----
+    car.lcCd -= dt; car.signalT -= dt;
+    if (ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop > -2 && distStop < 40) car.signal = ap.maneuver;   // 교차로 회전 예고
+    else if (car.signalT <= 0 && !(ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop < 40)) car.signal = null;
+    if (car.prevApRef && car.prevApRef !== ap) car.lcShift = 0;   // 교차로를 지나면 새 경로가 새 차로에 있다
+    car.prevApRef = ap;
+    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && (car.lcForce || rng() < dt * 0.35)) {
+      car.lcForce = false;
+      var rdL = city.roadOf(ap.node, ap.d);
+      if (city.lanesOf(rdL.axis, rdL.idx) === 2) {
+        var oldL = car.laneIdx, newL = 1 - oldL, offOld = city.laneOff(rdL.axis, rdL.idx, oldL), offNew = city.laneOff(rdL.axis, rdL.idx, newL);
+        car.laneIdx = newL; car.lcShift += offNew - offOld; car.lcCd = 14 + rng() * 22;
+        if (car.noSignalViolator) { car.signal = null; self.stats.violations++; flag(car, 'nosignal', ap.node, self.witness(car)); }
+        else { car.signal = newL === 1 ? 'R' : 'L'; car.signalT = 3; }
+        if (distStop < 32) { self.stats.violations++; flag(car, 'solidline', ap.node, self.witness(car)); }   // 정지선 앞 실선 구간
+      }
+    }
+    if (car.trait === 'phone' || car.trait === 'animal') { car.traitT += dt; if (car.traitT > 8 && self.witness(car) && (!car.violation || car.violation.type !== car.trait)) { self.stats.violations++; flag(car, car.trait, null, true); car.traitT = -25; } }
+    if (car.trait === 'litter' && car.mode === 'drive') {
+      car.litterT -= dt;
+      if (car.litterT <= 0) {
+        car.litterT = 16 + rng() * 14;
+        var lm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.06), litterMat), rxl = -fz, rzl = fx;
+        lm.position.set(car.pos.x + rxl * -(car.wid / 2 + 0.2), car.y + 1.0, car.pos.z + rzl * -(car.wid / 2 + 0.2));   // 왼쪽 창(+x 는 왼쪽 → 우측 벡터의 반대)
+        scene.add(lm); litters.push({ m: lm, vx: fx * car.v * 0.6 - rxl * 3, vy: 2.2, vz: fz * car.v * 0.6 - rzl * 3, t: 0 });
+        self.stats.violations++; flag(car, 'litter', null, self.witness(car));
+      }
+    }
     if (self.peds && !onLink) {
       var pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, pedIgnore ? 6 : 18, pedIgnore ? 2.2 : 6.5);
       if (pd !== null) { target = Math.min(target, stopProfile(pd - 2.5, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 6) emergency = true; }
@@ -287,7 +328,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       for (var mi = 0; mi < cars.length; mi++) { var o2 = cars[mi]; if (o2 === car) continue; var ddx = o2.pos.x - car.pos.x, ddz = o2.pos.z - car.pos.z; if (ddx * ddx + ddz * ddz < 14 * 14 && (ddx * fx + ddz * fz) < 0 && Math.abs(ddx * rx + ddz * rz) < 5) target = Math.min(target, 4); }
     }
     // 정차 유도: 갓길로 옮기고, 교차로·횡단보도 밖에서 선다
-    var extraT = 0;
+    var extraT = car.mode === 'drive' ? (car.lcShift || 0) : 0;   // 차로 변경: 경로점 대비 옆 이동
     if (car.mode === 'yield' || car.mode === 'stopped') {
       var frame = city.frameAt(car.pos.x, car.pos.z, car.heading);
       var shoulder = onLink ? self.terrain.shoulderOf(cur.lp) : frame.shoulder;
@@ -322,6 +363,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     } else { car.y = 0; car.pitch = 0; }
     car.mesh.position.set(car.pos.x, car.y, car.pos.z); car.mesh.rotation.set(car.pitch, car.heading, 0);
     car.brakeLamp.visible = car.braking;
+    var blinkOn = car.signal && ((self.time * 1.6) % 1) < 0.5;
+    for (var bi2 = 0; bi2 < car.blinkL.length; bi2++) { car.blinkL[bi2].visible = !!(blinkOn && car.signal === 'L'); car.blinkR[bi2].visible = !!(blinkOn && car.signal === 'R'); }
     if (car.violation) {
       car.marker.position.y = (car.isBus ? 4.2 : 3.2) + Math.sin(self.time * 4) * 0.2;
       if (self.time - car.violation.t > cfg.VIOLATION_MEMORY && car.mode === 'drive') { car.violation = null; car.marker.visible = false; }
@@ -346,6 +389,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     self.time += dt; spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.5; if (cars.length < budget) spawn(); }
     for (var i = 0; i < cars.length; i++) drive(cars[i], dt);
+    for (var li = litters.length - 1; li >= 0; li--) {   // 던져진 꽁초: 포물선으로 떨어져 2초 뒤 사라진다
+      var lt = litters[li]; lt.t += dt; lt.vy -= 9.8 * dt;
+      lt.m.position.x += lt.vx * dt; lt.m.position.y = Math.max(0.03, lt.m.position.y + lt.vy * dt); lt.m.position.z += lt.vz * dt;
+      if (lt.m.position.y <= 0.03) { lt.vx *= 0.5; lt.vz *= 0.5; }
+      if (lt.t > 2.5) { scene.remove(lt.m); litters.splice(li, 1); }
+    }
     var pl = self.player;
     if (pl) for (var k = cars.length - 1; k >= 0; k--) {
       var c = cars[k]; if (c.mode !== 'drive' || c.violation) continue;
