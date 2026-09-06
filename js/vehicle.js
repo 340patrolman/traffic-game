@@ -205,6 +205,9 @@
     var yawRate, gripK = s.grip * surface;
     if (ratio <= 1) yawRate = vF * kappa;
     else { yawRate = vF * kappa / ratio; vL += Math.sign(kappa) * (Math.abs(aDem) - limit) * 0.35 * dt; gripK *= 0.45; }   // 한계 초과 시 미끄러짐을 조금 줄여 「단단한」 느낌
+    // 오버스티어: 한계를 넘긴 상태에서 강한 제동·미끄러운 노면이면 뒤가 흐른다. 반대로 꺾으면(카운터 스티어) 빨리 잡힌다.
+    T.oversteer = false;
+    if (ratio > 1 && (brk > 0.5 || (this.surfaceFactor || 1) < 0.85) && Math.abs(vF) > 5) { T.oversteer = true; yawRate *= 1.35; if (Math.abs(this.steer) > 0.1 && Math.sign(this.steer) === -Math.sign(yawRate)) { yawRate *= 0.6; gripK *= 1.6; } }
     if (vF < 0) yawRate = -yawRate * 0.7;
     this.heading += yawRate * dt; this.yawPrev = yawRate;
     vL *= Math.exp(-gripK * dt);

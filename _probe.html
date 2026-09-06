@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.5.0">
+<link rel="stylesheet" href="css/style.css?v=0.6.0">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -71,6 +71,9 @@
       <button class="carpick" data-car="suv"><b>순찰 전기 SUV</b><span>가속 빠름 · 코너에서 일찍 한계</span></button>
       <button class="carpick" data-car="flag"><b>순찰 대형 세단</b><span>플래그십 · 고해상도 차체</span></button>
     </div>
+    <div class="views"><span class="lbl">모드</span>
+      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
+    </div>
     <div class="views"><span class="lbl">시점</span>
       <button class="viewpick" data-view="chase">추적(3인칭)</button>
       <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
@@ -85,7 +88,7 @@
       <div>키보드: <b>←→</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크(정지 후 계속 누르면 후진) <b>R</b> 후진 <b>F</b> 단속 <b>Q/E</b> 둘러보기 <b>L</b> 경광등 <b>C</b> 시점 전환 <b>H</b> 교육 안내 <b>Esc</b> 일시정지</div>
       <div class="dim">지나가는 차량·보행자를 터치(클릭)하면 「무슨 위반?」 객관식이 뜹니다. 정답이면 차량은 우측으로 정차하고, 그 뒤 갓길에 안전하게 서면 고지 완료. 보행자는 계도.</div>
     </div>
-    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.2</div>
+    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.6</div>
   </div>
 </div>
 
@@ -133,27 +136,28 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.5.0"></script>
-<script src="js/config.js?v=0.5.0"></script>
-<script src="js/rng.js?v=0.5.0"></script>
-<script src="js/save.js?v=0.5.0"></script>
-<script src="js/perf.js?v=0.5.0"></script>
-<script src="js/textures.js?v=0.5.0"></script>
-<script src="js/audio.js?v=0.5.0"></script>
-<script src="js/city.js?v=0.5.0"></script>
-<script src="js/world.js?v=0.5.0"></script>
-<script src="js/terrain.js?v=0.5.0"></script>
-<script src="js/weather.js?v=0.5.0"></script>
-<script src="js/signals.js?v=0.5.0"></script>
-<script src="js/vehmesh.js?v=0.5.0"></script>
-<script src="js/vehicle.js?v=0.5.0"></script>
-<script src="js/traffic.js?v=0.5.0"></script>
-<script src="js/peds.js?v=0.5.0"></script>
-<script src="js/enforcement.js?v=0.5.0"></script>
-<script src="js/hud.js?v=0.5.0"></script>
-<script src="js/minimap.js?v=0.5.0"></script>
-<script src="js/input.js?v=0.5.0"></script>
-<script src="js/main.js?v=0.5.0"></script>
+<script src="lib/three.min.js?v=0.6.0"></script>
+<script src="js/config.js?v=0.6.0"></script>
+<script src="js/rng.js?v=0.6.0"></script>
+<script src="js/save.js?v=0.6.0"></script>
+<script src="js/perf.js?v=0.6.0"></script>
+<script src="js/textures.js?v=0.6.0"></script>
+<script src="js/audio.js?v=0.6.0"></script>
+<script src="js/city.js?v=0.6.0"></script>
+<script src="js/world.js?v=0.6.0"></script>
+<script src="js/terrain.js?v=0.6.0"></script>
+<script src="js/weather.js?v=0.6.0"></script>
+<script src="js/signals.js?v=0.6.0"></script>
+<script src="js/vehmesh.js?v=0.6.0"></script>
+<script src="js/vehicle.js?v=0.6.0"></script>
+<script src="js/traffic.js?v=0.6.0"></script>
+<script src="js/peds.js?v=0.6.0"></script>
+<script src="js/enforcement.js?v=0.6.0"></script>
+<script src="js/study.js?v=0.6.0"></script>
+<script src="js/hud.js?v=0.6.0"></script>
+<script src="js/minimap.js?v=0.6.0"></script>
+<script src="js/input.js?v=0.6.0"></script>
+<script src="js/main.js?v=0.6.0"></script>
 <script src="_probe_tail.js"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.

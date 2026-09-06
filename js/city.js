@@ -200,7 +200,7 @@ TG.buildCity = function (cfg) {
       if (q && q.dist > q.p.half) { var q2 = terrain.nearest(x, z, false); if (q2 && q2.dist <= q2.p.half) q = q2; }   // 램프 옆 본선 위(합류부)는 본선 프레임
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
-        var name = k === 'highway' ? '순환고속도로(왕복 6차로)' : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : '램프';
+        var name = k === 'highway' ? '순환고속도로(왕복 6차로)' : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
         var oneLane = p.f < 0.5;
         return { kind: 'link', name: name, lateral: lat, limit: terrain.limitOf(k), half: p.half, shoulder: terrain.shoulderOf(p),
                  shoulderMin: oneLane ? cfg.STOP_SHOULDER_MIN : cfg.HW_LANES[2] + 1.9, onRoad: q.dist <= p.half, lanes: oneLane ? 1 : 3,

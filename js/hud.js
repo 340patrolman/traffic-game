@@ -90,7 +90,8 @@ TG.hud = (function () {
   function setStopbar(on) { settings.stopbar = on; el.stopbarWrap.style.display = on ? '' : 'none'; }
   function showTouch(on) { el.touch.style.display = on ? 'block' : 'none'; }
   function showHud(on) { el.hud.style.display = on ? 'block' : 'none'; }
-  return { init: init, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
+  function setTimerText(t) { el.timer.textContent = t; }
+  return { init: init, setTimerText: setTimerText, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
            setTarget: setTarget, notice: notice, hint: hint, vignette: vignette, showTitle: showTitle, hideTitle: hideTitle, showIntro: showIntro, introLines: introLines, showPause: showPause,
            showEnd: showEnd, hideEnd: hideEnd, showTicket: showTicket, ticketTimer: ticketTimer, ticketResult: ticketResult, hideTicket: hideTicket,
            closeTicketNow: closeTicketNow, setHints: setHints, setStopbar: setStopbar, showTouch: showTouch, showHud: showHud, tick: tick };

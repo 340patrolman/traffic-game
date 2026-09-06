@@ -36,6 +36,18 @@
   범칙금·벌점 칸이 「확인 중」으로 보인다(값 복제본을 두지 않는다 — 정본은 한 곳).
 * `ref/`는 참고용 clone. 커밋·배포에 포함하지 않는다(.gitignore).
 
+## v0.6 추가(2026-09-06)
+
+* `js/weather.js` — 날씨·시간대 5종(맑음·석양·밤·비·눈). 조명·안개·하늘색(`terrain.skyMesh`)·노면/지면 색(`TG.mats.road/ground`)·창문 불빛(`TG.mats.facade` emissive)·입자·가로등 점·전조등(SpotLight)을 한 곳에서. 그립은 `weather.grip` → `player.surfaceFactor`.
+* IC 8곳: `terrain.js` 의 `ICS[]`(노드·방향·링 각도·via 점) → `conns[]`(연결로) + `ramps()`(우회전 진입 on / 진출 off). 연결로는 램프 분기점(링 접속점 42m 전)에서 끝난다 — 그 너머 스텁이 링 밑으로 들어가던 버그의 원인이었다. 분기점 너머는 지형이 링 높이로 이어지므로 차단벽을 두지 않는다.
+  링 가드레일·다리 난간은 램프가 가로지르는 곳(`rampGap`)에서 비운다. 램프 다리에는 난간 충돌이 없다. `frameAt` 는 램프 옆 본선 위(합류부)에서 본선 프레임을 쓴다.
+* 다리 위 `heightAt` 는 노면 높이(강 위에서 빠지지 않음). 물 복귀는 `!frame.onRoad` 일 때만. 빠짐·끼임·지도 밖은 `recoverToRoad`(일시정지 메뉴 「도로로 복귀」).
+* 격자 스텁 끝 12곳은 낮은 벽 + 황·흑 차단봉(`city.walls[].stub`, world.js 가 그림).
+* 모드(`G.mode`): patrol / free(랩 타임 = 링 인덱스 0 통과) / circuit(`terrain.circuit`, 교통 0, `coachUpdate` 코칭) / study(`js/study.js` 카드, `laws.json.study12`, `G.startScenario(id)`).
+* 차량: `vehmesh.js` 단면 로프트(13점 × 정점 법선), 경찰 띠·황색 선은 단면 색 띠. 실내 `interior(T)`·`layout(T)` 는 눈 기준. `vehicle.js` 디지털 계기판·내비(미니맵 캔버스)·MDT(`player.mdtInfo` 는 main 이 채움).
+* 캐시: 스크립트 주소 `?v=X`(index.html·sw.js 둘 다) + sw CACHE 이름을 배포 때마다 올린다. GitHub Pages 는 max-age=600 이라 안 올리면 새 HTML 이 옛 JS 를 부른다(키보드 먹통 원인).
+* 검증: `_verify_tail.js`(기능 전체) · `_ic_tail.js`(IC 32구간 + 링 자동 조종 주행) · `_probe_tail.js`(도로 끝) · `_shot_tail.js`(장면 스크린샷). `?norender=1` 로 헤드리스에서 빠르게 돈다. 브라우저 페인이 숨겨지면 rAF 가 멈추므로 `step()` 만 믿는다.
+
 ## 확인 절차
 
 `index.html`을 브라우저로 연다(파일 또는 정적 서버). 콘솔에 `[TG]` 로그 외 에러가 없어야 한다.

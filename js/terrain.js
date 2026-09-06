@@ -70,7 +70,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     for (var q4 = 0; q4 < N; q4++) {
       var p = pts[q4];
       p.y = Math.max(0, p.hb); p.bridge = river(p.x, p.z) < -1.2; p.kind = kind; p.f = isHW ? 1 : 0;
-      p.half = isHW ? cfg.HW_HALF : (kind === 'onramp' || kind === 'offramp') ? 4.6 : cfg.ROAD_HALF;
+      p.half = isHW ? cfg.HW_HALF : (kind === 'onramp' || kind === 'offramp') ? 4.6 : kind === 'circuit' ? 7.5 : cfg.ROAD_HALF;
       var p0 = P(q4 - 2), p1 = P(q4 + 2);
       p.kappa = Math.abs(TG.wrapAngle(Math.atan2(p1.tx, p1.tz) - Math.atan2(p0.tx, p0.tz))) / (4 * STEP);
       p.link = null; p.i = q4;
@@ -150,6 +150,8 @@ TG.buildTerrain = function (scene, city, cfg) {
     conns.push(conn);
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
+  // 연습 서킷(도시 남동쪽 언덕, 링 안): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
+  var circuit = buildLink('circuit', [[200, 400], [300, 400], [318, 428], [292, 456], [255, 455], [238, 486], [266, 514], [242, 536], [200, 532], [184, 502], [196, 470], [180, 436]], 'circuit', true);
 
   // ---------- 공간 해시(모든 링크) ----------
   var CELL = 24, grid = {};
@@ -192,7 +194,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     return h;
   }
   function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9; }
-  function limitOf(kind) { return kind === 'highway' ? cfg.HW_LIMIT_KMH : kind === 'suburb' ? cfg.SUB_LIMIT_KMH : 80; }
+  function limitOf(kind) { return kind === 'highway' ? cfg.HW_LIMIT_KMH : kind === 'suburb' ? cfg.SUB_LIMIT_KMH : kind === 'circuit' ? 999 : 80; }
   function laneOffsets(p) { return p.f > 0.5 ? cfg.HW_LANES.slice() : [cfg.LANE_OFF]; }
   function shoulderOf(p) { return p.f > 0.5 ? cfg.HW_SHOULDER : (p.link.oneWay ? 3.4 : cfg.SHOULDER_OFF); }
 
@@ -276,6 +278,12 @@ TG.buildTerrain = function (scene, city, cfg) {
       wallQuad(props, p, q, -half, -4, 0.02, 0x6b6a5e); wallQuad(props, p, q, half, -4, 0.02, 0x6b6a5e);
       var LIFT = ramp ? 0.07 : 0.05;
       if (ramp) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
+      else if (L.kind === 'circuit') {   // 서킷: 흰 가장자리선, 코너 연석(적·백), 출발선(체크), 코너 앞 러버콘
+        ribbon(mark, p, q, half - 0.5, half - 0.32, LIFT, WHT); ribbon(mark, p, q, -half + 0.32, -half + 0.5, LIFT, WHT);
+        if (p.kappa > 0.012) for (var cs = -1; cs <= 1; cs += 2) ribbon(mark, p, q, cs * (half - 0.3), cs * (half + 0.5), LIFT + 0.02, (i % 2) ? 0xe53935 : 0xffffff);
+        if (i === 0) for (var cc = 0; cc < 6; cc++) ribbon(mark, p, q, -half + cc * half / 3, -half + (cc + 1) * half / 3, LIFT + 0.02, (cc % 2) ? WHT : 0x1b1d20);
+        if (p.kappa < 0.006 && L.P(i + 10).kappa > 0.018 && L.P(i + 1).kappa < 0.006) for (var co = -1; co <= 1; co += 2) { var cp = Pt(p, co * (half + 1.2), 0); props.cylinder(cp[0], cp[1], cp[2], 0.28, 0.06, 0.75, 6, 0xff7a00); }
+      }
       else if (!hw) {
         ribbon(mark, p, q, -0.3, -0.15, LIFT, YEL); ribbon(mark, p, q, 0.15, 0.3, LIFT, YEL);
         ribbon(mark, p, q, 3.63, 3.77, LIFT, WHT); ribbon(mark, p, q, -3.77, -3.63, LIFT, WHT);
@@ -380,7 +388,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(farm.build(), lambertVC, true, true);
 
   return {
-    links: links, ring: ring, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     heightAt: heightAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

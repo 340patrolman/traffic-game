@@ -176,6 +176,10 @@
     document.querySelectorAll('.wpick').forEach(function (b) { input.bindTap(b, function () { applyWeather(b.getAttribute('data-weather')); }); });
     if ($('optWeather')) $('optWeather').addEventListener('change', function () { applyWeather($('optWeather').value); });
     applyWeather(settings.weather);
+    // 모드: 순찰 근무 / 자유 주행 / 연습 서킷 / 학습(12항목 카드 → 체험)
+    function applyMode(name) { if (name === 'study') { if (TG.study) TG.study.open(G); return; } settings.mode = MODES[name] ? name : 'patrol'; TG.save.set('settings', settings); document.querySelectorAll('.mpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-mode') === settings.mode); }); }
+    document.querySelectorAll('.mpick').forEach(function (b) { input.bindTap(b, function () { applyMode(b.getAttribute('data-mode')); }); });
+    applyMode(settings.mode || 'patrol');
     // 시점: 타이틀의 선택 버튼 + 게임 중 「시점」 버튼 / C 키
     function applyView(mode, announce) {
       settings.cam = mode; TG.save.set('settings', settings);
@@ -312,8 +316,8 @@
     player.setSiren(!player.siren); TG.audio.resume(); TG.audio.setSiren(player.siren); hud.setSiren(player.siren);
   }
 
-  function start(carId) {
-    TG.audio.resume();
+  function start(carId, modeOverride) {
+    TG.audio.resume(); if (TG.study) TG.study.close();
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, C.CARS[carId] || C.CARS.sedan);
     player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len);
@@ -323,15 +327,68 @@
     while (peds.peds.length) peds.remove(peds.peds[0]);
     enforcement = new TG.Enforcement(G); G.enforcement = enforcement;
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
+    // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
+    G.mode = modeOverride || settings.mode || 'patrol'; if (!MODES[G.mode]) G.mode = 'patrol';
+    C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
+    lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
+    coach = { cd: 0, lastCorner: -1, apexDone: -1 };
+    if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
+    if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
     G.pauseReasons = {}; G.paused = false; G.lastCrash = null; G.lead = null; camInit = false;
     hud.hideTitle(); hud.hideEnd(); hud.showHud(true); hud.setScore(0); hud.setStops(0); hud.setTimer(G.timeLeft); hud.setSiren(false); hud.setTarget(null); hud.setGear('D');
     G.state = 'play'; TG.perf.reset();
-    hud.notice('순찰 시작 — 안전 운전이 먼저입니다', 'info', 3000);
-    log('근무 시작: ' + player.spec.name);
+    if (G.mode !== 'patrol') hud.setTimerText(G.mode === 'circuit' ? '출발선을 지나면 랩 시작' : '∞ 자유 주행');
+    hud.notice(G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 순환고속도로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
   }
+  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
+  function fmtLap(t) { var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
+  // 랩 타임: 링크 인덱스 0 을 진행 방향으로 지나면 한 바퀴. 최고 기록은 tg_bestlap_<mode>.
+  function lapUpdate(dt) {
+    var L = lap.link; if (!L) return;
+    var q = terrain.nearest(player.pos.x, player.pos.z, false);
+    if (!q || q.link !== L) { if (lap.on) hud.setTimerText('—'); lap.on = false; lap.prevI = null; return; }
+    if (lap.on) lap.t += dt;
+    var i = q.i, N = L.N;
+    if (lap.prevI !== null && lap.prevI > N - 10 && i < 10) {
+      if (lap.on && lap.t > 15) {
+        lap.last = lap.t; var isBest = !lap.best || lap.t < lap.best; if (isBest) { lap.best = lap.t; TG.save.set('bestlap_' + lap.name, lap.best); }
+        hud.notice('랩 ' + fmtLap(lap.t) + (isBest ? ' — 최고 기록!' : ' · 최고 ' + fmtLap(lap.best)), 'good', 4000); TG.audio.good();
+      } else if (!lap.on) hud.notice('랩 타임 시작', 'info', 1500);
+      lap.t = 0; lap.on = true;
+    }
+    lap.prevI = i;
+    hud.setTimerText(lap.on ? '랩 ' + fmtLap(lap.t) + (lap.best ? ' · 최고 ' + fmtLap(lap.best) : '') : (lap.best ? '최고 ' + fmtLap(lap.best) : '출발선을 지나면 랩 시작'));
+  }
+  // 코칭(연습 서킷): 앞 45m 안의 최대 곡률로 권장 진입 속도(√(횡가속 한계·0.9 / κ))를 구해 제동 시점을 알려 준다.
+  // 정점에서 가속(패스트 아웃), 언더스티어·오버스티어(카운터 스티어) 안내.
+  function coachUpdate(dt) {
+    var L = terrain.circuit, T = player.telemetry, s = player.spec; coach.cd -= dt;
+    var q = terrain.nearest(player.pos.x, player.pos.z, false); if (!q || q.link !== L) return;
+    var i = q.i, kmax = 0, ki = i;
+    for (var k = 1; k <= 15; k++) { var p = L.P(i + k); if (p.kappa > kmax) { kmax = p.kappa; ki = ((i + k) % L.N + L.N) % L.N; } }
+    var here = L.P(i).kappa;
+    if (T.oversteer && coach.cd <= 0) { hud.hint('뒤가 미끄러진다 — 미끄러지는 쪽으로 핸들을 살짝(카운터 스티어), 가속은 부드럽게'); coach.cd = 3; return; }
+    if (T.understeer && coach.cd <= 0) { hud.hint('언더스티어 — 핸들을 더 꺾지 말고 속도를 줄여 앞바퀴 그립을 되찾는다'); coach.cd = 3; return; }
+    if (kmax > 0.018 && ki !== coach.lastCorner) {
+      var vRec = Math.sqrt(s.latMax * 0.9 / kmax), dist = ((ki - i) % L.N + L.N) % L.N * 3;
+      if (T.speed > vRec * 1.08 && dist < T.stopDist + 12 && coach.cd <= 0) { hud.hint('제동! 이 코너 권장 ' + Math.round(vRec * 3.6) + 'km/h — 직선에서 줄이고 천천히 진입(슬로우 인)'); coach.cd = 4; coach.lastCorner = ki; }
+    }
+    if (here > 0.018 && coach.apexDone !== i && T.speed < Math.sqrt(s.latMax * 0.9 / here) * 1.05 && coach.cd <= 0 && player.controls.throttle < 0.3) { hud.hint('정점(에이펙스) — 핸들을 풀면서 가속(패스트 아웃)'); coach.apexDone = i; coach.cd = 4; }
+  }
+  // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
+  G.startScenario = function (id) {
+    start(settings.car, 'patrol'); var xs = city.xs, zs = city.zs, N22 = city.nodes[2][2];
+    if (id === 'signal') { player.teleport(xs[2] + 2, zs[2] + 48, Math.PI); signals.set(N22, 'h', 'red'); traffic.spawn({ at: { x: xs[2] - 70, z: zs[2] - 2, d: 1, node: N22 }, v: 9, violator: true, straight: true }); hud.notice('체험 · 신호위반: 왼쪽에서 적색에 정지선을 넘는 차가 온다 — 터치해서 단속', 'info', 6000); }
+    else if (id === 'pedestrian') { player.teleport(xs[2] + 2, zs[2] + 60, Math.PI); signals.set(N22, 'v', 'red'); for (var k = 0; k < 3; k++) peds.spawn({ at: { x: xs[2] - 9 + k * 2, z: zs[2] - 12, axis: 'h', coord: zs[2], side: -1, d: 1 }, jaywalker: false }); traffic.spawn({ at: { x: xs[2] - 2, z: zs[2] - 60, d: 0, node: N22 }, v: 10, violator: false, straight: true, pedViolator: true }); hud.notice('체험 · 보행자 보호: 횡단보도에 보행자가 있는데 통과하는 차를 터치해서 단속. 순찰차도 정지선 앞에서 멈춘다', 'info', 6000); }
+    else if (id === 'centerline') { var cE = terrain.connE, p10 = cE.P(10); player.teleport(p10.x + p10.rx * 2, p10.z + p10.rz * 2, Math.atan2(p10.tx, p10.tz)); traffic.spawn({ atLink: { link: cE, i: 40, dirA: false }, lane: 0, v: 12, type: 'sedan', stayRing: true }); hud.notice('체험 · 중앙선: 왕복 2차로 교외 길, 황색 중앙선을 넘으면 감점 — 마주 오는 차에 주의', 'info', 6000); }
+    else if (id === 'speed') { var R = terrain.ring, rp = R.P(30); player.teleport(rp.x + rp.rx * 5.5, rp.z + rp.rz * 5.5, Math.atan2(rp.tx, rp.tz)); player.vx = rp.tx * 22; player.vz = rp.tz * 22; player.resync(); hud.notice('체험 · 과속: 순환고속도로 제한 100 — 120km/h 이상은 12대 중과실(20km/h 초과)', 'info', 6000); }
+    else if (id === 'school') { player.teleport(xs[1] + 2, zs[3] + 40, Math.PI); hud.notice('체험 · 어린이보호구역: 앞 학교 블록 주변은 30km/h. 무신호 횡단보도 앞 일시정지', 'info', 6000); }
+    camInit = false;
+  };
   function setPaused(on, reason) {
     G.pauseReasons[reason] = on;
     var any = false; for (var k in G.pauseReasons) if (G.pauseReasons[k]) any = true;
@@ -345,7 +402,9 @@
     if (delta < 0 && reason) { penaltyTotal += delta; penaltyCount[reason] = (penaltyCount[reason] || 0) + 1; }
   }
   G.addScore = addScore;
-  function penalize(key, text, teach) { addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad(); }
+  function penalize(key, text, teach) {
+    if (G.mode !== 'patrol' && key !== 'crash' && key !== 'pedestrian') { if (teach) hud.hint(teach); return; }   // 자유 주행·서킷: 사고 외 감점 없음(안내만)
+    addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad(); }
   function onTrafficEvent(kind, car) {
     if (kind === 'witness') {
       var name = { buslane: '버스전용차로 위반', pedestrian: '보행자 보호의무 위반(횡단보도)', signal: '신호위반' }[car.violation.type] || car.violation.type;
@@ -554,8 +613,8 @@
     hud.setGear(player.gear);
     minimap.draw(player, traffic.cars, enforcement.target);
     TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid, player.speedKmh(), player.controls.brake > 0 || (player.controls.throttle === 0 && T.speed > 3));
-    G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft));
-    if (G.timeLeft <= 0) endShift('근무 시간 종료');
+    if (G.mode === 'patrol') { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift('근무 시간 종료'); }
+    else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
   function loop(now) {
@@ -642,6 +701,7 @@
       hintText: function () { return document.getElementById('hint').textContent; },
       noticeText: function () { return document.getElementById('notice').textContent; },
       city: city, traffic: traffic, peds: peds, signals: signals, game: G, input: input, terrain: terrain, camera: camera, pano: function () { return pano; }, settings: settings, resize: resize,
+      startMode: function (car, mode) { start(car || 'sedan', mode); }, lap: function () { return lap; }, coach: function () { return coach; }, scenario: function (id) { G.startScenario(id); },
     };
     log('테스트 훅 설치: TG.test.*');
   }
