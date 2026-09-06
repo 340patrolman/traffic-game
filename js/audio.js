@@ -75,16 +75,58 @@ TG.audio = (function () {
     siren = { o: o, g: g, phase: 0 };
   }
 
-  // 매 프레임: rpm 0..1, throttle 0..1, skidLevel 0..1
-  function update(dt, rpm, throttle, skidLevel) {
+  // 파워트레인: 'ice'(내연기관: 6단 변속, 회전수에 따른 엔진음·변속 시 회전수 낙차) / 'ev'(전기차: 인버터 고음 휘파람 + 저속 보행자 경고음 AVAS + 회생제동 허밍)
+  var powertrain = 'ice', gear = 1, shiftT = 0, rpmSm = 0.2, ev = null;
+  var SHIFT_KMH = [0, 18, 36, 58, 82, 112, 200];   // 단수별 상한 속도
+  function buildEV() {
+    var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 200;
+    var o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 400;
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.2;
+    var g = ctx.createGain(); g.gain.value = 0;
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(master); o.start(); o2.start();
+    var a1 = ctx.createOscillator(); a1.type = 'sine'; a1.frequency.value = 330;   // AVAS 2음 패드
+    var a2 = ctx.createOscillator(); a2.type = 'sine'; a2.frequency.value = 415;
+    var ag = ctx.createGain(); ag.gain.value = 0;
+    a1.connect(ag); a2.connect(ag); ag.connect(master); a1.start(); a2.start();
+    ev = { o: o, o2: o2, f: f, g: g, ag: ag, a1: a1, a2: a2, t: 0 };
+  }
+  function setPowertrain(kind) { powertrain = kind === 'ev' ? 'ev' : 'ice'; gear = 1; rpmSm = 0.2; }
+  // 매 프레임: speedNorm 0..1(최고속 대비), throttle 0..1, skidLevel 0..1, kmh, decel(감속 중이면 true)
+  function update(dt, speedNorm, throttle, skidLevel, kmh, decel) {
     if (!ready) return;
-    var base = 55 + rpm * 160;
-    engine.o1.frequency.setTargetAtTime(base, ctx.currentTime, 0.05);
-    engine.o2.frequency.setTargetAtTime(base * 1.5, ctx.currentTime, 0.05);
-    engine.f.frequency.setTargetAtTime(300 + rpm * 900 + throttle * 400, ctx.currentTime, 0.08);
-    engine.g.gain.setTargetAtTime(0.05 + rpm * 0.08 + throttle * 0.04, ctx.currentTime, 0.1);
+    kmh = kmh || 0;
+    var now = ctx.currentTime;
+    if (powertrain === 'ice') {
+      // 변속: 상한을 넘으면 올리고(회전수 낙차), 아래 단 하한의 70% 아래면 내린다
+      if (kmh > SHIFT_KMH[gear] && gear < 6) { gear++; shiftT = 0.18; }
+      else if (gear > 1 && kmh < SHIFT_KMH[gear - 1] * 0.7) { gear--; }
+      var lo = SHIFT_KMH[gear - 1], hi = SHIFT_KMH[gear];
+      var rpmT = 0.18 + 0.72 * TG.clamp((kmh - lo) / Math.max(1, hi - lo), 0, 1);
+      if (throttle > 0.1 && kmh < 3) rpmT = 0.45;        // 출발 시 회전수 올림
+      if (shiftT > 0) { shiftT -= dt; rpmT *= 0.55; }    // 변속 순간 회전수 낙차
+      rpmSm += (rpmT - rpmSm) * Math.min(1, dt * 6);
+      var base = 45 + rpmSm * 170;
+      engine.o1.frequency.setTargetAtTime(base, now, 0.04);
+      engine.o2.frequency.setTargetAtTime(base * 1.5, now, 0.04);
+      engine.f.frequency.setTargetAtTime(260 + rpmSm * 1100 + throttle * 500, now, 0.06);
+      engine.g.gain.setTargetAtTime((shiftT > 0 ? 0.04 : 0.06) + rpmSm * 0.09 + throttle * 0.05, now, 0.08);
+      if (ev) { ev.g.gain.setTargetAtTime(0, now, 0.1); ev.ag.gain.setTargetAtTime(0, now, 0.1); }
+    } else {
+      if (!ev) buildEV();
+      engine.g.gain.setTargetAtTime(0, now, 0.1);
+      var whine = 120 + kmh * 16;                        // 인버터 휘파람: 속도에 비례
+      ev.o.frequency.setTargetAtTime(whine, now, 0.05); ev.o2.frequency.setTargetAtTime(whine * 2.01, now, 0.05);
+      ev.f.frequency.setTargetAtTime(400 + kmh * 30, now, 0.1);
+      var load = throttle * 0.8 + (decel ? 0.5 : 0) + speedNorm * 0.3;
+      ev.g.gain.setTargetAtTime(kmh > 1 ? 0.012 + load * 0.035 : 0, now, 0.1);
+      // AVAS: 25km/h 이하에서 천천히 물결치는 2음 패드(전기차 저속 경고음)
+      ev.t += dt;
+      var avas = kmh > 0.5 && kmh < 25 ? (0.012 + 0.008 * Math.sin(ev.t * 3)) * (1 - kmh / 25) : 0;
+      ev.ag.gain.setTargetAtTime(avas, now, 0.15);
+      ev.a1.frequency.setTargetAtTime(330 + kmh * 4, now, 0.2); ev.a2.frequency.setTargetAtTime(415 + kmh * 5, now, 0.2);
+    }
     skid.g.gain.setTargetAtTime(skidLevel > 0 ? 0.05 + skidLevel * 0.22 : 0, ctx.currentTime, 0.05);
-    if (wind) { wind.g.gain.setTargetAtTime(rpm * rpm * 0.16, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + rpm * 900, ctx.currentTime, 0.2); }
+    if (wind) { wind.g.gain.setTargetAtTime(speedNorm * speedNorm * 0.16, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + speedNorm * 900, ctx.currentTime, 0.2); }
     skid.f.frequency.setTargetAtTime(1400 + skidLevel * 900, ctx.currentTime, 0.1);
     if (sirenOn) {
       siren.phase += dt;
@@ -123,6 +165,6 @@ TG.audio = (function () {
 
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.6, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

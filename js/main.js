@@ -170,6 +170,7 @@
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, C.CARS[carId] || C.CARS.sedan);
     player.setView(settings.cam);
+    TG.audio.setPowertrain(player.spec.powertrain || 'ice');
     G.player = player; traffic.player = player; peds.player = player;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
     while (peds.peds.length) peds.remove(peds.peds[0]);
@@ -383,7 +384,7 @@
     hud.setSpeed(player.speedKmh(), T.stopDist, frame.kind === 'off' ? 999 : frame.limit);
     hud.setGear(player.gear);
     minimap.draw(player, traffic.cars, enforcement.target);
-    TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid);
+    TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid, player.speedKmh(), player.controls.brake > 0 || (player.controls.throttle === 0 && T.speed > 3));
     G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft));
     if (G.timeLeft <= 0) endShift('근무 시간 종료');
   }
