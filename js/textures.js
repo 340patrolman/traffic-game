@@ -186,6 +186,52 @@ TG.tex = (function () {
   }
 
   // 짧은 라벨(차량 문 「경찰」 등). 청색 글자, 투명 배경.
+  // 순찰차 도색 데칼(참고 사진): 옆면 = 아래 청색 띠가 앞 펜더에서 위로 솟는 스우시 + 황색 테두리 + 앞문 엠블럼 + 뒷문 「경찰 POLICE」.
+  // 후드 = 앞이 넓고 앞유리 쪽으로 좁아지는 청색 쐐기 + 황색 테두리 + 가운데 엠블럼. 투명 배경이라 흰 차체 위에 얹는다.
+  function drawEmblem(g, cx, cy, r) {
+    g.save(); g.translate(cx, cy); g.scale(r / 128, r / 128); g.translate(-128, -128);
+    g.lineWidth = 16; g.strokeStyle = '#c9a227'; g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#1f4fa8'; g.beginPath(); g.arc(128, 128, 100, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.moveTo(128, 70); g.quadraticCurveTo(58, 96, 44, 138); g.quadraticCurveTo(96, 122, 118, 132); g.lineTo(128, 172); g.lineTo(138, 132); g.quadraticCurveTo(160, 122, 212, 138); g.quadraticCurveTo(198, 96, 128, 70); g.closePath(); g.fill();
+    g.beginPath(); g.arc(128, 78, 14, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#c9a227'; g.font = 'bold 30px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('POLICE', 128, 200);
+    g.restore();
+  }
+  function liverySide(flip) {
+    var key = 'lvs:' + (flip ? 1 : 0);
+    if (cache[key]) return cache[key];
+    var W = 1024, H = 256, c = canvas(W, H), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    // u: 0 = 차 뒤, 1 = 차 앞. 오른쪽 면은 캔버스 전체를 좌우 반전해 그린다(면의 u 방향이 화면에서 뒤집히므로 글자가 바로 읽힌다)
+    if (flip) { g.translate(W, 0); g.scale(-1, 1); }
+    function X(u) { return u * W; }
+    function band(color, dy) {
+      g.fillStyle = color; g.beginPath();
+      g.moveTo(X(0), H); g.lineTo(X(0), 0.60 * H + dy); g.lineTo(X(0.66), 0.60 * H + dy);
+      g.bezierCurveTo(X(0.80), 0.60 * H + dy, X(0.86), 0.30 * H + dy, X(0.93), 0.20 * H + dy);   // 앞 펜더 스우시
+      g.lineTo(X(1), 0.16 * H + dy); g.lineTo(X(1), H); g.closePath(); g.fill();
+    }
+    band('#f3c418', -14); band('#1a4fb0', 0);
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, H - 22, W, 22);   // 로커 그림자
+    drawEmblem(g, X(0.70), 0.30 * H, 44);
+    g.fillStyle = '#1f4fa8'; g.font = 'bold 54px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('경찰', X(0.27), 0.30 * H); g.fillText('POLICE', X(0.47), 0.30 * H);
+    return (cache[key] = toTexture(c));
+  }
+  function liveryHood() {
+    if (cache.lvh) return cache.lvh;
+    var W = 512, H = 512, c = canvas(W, H), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    // u: 0 좌 1 우. 텍스처 v=0 은 캔버스 아래(flipY) = 차 앞(범퍼), v=1 = 캔버스 위 = 앞유리 쪽. 앞에서 넓고 앞유리 쪽으로 좁아지는 쐐기.
+    function wedge(color, grow) {
+      g.fillStyle = color; g.beginPath();
+      g.moveTo((0.0 - grow) * W, H); g.lineTo((1.0 + grow) * W, H); g.lineTo((0.64 + grow) * W, 0.12 * H); g.lineTo((0.36 - grow) * W, 0.12 * H); g.closePath(); g.fill();
+    }
+    wedge('#f3c418', 0.035); wedge('#1a4fb0', 0);
+    g.save(); g.translate(0.5 * W, 0.58 * H); g.scale(-1, -1); drawEmblem(g, 0, 0, 62); g.restore();   // 운전석(뒤)에서 바로 읽히게 180° 회전
+    return (cache.lvh = toTexture(c));
+  }
   // 경찰 엠블럼(양식화): 금색 월계 고리 + 청색 원 + 흰 참수리 실루엣 + 'POLICE'. 실제 휘장을 복제하지 않는다.
   function emblem() {
     if (cache.emblem) return cache.emblem;
@@ -298,6 +344,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem,
+  return { roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, liverySide: liverySide, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

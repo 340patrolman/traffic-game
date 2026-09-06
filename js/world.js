@@ -76,8 +76,10 @@
 
     // 도로(아스팔트 텍스처): 도로마다 폭
     var road = new GeoBuilder();
-    for (var i = 0; i < xs.length; i++) road.rect(xs[i], (zs[0] + zs[zs.length - 1]) / 2, hV[i] * 2, zs[zs.length - 1] - zs[0] + EXT * 2, 0, 0.05, 0xffffff, 8);
-    for (var j = 0; j < zs.length; j++) road.rect((xs[0] + xs[xs.length - 1]) / 2, zs[j], xs[xs.length - 1] - xs[0] + EXT * 2, hH[j] * 2, 0, 0.05, 0xffffff, 8);
+    // 스텁(도시 밖으로 나가는 짧은 연장)은 IC 연결로가 붙는 도로에만 그린다. 나머지는 바깥 간선의 교차로 상자에서 끝난다(막다른 길 없음).
+    var zL = zs[zs.length - 1], xL = xs[xs.length - 1];
+    for (var i = 0; i < xs.length; i++) { var sv = city.hasStub('v', i, 0), za = zs[0] - (sv ? EXT : hH[0]), zb = zL + (sv ? EXT : hH[zs.length - 1]); road.rect(xs[i], (za + zb) / 2, hV[i] * 2, zb - za, 0, 0.05, 0xffffff, 8); }
+    for (var j = 0; j < zs.length; j++) { var sh = city.hasStub('h', j, 0), xa = xs[0] - (sh ? EXT : hV[0]), xb = xL + (sh ? EXT : hV[xs.length - 1]); road.rect((xa + xb) / 2, zs[j], xb - xa, hH[j] * 2, 0, 0.05, 0xffffff, 8); }
     var roadMatW = new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }); TG.mats.road.push(roadMatW);
     addMesh(road.build(), roadMatW, false, true);
 
@@ -113,15 +115,15 @@
     }
     for (var i2 = 0; i2 < xs.length; i2++) {
       var nd0 = city.nodes[i2][0], ndL = city.nodes[i2][zs.length - 1];
-      seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2]);
+      if (city.hasStub('v', i2, 0)) seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2]);
       for (var j2 = 0; j2 < zs.length - 1; j2++) seg('v', xs[i2], zs[j2] + city.crossFar(city.nodes[i2][j2], 2), zs[j2 + 1] - city.crossFar(city.nodes[i2][j2 + 1], 0), city.lanesV[i2]);
-      seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2]);
+      if (city.hasStub('v', i2, 1)) seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2]);
     }
     for (var j3 = 0; j3 < zs.length; j3++) {
       var nd1 = city.nodes[0][j3], ndR = city.nodes[xs.length - 1][j3];
-      seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3]);
+      if (city.hasStub('h', j3, 0)) seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3]);
       for (var i3 = 0; i3 < xs.length - 1; i3++) seg('h', zs[j3], xs[i3] + city.crossFar(city.nodes[i3][j3], 3), xs[i3 + 1] - city.crossFar(city.nodes[i3 + 1][j3], 1), city.lanesH[j3]);
-      seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3]);
+      if (city.hasStub('h', j3, 1)) seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3]);
     }
     // 교차로: 접근로마다 정지선(접근 도로의 우측 반폭) + 횡단보도(접근 도로 전폭)
     for (var ni = 0; ni < xs.length; ni++) for (var nj = 0; nj < zs.length; nj++) {
@@ -171,6 +173,45 @@
       if (b.style === 'apt') {
         for (var fl = 1; fl * 3 < b.h - 1; fl++) roofs.box(cx, fl * 3 + 0.2, cz, w + 1.2, 0.18, dd + 1.2, 0xd6d3cb, { noBottom: true });
         labels.vquad(cx, b.h - 2.2, b.z0 - 0.05, Math.min(6, w * 0.6), 1.6, Math.PI, 0xffffff, null); labels.vquad(cx, b.h - 2.2, b.z1 + 0.05, Math.min(6, w * 0.6), 1.6, 0, 0xffffff, null);
+      }
+    });
+    // 랜드마크(강남·서초 축약): 무역센터형 계단식 유리 타워 + 전시장 / 법원(백색 열주) / 예술의전당형 돔 / 강남대로 쌍둥이 타워 / 종합운동장형 원형 경기장
+    (city.landmarks || []).forEach(function (L) {
+      var w = L.x1 - L.x0, dd = L.z1 - L.z0, cx = (L.x0 + L.x1) / 2, cz = (L.z0 + L.z1) / 2;
+      if (L.kind === 'trade') {
+        var tx = L.x1 - 16, tz = L.z0 + 18;
+        for (var s = 0; s < 4; s++) walls.tower.box(tx - s * 2.2, 0.2 + (s + 0.5) * 27, tz, 22 - s * 3, 27, 22, 0x9fc4e8, { sidesOnly: true, uvScale: [3, 3] });
+        roofs.box(tx - 6.6, 108.4, tz, 13, 0.6, 22, 0x3a3f47, { noBottom: true }); roofs.box(tx - 6.6, 112, tz, 0.5, 8, 0.5, 0xc9ccd0, {}); roofs.box(tx - 6.6, 116.4, tz, 1.0, 0.6, 1.0, 0xff4040, {});
+        roofs.box(cx - 8, 7.2, cz + dd * 0.22, w - 20, 14, dd * 0.5, 0xdfe3e8, {});                        // 전시장(넓고 낮은 유리·금속 지붕)
+        glass.box(cx - 8, 6.5, cz + dd * 0.22, w - 19.5, 10, dd * 0.5 + 0.5, 0x3a5470, { sidesOnly: true });
+        for (var a = 0; a < 6; a++) roofs.box(L.x0 + 6 + a * (w - 24) / 5, 15.2, cz + dd * 0.22, 1.2, 2.4, dd * 0.5, 0xb9bec4, {});   // 지붕 아치 뼈대
+        roofs.box(cx, 0.35, cz - dd * 0.3, w * 0.9, 0.3, 10, 0xc9c5ba, {});                                 // 앞 광장
+      } else if (L.kind === 'court') {
+        roofs.box(cx, 6.2, cz, w * 0.78, 12, dd * 0.55, 0xe9e6de, {});                                       // 법원 본관(백색)
+        roofs.box(cx, 12.5, cz, w * 0.82, 0.8, dd * 0.6, 0x8b8f96, { noBottom: true });
+        for (var c = 0; c < 9; c++) roofs.cylinder(L.x0 + w * 0.13 + c * (w * 0.74) / 8, 0.3, cz - dd * 0.29, 0.8, 0.8, 11.5, 10, 0xf2f0ea, true);   // 열주
+        roofs.box(cx, 11.9, cz - dd * 0.29, w * 0.8, 1.0, 3, 0xe9e6de, {});
+        roofs.box(cx, 0.6, cz - dd * 0.42, w * 0.5, 1.2, 3, 0xd7d3c8, {});                                   // 계단
+        roofs.box(cx - w * 0.3, 4.2, cz + dd * 0.35, w * 0.35, 8, dd * 0.2, 0xe4e1d9, {}); roofs.box(cx + w * 0.3, 4.2, cz + dd * 0.35, w * 0.35, 8, dd * 0.2, 0xe4e1d9, {});   // 별관
+        roofs.cylinder(cx, 0.3, cz - dd * 0.42 - 6, 0.14, 0.12, 9, 6, 0x8f959c); roofs.box(cx, 9.5, cz - dd * 0.42 - 6, 1.2, 0.8, 0.05, 0xffffff, {});   // 국기 게양대
+      } else if (L.kind === 'arts') {
+        var r = Math.min(w, dd) * 0.28;
+        roofs.cylinder(cx, 0.3, cz, r, r, 10, 28, 0xd9d3c4, true);                                           // 드럼
+        roofs.cylinder(cx, 10.3, cz, r * 1.08, r * 0.9, 3, 28, 0x6b5d4c, true);                              // 갓 모양 처마
+        roofs.cylinder(cx, 13.3, cz, r * 0.8, r * 0.35, 6, 28, 0x8a7a63, true);                              // 돔(원뿔대)
+        roofs.cylinder(cx, 19.3, cz, r * 0.35, 0.6, 3, 16, 0x8a7a63, true);
+        roofs.box(cx - w * 0.3, 5.2, cz + dd * 0.3, w * 0.3, 10, dd * 0.25, 0xd9d3c4, {}); roofs.box(cx + w * 0.3, 5.2, cz + dd * 0.3, w * 0.3, 10, dd * 0.25, 0xd9d3c4, {});   // 음악당·미술관
+        roofs.box(cx, 0.3, cz - dd * 0.3, w * 0.8, 0.25, dd * 0.25, 0xc9c5ba, {});
+      } else if (L.kind === 'twin') {
+        for (var t = -1; t <= 1; t += 2) { walls.office.box(cx + t * w * 0.22, 0.2 + 34, cz, w * 0.3, 68, dd * 0.55, 0xb3563a, { sidesOnly: true, uvScale: [4, 3] }); roofs.box(cx + t * w * 0.22, 68.5, cz, w * 0.32, 0.6, dd * 0.57, 0x4a2c22, { noBottom: true }); }
+        glass.box(cx, 42, cz, w * 0.16, 4, dd * 0.3, 0x3a5470, {});                                          // 연결 다리
+        roofs.box(cx, 2.2, cz, w * 0.75, 4.4, dd * 0.6, 0x9a4b33, {});                                       // 저층부
+      } else if (L.kind === 'stadium') {
+        var rs = Math.min(w, dd) * 0.42;
+        roofs.cylinder(cx, 0.3, cz, rs, rs * 1.04, 14, 36, 0xd8d3ca, false);                                  // 관중석 외벽
+        roofs.cylinder(cx, 0.3, cz, rs * 0.55, rs * 0.55, 0.3, 36, 0x4c9a4a, true);                            // 그라운드
+        for (var q = 0; q < 12; q++) { var ang = q / 12 * Math.PI * 2; roofs.box(cx + Math.cos(ang) * rs * 1.0, 16, cz + Math.sin(ang) * rs * 1.0, 1.4, 6, 1.4, 0xb9bec4, { rotY: -ang }); }   // 조명탑
+        roofs.cylinder(cx, 13.8, cz, rs * 1.06, rs * 0.7, 1.2, 36, 0xc9ccd0, false);                            // 지붕 링
       }
     });
     TG.mats.facade = TG.mats.facade || [];

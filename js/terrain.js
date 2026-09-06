@@ -26,10 +26,13 @@ TG.buildTerrain = function (scene, city, cfg) {
     var ts = sstep(shoreX(z) - 70, shoreX(z) + 40, x);
     h = h * (1 - ts) + (-6) * ts;
     var ddx = Math.max(-70 - x, x - 390, 0), ddz = Math.max(-70 - z, z - 390, 0);
-    return h * sstep(0, 90, Math.hypot(ddx, ddz));
+    h *= sstep(0, 90, Math.hypot(ddx, ddz));
+    return h * sstep(28, 90, Math.abs(z - riverZ(x)));   // 한강 둔치: 강 양옆 28m 는 평지, 90m 까지 완만히 언덕으로
   }
-  function riverX(z) { return 470 + 25 * Math.sin(z / 180 + 1); }
-  function river(x, z) { var d = Math.abs(x - riverX(z)); return -4 * (1 - sstep(9, 17, d)); }
+  // 한강(축약): 도시 북쪽을 동서로 흐른다. 북쪽 IC 연결로(반포대로 등)가 다리로 건넌다. 옛 남북 강은 없앴다.
+  function riverZ(x) { return -212 + 18 * Math.sin(x / 230 + 0.6); }
+  function riverX(z) { return 99999; }
+  function river(x, z) { var d = Math.abs(z - riverZ(x)); return -4 * (1 - sstep(24, 34, d)); }
 
   // ---------- 링크 빌더 ----------
   var links = [], walls = [];
@@ -150,6 +153,8 @@ TG.buildTerrain = function (scene, city, cfg) {
     conns.push(conn);
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
+  // 도로명·제한속도(축약 서울): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 테헤란로 연장(60). 링 북쪽 호는 올림픽대로(80, frameAt).
+  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '삼성로 연장'; conns[6].name = '언주로 연장'; conns[7].name = '남부순환로 연장';
   // 연습 서킷(도시 남동쪽 언덕, 링 안): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   var circuit = buildLink('circuit', [[200, 400], [300, 400], [318, 428], [292, 456], [255, 455], [238, 486], [266, 514], [242, 536], [200, 532], [184, 502], [196, 470], [180, 436]], 'circuit', true);
 
@@ -230,7 +235,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   var wgeo = wg.build(), wuv = wgeo.attributes.uv.array; for (var u = 0; u < wuv.length; u += 2) { wuv[u] *= 40; wuv[u + 1] *= 130; } wgeo.attributes.uv.needsUpdate = true;
   mesh(wgeo, waterMat, false, false);
   var rg = new G();
-  for (var rz2 = Z0; rz2 < Z1; rz2 += 20) { var xa = riverX(rz2), xb = riverX(rz2 + 20); rg.quad([xa - 18, -1.3, rz2], [xa + 18, -1.3, rz2], [xb + 18, -1.3, rz2 + 20], [xb - 18, -1.3, rz2 + 20], [0, 1, 0], 0xffffff, [[0, rz2 / 20], [2, rz2 / 20], [2, rz2 / 20 + 1], [0, rz2 / 20 + 1]]); }
+  for (var rx2 = X0; rx2 < X1; rx2 += 20) { var za = riverZ(rx2), zb = riverZ(rx2 + 20); rg.quad([rx2, -1.3, za - 36], [rx2, -1.3, za + 36], [rx2 + 20, -1.3, zb + 36], [rx2 + 20, -1.3, zb - 36], [0, 1, 0], 0x3f7fb0, [[0, rx2 / 40], [1.8, rx2 / 40], [1.8, (rx2 + 20) / 40], [0, (rx2 + 20) / 40]]); }
   mesh(rg.build(), waterMat, false, false);
 
   var sky = new THREE.SphereGeometry(2200, 28, 14), spos = sky.attributes.position, scol = [], ZEN = rgb(0x3f7fd6), HOR = rgb(0xdbe9f6);

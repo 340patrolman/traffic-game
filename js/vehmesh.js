@@ -94,7 +94,7 @@ TG.vehmesh = (function () {
     if (gh) { A(hw * 0.97, belt + 0.02); A(hw * 0.90 * rs, belt + 0.07); A(hw * 0.87 * rs, Math.min(glassTop, top - 0.07)); A(hw * 0.83 * rs, top - 0.06); A(hw * 0.60 * rs, top - 0.012); A(0, top); }
     else { A(hw * 0.99, top - 0.045); A(hw * 0.97, top - 0.03); A(hw * 0.92, top - 0.02); A(hw * 0.80, top - 0.008); A(hw * 0.45, top + 0.010); A(0, top + 0.016); }
     var side = color, roof = lighten(color, 1.04), pol = !!T.police, bodyAbove = !!T.glassTop;
-    var C = [DARK, LOW, side, pol ? BLUE : side, pol ? YEL : side, side, side,
+    var C = [DARK, LOW, side, side, side, side, side,   // 경찰 도색은 데칼(vehicle.js)이 맡는다 — 로프트는 흰 차체
              gh ? GLASS : side, gh ? GLASS : side, gh ? (bodyAbove ? roof : GLASS) : roof, gh ? (glassSeg ? GLASS : roof) : roof, gh ? (glassSeg ? GLASS : roof) : roof];
     return { P: P, C: C };
   }
@@ -267,6 +267,37 @@ TG.vehmesh = (function () {
   function roofY(T) { var y = 0; for (var i = 0; i < T.pts.length; i++) y = Math.max(y, T.pts[i][1]); return y; }
   // 후드 높이(엠블럼 위치용): 앞유리 밑단 앞 0.9m 지점의 윗선
   function hoodAt(T, zBack) { var pr = profile(T); return pr.top(zBack); }
+  // 후드 데칼 지오메트리: 후드 곡면을 따라가는 띠(UV: u 좌→우, v 앞→앞유리). 도색 텍스처를 얹는다.
+  function hoodDecal(T) {
+    var key = 'hd:' + T.w + ':' + T.l;
+    if (cache[key]) return cache[key];
+    var pr = profile(T), env = pr.env, wsBase = null;
+    for (var e = 0; e < env.length - 1; e++) if (env[e + 1].glass && env[e].z > 0 && !wsBase) wsBase = env[e].z;
+    var z0 = pr.zf - 0.08, z1 = (wsBase || T.l * 0.15) - 0.04, N = 10, pos = [], uv = [], idx = [];
+    for (var i = 0; i <= N; i++) {
+      var t = i / N, z = z0 + (z1 - z0) * t, hw = section(T, z, pr.top(z), false, 0xffffff).P[6][0] * 0.94, y = pr.top(z) + 0.012;
+      pos.push(hw, y, z, -hw, y, z); uv.push(0, t, 1, t);
+    }
+    for (var k = 0; k < N; k++) { var b = k * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    return (cache[key] = g);
+  }
+  // 옆면 데칼 지오메트리: 로커~벨트 사이 평평한 옆면에 붙는 사각형(UV: u 뒤→앞, v 벨트→로커). side = ±1
+  function sideDecal(T, side) {
+    var key = 'sd:' + T.w + ':' + T.l + ':' + side;
+    if (cache[key]) return cache[key];
+    var pr = profile(T), l = T.l, belt = T.belt, z0 = -l * 0.42, z1 = l * 0.46, N = 12, pos = [], uv = [], idx = [];
+    for (var i = 0; i <= N; i++) {
+      var t = i / N, z = z0 + (z1 - z0) * t, P = section(T, z, pr.top(z), false, 0xffffff).P, x = side * (P[5][0] + 0.012);
+      var yTop = Math.min(belt - 0.03, pr.top(z) - 0.05), yBot = 0.40;
+      pos.push(x, yTop, z, x, yBot, z); uv.push(t, 1, t, 0);
+    }
+    for (var k = 0; k < N; k++) { var b = k * 2; if (side > 0) idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); else idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    return (cache[key] = g);
+  }
 
   // ---------- 실내(차내 시점) ----------
   // 배치는 운전자 눈(E)을 기준: 순찰차 사진처럼 낮고 넓은 대시보드, 중앙 내비 태블릿, 조수석 쪽 단속 단말(MDT), 룸미러·블랙박스, 선바이저, 도어 트림, 동승 경찰관.
@@ -390,5 +421,5 @@ TG.vehmesh = (function () {
     gb.cylinder(L.roomMirror.x, L.roomMirror.y + 0.05, L.roomMirror.z + 0.075, 0.012, 0.014, 0.02, 8, 0x0a0c0f, true);
     return (cache[key] = gb.build());
   }
-  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, roofY: roofY, layout: layout, hoodAt: hoodAt, profile: profile };
+  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, roofY: roofY, layout: layout, hoodAt: hoodAt, profile: profile, hoodDecal: hoodDecal, sideDecal: sideDecal };
 })();

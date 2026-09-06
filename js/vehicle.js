@@ -135,16 +135,13 @@
     var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
     var pairs = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
     for (var i = 0; i < 4; i++) { var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.07), T.wheelR, pairs[i][1] * l * 0.31); g.add(wh); this.wheels.push(wh); }
-    // 도색 라벨(참고 사진 순찰차): 앞문 엠블럼, 뒷문 「경찰 POLICE」(청색), 후드 엠블럼, 트렁크 「112」
-    var emMat = new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true });
-    var txtMat = new THREE.MeshBasicMaterial({ map: TG.tex.label('경찰 POLICE', '#1f4fa8'), transparent: true });
-    var textY = T.belt - 0.13, sideX = w / 2 + 0.012;
-    for (var sd = -1; sd <= 1; sd += 2) {
-      var em = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.24), emMat); em.position.set(sd * sideX, textY, l * 0.14); em.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(em);
-      var tx = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.2), txtMat); tx.position.set(sd * sideX, textY, -l * 0.17); tx.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(tx);
-    }
-    var hoodZ = l * 0.32, hoodEm = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), emMat);
-    hoodEm.position.set(0, TG.vehmesh.hoodAt(T, hoodZ) + 0.012, hoodZ); hoodEm.rotation.x = -Math.PI / 2; hoodEm.rotation.z = Math.PI; g.add(hoodEm);
+    // 도색 데칼(참고 사진 순찰차): 옆면 청색 스우시 띠 + 황색 테두리 + 앞문 엠블럼 + 뒷문 「경찰 POLICE」, 후드 청색 쐐기 + 엠블럼, 트렁크 「112」
+    // +x 는 차 왼쪽(운전석). 왼쪽 데칼은 u 가 뒤→앞으로 가며 +z 로 진행, 오른쪽은 글자가 거꾸로 보이지 않게 flip 텍스처.
+    var decalOpts = { transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
+    var decL = new THREE.Mesh(TG.vehmesh.sideDecal(T, 1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(false) }, decalOpts)));
+    var decR = new THREE.Mesh(TG.vehmesh.sideDecal(T, -1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(true) }, decalOpts)));
+    var decH = new THREE.Mesh(TG.vehmesh.hoodDecal(T), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liveryHood() }, decalOpts)));
+    g.add(decL); g.add(decR); g.add(decH);
     var l112 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.2), new THREE.MeshBasicMaterial({ map: TG.tex.label('112', '#1f4fa8'), transparent: true }));
     var trunkZ = -l * 0.42; l112.position.set(0, TG.vehmesh.hoodAt(T, trunkZ) + 0.012, trunkZ); l112.rotation.x = -Math.PI / 2; g.add(l112);
     this.mesh = g; scene.add(g); this.syncMesh();

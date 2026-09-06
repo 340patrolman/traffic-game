@@ -32,8 +32,22 @@ TG.buildCity = function (cfg) {
   function sideOff(axis, idx) { return halfOf(axis, idx) + SW / 2; }   // 보도 중앙선(행인이 걷는 선)
 
   // ---- 블록 채우기 ----
-  var buildings = [], trees = [], lamps = [], signs = [], roadTexts = [], parks = [], blocks = [];
+  var buildings = [], trees = [], lamps = [], signs = [], roadTexts = [], parks = [], blocks = [], landmarks = [];
   var schoolBlock = { i: 1, j: 2 }, parkBlock = { i: 2, j: 1 };
+  // 서울 강남·서초를 본뜬 배치(축약). 세로: 반포대로·논현로·강남대로(4차로)·언주로·선릉로 / 가로: 사평대로·도산대로·테헤란로(4차로)·역삼로·남부순환로.
+  // 강남대로×테헤란로 = 강남역 사거리(중심). 랜드마크: 북동 무역센터·전시장(삼성동), 남서 법원(서초동), 남서 끝 예술의전당(돔), 북쪽 강남대로 쌍둥이 타워. 실존 상호·로고는 쓰지 않는다.
+  var roadNamesV = ['반포대로', '논현로', '강남대로', '언주로', '선릉로'], roadNamesH = ['사평대로', '도산대로', '테헤란로', '역삼로', '남부순환로'];
+  var LANDMARK_BLOCKS = { '3,0': 'trade', '0,3': 'court', '0,4': 'arts', '1,0': 'twin', '3,3': 'stadium' };
+  // 가로 2번 도로는 강남대로 서쪽이 서초대로, 동쪽이 테헤란로(실제처럼 강남역에서 이름이 바뀐다)
+  function hName(j, x) { return j === 2 ? (x < xs[2] ? '서초대로' : '테헤란로') : roadNamesH[j]; }
+  function nodeName(node) { if (node.i === 2 && node.j === 2) return '강남역 사거리'; return roadNamesV[node.i] + '·' + hName(node.j, node.x - 1) + ' 교차로'; }
+  // 어린이보호구역: 학교 블록(1,2)에 붙은 논현로(x=xs[1])·역삼로(z=zs[3]) 구간. 간선(강남대로·테헤란로)은 제외.
+  function inSchoolZone(x, z) {
+    var sx0 = xs[schoolBlock.i], sx1 = xs[schoolBlock.i + 1], sz0 = zs[schoolBlock.j], sz1 = zs[schoolBlock.j + 1];
+    if (Math.abs(x - sx0) <= halfV[schoolBlock.i] + 1 && z > sz0 + 12 && z < sz1 - 12) return true;
+    if (Math.abs(z - sz1) <= halfH[schoolBlock.j + 1] + 1 && x > sx0 + 12 && x < sx1 - 12) return true;
+    return false;
+  }
   for (var bi = 0; bi < xs.length - 1; bi++) {
     for (var bj = 0; bj < zs.length - 1; bj++) {
       var x0 = xs[bi] + halfV[bi], x1 = xs[bi + 1] - halfV[bi + 1], z0 = zs[bj] + halfH[bj], z1 = zs[bj + 1] - halfH[bj + 1];
@@ -51,6 +65,8 @@ TG.buildCity = function (cfg) {
         for (var t2 = 0; t2 < 8; t2++) trees.push({ x: ix0 + 6 + rng() * (ix1 - ix0 - 12), z: iz1 - 6, s: 0.9 });
         continue;
       }
+      var lmKind = LANDMARK_BLOCKS[bi + ',' + bj];
+      if (lmKind) { landmarks.push({ kind: lmKind, x0: ix0, z0: iz0, x1: ix1, z1: iz1 }); blocks[blocks.length - 1].kind = 'landmark'; continue; }
       var nx = TG.irange(rng, 2, 3), nz = TG.irange(rng, 2, 3);
       var lotW = (ix1 - ix0 - (nx - 1) * 2.5) / nx, lotD = (iz1 - iz0 - (nz - 1) * 2.5) / nz;
       var cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, dc = Math.hypot(cx - 160, cz - 160) / 160;
@@ -68,6 +84,19 @@ TG.buildCity = function (cfg) {
     }
   }
 
+  // ---- 노면 도로명(블록 가운데, 우측 차로, 진행 방향으로 읽힘) ----
+  for (var ri = 0; ri < xs.length; ri++) for (var rj = 0; rj < zs.length - 1; rj++) {
+    if ((ri + rj) % 2) continue;
+    var mzR = (zs[rj] + zs[rj + 1]) / 2, lo = laneOff('v', ri, 0);
+    roadTexts.push({ x: xs[ri] + lo, z: mzR + 6, text: roadNamesV[ri], rot: TG.DIR_HEADING[2] });        // 북행 차로(우측 = +x)
+    roadTexts.push({ x: xs[ri] - lo, z: mzR - 6, text: roadNamesV[ri], rot: TG.DIR_HEADING[0] });        // 남행 차로
+  }
+  for (var rj2 = 0; rj2 < zs.length; rj2++) for (var ri2 = 0; ri2 < xs.length - 1; ri2++) {
+    if ((ri2 + rj2) % 2 === 0) continue;
+    var mxR = (xs[ri2] + xs[ri2 + 1]) / 2, lo2 = laneOff('h', rj2, 0);
+    roadTexts.push({ x: mxR + 6, z: zs[rj2] + lo2, text: hName(rj2, mxR), rot: TG.DIR_HEADING[1] });     // 동행 차로(우측 = +z)
+    roadTexts.push({ x: mxR - 6, z: zs[rj2] - lo2, text: hName(rj2, mxR), rot: TG.DIR_HEADING[3] });     // 서행 차로(우측 = -z)
+  }
   // ---- 가로등: 보도 바깥선(반폭 + 2.4), 24m 간격 ----
   for (var i2 = 0; i2 < xs.length; i2++) for (var z = zs[0] + 20; z < zs[zs.length - 1]; z += 24) {
     if (Math.abs(z - zs[nearestIdx(zs, z)]) < 14 + 4) continue;
@@ -91,7 +120,7 @@ TG.buildCity = function (cfg) {
       var node = nodes[si][sj], road = roadOf(node, d), sideS = halfOf(road.axis, road.idx) + 1.4, back0 = stopDist(node, d);
       var mx = node.x - f[0] * 30, mz = node.z - f[1] * 30;
       var nearSchool = (mx >= schoolX0 - 8 && mx <= schoolX1 + 8 && mz >= schoolZ0 - 8 && mz <= schoolZ1 + 8);
-      var kindA = nearSchool ? 'school' : ((si * 3 + sj * 5 + d) % 4 === 0 ? 'limit50' : (d % 2 === 0 ? 'crosswalk' : 'signalAhead'));
+      var kindA = nearSchool ? 'school' : ((si * 3 + sj * 5 + d) % 4 === 0 ? (lanesOf(road.axis, road.idx) === 2 ? 'limit50' : 'limit40') : (d % 2 === 0 ? 'crosswalk' : 'signalAhead'));
       signs.push(Object.assign(approachSpot(node, d, back0 + 15, sideS), { kind: kindA }));
       if (nearSchool) {
         signs.push(Object.assign(approachSpot(node, d, back0 + 10, sideS), { kind: 'limit30' }));
@@ -147,17 +176,12 @@ TG.buildCity = function (cfg) {
   }
 
   var walls = [];
-  // 격자 도로 스텁 끝 8곳(도시 밖으로 이어지지 않는 곳)에 낮은 벽: 차가 도로 밖으로 나가지 않는다. 북(2,0)·동(4,2) 스텁은 연결로로 이어진다.
-  (function () {
-    for (var i = 0; i < xs.length; i++) {
-      if (i === 1 || i === 3) walls.push({ x1: xs[i] - halfV[i], z1: zs[0] - EXT + 0.6, x2: xs[i] + halfV[i], z2: zs[0] - EXT + 0.6, stub: true });
-      if (i === 1 || i === 3) walls.push({ x1: xs[i] - halfV[i], z1: zs[zs.length - 1] + EXT - 0.6, x2: xs[i] + halfV[i], z2: zs[zs.length - 1] + EXT - 0.6, stub: true });
-    }
-    for (var j = 0; j < zs.length; j++) {
-      if (j !== 2) walls.push({ x1: xs[0] - EXT + 0.6, z1: zs[j] - halfH[j], x2: xs[0] - EXT + 0.6, z2: zs[j] + halfH[j], stub: true });
-      if (j !== 2) walls.push({ x1: xs[xs.length - 1] + EXT - 0.6, z1: zs[j] - halfH[j], x2: xs[xs.length - 1] + EXT - 0.6, z2: zs[j] + halfH[j], stub: true });
-    }
-  })();
+  // 막다른 스텁은 없다(소유자: 「길이 곳곳에 막혀 있다」). 도시 밖으로 이어지는 스텁은 IC 연결로가 붙는 8곳뿐이고,
+  // 나머지 도로는 바깥 간선(반포대로·선릉로·사평대로·남부순환로)에서 T 자로 끝난다. world.js 가 이 함수로 스텁을 그릴지 정한다.
+  function hasStub(axis, idx, end) {   // end: 0 = 북/서 끝, 1 = 남/동 끝
+    if (axis === 'v') return idx === 0 || idx === 2 || idx === 4;
+    return idx === 2;
+  }
   function collideCircle(x, z, r) {
     for (var pass = 0; pass < 2; pass++) {
       for (var b = 0; b < buildings.length; b++) {
@@ -191,8 +215,10 @@ TG.buildCity = function (cfg) {
   var terrain = null;
   function frameAt(x, z, heading) {
     if (inGridArea(x, z) || (x > -20 && x < 340 && z > -20 && z < 340)) {
-      var lf = laneFrame(x, z, heading);
-      return { kind: 'grid', name: lf.lanes === 2 ? '시내 간선(왕복 4차로)' : '시내(왕복 2차로)', lateral: lf.lateral, limit: cfg.ROAD_LIMIT_KMH, half: lf.half,
+      var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z);
+      // 제한속도(안전속도 5030 취지): 4차로 간선 50, 2차로 40, 어린이보호구역 30
+      var lim = school ? 30 : (lf.lanes === 2 ? 50 : 40);
+      return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + (lf.lanes === 2 ? '(왕복 4차로)' : '(왕복 2차로)') + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
                shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center };
     }
     if (terrain) {
@@ -200,9 +226,12 @@ TG.buildCity = function (cfg) {
       if (q && q.dist > q.p.half) { var q2 = terrain.nearest(x, z, false); if (q2 && q2.dist <= q2.p.half) q = q2; }   // 램프 옆 본선 위(합류부)는 본선 프레임
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
-        var name = k === 'highway' ? '순환고속도로(왕복 6차로)' : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
+        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 6차로)' : '순환고속도로(왕복 6차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
+        var lim2 = k === 'highway' ? (z < -120 ? 80 : terrain.limitOf(k)) : terrain.limitOf(k);
+        if (q.link.name) name = q.link.name + (k === 'suburb' ? '(왕복 2차로)' : '');
+        if (q.link.limit) lim2 = q.link.limit;
         var oneLane = p.f < 0.5;
-        return { kind: 'link', name: name, lateral: lat, limit: terrain.limitOf(k), half: p.half, shoulder: terrain.shoulderOf(p),
+        return { kind: 'link', name: name, lateral: lat, limit: lim2, half: p.half, shoulder: terrain.shoulderOf(p),
                  shoulderMin: oneLane ? cfg.STOP_SHOULDER_MIN : cfg.HW_LANES[2] + 1.9, onRoad: q.dist <= p.half, lanes: oneLane ? 1 : 3,
                  y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7, oneWay: q.link.oneWay, tx: dirA ? q.tx : -q.tx, tz: dirA ? q.tz : -q.tz, oneLane: oneLane };
       }
@@ -215,6 +244,7 @@ TG.buildCity = function (cfg) {
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
     schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
+    landmarks: landmarks, roadNamesV: roadNamesV, roadNamesH: roadNamesH, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,

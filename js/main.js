@@ -139,7 +139,7 @@
       { at: 6.6, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
       { at: 8.4, text: '교통경찰.' },
       { at: 10.4, text: 'SEOUL PATROL', big: true },
-      { at: 11.4, text: '시내 · 교외 · 순환고속도로 순찰 근무', small: true },
+      { at: 11.4, text: '서울 강남 · 서초 · 순환고속도로 순찰 근무', small: true },
     ];
     hud.introLines(intro.lines, -1);
     hud.showIntro(true);

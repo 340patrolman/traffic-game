@@ -24,10 +24,15 @@ TG.Minimap = function (canvas, city, terrain) {
     for (var j = 0; j < city.zs.length; j++) { g.strokeStyle = '#b9c3cf'; g.lineWidth = city.lanesH[j] === 2 ? 3.2 : 1.8; g.beginPath(); g.moveTo(mx(city.xs[0] - 10), mz(city.zs[j])); g.lineTo(mx(city.xs[city.xs.length - 1] + 10), mz(city.zs[j])); g.stroke(); }
     // 강·바다 힌트
     g.strokeStyle = 'rgba(80,150,220,0.7)'; g.lineWidth = 2; g.beginPath();
-    for (var z = Z0; z <= Z1; z += 20) { var rx = 470 + 25 * Math.sin(z / 180 + 1); if (z === Z0) g.moveTo(mx(rx), mz(z)); else g.lineTo(mx(rx), mz(z)); }
+    g.lineWidth = 5; g.strokeStyle = 'rgba(80,150,220,0.75)';
+    for (var x = X0; x <= X1; x += 20) { var rz = -212 + 18 * Math.sin(x / 230 + 0.6); if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
     g.stroke();
     g.font = 'bold 9px sans-serif'; g.fillStyle = '#e8edf2'; g.textAlign = 'center';
-    g.fillText('순환고속도로', mx(160), mz(-262) - 3); g.fillText('시내', mx(160), mz(40));
+    g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('순환고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
+    g.save(); g.translate(mx(160) + 9, mz(470)); g.rotate(-Math.PI / 2); g.fillText('경부고속도로', 0, 0); g.restore();
+    g.font = 'bold 8px sans-serif'; g.fillStyle = '#ffd86b';
+    g.fillText('서초구', mx(60), mz(300)); g.fillText('강남구', mx(260), mz(300)); g.fillText('강남역', mx(160), mz(152));
+    g.fillStyle = '#cfe0ff'; g.font = '7px sans-serif'; g.fillText('테헤란로', mx(250), mz(172)); g.fillText('서초대로', mx(70), mz(172)); g.fillText('반포대로', mx(0), mz(60) - 4); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
   })();
   this.draw = function (player, cars, target) {
     ctx.clearRect(0, 0, W, H);

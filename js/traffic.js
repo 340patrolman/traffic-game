@@ -60,6 +60,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (exit && !car.isBus) opts.push(['X', 0.5]);
     if (city.nodeFrom(N, (d + 3) % 4) && (!car || car.laneIdx === 1 || city.lanesOf(city.roadOf(N, d).axis, city.roadOf(N, d).idx) === 1)) opts.push(['R', 0.28]);  // 4차로에서는 바깥 차로만 우회전
     if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', opts.length ? 0.0 : 1]);
+    if (!opts.length) {   // 모퉁이(직진 불가)에서 안쪽 차로 차량: 우회전·좌회전 허용(차로 바꿔 돈다)
+      if (city.nodeFrom(N, (d + 3) % 4)) return 'R';
+      if (city.nodeFrom(N, (d + 1) % 4)) return 'L';
+      return 'S';
+    }
     var sum = 0; opts.forEach(function (o) { sum += o[1]; });
     var x = rng() * sum;
     for (var i = 0; i < opts.length; i++) { x -= opts[i][1]; if (x <= 0) return opts[i][0]; }
