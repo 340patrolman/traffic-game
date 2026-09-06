@@ -276,12 +276,12 @@ TG.vehmesh = (function () {
     var roof = roofY(T), l = T.l, pr = profile(T), env = pr.env, ws0 = null, ws1 = null;
     for (var e = 0; e < env.length - 1; e++) if (env[e + 1].glass && env[e].z > 0 && !ws0) { ws0 = env[e]; ws1 = env[e + 1]; }
     var wsBase = ws0 ? ws0.z : l * 0.15, wsTop = ws1 ? ws1.z : l * 0.03, wsBaseY = ws0 ? ws0.y : T.belt, wsTopY = ws1 ? ws1.y : roof;
-    var eyeZ = Math.max(-l * 0.03 + 0.26, wsBase - 0.92), eyeY = roof - 0.27;
+    var eyeZ = wsBase - 0.95, eyeY = roof - 0.27;   // 눈은 앞유리 밑단에서 0.95m 뒤(운전석). 예전 식은 눈을 앞유리 위에 두어 대시보드가 후드 위로 나갔다
     var L = {
       eye: { x: 0.38, y: eyeY, z: eyeZ }, roof: roof, wsBase: wsBase, wsTop: wsTop, wsBaseY: wsBaseY, wsTopY: wsTopY,
       dashTop: eyeY - 0.40, dashFront: eyeZ + 0.46,
       clusterY: eyeY - 0.29, clusterZ: eyeZ + 0.66, clusterW: 0.34, clusterH: 0.13,
-      wheel: { x: 0.38, y: eyeY - 0.33, z: eyeZ + 0.40, tilt: -0.50 },
+      wheel: { x: 0.38, y: eyeY - 0.31, z: eyeZ + 0.37, tilt: -0.56 },
       nav: { x: 0.0, y: eyeY - 0.27, z: eyeZ + 0.62, w: 0.26, h: 0.17 },
       mdt: { x: -0.45, y: eyeY - 0.26, z: eyeZ + 0.60, w: 0.30, h: 0.18 },
       roomMirror: { x: 0, y: eyeY + 0.13, z: eyeZ + 0.46 },
@@ -289,6 +289,15 @@ TG.vehmesh = (function () {
       screen: { x: 0.72, y: eyeY - 0.24, z: eyeZ + 0.58 },
     };
     return (cache[key] = L);
+  }
+  // 두 점을 잇는 기울어진 빔(폭 w 는 x 방향, 두께 d 는 진행 방향에 수직). 필러처럼 계단 없이 매끈하게.
+  function slantBeam(gb, x0, y0, z0, x1, y1, z1, w, d, color) {
+    var dy = y1 - y0, dz = z1 - z0, len = Math.hypot(dy, dz) || 1, ny = -dz / len * d / 2, nz = dy / len * d / 2, hw = w / 2;
+    function P(x, y, z, sx, sn) { return [x + sx * hw, y + sn * ny, z + sn * nz]; }
+    var A0 = P(x0, y0, z0, -1, -1), B0 = P(x0, y0, z0, 1, -1), C0 = P(x0, y0, z0, 1, 1), D0 = P(x0, y0, z0, -1, 1);
+    var A1 = P(x1, y1, z1, -1, -1), B1 = P(x1, y1, z1, 1, -1), C1 = P(x1, y1, z1, 1, 1), D1 = P(x1, y1, z1, -1, 1);
+    gb.quad(A0, A1, D1, D0, [-1, 0, 0], color, null); gb.quad(B0, C0, C1, B1, [1, 0, 0], color, null);
+    gb.quad(A0, B0, B1, A1, [0, -nz, ny], color, null); gb.quad(D0, D1, C1, C0, [0, nz, -ny], color, null);
   }
   function interior(T) {
     var key = 'int:' + T.w + ':' + T.l;
@@ -346,22 +355,28 @@ TG.vehmesh = (function () {
     gb.box(ox + 0.26, belt - 0.32, oz + 0.22, 0.09, 0.08, 0.10, SKIN, {}); gb.box(ox - 0.26, belt - 0.32, oz + 0.22, 0.09, 0.08, 0.10, SKIN, {});           // 손
     gb.box(ox, belt + 0.42, oz, 0.20, 0.24, 0.22, SKIN, {});                                           // 머리
     gb.box(ox, belt + 0.58, oz, 0.24, 0.09, 0.25, CAP, {}); gb.box(ox, belt + 0.60, oz + 0.005, 0.245, 0.03, 0.255, 0xe8ecf0, {}); gb.box(ox, belt + 0.545, oz + 0.16, 0.22, 0.02, 0.10, 0x101215, {});   // 모자(남색·흰 띠·챙)
+    gb.box(ox + 0.10, belt + 0.02, oz + 0.145, 0.05, 0.52, 0.015, 0x3a3d44, {});                        // 안전벨트(어깨띠)
     // 도어 트림(양쪽): 창턱·상단 패드·팔걸이·하단 패널·손잡이
     for (var d = -1; d <= 1; d += 2) {
       var dx = d * (w / 2 - 0.05), zc = L.eye.z - 0.05;
       gb.box(dx, belt + 0.01, zc, 0.06, 0.05, 1.45, DASH2, {});
       gb.box(dx, belt - 0.16, zc, 0.05, 0.30, 1.45, DASH, {});
       gb.box(dx - d * 0.06, belt - 0.24, zc + 0.10, 0.14, 0.05, 0.55, PAD, {});
-      gb.box(dx, belt - 0.55, zc, 0.05, 0.48, 1.45, 0x3c4048, {});
+      gb.box(dx, belt - 0.55, zc, 0.04, 0.48, 1.45, 0x3c4048, {});
+      gb.cylinder(dx - d * 0.03, belt - 0.62, zc - 0.25, 0.09, 0.09, 0.012, 12, 0x2a2d33, true);              // 스피커 그릴
+      gb.box(dx - d * 0.03, belt - 0.72, zc + 0.30, 0.03, 0.12, 0.42, 0x2f3238, {});                          // 도어 포켓
       gb.box(dx - d * 0.05, belt - 0.12, zc + 0.30, 0.06, 0.03, 0.14, TRIM, {});
       gb.box(dx - d * 0.04, belt - 0.05, zc + 0.35, 0.05, 0.02, 0.12, 0x0f1114, {});                   // 창문 스위치
     }
     // A필러(앞유리 옆 비스듬히 5토막)·헤더·선바이저·천장(밝은 헤드라이너)·B필러
     for (var s2 = -1; s2 <= 1; s2 += 2) {
-      for (var i2 = 0; i2 < 5; i2++) {
-        var t = (i2 + 0.5) / 5, pz = zb + (L.wsTop - zb) * t, py = L.wsBaseY + (L.wsTopY - L.wsBaseY) * t;
-        var secP = section(T, pz, pr.top(pz), true, 0xffffff).P, px = s2 * (Math.max(secP[8][0], secP[10][0]) - 0.03);
-        gb.box(px, py, pz, 0.08, Math.abs(L.wsTopY - L.wsBaseY) / 5 + 0.06, Math.abs(L.wsTop - zb) / 5 + 0.03, DASH2, {});
+      // A필러: 앞유리 밑단 → 윗단을 잇는 하나의 기울어진 빔(계단 없음)
+      var pa = section(T, zb, pr.top(zb), true, 0xffffff).P, pb = section(T, L.wsTop, pr.top(L.wsTop), true, 0xffffff).P;
+      slantBeam(gb, s2 * (Math.max(pa[8][0], pa[10][0]) - 0.02), L.wsBaseY + 0.02, zb, s2 * (Math.max(pb[8][0], pb[10][0]) - 0.02), L.wsTopY - 0.02, L.wsTop, 0.06, 0.09, DASH2);
+      for (var i2 = 0; i2 < 0; i2++) {
+        var t = (i2 + 0.5) / 8, pz = zb + (L.wsTop - zb) * t, py = L.wsBaseY + (L.wsTopY - L.wsBaseY) * t;
+        var secP = section(T, pz, pr.top(pz), true, 0xffffff).P, px = s2 * (Math.max(secP[8][0], secP[10][0]) - 0.012);
+        gb.box(px, py, pz, 0.05, Math.abs(L.wsTopY - L.wsBaseY) / 8 + 0.04, Math.abs(L.wsTop - zb) / 8 + 0.02, DASH2, {});
       }
       var bz = -l * 0.03, bt = pr.top(bz), bsec = section(T, bz, bt, false, 0xffffff).P;
       gb.box(s2 * (bsec[8][0] - 0.03), (belt + bt) / 2, bz, 0.07, bt - belt - 0.08, 0.10, DASH2, {});

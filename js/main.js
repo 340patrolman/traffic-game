@@ -113,10 +113,13 @@
   }
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
-    renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = chaseFov(); camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = chaseFov();
+    camera.near = settings.cam === 'cockpit' ? 0.12 : 0.5;   // 차내: 핸들·손(눈앞 0.35m)이 근접 평면에 잘리지 않게
+    camera.updateProjectionMatrix();
     document.body.classList.toggle('portrait', h > w);
     if (panoActive()) {
       var L = panoLayout(w, h); pano = L;
+      camC.near = camL.near = camR.near = 0.12;
       camC.aspect = L.cw / h; camC.fov = L.v; camC.updateProjectionMatrix();
       camL.aspect = L.sw / h; camL.fov = L.v; camL.updateProjectionMatrix();
       camR.aspect = L.sw / h; camR.fov = L.v; camR.updateProjectionMatrix();

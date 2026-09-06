@@ -101,8 +101,24 @@
     }, this);
     var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.05, 18), spokeMat); hub.rotation.x = Math.PI / 2; this.steer3d.add(hub);
     var hubEm = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.07), new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true })); hubEm.position.z = 0.027; this.steer3d.add(hubEm);
+    // 운전자의 두 손(9시·3시)과 소매: 핸들과 함께 돈다
+    var sleeveMat = new THREE.MeshStandardMaterial({ color: 0x2b3a55, roughness: 0.9 }), skinMat = new THREE.MeshStandardMaterial({ color: 0xe6b89c, roughness: 0.8 });
+    [-1, 1].forEach(function (hs) {
+      var hand = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.075, 0.10), skinMat); hand.position.set(hs * 0.19, 0.01, 0.035); this.steer3d.add(hand);
+      var thumb = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.05), skinMat); thumb.position.set(hs * 0.15, 0.04, 0.03); this.steer3d.add(thumb);
+      var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.09, 0.30), sleeveMat); sleeve.position.set(hs * 0.20, -0.02, 0.21); sleeve.rotation.x = 0.35; this.steer3d.add(sleeve);
+      var cuff = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.095, 0.03), new THREE.MeshStandardMaterial({ color: 0xd4ff3c, roughness: 0.9 })); cuff.position.set(hs * 0.20, 0.0, 0.085); cuff.rotation.x = 0.35; this.steer3d.add(cuff);
+    }, this);
     this.steer3d.position.set(LAY.wheel.x, LAY.wheel.y, LAY.wheel.z); this.steer3d.rotation.order = 'YXZ';
     this.steer3d.rotation.x = LAY.wheel.tilt; this.steer3d.visible = false; g.add(this.steer3d);
+    // 앞유리: 옅은 청색 유리 + 위쪽 선팅 띠(차내 시점에서만)
+    var wsDz = LAY.wsTop - LAY.wsBase, wsDy = LAY.wsTopY - LAY.wsBaseY, wsLen = Math.hypot(wsDz, wsDy), wsAng = Math.atan2(wsDy, -wsDz);
+    var glassMat = new THREE.MeshBasicMaterial({ color: 0x9ec3e6, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide });
+    this.windshield = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.92, wsLen), glassMat);
+    this.windshield.position.set(0, (LAY.wsBaseY + LAY.wsTopY) / 2, (LAY.wsBase + LAY.wsTop) / 2 - 0.02); this.windshield.rotation.x = -(Math.PI / 2 - wsAng); this.windshield.visible = false; g.add(this.windshield);
+    var tint = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.92, wsLen * 0.16), new THREE.MeshBasicMaterial({ color: 0x1a2a44, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
+    tint.position.set(0, wsLen * 0.42, 0.001); this.windshield.add(tint);
+    this.mirrorMeshes.push(this.windshield);
     var pr = TG.vehmesh.profile(T), topR = pr.top(pr.zr), hy = Math.min(topR - 0.12, T.belt - 0.15);
     this.brakeLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.86, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
     this.brakeLamp.position.set(0, hy, -l / 2 - 0.02); this.brakeLamp.visible = false; g.add(this.brakeLamp);

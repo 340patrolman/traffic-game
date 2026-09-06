@@ -9,13 +9,29 @@ TG.Input = function () {
   this.isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /[?&]touch=1/.test(location.search);
   this.handlers = {};
 
+  // 키 코드: 일부 환경(한글 IME·임베디드 브라우저·원격 입력)에서는 e.code 가 비어 온다 → e.key 로 복원한다. 한글 자모(ㅈ=W, ㅁ=A …)도 같은 키로 본다.
+  var JAMO = { 'ㅂ': 'Q', 'ㅈ': 'W', 'ㄷ': 'E', 'ㄱ': 'R', 'ㅅ': 'T', 'ㅛ': 'Y', 'ㅕ': 'U', 'ㅑ': 'I', 'ㅐ': 'O', 'ㅔ': 'P', 'ㅁ': 'A', 'ㄴ': 'S', 'ㅇ': 'D', 'ㄹ': 'F', 'ㅎ': 'G', 'ㅗ': 'H', 'ㅓ': 'J', 'ㅏ': 'K', 'ㅣ': 'L', 'ㅋ': 'Z', 'ㅌ': 'X', 'ㅊ': 'C', 'ㅍ': 'V', 'ㅠ': 'B', 'ㅜ': 'N', 'ㅡ': 'M' };
+  var NAMED = { ' ': 'Space', 'Spacebar': 'Space', 'Esc': 'Escape', 'Up': 'ArrowUp', 'Down': 'ArrowDown', 'Left': 'ArrowLeft', 'Right': 'ArrowRight' };
+  function codeOf(e) {
+    var c = e.code;
+    if (c && c !== 'Unidentified') { if (/^Key[A-Z]$/.test(c) || /^Arrow|^Digit|^Space$|^Escape$|^Enter$|^Shift|^Control|^Alt/.test(c)) return c; }
+    var k = e.key || '';
+    if (NAMED[k]) return NAMED[k];
+    if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Escape' || k === 'Enter') return k;
+    if (JAMO[k]) return 'Key' + JAMO[k];
+    if (/^[a-zA-Z]$/.test(k)) return 'Key' + k.toUpperCase();
+    if (/^[0-9]$/.test(k)) return 'Digit' + k;
+    if (!c && e.keyCode) { var kc = e.keyCode; if (kc === 37) return 'ArrowLeft'; if (kc === 38) return 'ArrowUp'; if (kc === 39) return 'ArrowRight'; if (kc === 40) return 'ArrowDown'; if (kc === 32) return 'Space'; if (kc === 27) return 'Escape'; if (kc === 13) return 'Enter'; if (kc >= 65 && kc <= 90) return 'Key' + String.fromCharCode(kc); }
+    return c || k;
+  }
   addEventListener('keydown', function (e) {
+    var code = codeOf(e);
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(code) >= 0) e.preventDefault();
     if (e.repeat) return;
-    self.held[e.code] = true; self.pressed[e.code] = true;
-    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) e.preventDefault();
-    if (self.handlers[e.code]) self.handlers[e.code]();
+    self.held[code] = true; self.pressed[code] = true;
+    if (self.handlers[code]) self.handlers[code]();
   });
-  addEventListener('keyup', function (e) { self.held[e.code] = false; });
+  addEventListener('keyup', function (e) { self.held[codeOf(e)] = false; });
   addEventListener('blur', function () { self.held = {}; for (var k in self.btn) self.btn[k] = false; releaseStick(); });
 
   function bindHold(el, name) {
