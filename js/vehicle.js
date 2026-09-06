@@ -170,7 +170,7 @@
     var vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz, vF0 = vF;
     var onRoad = city.onRoadAny(this.pos.x, this.pos.z);
     T.offroad = !onRoad;
-    var surface = onRoad ? 1.0 : 0.72;
+    var surface = (onRoad ? 1.0 : 0.72) * (this.surfaceFactor || 1);   // 날씨(비·눈) 그립 계수
 
     // 경사(앞뒤 높이차)
     var hA = city.heightAt(this.pos.x + fx * 2, this.pos.z + fz * 2), hB = city.heightAt(this.pos.x - fx * 2, this.pos.z - fz * 2);

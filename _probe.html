@@ -75,6 +75,9 @@
       <button class="viewpick" data-view="chase">추적(3인칭)</button>
       <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
     </div>
+    <div class="views"><span class="lbl">날씨</span>
+      <button class="wpick" data-weather="clear">☀ 맑음</button><button class="wpick" data-weather="sunset">🌇 석양</button><button class="wpick" data-weather="night">🌙 밤</button><button class="wpick" data-weather="rain">🌧 비</button><button class="wpick" data-weather="snow">❄ 눈</button>
+    </div>
     <button id="btnStart" class="primary">출동</button>
     <div id="best" class="best"></div>
     <div class="controls">
@@ -94,6 +97,7 @@
     <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
+    <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option></select></label>
     <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
     <button id="btnResume" class="primary">계속</button>
     <button id="btnRecover" class="ghost">🛣 도로로 복귀(빠졌을 때)</button>
@@ -139,6 +143,7 @@ window.addEventListener('load', function () {
 <script src="js/city.js?v=0.5.0"></script>
 <script src="js/world.js?v=0.5.0"></script>
 <script src="js/terrain.js?v=0.5.0"></script>
+<script src="js/weather.js?v=0.5.0"></script>
 <script src="js/signals.js?v=0.5.0"></script>
 <script src="js/vehmesh.js?v=0.5.0"></script>
 <script src="js/vehicle.js?v=0.5.0"></script>

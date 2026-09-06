@@ -2,7 +2,7 @@
 (function () {
   var C = TG.CONFIG;
   var G = TG.game = { state: 'boot', score: 0, timeLeft: C.SHIFT_SECONDS, cfg: C, laws: null, stats: null, paused: false, pauseReasons: {} };
-  var renderer, scene, camera, canvas, city, world, terrain, signals, traffic, peds, player, input, enforcement, minimap, hud = TG.hud;
+  var renderer, scene, camera, canvas, city, world, terrain, signals, traffic, peds, player, input, enforcement, minimap, weather, hud = TG.hud;
   var settings = TG.save.get('settings', { hints: true, stopbar: true, sound: true, car: 'sedan' });
   if (typeof settings.hints !== 'boolean') settings = { hints: true, stopbar: true, sound: true, car: 'sedan' };
   if (settings.cam !== 'cockpit') settings.cam = 'chase';
@@ -31,6 +31,9 @@
     world = TG.buildWorld(scene, city, C);
     terrain = TG.buildTerrain(scene, city, C);
     city.attachTerrain(terrain);
+    weather = new TG.Weather(scene, world, terrain, city, renderer); G.weather = weather;
+    if (!TG.WEATHERS[settings.weather]) settings.weather = 'clear';
+    weather.set(settings.weather);
     signals = new TG.Signals(city, world, C);
     var rng = TG.makeRNG((Date.now() & 0xffff) + 1);
     traffic = new TG.Traffic(scene, city, signals, C, rng); traffic.terrain = terrain;
@@ -164,10 +167,15 @@
       input.bindTap(b, function () {
         settings.car = b.getAttribute('data-car'); TG.save.set('settings', settings);
         document.querySelectorAll('.carpick').forEach(function (x) { x.classList.toggle('sel', x === b); });
-        if (G.state === 'title') { scene.remove(player.mesh); player = new TG.PlayerCar(scene, city, C, C.CARS[settings.car]); player.setSiren(true); G.player = player; }
+        if (G.state === 'title') { scene.remove(player.mesh); player = new TG.PlayerCar(scene, city, C, C.CARS[settings.car]); player.setSiren(true); G.player = player; weather.attachPlayer(player.mesh, player.len); }
       });
     });
     input.bindTap($('btnStart'), function () { start(settings.car); });
+    // 날씨·시간대: 타이틀 버튼 + 일시정지 메뉴 선택
+    function applyWeather(name) { settings.weather = name; TG.save.set('settings', settings); weather.set(name); document.querySelectorAll('.wpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-weather') === name); }); var ow = $('optWeather'); if (ow) ow.value = name; }
+    document.querySelectorAll('.wpick').forEach(function (b) { input.bindTap(b, function () { applyWeather(b.getAttribute('data-weather')); }); });
+    if ($('optWeather')) $('optWeather').addEventListener('change', function () { applyWeather($('optWeather').value); });
+    applyWeather(settings.weather);
     // 시점: 타이틀의 선택 버튼 + 게임 중 「시점」 버튼 / C 키
     function applyView(mode, announce) {
       settings.cam = mode; TG.save.set('settings', settings);
@@ -308,7 +316,7 @@
     TG.audio.resume();
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, C.CARS[carId] || C.CARS.sedan);
-    player.setView(settings.cam);
+    player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len);
     TG.audio.setPowertrain(player.spec.powertrain || 'ice');
     G.player = player; traffic.player = player; peds.player = player;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
@@ -426,7 +434,7 @@
     rules.pitT = pit ? (rules.pitT || 0) + dt : 0;
     var B = city.bounds, outside = player.pos.x < B.x0 || player.pos.x > B.x1 || player.pos.z < B.z0 || player.pos.z > B.z1;
     if (rules.stuckT > 3 || rules.pitT > 2.5 || outside) { rules.stuckT = 0; rules.pitT = 0; recoverToRoad(outside ? '지도 밖 — 마지막 도로 위치로 복귀' : '도로 밖에 빠졌습니다 — 마지막 도로 위치로 복귀'); }
-    if (terrain.isWater(player.pos.x, player.pos.z)) {
+    if (terrain.isWater(player.pos.x, player.pos.z) && !frame.onRoad) {
       addScore(-5, 'water'); hud.notice('도로 이탈(물) — 마지막 도로 위치로 복귀 (-5)', 'bad', 3000); TG.audio.bad();
       player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); camInit = false;
     }
@@ -521,7 +529,8 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
-    player.assist = settings.assist !== false;
+    player.assist = settings.assist !== false; player.surfaceFactor = weather.grip;
+    weather.update(dt, camera.position);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);
     signals.update(dt);

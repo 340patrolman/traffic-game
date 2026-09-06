@@ -118,6 +118,10 @@ TG.tex = (function () {
       g.fillStyle = '#a97d5b';
       for (var y = 0; y < 128; y += 16) for (var x = ((y / 16) % 2) * 16; x < 128; x += 32) g.fillRect(x, y, 14, 7);
       g.fillStyle = '#3b4a58'; g.fillRect(24, 30, 32, 44); g.fillRect(72, 30, 32, 44);
+    } else if (style === 'tower') {  // 고층 타워: 유리 커튼월(어두운 유리 + 밝은 멀리언, 일부 창은 불 켜짐)
+      g.fillStyle = '#1f2f42'; g.fillRect(0, 0, 128, 128);
+      for (var ty = 0; ty < 128; ty += 16) for (var tx = 0; tx < 128; tx += 16) { var lit = ((tx * 7 + ty * 13) % 23) < 6; g.fillStyle = lit ? '#e8dcb0' : ((tx + ty) % 32 === 0 ? '#2c4258' : '#25394f'); g.fillRect(tx + 2, ty + 2, 12, 12); }
+      g.fillStyle = '#8aa0b8'; for (var mx = 0; mx < 128; mx += 16) g.fillRect(mx, 0, 2, 128); for (var my = 0; my < 128; my += 16) g.fillRect(0, my, 128, 2);
     } else {                          // 기본 콘크리트
       g.fillStyle = '#c8c4bb'; g.fillRect(0, 0, 128, 128);
       g.fillStyle = '#4c5866'; g.fillRect(20, 26, 36, 48); g.fillRect(72, 26, 36, 48);

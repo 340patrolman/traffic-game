@@ -71,13 +71,15 @@
     var statics = [];
     function addMesh(geo, mat, cast, receive) { var m = new THREE.Mesh(geo, mat); m.castShadow = !!cast; m.receiveShadow = !!receive; m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m); statics.push(m); return m; }
     var lambertVC = new THREE.MeshLambertMaterial({ vertexColors: true });
+    TG.mats = TG.mats || { road: [], ground: [] }; TG.mats.ground.push(lambertVC);
     var basicVC = new THREE.MeshBasicMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
 
     // 도로(아스팔트 텍스처): 도로마다 폭
     var road = new GeoBuilder();
     for (var i = 0; i < xs.length; i++) road.rect(xs[i], (zs[0] + zs[zs.length - 1]) / 2, hV[i] * 2, zs[zs.length - 1] - zs[0] + EXT * 2, 0, 0.05, 0xffffff, 8);
     for (var j = 0; j < zs.length; j++) road.rect((xs[0] + xs[xs.length - 1]) / 2, zs[j], xs[xs.length - 1] - xs[0] + EXT * 2, hH[j] * 2, 0, 0.05, 0xffffff, 8);
-    addMesh(road.build(), new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }), false, true);
+    var roadMatW = new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }); TG.mats.road.push(roadMatW);
+    addMesh(road.build(), roadMatW, false, true);
 
     // 보도 + 연석 + 공원
     var walk = new GeoBuilder(), curb = new GeoBuilder();
@@ -90,7 +92,8 @@
     city.blocks.forEach(function (b) { slab(b.x0, b.z0, b.x1, b.z1); });
     var o0 = xs[0] - hV[0], o1 = xs[xs.length - 1] + hV[xs.length - 1], p0 = zs[0] - hH[0], p1 = zs[zs.length - 1] + hH[zs.length - 1];
     slab(o0 - SW, p0 - SW, o1 + SW, p0); slab(o0 - SW, p1, o1 + SW, p1 + SW); slab(o0 - SW, p0, o0, p1); slab(o1, p0, o1 + SW, p1);
-    addMesh(walk.build(), new THREE.MeshLambertMaterial({ map: TG.tex.paving(), vertexColors: true }), false, true);
+    var walkMat = new THREE.MeshLambertMaterial({ map: TG.tex.paving(), vertexColors: true }); TG.mats.road.push(walkMat);
+    addMesh(walk.build(), walkMat, false, true);
     addMesh(curb.build(), lambertVC, false, true);
     var park = new GeoBuilder();
     city.parks.forEach(function (p) { park.rect((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, p.x1 - p.x0, p.z1 - p.z0, 0, 0.21, 0x6f9a4c); });
@@ -142,11 +145,23 @@
     Object.keys(textGroups).forEach(function (txt) { addMesh(textGroups[txt].build(), new THREE.MeshBasicMaterial({ map: TG.tex.roadText(txt), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), false, false); });
 
     // 건물
-    var walls = { apt: new GeoBuilder(), office: new GeoBuilder(), shop: new GeoBuilder() };
+    var walls = { apt: new GeoBuilder(), office: new GeoBuilder(), shop: new GeoBuilder(), tower: new GeoBuilder() };
     var roofs = new GeoBuilder(), strips = [new GeoBuilder(), new GeoBuilder(), new GeoBuilder()], labels = new GeoBuilder(), glass = new GeoBuilder();
-    var tints = { apt: [0xf1efe9, 0xe8e3d6, 0xdfe4ea], office: [0xffffff, 0xd8dee6, 0xc9d3dd], shop: [0xffffff, 0xe6d9c8, 0xd9cfc0] };
+    var tints = { apt: [0xf1efe9, 0xe8e3d6, 0xdfe4ea], office: [0xffffff, 0xd8dee6, 0xc9d3dd], shop: [0xffffff, 0xe6d9c8, 0xd9cfc0], tower: [0x9fc4e8, 0x8fd0c8, 0xd9c39a] };
     city.buildings.forEach(function (b) {
       var w = b.x1 - b.x0, dd = b.z1 - b.z0, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, tint = tints[b.style][b.seed % 3];
+      if (b.style === 'tower') {   // 고층 타워: 본체 + 셋백 상층부 + 크라운 + 첨탑/헬리패드(심시티 느낌의 스카이라인)
+        var h1 = b.h * 0.62, w2 = w * 0.78, d2 = dd * 0.78;
+        walls.tower.box(cx, h1 / 2 + 0.2, cz, w, h1, dd, tint, { sidesOnly: true, uvScale: [3, 3] });
+        walls.tower.box(cx, h1 + (b.h - h1) / 2 + 0.2, cz, w2, b.h - h1, d2, tint, { sidesOnly: true, uvScale: [3, 3] });
+        roofs.box(cx, h1 + 0.3, cz, w + 0.2, 0.5, dd + 0.2, 0x3a3f47, { noBottom: true });
+        roofs.box(cx, b.h + 0.3, cz, w2 + 0.2, 0.5, d2 + 0.2, 0x3a3f47, { noBottom: true });
+        roofs.box(cx, b.h + 1.2, cz, w2 * 0.55, 1.8, d2 * 0.55, 0x2b2f36, {});
+        if (b.seed % 3 === 0) { roofs.box(cx, b.h + 6, cz, 0.5, 9, 0.5, 0xc9ccd0, {}); roofs.box(cx, b.h + 10.6, cz, 0.9, 0.5, 0.9, 0xff4040, {}); }
+        else if (b.seed % 3 === 1) roofs.cylinder(cx, b.h + 0.55, cz, Math.min(w, dd) * 0.28, Math.min(w, dd) * 0.28, 0.2, 16, 0xe9ecef, true);
+        else for (var sp = 0; sp < 3; sp++) roofs.box(cx - w2 * 0.3 + sp * w2 * 0.3, b.h + 2.4, cz, 0.3, 4.2 - sp, 0.3, 0xc9ccd0, {});
+        return;
+      }
       walls[b.style].box(cx, b.h / 2 + 0.2, cz, w, b.h, dd, tint, { sidesOnly: true, uvScale: [4, 3] });
       roofs.box(cx, b.h + 0.2, cz, w + 0.3, 0.4, dd + 0.3, b.style === 'apt' ? 0x8b8f96 : 0x5d6168, { noBottom: true });
       roofs.box(cx - w * 0.25, b.h + 1.3, cz - dd * 0.2, Math.min(4, w * 0.3), 2.2, Math.min(3, dd * 0.3), 0x9aa0a6, {});
@@ -158,7 +173,8 @@
         labels.vquad(cx, b.h - 2.2, b.z0 - 0.05, Math.min(6, w * 0.6), 1.6, Math.PI, 0xffffff, null); labels.vquad(cx, b.h - 2.2, b.z1 + 0.05, Math.min(6, w * 0.6), 1.6, 0, 0xffffff, null);
       }
     });
-    Object.keys(walls).forEach(function (st) { if (!walls[st].empty()) addMesh(walls[st].build(), new THREE.MeshLambertMaterial({ map: TG.tex.facade(st), vertexColors: true }), true, true); });
+    TG.mats.facade = TG.mats.facade || [];
+    Object.keys(walls).forEach(function (st) { if (!walls[st].empty()) { var fm = new THREE.MeshLambertMaterial({ map: TG.tex.facade(st), vertexColors: true }); TG.mats.facade.push(fm); addMesh(walls[st].build(), fm, true, true); } });
     addMesh(roofs.build(), lambertVC, true, false);
     addMesh(glass.build(), new THREE.MeshLambertMaterial({ vertexColors: true }), false, false);
     strips.forEach(function (s, k) { if (!s.empty()) addMesh(s.build(), new THREE.MeshLambertMaterial({ map: TG.tex.shopStrip(k + 1), vertexColors: true }), false, false); });
@@ -244,6 +260,6 @@
     sun.shadow.camera.left = -90; sun.shadow.camera.right = 90; sun.shadow.camera.top = 90; sun.shadow.camera.bottom = -90; sun.shadow.bias = -0.0012;
     scene.add(sun); scene.add(sun.target);
     scene.fog = new THREE.Fog(0xcfe0f3, 220, 1500);
-    return { statics: statics, heads: heads, sun: sun, hemi: hemi, followSun: function (x, z) { sun.position.set(x + 60, 110, z + 40); sun.target.position.set(x, 0, z); sun.target.updateMatrixWorld(); } };
+    return { statics: statics, heads: heads, sun: sun, hemi: hemi, followSun: function (x, z) { sun.position.set(x + 60, this.sunHeight || 110, z + 40); sun.target.position.set(x, 0, z); sun.target.updateMatrixWorld(); } };
   };
 })();

@@ -107,8 +107,8 @@ h2{font-size:26px;letter-spacing:2px}
 .carpick.sel{border-color:var(--accent);background:rgba(255,207,63,.12)}
 .views{display:flex;gap:8px;align-items:center;justify-content:center;margin:0 0 6px}
 .views .lbl{font-size:12px;color:var(--dim);margin-right:4px}
-.viewpick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit}
-.viewpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
+.viewpick,.wpick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+.viewpick.sel,.wpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
 .tbtn.small.view{top:calc(112px + var(--sa-t));font-size:12px;width:46px}
 body.portrait .tbtn.small.view{top:calc(168px + var(--sa-t))}
 button.primary{pointer-events:auto;display:block;width:100%;margin:12px auto 0;padding:14px;border-radius:12px;border:2px solid var(--accent);background:rgba(255,207,63,.14);color:#fff;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation}

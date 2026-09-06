@@ -58,10 +58,11 @@ TG.buildCity = function (cfg) {
         var bx0 = ix0 + lx * (lotW + 2.5), bz0 = iz0 + lz * (lotD + 2.5), bx1 = bx0 + lotW, bz1 = bz0 + lotD, r = rng();
         if (r < 0.12) { for (var t3 = 0; t3 < 3; t3++) trees.push({ x: bx0 + 2 + rng() * (lotW - 4), z: bz0 + 2 + rng() * (lotD - 4), s: 0.7 + rng() * 0.6 }); continue; }
         var style, h;
-        if (dc < 0.45) { style = r < 0.55 ? 'office' : 'shop'; h = style === 'office' ? 12 + rng() * 15 : 4 + rng() * 5; }
+        if (dc < 0.5) { style = r < 0.42 ? 'tower' : r < 0.72 ? 'office' : 'shop'; h = style === 'tower' ? 36 + rng() * 54 : style === 'office' ? 15 + rng() * 18 : 4 + rng() * 5; }
+        else if (dc < 0.8) { style = r < 0.25 ? 'tower' : r < 0.55 ? 'apt' : r < 0.8 ? 'office' : 'shop'; h = style === 'tower' ? 30 + rng() * 30 : style === 'apt' ? 27 + rng() * 24 : style === 'office' ? 12 + rng() * 12 : 4 + rng() * 5; }
         else { style = r < 0.4 ? 'apt' : (r < 0.7 ? 'shop' : 'office'); h = style === 'apt' ? 24 + rng() * 21 : style === 'shop' ? 4 + rng() * 4 : 9 + rng() * 9; }
         h = Math.round(h / 3) * 3;
-        var inset = style === 'apt' ? 3 : 1.2;
+        var inset = style === 'apt' ? 3 : style === 'tower' ? 2 : 1.2;
         buildings.push({ x0: bx0 + inset, z0: bz0 + inset, x1: bx1 - inset, z1: bz1 - inset, h: h, style: style, seed: TG.irange(rng, 1, 999) });
       }
     }
@@ -196,6 +197,7 @@ TG.buildCity = function (cfg) {
     }
     if (terrain) {
       var q = terrain.nearest(x, z, true);
+      if (q && q.dist > q.p.half) { var q2 = terrain.nearest(x, z, false); if (q2 && q2.dist <= q2.p.half) q = q2; }   // 램프 옆 본선 위(합류부)는 본선 프레임
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
         var name = k === 'highway' ? '순환고속도로(왕복 6차로)' : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : '램프';

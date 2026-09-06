@@ -4,7 +4,7 @@ var CACHE = 'tg-v0.5.0';
 var FILES = [
   './', './index.html', './manifest.json', './css/style.css?v=0.5.0', './data/laws.json', './lib/three.min.js?v=0.5.0',
   './js/config.js?v=0.5.0', './js/rng.js?v=0.5.0', './js/save.js?v=0.5.0', './js/perf.js?v=0.5.0', './js/textures.js?v=0.5.0', './js/audio.js?v=0.5.0', './js/city.js?v=0.5.0', './js/world.js?v=0.5.0',
-  './js/terrain.js?v=0.5.0', './js/signals.js?v=0.5.0', './js/vehmesh.js?v=0.5.0', './js/vehicle.js?v=0.5.0', './js/traffic.js?v=0.5.0', './js/peds.js?v=0.5.0', './js/enforcement.js?v=0.5.0',
+  './js/terrain.js?v=0.5.0', './js/weather.js?v=0.5.0', './js/signals.js?v=0.5.0', './js/vehmesh.js?v=0.5.0', './js/vehicle.js?v=0.5.0', './js/traffic.js?v=0.5.0', './js/peds.js?v=0.5.0', './js/enforcement.js?v=0.5.0',
   './js/hud.js?v=0.5.0', './js/minimap.js?v=0.5.0', './js/input.js?v=0.5.0', './js/main.js?v=0.5.0', './icon-192.png', './icon-512.png'
 ];
 self.addEventListener('install', function (e) {
