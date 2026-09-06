@@ -11,7 +11,7 @@ TG.perf = (function () {
   var ema = TARGET, scale = 1, since = 0, warm = 0, simulate = 0, shadows = true;
   var listeners = [];
 
-  function budget(n, s) { return Math.max(2, Math.round(n * (s === undefined ? scale : s))); }
+  function budget(n, s) { if (n <= 0) return 0; return Math.max(2, Math.round(n * (s === undefined ? scale : s))); }
 
   function sample(ms) {
     if (simulate > 0) ms = simulate;

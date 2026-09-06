@@ -22,98 +22,147 @@
   P.buildMesh = function (scene) {
     var s = this.spec, type = s.id === 'suv' ? 'psuv' : s.id === 'flag' ? 'pflag' : 'police', T = TG.vehmesh.TYPES[type];
     this.T = T;
-    this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.08 }));
     this.body.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(this.body);
+    var LAY = TG.vehmesh.layout(T); this.layout = LAY;
     // 차내 시점 실내(추적 시점에서는 숨김)
-    this.interior = new THREE.Mesh(TG.vehmesh.interior(T), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.interior = new THREE.Mesh(TG.vehmesh.interior(T), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.02, color: 0x6a6f76 }));   // color 는 정점색에 곱해진다(실내는 햇빛 노출을 낮춰 어둡게)
     this.interior.visible = false; g.add(this.interior);
-    // 실시간 계기판(캔버스 텍스처): 속도계 바늘·디지털 속도·기어·경광등 표시. 차내 시점에서만 갱신
+    // 디지털 계기판(캔버스 텍스처): 큰 속도 숫자·제한속도·기어·경광등·정지거리. 차내 시점에서만 갱신
     this.clCanvas = document.createElement('canvas'); this.clCanvas.width = 512; this.clCanvas.height = 192;
     this.clTex = new THREE.CanvasTexture(this.clCanvas);
-    var LAY = TG.vehmesh.layout(T); this.layout = LAY;
-    this.cluster = new THREE.Mesh(new THREE.PlaneGeometry(LAY.clusterW, LAY.clusterW * 192 / 512), new THREE.MeshBasicMaterial({ map: this.clTex, transparent: true }));
+    this.cluster = new THREE.Mesh(new THREE.PlaneGeometry(LAY.clusterW, LAY.clusterW * 192 / 512), new THREE.MeshBasicMaterial({ map: this.clTex }));
     this.cluster.position.set(LAY.wheel.x, LAY.clusterY, LAY.clusterZ - 0.002); this.cluster.rotation.y = Math.PI; this.cluster.visible = false;
-    g.add(this.cluster); this.clT = 0; this.drawCluster();
+    g.add(this.cluster); this.clT = 0;
+    // 중앙 내비 태블릿: 미니맵 캔버스를 그대로 화면으로 쓴다(실시간 지도)
+    var mm = document.getElementById('minimap');
+    this.navTex = mm ? new THREE.CanvasTexture(mm) : null;
+    this.nav = new THREE.Mesh(new THREE.PlaneGeometry(LAY.nav.w, LAY.nav.h), this.navTex ? new THREE.MeshBasicMaterial({ map: this.navTex }) : new THREE.MeshBasicMaterial({ color: 0x14324f }));
+    this.nav.position.set(LAY.nav.x, LAY.nav.y, LAY.nav.z); this.nav.rotation.y = Math.PI; this.nav.visible = false; g.add(this.nav);
+    // 조수석 쪽 단속 단말(MDT) 화면: 점수·단속·대상 상태
+    this.mdtCanvas = document.createElement('canvas'); this.mdtCanvas.width = 320; this.mdtCanvas.height = 192;
+    this.mdtTex = new THREE.CanvasTexture(this.mdtCanvas);
+    this.mdt = new THREE.Mesh(new THREE.PlaneGeometry(LAY.mdt.w, LAY.mdt.h), new THREE.MeshBasicMaterial({ map: this.mdtTex }));
+    this.mdt.position.set(LAY.mdt.x, LAY.mdt.y, LAY.mdt.z); this.mdt.rotation.y = Math.PI - 0.25; this.mdt.visible = false; g.add(this.mdt);
+    this.mdtInfo = {}; this.drawCluster(); this.drawMDT();
     // 거울 3개(룸미러·좌우 사이드미러): 뒤를 보는 카메라를 작은 렌더타깃에 그려 거울 면에 붙인다. 차내 시점에서만 갱신.
     this.mirrorCams = []; this.mirrorMeshes = []; this.mirrorRTs = []; this.mirrorTick = 0;
     var mirrorDefs = [
-      { w: 0.30, h: 0.075, pos: [LAY.roomMirror.x, LAY.roomMirror.y, LAY.roomMirror.z], look: [0, 0.10, -1], fov: 30, aspect: 4 },                 // 룸미러
-      { w: 0.24, h: 0.14, pos: [LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [0.55, -0.05, -1], fov: 34, aspect: 1.7 },   // 좌 사이드미러(운전석)
-      { w: 0.24, h: 0.14, pos: [-LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [-0.55, -0.05, -1], fov: 34, aspect: 1.7 },
+      { w: 0.30, h: 0.075, pos: [LAY.roomMirror.x, LAY.roomMirror.y, LAY.roomMirror.z], look: [0, 0.10, -1], fov: 30, aspect: 4 },
+      { w: 0.22, h: 0.13, pos: [LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [0.55, -0.05, -1], fov: 34, aspect: 1.7 },
+      { w: 0.22, h: 0.13, pos: [-LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [-0.55, -0.05, -1], fov: 34, aspect: 1.7 },
     ];
+    var frameMat = new THREE.MeshLambertMaterial({ color: 0x15171a }), houseMat = new THREE.MeshLambertMaterial({ color: 0xf1f3f5 });
     for (var mi = 0; mi < mirrorDefs.length; mi++) {
       var md = mirrorDefs[mi], rt = new THREE.WebGLRenderTarget(mi === 0 ? 320 : 192, mi === 0 ? 80 : 112);
       rt.texture.wrapS = THREE.RepeatWrapping; rt.texture.repeat.x = -1;   // 거울상: 좌우 반전
       var cam = new THREE.PerspectiveCamera(md.fov, md.aspect, 0.6, 450); cam.position.set(md.pos[0], md.pos[1], md.pos[2]);
       cam.lookAt(md.pos[0] + md.look[0], md.pos[1] + md.look[1], md.pos[2] + md.look[2]); g.add(cam);
-      var mm = new THREE.Mesh(new THREE.PlaneGeometry(md.w, md.h), new THREE.MeshBasicMaterial({ map: rt.texture }));
-      mm.position.set(md.pos[0], md.pos[1], md.pos[2] - 0.02); mm.rotation.y = Math.PI; mm.visible = false;
-      var frame = new THREE.Mesh(new THREE.BoxGeometry(md.w + 0.03, md.h + 0.03, 0.03), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
+      var mm2 = new THREE.Mesh(new THREE.PlaneGeometry(md.w, md.h), new THREE.MeshBasicMaterial({ map: rt.texture }));
+      mm2.position.set(md.pos[0], md.pos[1], md.pos[2] - 0.02); mm2.rotation.y = Math.PI; mm2.visible = false;
+      var frame = new THREE.Mesh(new THREE.BoxGeometry(md.w + 0.03, md.h + 0.03, 0.03), frameMat);
       frame.position.set(md.pos[0], md.pos[1], md.pos[2]); frame.visible = false;
-      g.add(mm); g.add(frame);
-      this.mirrorCams.push(cam); this.mirrorMeshes.push(mm, frame); this.mirrorRTs.push(rt);
+      g.add(mm2); g.add(frame);
+      if (mi > 0) { var house = new THREE.Mesh(new THREE.BoxGeometry(md.w + 0.05, md.h + 0.05, 0.12), houseMat); house.position.set(md.pos[0], md.pos[1], md.pos[2] + 0.07); house.visible = false; g.add(house); this.mirrorMeshes.push(house); }
+      this.mirrorCams.push(cam); this.mirrorMeshes.push(mm2, frame); this.mirrorRTs.push(rt);
     }
-    // 디지털 사이드미러 화면(A필러 안쪽, 운전자 쪽으로 기울임): 세로 화면처럼 시야가 좁아도 양옆이 보인다. 같은 렌더타깃을 쓴다.
+    // 디지털 사이드미러 화면(A필러 안쪽): 세로 화면처럼 시야가 좁아도 양옆이 보인다. 같은 렌더타깃을 쓴다.
     for (var di = 1; di <= 2; di++) {
-      var sgn = di === 1 ? 1 : -1, dm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.13), new THREE.MeshBasicMaterial({ map: this.mirrorRTs[di].texture }));
+      var sgn = di === 1 ? 1 : -1, dm = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.12), new THREE.MeshBasicMaterial({ map: this.mirrorRTs[di].texture }));
       dm.position.set(sgn * LAY.screen.x, LAY.screen.y, LAY.screen.z); dm.rotation.y = Math.PI + sgn * 0.30; dm.visible = false;
-      var df = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.16, 0.02), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
+      var df = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.15, 0.02), frameMat);
       df.position.set(sgn * LAY.screen.x, LAY.screen.y, LAY.screen.z + 0.015); df.rotation.y = sgn * 0.30; df.visible = false;
       g.add(dm); g.add(df); this.mirrorMeshes.push(dm, df);
     }
-    var roofY = TG.vehmesh.roofY(T), barY = roofY + 0.16, l = T.l, w = T.w, bz = -l * 0.04;
-    // 경광등 바: 지붕 최고점 위. 어두운 받침 + 적·청 렌즈 4구(발광) + 흰 중앙등. 사이렌 시 좌우 번갈아 스트로브.
-    var barBase = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.06, 0.34), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
-    barBase.position.set(0, roofY + 0.09, bz); g.add(barBase);
-    this.barR = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.15, 0.32), new THREE.MeshBasicMaterial({ color: 0x7a1010 }));
-    this.barB = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.15, 0.32), new THREE.MeshBasicMaterial({ color: 0x102270 }));
-    this.barR.position.set(0.30, barY, bz); this.barB.position.set(-0.30, barY, bz);
-    var barW = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.13, 0.30), new THREE.MeshBasicMaterial({ color: 0xe8edf2 }));
+    var roofY = TG.vehmesh.roofY(T), barY = roofY + 0.15, l = T.l, w = T.w, bz = -l * 0.04;
+    // 경광등 바(참고 사진): 낮은 받침 + 적(우)·청(좌) LED 바 + 흰 중앙 모듈 + 앞쪽 카메라 돔. 사이렌 시 좌우 번갈아 스트로브.
+    var barBase = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.05, 0.30), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
+    barBase.position.set(0, roofY + 0.085, bz); g.add(barBase);
+    this.barR = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.13, 0.26), new THREE.MeshBasicMaterial({ color: 0x7a1010 }));
+    this.barB = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.13, 0.26), new THREE.MeshBasicMaterial({ color: 0x102270 }));
+    this.barR.position.set(-0.32, barY, bz); this.barB.position.set(0.32, barY, bz);
+    var barW = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.24), new THREE.MeshBasicMaterial({ color: 0xe8edf2 }));
     barW.position.set(0, barY, bz);
-    var barTop = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.02, 0.34), new THREE.MeshLambertMaterial({ color: 0x2b2f35 }));
-    barTop.position.set(0, barY + 0.085, bz);
-    g.add(this.barR); g.add(this.barB); g.add(barW); g.add(barTop);
-    // 핸들(차내 시점): 조향에 따라 돈다
-    // 핸들: 토러스 림 + 스포크 3개 + 허브(그룹). 로컬 z 축이 운전자 쪽, 조향 시 z 축으로 돈다
+    var barTop = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.02, 0.30), new THREE.MeshLambertMaterial({ color: 0x2b2f35 }));
+    barTop.position.set(0, barY + 0.075, bz);
+    var dome = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.11, 14), new THREE.MeshLambertMaterial({ color: 0xf1f3f5 }));
+    dome.position.set(0, barY + 0.02, bz + 0.22);
+    var lens = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), new THREE.MeshBasicMaterial({ color: 0x0a0c10 }));
+    lens.rotation.x = Math.PI / 2; lens.position.set(0, barY + 0.03, bz + 0.29);
+    g.add(this.barR); g.add(this.barB); g.add(barW); g.add(barTop); g.add(dome); g.add(lens);
+    // 핸들: 토러스 림 + 스포크 3개 + 허브(엠블럼). 로컬 z 축이 운전자 쪽, 조향 시 z 축으로 돈다
     this.steer3d = new THREE.Group();
-    var rimMat = new THREE.MeshLambertMaterial({ color: 0x15181c }), spokeMat = new THREE.MeshLambertMaterial({ color: 0x23272d });
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.022, 10, 36), rimMat); this.steer3d.add(rim);
+    var rimMat = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.6 }), spokeMat = new THREE.MeshStandardMaterial({ color: 0x23272d, roughness: 0.5 });
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.024, 12, 40), rimMat); this.steer3d.add(rim);
     [Math.PI / 2 + 2.6, Math.PI / 2 - 2.6, -Math.PI / 2].forEach(function (a) {
-      var sp = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.04, 0.03), spokeMat);
-      sp.position.set(Math.cos(a) * 0.09, Math.sin(a) * 0.09, 0); sp.rotation.z = a; this.steer3d.add(sp);
+      var sp = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.05, 0.035), spokeMat);
+      sp.position.set(Math.cos(a) * 0.10, Math.sin(a) * 0.10, 0); sp.rotation.z = a; this.steer3d.add(sp);
     }, this);
-    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.05, 16), spokeMat); hub.rotation.x = Math.PI / 2; this.steer3d.add(hub);
-    var emblem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 12), new THREE.MeshBasicMaterial({ color: 0x1f4fa8 })); emblem.rotation.x = Math.PI / 2; emblem.position.z = 0.028; this.steer3d.add(emblem);
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.05, 18), spokeMat); hub.rotation.x = Math.PI / 2; this.steer3d.add(hub);
+    var hubEm = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.07), new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true })); hubEm.position.z = 0.027; this.steer3d.add(hubEm);
     this.steer3d.position.set(LAY.wheel.x, LAY.wheel.y, LAY.wheel.z); this.steer3d.rotation.order = 'YXZ';
     this.steer3d.rotation.x = LAY.wheel.tilt; this.steer3d.visible = false; g.add(this.steer3d);
-    var hy = T.pts[1][1] * 0.82 + 0.08;
-    this.brakeLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 0.14, 0.06), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
-    this.brakeLamp.position.set(0, hy, -l / 2 - 0.03); this.brakeLamp.visible = false; g.add(this.brakeLamp);
-    this.revLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.1, 0.06), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    this.revLamp.position.set(0, hy - 0.16, -l / 2 - 0.03); this.revLamp.visible = false; g.add(this.revLamp);
+    var pr = TG.vehmesh.profile(T), topR = pr.top(pr.zr), hy = Math.min(topR - 0.12, T.belt - 0.15);
+    this.brakeLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.86, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
+    this.brakeLamp.position.set(0, hy, -l / 2 - 0.02); this.brakeLamp.visible = false; g.add(this.brakeLamp);
+    this.revLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    this.revLamp.position.set(0, hy - 0.12, -l / 2 - 0.02); this.revLamp.visible = false; g.add(this.revLamp);
     // 바퀴(앞바퀴 조향)
     this.wheels = [];
     var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
     var pairs = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
-    for (var i = 0; i < 4; i++) { var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.05), T.wheelR, pairs[i][1] * l * 0.31); g.add(wh); this.wheels.push(wh); }
-    // 문 라벨 「서울경찰」 · 뒤 「112」
-    var lab = new THREE.MeshBasicMaterial({ map: TG.tex.label('서울경찰 POLICE', '#ffffff'), transparent: true });
-    var lg = new THREE.PlaneGeometry(1.5, 0.3);
-    var lL = new THREE.Mesh(lg, lab); lL.position.set(w / 2 + 0.07, T.belt - 0.22, -0.1); lL.rotation.y = Math.PI / 2;
-    var lR = new THREE.Mesh(lg, lab); lR.position.set(-w / 2 - 0.07, T.belt - 0.22, -0.1); lR.rotation.y = -Math.PI / 2;
+    for (var i = 0; i < 4; i++) { var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.07), T.wheelR, pairs[i][1] * l * 0.31); g.add(wh); this.wheels.push(wh); }
+    // 도색 라벨(참고 사진 순찰차): 앞문 엠블럼, 뒷문 「경찰 POLICE」(청색), 후드 엠블럼, 트렁크 「112」
+    var emMat = new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true });
+    var txtMat = new THREE.MeshBasicMaterial({ map: TG.tex.label('경찰 POLICE', '#1f4fa8'), transparent: true });
+    var textY = T.belt - 0.13, sideX = w / 2 + 0.012;
+    for (var sd = -1; sd <= 1; sd += 2) {
+      var em = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.24), emMat); em.position.set(sd * sideX, textY, l * 0.14); em.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(em);
+      var tx = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.2), txtMat); tx.position.set(sd * sideX, textY, -l * 0.17); tx.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(tx);
+    }
+    var hoodZ = l * 0.32, hoodEm = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), emMat);
+    hoodEm.position.set(0, TG.vehmesh.hoodAt(T, hoodZ) + 0.012, hoodZ); hoodEm.rotation.x = -Math.PI / 2; hoodEm.rotation.z = Math.PI; g.add(hoodEm);
     var l112 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.2), new THREE.MeshBasicMaterial({ map: TG.tex.label('112', '#1f4fa8'), transparent: true }));
-    l112.position.set(0, hy + 0.2, -l / 2 - 0.03); l112.rotation.y = Math.PI;
-    g.add(lL); g.add(lR); g.add(l112);
+    var trunkZ = -l * 0.42; l112.position.set(0, TG.vehmesh.hoodAt(T, trunkZ) + 0.012, trunkZ); l112.rotation.x = -Math.PI / 2; g.add(l112);
     this.mesh = g; scene.add(g); this.syncMesh();
   };
 
   P.forward = function () { return [Math.sin(this.heading), Math.cos(this.heading)]; };
   P.speedKmh = function () { return Math.abs(this.vF) * 3.6; };
 
+  // 차선 유지 보조: 조향을 놓고 있으면 가장 가까운 차로 중앙·도로 방향으로 부드럽게 돌아간다.
+  // 교차로 근처·도로 밖·후진·크게 벗어난 상태(갓길 정차 등)·운전자가 조향 중이면 개입하지 않는다. 일시정지 메뉴에서 끌 수 있다.
+  P.laneAssist = function (want) {
+    if (this.assist === false || Math.abs(want) > 0.12 || this.vF < 2) return 0;
+    var city = this.city, cfg = this.cfg, fr = city.frameAt(this.pos.x, this.pos.z, this.heading);
+    if (!fr.onRoad || fr.kind === 'off') return 0;
+    var roadH, lat = fr.lateral, centers = [];
+    if (fr.kind === 'grid') {
+      if (city.nearIntersectionZone(this.pos.x, this.pos.z)) return 0;
+      roadH = fr.dir * Math.PI / 2;
+      for (var k = 0; k < fr.lanes; k++) centers.push(city.laneOff(fr.axis, fr.idx, k));
+    } else {
+      if (fr.tx === undefined) return 0;
+      roadH = Math.atan2(fr.tx, fr.tz);
+      centers = fr.oneLane ? [cfg.LANE_OFF] : cfg.HW_LANES.slice();
+    }
+    var best = centers[0];
+    for (var i = 1; i < centers.length; i++) if (Math.abs(centers[i] - lat) < Math.abs(best - lat)) best = centers[i];
+    var e = lat - best;                                   // + 이면 차로 중앙보다 오른쪽 → 왼쪽(heading +)으로
+    if (Math.abs(e) > 3.2) return 0;
+    var desired = roadH + Math.atan2(e, 14), dh = desired - this.heading;
+    dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+    if (Math.abs(dh) > 0.9) return 0;
+    var a = dh * 2.0 - (this.yawPrev || 0) * 0.6;
+    return TG.clamp(a, -0.35, 0.35);
+  };
+
   P.update = function (dt) {
     var c = this.controls, s = this.spec, T = this.telemetry, city = this.city;
-    var want = TG.clamp(c.steer, -1, 1), rate = Math.abs(want) < Math.abs(this.steer) ? 7 : 4;
+    var want = TG.clamp(c.steer, -1, 1);
+    want = TG.clamp(want + this.laneAssist(want), -1, 1);
+    var rate = Math.abs(want) < Math.abs(this.steer) ? 6 : 3.2;   // 풀 조향까지 0.3초: 키를 톡 쳐도 확 꺾이지 않는다
     this.steer += TG.clamp(want - this.steer, -rate * dt, rate * dt);
     this.brakeLevel = c.brake > 0 ? Math.min(1, this.brakeLevel + dt * 5) : 0;
 
@@ -151,13 +200,13 @@
     this.gear = vF < -0.05 ? 'R' : 'D';
 
     // 조향 기하 → 요구 횡가속 → 그립 한계
-    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / 20);
+    var delta = this.steer * s.steerMax / (1 + Math.abs(vF) / 14);   // 속도가 오르면 같은 조향에 덜 꺾인다(예민함 완화)
     var kappa = Math.tan(delta) / s.wheelbase, aDem = vF * vF * kappa, limit = s.latMax * surface, ratio = Math.abs(aDem) / limit;
     var yawRate, gripK = s.grip * surface;
     if (ratio <= 1) yawRate = vF * kappa;
-    else { yawRate = vF * kappa / ratio; vL += Math.sign(kappa) * (Math.abs(aDem) - limit) * 0.5 * dt; gripK *= 0.35; }
+    else { yawRate = vF * kappa / ratio; vL += Math.sign(kappa) * (Math.abs(aDem) - limit) * 0.35 * dt; gripK *= 0.45; }   // 한계 초과 시 미끄러짐을 조금 줄여 「단단한」 느낌
     if (vF < 0) yawRate = -yawRate * 0.7;
-    this.heading += yawRate * dt;
+    this.heading += yawRate * dt; this.yawPrev = yawRate;
     vL *= Math.exp(-gripK * dt);
 
     var fx2 = Math.sin(this.heading), fz2 = Math.cos(this.heading), rx2 = -fz2, rz2 = fx2;
@@ -208,51 +257,63 @@
     var i = this.mirrorTick % this.mirrorCams.length; this.mirrorTick++;
     var cam = this.mirrorCams[i], rt = this.mirrorRTs[i];
     for (var k = 0; k < this.mirrorMeshes.length; k++) this.mirrorMeshes[k].visible = false;
-    this.interior.visible = false; this.cluster.visible = false;
     var prevShadow = renderer.shadowMap.enabled; renderer.shadowMap.enabled = false;
     renderer.setRenderTarget(rt); renderer.render(scene, cam); renderer.setRenderTarget(null);
     renderer.shadowMap.enabled = prevShadow;
-    this.interior.visible = true; this.cluster.visible = true;
     for (var m = 0; m < this.mirrorMeshes.length; m++) this.mirrorMeshes[m].visible = true;
   };
   P.setView = function (mode) {
-    this.view = mode;
-    this.interior.visible = mode === 'cockpit';
-    this.cluster.visible = mode === 'cockpit';
-    this.steer3d.visible = mode === 'cockpit';
-    for (var i = 0; i < this.mirrorMeshes.length; i++) this.mirrorMeshes[i].visible = mode === 'cockpit';
+    this.view = mode; var c = mode === 'cockpit';
+    this.interior.visible = c; this.cluster.visible = c; this.nav.visible = c; this.mdt.visible = c; this.steer3d.visible = c;
+    for (var i = 0; i < this.mirrorMeshes.length; i++) this.mirrorMeshes[i].visible = c;
     this.brakeLamp.visible = false; this.revLamp.visible = false;
-    if (mode === 'cockpit') this.drawCluster();
+    if (c) { this.drawCluster(); this.drawMDT(); }
   };
-  // 계기판 그리기: 왼쪽 속도계(0~200, 바늘), 오른쪽 디지털 속도·기어·경광등·정지거리
+  // 디지털 계기판: 왼쪽 큰 속도 숫자 + 위쪽 속도 아크, 가운데 제한속도 표지, 오른쪽 기어·경광등·정지거리·남은 시간
   P.drawCluster = function () {
-    var c = this.clCanvas, g = c.getContext('2d'), W = c.width, H = c.height, kmh = this.speedKmh(), T = this.telemetry;
+    var c = this.clCanvas, g = c.getContext('2d'), W = c.width, H = c.height, kmh = this.speedKmh(), T = this.telemetry, I = this.mdtInfo || {};
     g.clearRect(0, 0, W, H);
-    g.fillStyle = '#0b0e12'; g.fillRect(0, 0, W, H);
-    // 속도계 다이얼
-    var cx = 128, cy = 118, R = 92, a0 = Math.PI * 0.8, a1 = Math.PI * 2.2;
-    g.lineWidth = 10; g.strokeStyle = '#2a3340'; g.beginPath(); g.arc(cx, cy, R, a0, a1); g.stroke();
+    g.fillStyle = '#080b10'; g.fillRect(0, 0, W, H);
+    var grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, 'rgba(40,70,120,0.35)'); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, W, 60);
+    // 속도 아크(0~200)
     var frac = TG.clamp(kmh / 200, 0, 1);
-    g.strokeStyle = kmh > 60 ? '#ff6a4d' : '#4d8dff'; g.beginPath(); g.arc(cx, cy, R, a0, a0 + (a1 - a0) * frac); g.stroke();
-    g.fillStyle = '#c9d3dd'; g.font = 'bold 15px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (var k = 0; k <= 10; k++) {
-      var a = a0 + (a1 - a0) * k / 10, tx = cx + Math.cos(a) * (R - 22), ty = cy + Math.sin(a) * (R - 22);
-      g.fillText(String(k * 20), tx, ty);
-      g.strokeStyle = '#8a95a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * (R - 8), cy + Math.sin(a) * (R - 8)); g.lineTo(cx + Math.cos(a) * (R + 4), cy + Math.sin(a) * (R + 4)); g.stroke();
+    g.lineWidth = 8; g.lineCap = 'round'; g.strokeStyle = '#1e2733'; g.beginPath(); g.moveTo(28, 22); g.lineTo(W - 28, 22); g.stroke();
+    g.strokeStyle = kmh > (I.limit || 60) + 10 ? '#ff5a3c' : '#4d9dff'; g.beginPath(); g.moveTo(28, 22); g.lineTo(28 + (W - 56) * frac, 22); g.stroke();
+    // 속도 숫자
+    g.fillStyle = '#ffffff'; g.font = 'bold 92px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillText(String(Math.round(kmh)), 196, 128);
+    g.fillStyle = '#8a95a3'; g.font = '17px sans-serif'; g.textAlign = 'left'; g.fillText('km/h', 202, 128);
+    g.fillStyle = this.gear === 'R' ? '#ff6a4d' : '#5ad37a'; g.font = 'bold 24px sans-serif'; g.fillText(this.gear === 'R' ? 'R 후진' : 'D', 36, 168);
+    // 제한속도 표지
+    if (I.limit && I.limit < 900) {
+      g.beginPath(); g.arc(282, 112, 32, 0, Math.PI * 2); g.fillStyle = '#ffffff'; g.fill(); g.lineWidth = 7; g.strokeStyle = '#d0202a'; g.stroke();
+      g.fillStyle = '#111'; g.font = 'bold 30px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(I.limit), 282, 113);
     }
-    var na = a0 + (a1 - a0) * frac;
-    g.strokeStyle = '#ff3b30'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - Math.cos(na) * 12, cy - Math.sin(na) * 12); g.lineTo(cx + Math.cos(na) * (R - 14), cy + Math.sin(na) * (R - 14)); g.stroke();
-    g.fillStyle = '#e8edf2'; g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#8a95a3'; g.font = '13px sans-serif'; g.fillText('km/h', cx, cy + 42);
-    // 오른쪽 디지털 패널
-    g.fillStyle = '#121820'; g.fillRect(262, 18, 234, 156);
-    g.fillStyle = '#ffffff'; g.font = 'bold 72px sans-serif'; g.textAlign = 'right'; g.fillText(String(Math.round(kmh)), 440, 72);
-    g.fillStyle = '#8a95a3'; g.font = '16px sans-serif'; g.textAlign = 'left'; g.fillText('km/h', 448, 82);
-    g.fillStyle = this.gear === 'R' ? '#ff6a4d' : '#5ad37a'; g.font = 'bold 26px sans-serif'; g.fillText(this.gear === 'R' ? 'R 후진' : 'D', 276, 124);
-    g.fillStyle = this.siren ? (Math.floor(this.sirenPhase) % 2 ? '#ff3b30' : '#2a60ff') : '#3a4048'; g.font = 'bold 18px sans-serif'; g.fillText(this.siren ? '● 경광등' : '○ 경광등', 276, 156);
-    g.fillStyle = '#c9d3dd'; g.font = '16px sans-serif'; g.textAlign = 'right'; g.fillText('정지거리 ' + (T.stopDist < 0.5 ? '—' : Math.round(T.stopDist) + 'm'), 484, 156);
-    g.fillStyle = '#ffcf3f'; g.font = 'bold 14px sans-serif'; g.textAlign = 'left'; g.fillText('SEOUL POLICE 112', 276, 22);
+    // 오른쪽 상태
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillStyle = this.siren ? (Math.floor(this.sirenPhase) % 2 ? '#ff3b30' : '#3a78ff') : '#3a4048'; g.font = 'bold 18px sans-serif'; g.fillText(this.siren ? '● 경광등 ON' : '○ 경광등', 336, 70);
+    g.fillStyle = '#c9d3dd'; g.font = '16px sans-serif'; g.fillText('정지거리 ' + (T.stopDist < 0.5 ? '—' : Math.round(T.stopDist) + 'm'), 336, 100);
+    g.fillText('안전거리 ' + (I.gap ? I.gap : '—'), 336, 126);
+    g.fillStyle = '#ffcf3f'; g.font = 'bold 15px sans-serif'; g.fillText((I.section || '') , 336, 154);
+    g.fillStyle = '#7e8896'; g.font = '13px sans-serif'; g.fillText('SEOUL POLICE 112', 336, 178);
+    g.fillStyle = T.understeer ? '#ff5a3c' : '#2a3340'; g.font = 'bold 14px sans-serif'; g.textAlign = 'right'; g.fillText(T.understeer ? '! 한계' : '', 196, 168);
     this.clTex.needsUpdate = true;
+    if (this.navTex) this.navTex.needsUpdate = true;
+  };
+  // 단속 단말(MDT): 점수·단속 건수·근무 시간·대상 상태·위반 의심
+  P.drawMDT = function () {
+    var c = this.mdtCanvas, g = c.getContext('2d'), W = c.width, H = c.height, I = this.mdtInfo || {};
+    g.fillStyle = '#0d1626'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1f4fa8'; g.fillRect(0, 0, W, 34);
+    g.fillStyle = '#ffffff'; g.font = 'bold 17px sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('서울경찰 · 교통단속 단말', 12, 17);
+    g.fillStyle = '#9fc0ff'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.fillText(I.time || '', W - 12, 17);
+    function row(y, k, v, col) { g.textAlign = 'left'; g.fillStyle = '#8a95a3'; g.font = '14px sans-serif'; g.fillText(k, 14, y); g.textAlign = 'right'; g.fillStyle = col || '#e8edf2'; g.font = 'bold 18px sans-serif'; g.fillText(String(v), W - 14, y); }
+    row(60, '점수', I.score !== undefined ? I.score : 0, '#ffcf3f');
+    row(88, '단속 건수', (I.stops || 0) + '건');
+    row(116, '위반 의심 차량', (I.suspects || 0) + '대', I.suspects ? '#ff8a5c' : '#e8edf2');
+    row(144, '대상 상태', I.target || '대기', I.target ? '#5ad37a' : '#e8edf2');
+    g.fillStyle = '#1c2a44'; g.fillRect(12, 160, W - 24, 22);
+    g.fillStyle = '#cfe0ff'; g.font = '13px sans-serif'; g.textAlign = 'left'; g.fillText(I.hint || '차량·보행자를 터치하면 위반 확인', 18, 171);
+    this.mdtTex.needsUpdate = true;
   };
   // 운전석 눈 위치(월드). 차체의 헤딩·피치·롤을 그대로 따른다.
   P.eyeWorld = function (off) {

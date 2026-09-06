@@ -164,8 +164,79 @@ TG.audio = (function () {
   function bad() { blip(220, 0.25, 'sawtooth', 0.18); }
   function alert() { blip(1200, 0.1, 'square', 0.12); setTimeout(function () { blip(1200, 0.1, 'square', 0.12); }, 140); }
 
+
+  // ---------- 인트로 테마(합성, 13.5초) ----------
+  // 낮은 드론 + 금관 느낌 패드(톱니파+저역필터) + 팀파니 + 라이저 + 타이틀 순간 심벌·반짝임. 오디오 파일 0개.
+  // offset: 인트로가 이미 몇 초 지났는지(사용자 터치로 오디오가 늦게 풀리면 그 시점부터 이어서 연주).
+  var theme = null;
+  function introTheme(offset) {
+    if (!ensure()) return false;
+    if (ctx.state !== 'running') return false;
+    stopIntro(0);
+    var now = ctx.currentTime, t0 = now - (offset || 0), nodes = [], bus = ctx.createGain();
+    bus.gain.value = 0.9; bus.connect(master);
+    theme = { bus: bus, nodes: nodes };
+    function T(t) { return Math.max(now, t0 + t); }
+    function osc(type, freq, det) { var o = ctx.createOscillator(); o.type = type; o.frequency.value = freq; if (det) o.detune.value = det; nodes.push(o); return o; }
+    var N = { D2: 73.42, A2: 110, Bb2: 116.54, D3: 146.83, F3: 174.61, Fs3: 185, G3: 196, A3: 220, Bb3: 233.08, C4: 261.63, Cs4: 277.18, D4: 293.66, D5: 587.33, A5: 880, D6: 1174.66, Fs5: 739.99 };
+    // 1) 드론(끝까지)
+    var dg = ctx.createGain(); dg.gain.setValueAtTime(0, T(0)); dg.gain.linearRampToValueAtTime(0.22, T(3)); dg.gain.setValueAtTime(0.22, T(10.3)); dg.gain.linearRampToValueAtTime(0.3, T(10.5)); dg.connect(bus);
+    [36.71, 73.42].forEach(function (f, i) { var o = osc('sine', f); var g = ctx.createGain(); g.gain.value = i ? 0.5 : 1; o.connect(g); g.connect(dg); o.start(T(0)); o.stop(T(14)); });
+    // 2) 금관 패드: 화음 진행 Dm → Bb → A → D(장조, 타이틀)
+    var chords = [
+      { at: 0.4, to: 4.4, n: [N.D2, N.D3, N.F3, N.A3], v: 0.10 },
+      { at: 4.4, to: 8.4, n: [N.Bb2, N.D3, N.F3, N.Bb3], v: 0.13 },
+      { at: 8.4, to: 10.4, n: [N.A2, N.Cs4, N.A3, N.G3], v: 0.16 },
+      { at: 10.4, to: 13.6, n: [N.D2, N.D3, N.Fs3, N.A3, N.D4], v: 0.26 },
+    ];
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2;
+    lp.frequency.setValueAtTime(320, T(0)); lp.frequency.linearRampToValueAtTime(900, T(8.4)); lp.frequency.linearRampToValueAtTime(2600, T(10.5)); lp.frequency.setValueAtTime(2600, T(12.5)); lp.frequency.linearRampToValueAtTime(600, T(13.6));
+    lp.connect(bus);
+    chords.forEach(function (c) {
+      if (t0 + c.to < now) return;
+      var g = ctx.createGain(); g.gain.setValueAtTime(0, T(c.at)); g.gain.linearRampToValueAtTime(c.v, T(c.at + 0.9)); g.gain.setValueAtTime(c.v, T(c.to - 0.25)); g.gain.linearRampToValueAtTime(0, T(c.to + 0.15)); g.connect(lp);
+      c.n.forEach(function (f) { [-7, 6].forEach(function (d) { var o = osc('sawtooth', f, d); o.connect(g); o.start(T(c.at)); o.stop(T(c.to + 0.2)); }); });
+    });
+    // 3) 팀파니(저음 사인 피치 하강 + 짧은 노이즈)
+    function drum(at, vol, f) {
+      if (t0 + at + 1.2 < now) return;
+      var o = osc('sine', f || 110); var g = ctx.createGain();
+      o.frequency.setValueAtTime(f || 110, T(at)); o.frequency.exponentialRampToValueAtTime(42, T(at + 0.35));
+      g.gain.setValueAtTime(0.0001, T(at)); g.gain.exponentialRampToValueAtTime(vol, T(at + 0.012)); g.gain.exponentialRampToValueAtTime(0.0001, T(at + 1.1));
+      o.connect(g); g.connect(bus); o.start(T(at)); o.stop(T(at + 1.2));
+      var nb = ctx.createBufferSource(); nb.buffer = noiseBuffer(0.3); var nf = ctx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 500; var ng = ctx.createGain();
+      ng.gain.setValueAtTime(vol * 0.5, T(at)); ng.gain.exponentialRampToValueAtTime(0.0001, T(at + 0.25)); nb.connect(nf); nf.connect(ng); ng.connect(bus); nb.start(T(at)); nodes.push(nb);
+    }
+    drum(0.6, 0.5); drum(2.6, 0.35); drum(4.4, 0.55); drum(6.6, 0.4); drum(8.4, 0.6);
+    for (var i = 0; i < 8; i++) drum(9.2 + i * 0.15, 0.22 + i * 0.03, 90);   // 타이틀 직전 롤
+    drum(10.4, 0.9, 130); drum(11.4, 0.45);
+    // 4) 라이저(대역필터 노이즈, 8.4→10.4 상승) + 심벌(10.4) + 반짝임 아르페지오
+    if (t0 + 10.4 > now) {
+      var rs = ctx.createBufferSource(); rs.buffer = noiseBuffer(2.2); var rf = ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.Q.value = 3; var rg = ctx.createGain();
+      rf.frequency.setValueAtTime(200, T(8.4)); rf.frequency.exponentialRampToValueAtTime(4000, T(10.4));
+      rg.gain.setValueAtTime(0.0001, T(8.4)); rg.gain.exponentialRampToValueAtTime(0.28, T(10.35)); rg.gain.setValueAtTime(0, T(10.4));
+      rs.connect(rf); rf.connect(rg); rg.connect(bus); rs.start(T(8.4)); rs.stop(T(10.45)); nodes.push(rs);
+    }
+    if (t0 + 12.5 > now) {
+      var cs = ctx.createBufferSource(); cs.buffer = noiseBuffer(2.5); var cf = ctx.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 5000; var cg = ctx.createGain();
+      cg.gain.setValueAtTime(0.0001, T(10.4)); cg.gain.exponentialRampToValueAtTime(0.35, T(10.41)); cg.gain.exponentialRampToValueAtTime(0.0001, T(12.6));
+      cs.connect(cf); cf.connect(cg); cg.connect(bus); cs.start(T(10.4)); cs.stop(T(12.7)); nodes.push(cs);
+      [N.D5, N.Fs5, N.A5, N.D6, N.A5, N.D6].forEach(function (f, k) {
+        var at = 10.5 + k * 0.16, o = osc('triangle', f), g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, T(at)); g.gain.exponentialRampToValueAtTime(0.12, T(at + 0.02)); g.gain.exponentialRampToValueAtTime(0.0001, T(at + 1.4));
+        o.connect(g); g.connect(bus); o.start(T(at)); o.stop(T(at + 1.5));
+      });
+    }
+    return true;
+  }
+  function stopIntro(fade) {
+    if (!theme) return;
+    var th = theme; theme = null; var f = fade === undefined ? 0.7 : fade, now = ctx.currentTime;
+    th.bus.gain.setValueAtTime(th.bus.gain.value, now); th.bus.gain.linearRampToValueAtTime(0, now + f + 0.001);
+    setTimeout(function () { th.nodes.forEach(function (n) { try { n.stop(); } catch (e) { } }); try { th.bus.disconnect(); } catch (e) { } }, (f + 0.05) * 1000);
+  }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa,
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, good: good, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

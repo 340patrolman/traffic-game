@@ -70,12 +70,12 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       return;
     }
     var nc = p.axis === 'v' ? node.z : node.x, dist = (nc - along) * (f[0] + f[1]), SIDE = acrossSide(p, node);
-    if (p.state === 'cross') { if (dist < -SIDE) { p.state = 'walk'; p.decided = node; p.jayLive = false; } return; }
+    if (p.state === 'cross') { if (dist < -SIDE) { p.state = 'walk'; p.decided = node; p.jayLive = false; if (p.hurry) { p.speed /= 1.5; p.hurry = false; } } return; }
     if (p.state === 'wait') {
       p.waitT += dt;
       var walk = signals.pedWalk(node, p.axis === 'v' ? 'h' : 'v');
       if (walk && !carBlocking(p)) { p.state = 'cross'; p.waitT = 0; }
-      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p)) { p.state = 'cross'; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; self.onEvent('jaywalk', p); }
+      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p, false, true)) { p.state = 'cross'; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; p.speed *= 1.5; p.hurry = true; self.onEvent('jaywalk', p); }
       else if (p.waitT > 25) turnCorner(p, node);
       return;
     }
@@ -89,7 +89,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (city.nodeFrom(node, p.d) && rng() < 0.5) { p.state = 'wait'; p.waitT = 0; } else turnCorner(p, node);
     }
   }
-  function carBlocking(p, sideways) {
+  function carBlocking(p, sideways, strict) {
     var T = self.traffic; if (!T) return false;
     var f = TG.DIR_VEC[p.d];
     if (sideways) { if (p.axis === 'v') f = [p.side > 0 ? -1 : 1, 0]; else f = [0, p.side > 0 ? -1 : 1]; }
@@ -98,6 +98,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       var c = all[i], dx = c.pos.x - p.pos.x, dz = c.pos.z - p.pos.z, along = dx * f[0] + dz * f[1], lat = Math.abs(dx * -f[1] + dz * f[0]);
       if (along > 0 && along < 16 && lat < 4 && c.v > 3) return true;
       if (lat < 3 && Math.abs(along) < 30 && c.v > 6) return true;
+      if (strict && Math.hypot(dx, dz) < 28 && c.v > 1.5) return true;   // 보행 적색 횡단(신호위반 보행)은 근처에 움직이는 차(좌·우회전 차 포함)가 있으면 시작하지 않는다
     }
     return false;
   }

@@ -1,6 +1,6 @@
-// 차량 형상: 옆면 실루엣(범퍼→후드→앞유리→지붕→뒷유리→트렁크)을 폭 방향으로 밀어낸 로프트.
-// 벨트라인 위는 유리 띠, 지붕은 살짝 좁아진다. 전조등·후미등·그릴·거울·번호판·바퀴(림)까지 전부 코드.
-// 바퀴: x축 방향 원기둥(양쪽 캡 포함). 원점 = 바퀴 중심.
+// 차량 형상 v3: 옆면 실루엣(범퍼→후드→앞유리→지붕→뒷유리→트렁크) × 단면 곡선(바닥→로커→어깨→벨트→유리→지붕) 로프트.
+// 정점 법선을 이웃 면으로 평균해 둥글게 음영이 진다. 필러·문 이음선·손잡이·LED 전조등·후미등 바·거울·번호판·바퀴(림)까지 전부 코드.
+// 경찰차는 하단 청색 띠 + 황색 선, 「경찰 POLICE」 라벨·엠블럼은 vehicle.js 가 붙인다. 원점 = 차 중심 바닥, +z 앞, +x 왼쪽.
 TG.GeoBuilder.prototype.wheel = function (cx, cy, cz, r, len, seg, color) {
   var col = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], base = this.n;
   for (var i = 0; i <= seg; i++) {
@@ -19,124 +19,199 @@ TG.GeoBuilder.prototype.wheel = function (cx, cy, cz, r, len, seg, color) {
     this.n += seg + 2;
   }
 };
+// 정점별 법선을 주는 사각형(둥근 음영용). P: 점 4개, N: 법선 4개.
+TG.GeoBuilder.prototype.quadN = function (P, N, color) {
+  var col = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], base = this.n;
+  for (var i = 0; i < 4; i++) { this.pos.push(P[i][0], P[i][1], P[i][2]); this.nor.push(N[i][0], N[i][1], N[i][2]); this.uv.push(0, 0); this.col.push(col[0], col[1], col[2]); }
+  this.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  this.n += 4;
+};
+TG.GeoBuilder.prototype.tri = function (a, b, c, nrm, color) {
+  var col = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], base = this.n, P = [a, b, c];
+  for (var i = 0; i < 3; i++) { this.pos.push(P[i][0], P[i][1], P[i][2]); this.nor.push(nrm[0], nrm[1], nrm[2]); this.uv.push(0, 0); this.col.push(col[0], col[1], col[2]); }
+  this.idx.push(base, base + 1, base + 2);
+  this.n += 3;
+};
 
 TG.vehmesh = (function () {
-  var GLASS = 0x22303f, DARK = 0x1a1c20, LIGHT = 0xfff3c4, TAIL = 0xc41818, PLATE = 0xf4f4ec, RIM = 0xb9bcc2;
-  // pts: [zFrac(+앞 … −뒤), y, glass(1)]  — 연속 두 점 사이 구간이 glass=1 이면 그 구간은 유리
+  var GLASS = 0x1b2530, DARK = 0x15171a, LOW = 0x22252a, LIGHT = 0xfff6d8, TAIL = 0xd41a1a, PLATE = 0xf4f4ec, RIM = 0xc0c4ca, CHROME = 0xd8dde3;
+  var BLUE = 0x1a4fb0, YEL = 0xf3c418;
+  // pts: [zFrac(+앞 … −뒤), y, glass(1)] — glass 가 붙은 점으로 끝나는 구간이 유리(앞유리·뒷유리)
   var TYPES = {
-    sedan:  { w: 1.82, l: 4.65, belt: 0.92, wheelR: 0.33, pts: [[0.5, 0.40], [0.5, 0.60], [0.45, 0.72], [0.17, 0.82], [0.05, 1.36, 1], [-0.27, 1.40], [-0.40, 1.06, 1], [-0.5, 0.98], [-0.5, 0.40]] },
-    hatch:  { w: 1.74, l: 4.05, belt: 0.92, wheelR: 0.31, pts: [[0.5, 0.40], [0.5, 0.62], [0.42, 0.74], [0.19, 0.84], [0.04, 1.40, 1], [-0.37, 1.45], [-0.47, 1.04, 1], [-0.5, 0.96], [-0.5, 0.40]] },
-    suv:    { w: 1.92, l: 4.75, belt: 1.08, wheelR: 0.37, pts: [[0.5, 0.44], [0.5, 0.84], [0.43, 0.98], [0.17, 1.06], [0.06, 1.72, 1], [-0.40, 1.76], [-0.48, 1.22, 1], [-0.5, 1.10], [-0.5, 0.44]] },
+    sedan:  { w: 1.82, l: 4.65, belt: 0.92, wheelR: 0.33, taper: 0.05, pts: [[0.5, 0.40], [0.5, 0.60], [0.45, 0.72], [0.17, 0.82], [0.05, 1.36, 1], [-0.27, 1.40], [-0.40, 1.06, 1], [-0.5, 0.98], [-0.5, 0.40]] },
+    hatch:  { w: 1.74, l: 4.05, belt: 0.92, wheelR: 0.31, taper: 0.05, pts: [[0.5, 0.40], [0.5, 0.62], [0.42, 0.74], [0.19, 0.84], [0.04, 1.40, 1], [-0.37, 1.45], [-0.47, 1.04, 1], [-0.5, 0.96], [-0.5, 0.40]] },
+    suv:    { w: 1.92, l: 4.75, belt: 1.08, wheelR: 0.37, taper: 0.04, pts: [[0.5, 0.44], [0.5, 0.84], [0.43, 0.98], [0.17, 1.06], [0.06, 1.72, 1], [-0.40, 1.76], [-0.48, 1.22, 1], [-0.5, 1.10], [-0.5, 0.44]] },
     van:    { w: 1.98, l: 5.10, belt: 1.12, glassTop: 1.75, wheelR: 0.35, pts: [[0.5, 0.44], [0.5, 0.92], [0.45, 1.02], [0.34, 1.96, 1], [-0.47, 2.02], [-0.5, 1.92], [-0.5, 0.44]] },
     truck:  { w: 2.15, l: 6.4, belt: 1.15, glassTop: 2.0, wheelR: 0.42, cargo: true, pts: [[0.5, 0.50], [0.5, 1.12], [0.47, 1.28], [0.40, 2.35, 1], [0.17, 2.42], [0.15, 1.0], [0.15, 0.50]] },
     bus:    { w: 2.45, l: 11.0, belt: 1.30, glassTop: 2.45, wheelR: 0.48, bus: true, pts: [[0.5, 0.45], [0.5, 1.30], [0.49, 2.95], [0.46, 3.18], [-0.46, 3.22], [-0.5, 3.0], [-0.5, 0.45]] },
-    police: { w: 1.85, l: 4.70, belt: 0.92, wheelR: 0.33, police: true, pts: [[0.5, 0.40], [0.5, 0.60], [0.45, 0.72], [0.17, 0.82], [0.05, 1.36, 1], [-0.27, 1.40], [-0.40, 1.06, 1], [-0.5, 0.98], [-0.5, 0.40]] },
-    psuv:   { w: 1.95, l: 4.90, belt: 1.08, wheelR: 0.37, police: true, pts: [[0.5, 0.44], [0.5, 0.84], [0.43, 0.98], [0.17, 1.06], [0.06, 1.72, 1], [-0.40, 1.76], [-0.48, 1.22, 1], [-0.5, 1.10], [-0.5, 0.44]] },
-    // 대형 플래그십 세단(고해상도): 긴 후드·완만한 패스트백 지붕·짧은 데크. 평면도도 앞뒤가 좁아진다(taper).
-    pflag:  { w: 1.92, l: 5.05, belt: 0.96, wheelR: 0.36, police: true, detail: true, taper: 0.07, roofScale: 0.84,
-              pts: [[0.5, 0.38], [0.5, 0.52], [0.495, 0.66], [0.47, 0.74], [0.42, 0.79], [0.30, 0.84], [0.19, 0.88], [0.12, 0.91], [0.03, 1.22, 1], [-0.06, 1.36, 1], [-0.14, 1.42], [-0.24, 1.43], [-0.32, 1.38], [-0.40, 1.22, 1], [-0.45, 1.06, 1], [-0.49, 0.98], [-0.5, 0.86], [-0.5, 0.38]] },
+    // 순찰 세단(중형): 낮은 후드·패스트백 지붕·짧은 데크(참고 사진의 실루엣), 전폭 후미등 바
+    police: { w: 1.86, l: 4.85, belt: 0.92, wheelR: 0.34, police: true, detail: true, taper: 0.06, roofScale: 0.85, tailBar: true,
+              pts: [[0.5, 0.36], [0.5, 0.50], [0.49, 0.62], [0.46, 0.70], [0.40, 0.75], [0.28, 0.80], [0.16, 0.84], [0.10, 0.86], [0.02, 1.20, 1], [-0.07, 1.34, 1], [-0.14, 1.40], [-0.24, 1.41], [-0.33, 1.34], [-0.41, 1.16, 1], [-0.46, 1.02, 1], [-0.49, 0.95], [-0.5, 0.86], [-0.5, 0.36]] },
+    // 순찰 전기 SUV: 각진 크로스오버(짧은 오버행·수평 벨트·평평한 지붕), 픽셀 LED 바
+    psuv:   { w: 1.94, l: 4.65, belt: 1.02, wheelR: 0.37, police: true, detail: true, taper: 0.03, roofScale: 0.90, pixel: true, tailBar: true,
+              pts: [[0.5, 0.42], [0.5, 0.60], [0.49, 0.78], [0.46, 0.88], [0.40, 0.94], [0.24, 0.98], [0.14, 1.00], [0.02, 1.52, 1], [-0.10, 1.62], [-0.32, 1.64], [-0.42, 1.48, 1], [-0.47, 1.30, 1], [-0.5, 1.10], [-0.5, 0.42]] },
+    // 순찰 대형 세단(플래그십): 긴 후드·완만한 패스트백·큰 그릴·2단 전조등
+    pflag:  { w: 1.92, l: 5.05, belt: 0.96, wheelR: 0.36, police: true, detail: true, taper: 0.07, roofScale: 0.84, twoTier: true,
+              pts: [[0.5, 0.38], [0.5, 0.52], [0.495, 0.66], [0.47, 0.74], [0.42, 0.79], [0.30, 0.84], [0.19, 0.88], [0.12, 0.91], [0.03, 1.22, 1], [-0.06, 1.36, 1], [-0.14, 1.42], [-0.24, 1.43], [-0.32, 1.38], [-0.40, 1.22, 1], [-0.45, 1.06, 1], [-0.49, 0.98], [-0.5, 0.90], [-0.5, 0.38]] },
   };
   var cache = {};
-
   function lighten(hex, f) {
     var r = Math.min(255, ((hex >> 16) & 255) * f), g = Math.min(255, ((hex >> 8) & 255) * f), b = Math.min(255, (hex & 255) * f);
     return (r << 16) | (g << 8) | b;
   }
+  function norm3(v) { var l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
 
-  // gb 에 차체를 그린다. 원점 = 차 중심 바닥, +z 앞, +x 왼쪽(three.js 관례에 맞춤: 그룹 rotation.y=heading 일 때 앞이 forward)
+  // 옆면 실루엣 → 윗선 함수 top(z) 와 유리 구간 판정. 같은 z 의 점들은 수직면(앞·뒤 캡)으로 처리한다.
+  function profile(T) {
+    var l = T.l, env = [];
+    T.pts.forEach(function (p) {
+      var q = { z: p[0] * l, y: p[1], glass: !!p[2] };
+      if (env.length && Math.abs(env[env.length - 1].z - q.z) < 1e-6) { env[env.length - 1].y = Math.max(env[env.length - 1].y, q.y); env[env.length - 1].glass = env[env.length - 1].glass || q.glass; }
+      else env.push(q);
+    });
+    function seg(z) { for (var i = 0; i < env.length - 1; i++) if (z <= env[i].z + 1e-9 && z >= env[i + 1].z - 1e-9) return i; return z > env[0].z ? 0 : env.length - 2; }
+    function top(z) { var i = seg(z), a = env[i], b = env[i + 1], t = (a.z - b.z) < 1e-9 ? 0 : (a.z - z) / (a.z - b.z); return a.y + (b.y - a.y) * t; }
+    function glassAt(z) { var i = seg(z); return env[i + 1].glass && (env[i].y > T.belt || env[i + 1].y > T.belt); }
+    var zs = [];
+    for (var i = 0; i < env.length - 1; i++) {
+      var a = env[i].z, b = env[i + 1].z, n = Math.max(1, Math.ceil((a - b) / 0.22));
+      for (var k = 0; k < n; k++) zs.push(a + (b - a) * k / n);
+    }
+    zs.push(env[env.length - 1].z);
+    return { top: top, glassAt: glassAt, zs: zs, zf: env[0].z, zr: env[env.length - 1].z, wsBase: null, env: env };
+  }
+  // 단면(오른쪽 반) 13점. 색은 점 k→k+1 띠(12개).
+  function section(T, z, top, glassSeg, color) {
+    var w = T.w, l = T.l, belt = T.belt, bottom = 0.30, taper = T.taper || 0, rs = (T.roofScale || 0.86) / 0.86, glassTop = T.glassTop || 99;
+    var u = Math.abs(z) / (l / 2), hw = w / 2 * (1 - taper * u * u * u);
+    var endR = Math.max(0, (Math.abs(z) - (l / 2 - 0.45)) / 0.45); hw *= 1 - 0.32 * endR * endR;   // 앞뒤 모서리 둥글림
+    var gh = top > belt + 0.06, P = [];
+    function A(x, y) { P.push([x, y]); }
+    A(0, bottom); A(hw * 0.82, bottom); A(hw * 0.96, bottom + 0.09);
+    A(hw, Math.min(belt - 0.52, top - 0.03)); A(hw, Math.min(belt - 0.30, top - 0.02)); A(hw, Math.min(belt - 0.27, top - 0.015)); A(hw * 0.995, Math.min(belt - 0.02, top - 0.01));
+    if (gh) { A(hw * 0.97, belt + 0.02); A(hw * 0.90 * rs, belt + 0.07); A(hw * 0.87 * rs, Math.min(glassTop, top - 0.07)); A(hw * 0.83 * rs, top - 0.06); A(hw * 0.60 * rs, top - 0.012); A(0, top); }
+    else { A(hw * 0.99, top - 0.045); A(hw * 0.97, top - 0.03); A(hw * 0.92, top - 0.02); A(hw * 0.80, top - 0.008); A(hw * 0.45, top + 0.010); A(0, top + 0.016); }
+    var side = color, roof = lighten(color, 1.04), pol = !!T.police, bodyAbove = !!T.glassTop;
+    var C = [DARK, LOW, side, pol ? BLUE : side, pol ? YEL : side, side, side,
+             gh ? GLASS : side, gh ? GLASS : side, gh ? (bodyAbove ? roof : GLASS) : roof, gh ? (glassSeg ? GLASS : roof) : roof, gh ? (glassSeg ? GLASS : roof) : roof];
+    return { P: P, C: C };
+  }
+
+  // gb 에 차체를 그린다.
   function body(gb, T, color, opts) {
     opts = opts || {};
-    var w = T.w, l = T.l, belt = T.belt, glassTop = T.glassTop || 99, roofScale = T.roofScale || 0.86, bottom = 0.34, taper = T.taper || 0;
-    var pts = T.pts.map(function (p) { return { z: p[0] * l, y: p[1], glass: !!p[2] }; });
-    var roofColor = lighten(color, 1.06), sideColor = color, lowColor = lighten(color, 0.82);
-    // 평면 타퍼: 앞뒤 끝으로 갈수록 폭이 조금 좁아진다
-    function planW(z) { var u = Math.abs(z) / (l / 2); return w / 2 * (1 - taper * u * u * u); }
-    function halfW(y, z) { var hw = z === undefined ? w / 2 : planW(z); return y > belt + 0.04 ? hw * roofScale : hw; }
-    // 윗면 로프트(+ 앞뒤 수직면은 첫/끝 점이 수직이라 자동으로 포함)
-    for (var i = 0; i < pts.length - 1; i++) {
-      var a = pts[i], b = pts[i + 1];
-      var wa = halfW(a.y, a.z), wb = halfW(b.y, b.z);
-      var dz = b.z - a.z, dy = b.y - a.y, len = Math.hypot(dz, dy) || 1;
-      var nz = dy / len, ny = -dz / len;          // 세그먼트에 수직(바깥쪽: 앞→뒤 진행 시 위쪽)
-      if (ny < 0) { ny = -ny; nz = -nz; }
-      // 유리 표시(glass)가 붙은 점으로 '올라가거나 내려가는' 구간이 유리(앞유리·뒷유리). 벨트 위 평평한 구간은 지붕.
-      var col = b.glass ? GLASS : (a.y > belt + 0.04 && b.y > belt + 0.04 ? roofColor : sideColor);
-      if (Math.abs(dz) < 1e-4) col = (a.z > 0 ? sideColor : lowColor); // 앞/뒤 수직면
-      // 앞→뒤로 갈 때 왼쪽(+x)에서 오른쪽(−x)로: 반시계(위에서 볼 때 법선 위)
-      // 감기 방향: (B−A)×(C−A) 가 위(+y)를 향해야 앞면. 앞→뒤(z 감소) 진행이므로 [왼앞, 왼뒤, 오른뒤, 오른앞] 순서.
-      gb.quad([wa, a.y, a.z], [wb, b.y, b.z], [-wb, b.y, b.z], [-wa, a.y, a.z], [0, ny, nz], col, null);
+    var w = T.w, l = T.l, belt = T.belt, pr = profile(T), zs = pr.zs, M = zs.length, K = 13;
+    var S = [], SC = [];
+    for (var s = 0; s < M; s++) { var sec = section(T, zs[s], pr.top(zs[s]), pr.glassAt(zs[s]), color); S.push(sec.P); SC.push(sec.C); }
+    // 정점 배열 V[side][s][k] 와 법선
+    function V(side, s, k) { var p = S[s][k]; return [side * p[0], p[1], zs[s]]; }
+    function N(side, s, k) {
+      var k0 = Math.max(0, k - 1), k1 = Math.min(K - 1, k + 1), s0 = Math.max(0, s - 1), s1 = Math.min(M - 1, s + 1);
+      var dK = sub(V(side, s, k1), V(side, s, k0)), dS = sub(V(side, s1, k), V(side, s0, k));
+      var n = norm3(cross(dK, dS));
+      var out = [side * (k === 0 ? 0 : 1), k >= K - 3 ? 1 : (k <= 1 ? -1 : 0.2), 0];
+      if (n[0] * out[0] + n[1] * out[1] < 0) n = [-n[0], -n[1], -n[2]];
+      if (k === 0) n = [0, -1, 0]; if (k === K - 1) n = [0, 1, 0];
+      return n;
     }
-    // 옆면: 각 세그먼트마다 하단 띠(bottom~belt) + 유리/상단 띠(belt~y)
     for (var side = -1; side <= 1; side += 2) {
-      var nrm = [side, 0, 0];
-      for (var k = 0; k < pts.length - 1; k++) {
-        var p0 = pts[k], p1 = pts[k + 1];
-        if (Math.abs(p1.z - p0.z) < 1e-4) continue;
-        var y0 = Math.min(p0.y, belt), y1 = Math.min(p1.y, belt);
-        var x0 = side * planW(p0.z), x1 = side * planW(p1.z);
-        // 하단 띠
-        quadSide(gb, side, x0, x0, bottom, y0, p0.z, x1, x1, bottom, y1, p1.z, nrm, sideColor);
-        // 상단 띠(벨트 위)
-        if (p0.y > belt || p1.y > belt) {
-          var gy0 = Math.max(p0.y, belt), gy1 = Math.max(p1.y, belt);
-          var ux0 = side * halfW(gy0, p0.z), ux1 = side * halfW(gy1, p1.z);
-          var gcap0 = Math.min(gy0, glassTop), gcap1 = Math.min(gy1, glassTop);
-          var glassSeg = (p0.y > belt && p1.y > belt) && !(p0.z > 0.13 * l && p1.z > 0.13 * l && T.cargo);
-          // 유리 띠(belt~glassTop)
-          quadSide(gb, side, x0, ux0, belt, gcap0, p0.z, x1, ux1, belt, gcap1, p1.z, nrm, glassSeg ? GLASS : sideColor);
-          // glassTop 위 차체(버스·밴·트럭)
-          if (gy0 > glassTop || gy1 > glassTop) quadSide(gb, side, ux0, ux0, gcap0, gy0, p0.z, ux1, ux1, gcap1, gy1, p1.z, nrm, roofColor);
-        }
+      for (var s2 = 0; s2 < M - 1; s2++) for (var k = 0; k < K - 1; k++) {
+        var a = V(side, s2, k), b = V(side, s2, k + 1), c = V(side, s2 + 1, k + 1), d = V(side, s2 + 1, k);
+        var na = N(side, s2, k), nb = N(side, s2, k + 1), nc = N(side, s2 + 1, k + 1), nd = N(side, s2 + 1, k);
+        var col = SC[s2][k];
+        var g = cross(sub(b, a), sub(c, a)), avg = [na[0] + nc[0], na[1] + nc[1], na[2] + nc[2]];
+        if (g[0] * avg[0] + g[1] * avg[1] + g[2] * avg[2] < 0) gb.quadN([a, d, c, b], [na, nd, nc, nb], col); else gb.quadN([a, b, c, d], [na, nb, nc, nd], col);
       }
     }
+    // 앞·뒤 캡(부채꼴): 아래쪽은 범퍼(어두움)
+    [[0, 1], [M - 1, -1]].forEach(function (cap) {
+      var s3 = cap[0], nz = cap[1], zc = zs[s3], top = pr.top(zc), ctr = [0, (0.30 + top) / 2, zc], nrm = [0, 0, nz];
+      var ring = [];
+      for (var k2 = 0; k2 < K; k2++) ring.push(V(1, s3, k2));
+      for (var k3 = K - 2; k3 >= 0; k3--) ring.push(V(-1, s3, k3));
+      for (var i = 0; i < ring.length - 1; i++) {
+        var kk = i < K ? i : (2 * K - 2 - i), colc = kk <= 2 ? LOW : (kk <= 4 && T.police ? (kk === 3 ? BLUE : YEL) : color);
+        if (nz > 0) gb.tri(ctr, ring[i + 1], ring[i], nrm, colc); else gb.tri(ctr, ring[i], ring[i + 1], nrm, colc);
+      }
+    });
+    var zf = pr.zf, zr = pr.zr, topF = pr.top(zf), topR = pr.top(zr), hwF = S[0][3][0], hwR = S[M - 1][3][0];
+    // 필러(앞유리 옆·B·뒷유리 옆) — 유리 띠 위에 얹는 어두운 띠
+    var env = pr.env, ws = null, rw = null;
+    for (var e = 0; e < env.length - 1; e++) { if (env[e + 1].glass && env[e].z > 0 && !ws) ws = [env[e], env[e + 1]]; if (env[e + 1].glass && env[e].z < 0) rw = [env[e], env[e + 1]]; }
+    function pillar(pa, pb, tint) {
+      var n = 5;
+      for (var i = 0; i < n; i++) {
+        var t = (i + 0.5) / n, z = pa.z + (pb.z - pa.z) * t, y = pa.y + (pb.y - pa.y) * t;
+        var secP = section(T, z, pr.top(z), true, color).P, x = Math.max(secP[8][0], secP[10][0]) + 0.005;
+        var hgt = Math.abs(pb.y - pa.y) / n + 0.05;
+        gb.box(x, y, z, 0.07, hgt, Math.abs(pb.z - pa.z) / n + 0.02, tint, {}); gb.box(-x, y, z, 0.07, hgt, Math.abs(pb.z - pa.z) / n + 0.02, tint, {});
+      }
+    }
+    if (ws && !T.bus && !T.cargo) pillar({ z: ws[0].z, y: belt + 0.05 }, { z: ws[1].z, y: ws[1].y - 0.06 }, DARK);
+    if (rw && !T.bus && !T.cargo && !T.van) pillar({ z: rw[0].z, y: rw[0].y - 0.06 }, { z: rw[1].z, y: belt + 0.05 }, DARK);
+    if (!T.bus && !T.cargo && ws) {   // B 필러
+      var zb = -l * 0.03, tb = pr.top(zb), sb = section(T, zb, tb, false, color).P, xb = sb[8][0] + 0.004;
+      gb.box(xb, (belt + tb) / 2, zb, 0.05, tb - belt - 0.10, 0.10, DARK, {}); gb.box(-xb, (belt + tb) / 2, zb, 0.05, tb - belt - 0.10, 0.10, DARK, {});
+    }
     // 바닥
-    var zf = pts[0].z, zr = pts[pts.length - 1].z;
-    gb.quad([-w / 2, bottom, zf], [-w / 2, bottom, zr], [w / 2, bottom, zr], [w / 2, bottom, zf], [0, -1, 0], DARK, null);
+    gb.quad([-w / 2 * 0.82, 0.30, zf], [-w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zf], [0, -1, 0], DARK, null);
     // 화물칸(트럭)
     if (T.cargo) {
       gb.box(0, 0.45 + 1.3, (0.13 * l + (-0.5 * l)) / 2, w, 2.6, 0.63 * l, lighten(color, 0.9), {});
       gb.box(0, 0.42, 0.13 * l + 0.4, w * 0.9, 0.16, 0.6, DARK, {});
     }
-    // 전조등·후미등·그릴·번호판
-    var hy = pts[1].y * 0.82 + 0.08;
-    for (var sx = -1; sx <= 1; sx += 2) {
-      gb.box(sx * w * 0.32, hy, zf + 0.02, w * 0.22, 0.14, 0.05, LIGHT, { sidesOnly: true });
-      gb.box(sx * w * 0.32, hy, zr - 0.02, w * 0.22, 0.14, 0.05, TAIL, { sidesOnly: true });
-    }
-    gb.box(0, hy - 0.05, zf + 0.02, w * 0.36, 0.16, 0.04, DARK, { sidesOnly: true });
-    gb.box(0, bottom + 0.16, zf + 0.02, 0.44, 0.12, 0.03, PLATE, { sidesOnly: true });
-    gb.box(0, bottom + 0.16, zr - 0.02, 0.44, 0.12, 0.03, PLATE, { sidesOnly: true });
-    // 거울(앞유리 아래 양쪽)
-    var mz = 0, my = belt + 0.1;
-    for (var q = 0; q < pts.length; q++) if (pts[q].glass) { mz = pts[q].z + 0.15; break; }
-    gb.box(w / 2 + 0.1, my, mz, 0.2, 0.12, 0.16, color, {}); gb.box(-w / 2 - 0.1, my, mz, 0.2, 0.12, 0.16, color, {});
-    // 고해상도 디테일(플래그십): 2단 그릴·가는 주간주행등·크롬 벨트 몰딩·도어 핸들·도어 이음선·사이드 스커트·머플러·안테나
-    if (T.detail) {
-      var CHROME = 0xd8dde3, gz = zf + 0.03, gy = pts[2].y * 0.5 + 0.2;
-      gb.box(0, gy + 0.06, gz, w * 0.5, 0.34, 0.04, 0x15181c, { sidesOnly: true });
-      for (var gb2 = 0; gb2 < 5; gb2++) gb.box(0, gy - 0.08 + gb2 * 0.07, gz + 0.01, w * 0.46, 0.02, 0.03, CHROME, { sidesOnly: true });
-      gb.box(0, gy + 0.06, gz + 0.01, w * 0.52, 0.36, 0.02, CHROME, { sidesOnly: true });
+    // 전조등·그릴·범퍼(앞)
+    var hy = Math.min(topF - 0.10, belt - 0.22), gz = zf + 0.012;
+    if (T.pixel) {   // 픽셀 LED: 전폭 얇은 바 + 픽셀 블록
+      gb.box(0, topF - 0.08, gz, hwF * 1.7, 0.035, 0.03, LIGHT, { sidesOnly: true });
+      for (var px = -3; px <= 3; px++) gb.box(px * hwF * 0.24, topF - 0.14, gz, hwF * 0.16, 0.05, 0.03, LIGHT, { sidesOnly: true });
+    } else if (T.twoTier) {
+      for (var sd0 = -1; sd0 <= 1; sd0 += 2) { gb.box(sd0 * hwF * 0.68, hy + 0.08, gz, hwF * 0.5, 0.045, 0.03, LIGHT, { sidesOnly: true }); gb.box(sd0 * hwF * 0.68, hy - 0.04, gz, hwF * 0.5, 0.045, 0.03, LIGHT, { sidesOnly: true }); }
+      gb.box(0, hy - 0.02, gz, hwF * 0.9, 0.34, 0.03, 0x111316, { sidesOnly: true });
+      for (var gl = 0; gl < 6; gl++) gb.box(0, hy - 0.16 + gl * 0.055, gz + 0.008, hwF * 0.86, 0.018, 0.02, CHROME, { sidesOnly: true });
+    } else {
       for (var sd = -1; sd <= 1; sd += 2) {
-        gb.box(sd * w * 0.36, hy + 0.09, gz, w * 0.22, 0.03, 0.03, 0xffffff, { sidesOnly: true });   // 주간주행등(위 선)
-        gb.box(sd * w * 0.36, hy - 0.09, gz, w * 0.22, 0.03, 0.03, 0xffffff, { sidesOnly: true });   // 주간주행등(아래 선)
-        gb.box(sd * w * 0.36, hy, zr - 0.02, w * 0.24, 0.05, 0.03, 0xff6060, { sidesOnly: true });     // 후미등 가는 선
-        var sx0 = sd * (planW(0) + 0.01);
-        gb.box(sx0, belt + 0.02, 0, 0.02, 0.03, l * 0.62, CHROME, {});                                   // 크롬 벨트 몰딩
-        gb.box(sx0, belt - 0.25, l * 0.10, 0.03, 0.03, 0.18, CHROME, {});                               // 앞문 핸들
-        gb.box(sx0, belt - 0.25, -l * 0.14, 0.03, 0.03, 0.18, CHROME, {});                              // 뒷문 핸들
-        gb.box(sx0, (bottom + belt) / 2, -l * 0.02, 0.012, belt - bottom - 0.1, 0.012, 0x2a2e33, {});     // 앞뒷문 이음선
-        gb.box(sx0, (bottom + belt) / 2, -l * 0.26, 0.012, belt - bottom - 0.1, 0.012, 0x2a2e33, {});     // 뒷문·펜더 이음선
-        gb.box(sd * (w / 2 - 0.02), bottom + 0.06, 0, 0.04, 0.12, l * 0.58, 0x1a1c20, {});                // 사이드 스커트
-        gb.box(sd * w * 0.3, bottom + 0.05, zr - 0.03, 0.14, 0.09, 0.05, CHROME, { sidesOnly: true });    // 머플러 팁
+        gb.box(sd * hwF * 0.64, hy + 0.02, gz, hwF * 0.56, 0.12, 0.03, LIGHT, { sidesOnly: true });
+        if (T.detail) gb.box(sd * hwF * 0.64, hy + 0.10, gz + 0.006, hwF * 0.56, 0.025, 0.02, 0xffffff, { sidesOnly: true });
       }
-      gb.box(0, pts[10].y + 0.02, pts[12].z, 0.06, 0.05, 0.22, 0x1a1c20, {});                            // 샤크핀 안테나
+      gb.box(0, hy - 0.05, gz, hwF * 0.62, 0.20, 0.03, 0x111316, { sidesOnly: true });
     }
-    // 경찰차: 청색 띠 + 경광등 받침
-    if (T.police) {
-      gb.box(0, belt - 0.22, 0, w + 0.03, 0.2, l * (T.detail ? 0.62 : 0.8), 0x1f4fa8, { sidesOnly: true });
-      var roofY = 0; for (var rp = 0; rp < pts.length; rp++) roofY = Math.max(roofY, pts[rp].y);
-      gb.box(0, roofY + 0.04, -l * 0.04, 1.05, 0.08, 0.36, 0x2b2f35, {});   // 경광등 받침(지붕 최고점 기준)
+    gb.box(0, 0.30 + 0.13, gz, hwF * 1.5, 0.12, 0.03, 0x1a1c20, { sidesOnly: true });                    // 아래 흡기구
+    gb.box(0, 0.30 + 0.27, gz + 0.01, 0.50, 0.11, 0.02, PLATE, { sidesOnly: true });                      // 번호판(앞)
+    // 후미등(뒤): 전폭 바 또는 좌우 블록, 번호판, 머플러
+    var ty = Math.min(topR - 0.12, belt - 0.15), rz = zr - 0.012;
+    if (T.tailBar) {
+      gb.box(0, ty, rz, hwR * 1.8, 0.05, 0.03, TAIL, { sidesOnly: true });
+      for (var sd2 = -1; sd2 <= 1; sd2 += 2) gb.box(sd2 * hwR * 0.74, ty - 0.06, rz, hwR * 0.4, 0.10, 0.03, TAIL, { sidesOnly: true });
+    } else {
+      for (var sd3 = -1; sd3 <= 1; sd3 += 2) gb.box(sd3 * hwR * 0.66, ty, rz, hwR * 0.5, 0.13, 0.03, TAIL, { sidesOnly: true });
     }
+    gb.box(0, 0.30 + 0.27, rz - 0.01, 0.50, 0.11, 0.02, PLATE, { sidesOnly: true });
+    gb.box(0, 0.30 + 0.12, rz, hwR * 1.5, 0.10, 0.03, 0x1a1c20, { sidesOnly: true });
+    if (T.detail) for (var sd4 = -1; sd4 <= 1; sd4 += 2) gb.box(sd4 * hwR * 0.62, 0.30 + 0.12, rz - 0.02, 0.15, 0.07, 0.05, CHROME, { sidesOnly: true });
+    // 사이드미러(앞유리 밑단 옆): 하우징 + 어두운 거울면
+    if (ws) {
+      var mz = ws[0].z + 0.10, my = belt + 0.11, mx = section(T, mz, pr.top(mz), false, color).P[6][0];
+      for (var sm = -1; sm <= 1; sm += 2) { gb.box(sm * (mx + 0.11), my, mz, 0.24, 0.11, 0.15, color, {}); gb.box(sm * (mx + 0.11), my, mz - 0.078, 0.20, 0.09, 0.01, GLASS, { sidesOnly: true }); }
+    }
+    // 문 이음선·손잡이·안테나(승용)
+    if (!T.bus && !T.cargo && !T.van) {
+      [l * 0.12, -l * 0.03, -l * 0.24].forEach(function (zsm, idx) {
+        if (idx === 1) return;
+        var sx = section(T, zsm, pr.top(zsm), false, color).P[5][0] + 0.004;
+        gb.box(sx, (0.40 + belt) / 2, zsm, 0.008, belt - 0.42, 0.014, 0x2a2e33, {}); gb.box(-sx, (0.40 + belt) / 2, zsm, 0.008, belt - 0.42, 0.014, 0x2a2e33, {});
+      });
+      [l * 0.06, -l * 0.19].forEach(function (zh) {
+        var sx2 = section(T, zh, pr.top(zh), false, color).P[6][0] + 0.006;
+        gb.box(sx2, belt - 0.16, zh, 0.02, 0.028, 0.16, T.detail ? CHROME : lighten(color, 0.85), {}); gb.box(-sx2, belt - 0.16, zh, 0.02, 0.028, 0.16, T.detail ? CHROME : lighten(color, 0.85), {});
+      });
+      var rz2 = -l * 0.30, rt = pr.top(rz2);
+      if (rt > belt + 0.2) gb.box(0, rt + 0.03, rz2, 0.06, 0.06, 0.22, DARK, {});    // 샤크핀 안테나
+    }
+    // 경찰차: 경광등 받침(지붕 최고점)
+    if (T.police) { var rY = roofY(T); gb.box(0, rY + 0.03, -l * 0.04, 1.05, 0.06, 0.36, 0x2b2f35, {}); }
     // 버스: 앞 행선판 + 문
     if (T.bus) {
       gb.box(0, 2.65, zf + 0.03, w * 0.7, 0.4, 0.04, 0xffd23f, { sidesOnly: true });
@@ -144,28 +219,21 @@ TG.vehmesh = (function () {
       gb.box(-w / 2 - 0.01, 1.2, -l * 0.15, 0.03, 1.9, 1.1, 0x2f4256, { sidesOnly: true });
     }
   }
-  function quadSide(gb, side, xa0, xa1, ya0, ya1, za, xb0, xb1, yb0, yb1, zb, nrm, color) {
-    // (xa0,ya0)-(xa1,ya1) at za, (xb0,yb0)-(xb1,yb1) at zb. 바깥에서 볼 때 반시계.
-    // (B−A)×(C−A) 가 side 방향(±x)을 향하도록: +x 면은 [앞아래, 뒤아래, 뒤위, 앞위], −x 면은 그 반대
-    var A = [xa0, ya0, za], B = [xb0, yb0, zb], C = [xb1, yb1, zb], D = [xa1, ya1, za];
-    if (side > 0) gb.quad(A, B, C, D, nrm, color, null); else gb.quad(A, D, C, B, nrm, color, null);
-  }
 
   function wheels(gb, T) {
     var r = T.wheelR, w = T.w, l = T.l;
     var zs = T.bus ? [l * 0.33, -l * 0.30] : T.cargo ? [l * 0.33, -l * 0.12, -l * 0.34] : [l * 0.31, -l * 0.31];
-    for (var i = 0; i < zs.length; i++) for (var s = -1; s <= 1; s += 2) wheelAt(gb, s * (w / 2 - 0.05), r, zs[i], r, !!T.detail);
+    for (var i = 0; i < zs.length; i++) for (var s = -1; s <= 1; s += 2) wheelAt(gb, s * (w / 2 - 0.07), r, zs[i], r, !!T.detail);
   }
-  // 타이어 + 림. detail 이면 5-스포크 림(스포크 5개 + 허브) 으로 해상도를 올린다.
+  // 타이어 + 림. detail 이면 5-스포크 림(스포크 5개 + 허브).
   function wheelAt(gb, x, y, z, r, detail) {
-    gb.wheel(x, y, z, r, 0.26, detail ? 20 : 12, DARK);
+    gb.wheel(x, y, z, r, 0.26, detail ? 22 : 12, DARK);
     if (!detail) { gb.wheel(x, y, z, r * 0.55, 0.28, 8, RIM); return; }
-    gb.wheel(x, y, z, r * 0.62, 0.27, 16, 0x2a2e33);          // 림 안쪽(어두운 배경)
-    gb.wheel(x, y, z, r * 0.64, 0.285, 16, RIM);              // 림 테두리
-    gb.wheel(x, y, z, r * 0.14, 0.30, 8, RIM);                // 허브
+    gb.wheel(x, y, z, r * 0.62, 0.27, 16, 0x2a2e33);
+    gb.wheel(x, y, z, r * 0.64, 0.285, 16, RIM);
+    gb.wheel(x, y, z, r * 0.14, 0.30, 8, RIM);
     for (var k = 0; k < 5; k++) {
       var a = k / 5 * Math.PI * 2, sl = r * 0.5;
-      // 스포크: y–z 평면에서 각도 a 방향의 가는 상자(회전은 좌표 직접 계산)
       var cy = y + Math.cos(a) * sl / 2, cz = z + Math.sin(a) * sl / 2;
       spokeBox(gb, x, cy, cz, a, sl, 0.09, 0.30, RIM);
     }
@@ -173,16 +241,14 @@ TG.vehmesh = (function () {
   function spokeBox(gb, x, cy, cz, ang, len, thick, wid, color) {
     var c = Math.cos(ang), s = Math.sin(ang), hl = len / 2, ht = thick / 2, hw = wid / 2;
     function P(u, v, sx) { return [x + sx * hw, cy + u * c - v * s, cz + u * s + v * c]; }
-    var col = color;
     for (var side = -1; side <= 1; side += 2) {
       var A = P(-hl, -ht, side), B = P(hl, -ht, side), C2 = P(hl, ht, side), D = P(-hl, ht, side);
-      if (side > 0) gb.quad(A, B, C2, D, [1, 0, 0], col, null); else gb.quad(A, D, C2, B, [-1, 0, 0], col, null);
+      if (side > 0) gb.quad(A, B, C2, D, [1, 0, 0], color, null); else gb.quad(A, D, C2, B, [-1, 0, 0], color, null);
     }
-    gb.quad(P(-hl, ht, -1), P(hl, ht, -1), P(hl, ht, 1), P(-hl, ht, 1), [0, -s, c], col, null);
-    gb.quad(P(-hl, -ht, 1), P(hl, -ht, 1), P(hl, -ht, -1), P(-hl, -ht, -1), [0, s, -c], col, null);
+    gb.quad(P(-hl, ht, -1), P(hl, ht, -1), P(hl, ht, 1), P(-hl, ht, 1), [0, -s, c], color, null);
+    gb.quad(P(-hl, -ht, 1), P(hl, -ht, 1), P(hl, -ht, -1), P(-hl, -ht, -1), [0, s, -c], color, null);
   }
 
-  // 전체(차체+바퀴) 합친 지오메트리(캐시). 플레이어는 바퀴를 따로 돌리므로 bodyOnly 사용.
   function build(type, color, bodyOnly) {
     var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0);
     if (cache[key]) return cache[key];
@@ -198,76 +264,116 @@ TG.vehmesh = (function () {
     wheelAt(gb, 0, 0, 0, r, !!detail);
     return (cache[key] = gb.build());
   }
-  // 차내 시점용 실내: 대시보드·계기판·핸들·시트·A필러·룸미러. 원점/축은 차체와 같다.
-  // 실내 배치 치수(실차 비율). 모든 위치는 운전자 눈(E)을 기준으로 잡는다 — 차종이 달라도 같은 느낌이 나도록.
-  //  E: 운전석(+x 0.38), 지붕 최고점보다 0.22 아래, 앞유리 밑단보다 0.85 뒤(단, 시트보다 앞).
+  function roofY(T) { var y = 0; for (var i = 0; i < T.pts.length; i++) y = Math.max(y, T.pts[i][1]); return y; }
+  // 후드 높이(엠블럼 위치용): 앞유리 밑단 앞 0.9m 지점의 윗선
+  function hoodAt(T, zBack) { var pr = profile(T); return pr.top(zBack); }
+
+  // ---------- 실내(차내 시점) ----------
+  // 배치는 운전자 눈(E)을 기준: 순찰차 사진처럼 낮고 넓은 대시보드, 중앙 내비 태블릿, 조수석 쪽 단속 단말(MDT), 룸미러·블랙박스, 선바이저, 도어 트림, 동승 경찰관.
   function layout(T) {
     var key = 'lay:' + T.w + ':' + T.l;
     if (cache[key]) return cache[key];
-    var roof = roofY(T), l = T.l, gi = -1;
-    for (var i = 0; i < T.pts.length; i++) if (T.pts[i][2]) { gi = i; break; }
-    var wsBase = (gi > 0 ? T.pts[gi - 1][0] : 0.15) * l, wsTop = (gi >= 0 ? T.pts[gi][0] : 0.05) * l;   // 앞유리 밑단/윗단 z
-    var eyeZ = Math.max(-l * 0.03 + 0.28, wsBase - 0.85), eyeY = roof - 0.22;
+    var roof = roofY(T), l = T.l, pr = profile(T), env = pr.env, ws0 = null, ws1 = null;
+    for (var e = 0; e < env.length - 1; e++) if (env[e + 1].glass && env[e].z > 0 && !ws0) { ws0 = env[e]; ws1 = env[e + 1]; }
+    var wsBase = ws0 ? ws0.z : l * 0.15, wsTop = ws1 ? ws1.z : l * 0.03, wsBaseY = ws0 ? ws0.y : T.belt, wsTopY = ws1 ? ws1.y : roof;
+    var eyeZ = Math.max(-l * 0.03 + 0.26, wsBase - 0.92), eyeY = roof - 0.27;
     var L = {
-      eye: { x: 0.38, y: eyeY, z: eyeZ }, roof: roof, wsBase: wsBase, wsTop: wsTop,
-      dashTop: eyeY - 0.34,                 // 대시보드 상판 높이(눈보다 0.34 아래)
-      dashFront: eyeZ + 0.55,               // 대시보드 앞면(눈에서 0.55 앞)
-      clusterY: eyeY - 0.26, clusterZ: eyeZ + 0.62, clusterW: 0.36, clusterH: 0.14,
-      wheel: { x: 0.38, y: eyeY - 0.30, z: eyeZ + 0.42, tilt: -0.45 },
-      roomMirror: { x: 0, y: eyeY + 0.12, z: eyeZ + 0.55 },
-      sideMirror: { x: T.w / 2 + 0.14, y: eyeY - 0.16, z: wsBase + 0.05 },
-      screen: { x: 0.74, y: eyeY - 0.28, z: eyeZ + 0.62 },
+      eye: { x: 0.38, y: eyeY, z: eyeZ }, roof: roof, wsBase: wsBase, wsTop: wsTop, wsBaseY: wsBaseY, wsTopY: wsTopY,
+      dashTop: eyeY - 0.40, dashFront: eyeZ + 0.46,
+      clusterY: eyeY - 0.29, clusterZ: eyeZ + 0.66, clusterW: 0.34, clusterH: 0.13,
+      wheel: { x: 0.38, y: eyeY - 0.33, z: eyeZ + 0.40, tilt: -0.50 },
+      nav: { x: 0.0, y: eyeY - 0.27, z: eyeZ + 0.62, w: 0.26, h: 0.17 },
+      mdt: { x: -0.45, y: eyeY - 0.26, z: eyeZ + 0.60, w: 0.30, h: 0.18 },
+      roomMirror: { x: 0, y: eyeY + 0.13, z: eyeZ + 0.46 },
+      sideMirror: { x: T.w / 2 + 0.17, y: T.belt + 0.11, z: wsBase + 0.10 },
+      screen: { x: 0.72, y: eyeY - 0.24, z: eyeZ + 0.58 },
     };
     return (cache[key] = L);
   }
-  // 차내 시점용 실내: 대시보드·계기판 후드·센터 콘솔·시트·A필러·헤더·천장. 원점/축은 차체와 같다.
   function interior(T) {
     var key = 'int:' + T.w + ':' + T.l;
     if (cache[key]) return cache[key];
-    var gb = new TG.GeoBuilder(), w = T.w, l = T.l, belt = T.belt, L = layout(T), DASH = 0x1f2429, DASH2 = 0x2a3038, LEATHER = 0x2b2f36, TRIM = 0x8a8f96, STITCH = 0x3a4048;
-    var top = L.dashTop, zf = L.dashFront, zb = L.wsBase + 0.02, depth = zb - zf;
-    gb.box(0, top - 0.05, (zf + zb) / 2, w * 0.92, 0.10, depth, DASH, {});                          // 상판(눈 앞 0.55 → 앞유리 밑단)
-    gb.box(0, top - 0.32, zf + 0.10, w * 0.92, 0.45, 0.20, DASH, {});                               // 대시보드 앞면(무릎 쪽)
-    gb.box(0, top - 0.08, zf - 0.01, w * 0.92, 0.02, 0.03, STITCH, {});                             // 장식선
-    gb.box(0, top - 0.02, zb - 0.02, w * 0.9, 0.04, 0.06, DASH2, {});                               // 앞유리 밑단 턱
-    // 계기판 후드(바이내클): 운전석 앞. 계기판 텍스처는 vehicle.js 가 뒷면에 붙인다
-    gb.box(L.wheel.x, L.clusterY + 0.02, L.clusterZ + 0.07, L.clusterW + 0.10, L.clusterH + 0.10, 0.14, DASH, {});
-    gb.box(L.wheel.x, L.clusterY + L.clusterH / 2 + 0.05, L.clusterZ + 0.02, L.clusterW + 0.14, 0.03, 0.22, DASH, {});   // 챙
-    gb.box(L.wheel.x, L.clusterY, L.clusterZ + 0.005, L.clusterW + 0.02, L.clusterH + 0.02, 0.01, 0x0b0e12, {});          // 검정 바탕
-    // 중앙 디스플레이(운전자 쪽으로 살짝 기울여 세움) + 센터 콘솔 + 기어 레버
-    gb.box(0, L.clusterY + 0.02, L.clusterZ + 0.02, 0.32, 0.20, 0.03, 0x0b0e12, { rotY: 0 });
-    gb.box(0, L.clusterY + 0.02, L.clusterZ + 0.003, 0.28, 0.16, 0.01, 0x14324f, { sidesOnly: true });
-    gb.box(0, belt - 0.55, zf - 0.35, 0.34, 0.45, 0.9, LEATHER, {});
-    gb.box(0, belt - 0.24, zf - 0.45, 0.05, 0.16, 0.05, TRIM, {}); gb.box(0, belt - 0.14, zf - 0.45, 0.08, 0.06, 0.08, 0x111418, {});
-    // 핸들 컬럼(핸들은 vehicle.js 별도 메시)
-    gb.box(L.wheel.x, L.wheel.y - 0.04, (L.wheel.z + zf) / 2, 0.09, 0.09, zf - L.wheel.z + 0.02, 0x111418, {});
-    // 시트(등받이·헤드레스트): 눈 뒤
-    for (var s = -1; s <= 1; s += 2) { gb.box(s * 0.38, belt - 0.12, L.eye.z - 0.30, 0.52, 0.56, 0.14, LEATHER, {}); gb.box(s * 0.38, belt + 0.32, L.eye.z - 0.30, 0.26, 0.22, 0.12, LEATHER, {}); }
-    // A필러(앞유리 옆을 따라 비스듬히: 아래·위 두 토막), 헤더, 천장
-    for (var s2 = -1; s2 <= 1; s2 += 2) {
-      var px = s2 * (w / 2 - 0.08);
-      gb.box(px, top + 0.15, zb - 0.02, 0.07, 0.32, 0.10, DASH, {});
-      gb.box(px, top + 0.42, (zb + L.wsTop) / 2, 0.07, 0.30, 0.10, DASH, {});
-      gb.box(px, L.roof - 0.10, L.wsTop - 0.02, 0.07, 0.18, 0.10, DASH, {});
+    var gb = new TG.GeoBuilder(), w = T.w, l = T.l, belt = T.belt, L = layout(T);
+    var DASH = 0x1b1e23, DASH2 = 0x262a30, PAD = 0x2e3239, TRIM = 0x8b9096, HEAD = 0xb4b8bd, SEAT = 0x2a2d33, SEAT2 = 0x35393f, VEST = 0xd4ff3c, SKIN = 0xe6b89c, CAP = 0x1d2a4d, SCREEN = 0x0b0e12;
+    var top = L.dashTop, zf = L.dashFront, zb = L.wsBase + 0.02, depth = zb - zf, hw = w * 0.47, pr = profile(T);
+    gb.box(0, L.wsBaseY - 0.02, zb + 0.02, w * 0.96, 0.05, 0.10, 0x1a1c20, {});                      // 카울(와이퍼 홈)
+    for (var wi = -1; wi <= 1; wi += 2) gb.box(wi * 0.35, L.wsBaseY + 0.005, zb + 0.10, 0.02, 0.015, 0.55, 0x111316, { rotY: wi * 0.35 });   // 와이퍼
+    // 대시보드: 상판(부드러운 어두운 패드) + 앞면 두 단 + 은색 가로 몰딩
+    gb.box(0, top - 0.05, (zf + zb) / 2, hw * 2, 0.10, depth, DASH, {});
+    gb.box(0, top - 0.02, zb - 0.03, hw * 2 * 0.98, 0.04, 0.08, DASH2, {});
+    gb.box(0, top - 0.20, zf + 0.10, hw * 2, 0.22, 0.20, DASH, {});
+    gb.box(0, top - 0.42, zf + 0.16, hw * 2, 0.24, 0.10, DASH2, {});                                   // 무릎 쪽 하단
+    gb.box(0, top - 0.10, zf - 0.005, hw * 2 * 0.98, 0.012, 0.02, TRIM, {});                          // 가로 몰딩(은색)
+    gb.box(0, top - 0.31, zf - 0.002, hw * 2 * 0.98, 0.006, 0.02, TRIM, {});
+    // 송풍구(좌·우·중앙 2)
+    [0.72, 0.16, -0.16, -0.72].forEach(function (vx) { gb.box(vx, top - 0.16, zf - 0.006, 0.16, 0.05, 0.012, 0x0f1114, {}); for (var f = -1; f <= 1; f++) gb.box(vx, top - 0.16 + f * 0.015, zf - 0.012, 0.15, 0.004, 0.006, TRIM, {}); });
+    // 계기판 후드(바이내클): 운전석 앞, 위 챙
+    gb.box(L.wheel.x, L.clusterY + 0.02, L.clusterZ + 0.06, L.clusterW + 0.12, L.clusterH + 0.10, 0.14, DASH, {});
+    gb.box(L.wheel.x, L.clusterY + L.clusterH / 2 + 0.06, L.clusterZ - 0.02, L.clusterW + 0.16, 0.03, 0.26, DASH, {});
+    gb.box(L.wheel.x, L.clusterY, L.clusterZ + 0.005, L.clusterW + 0.02, L.clusterH + 0.02, 0.01, SCREEN, {});
+    // 중앙 내비 태블릿 받침 + 조수석 쪽 MDT(단속 단말) 받침·거치대
+    gb.box(L.nav.x, L.nav.y, L.nav.z + 0.012, L.nav.w + 0.03, L.nav.h + 0.03, 0.02, 0x0f1114, {});
+    gb.box(L.nav.x, L.nav.y - L.nav.h / 2 - 0.03, L.nav.z + 0.02, 0.06, 0.06, 0.05, TRIM, {});
+    gb.box(L.mdt.x, L.mdt.y, L.mdt.z + 0.012, L.mdt.w + 0.03, L.mdt.h + 0.03, 0.02, 0x0f1114, { rotY: -0.25 });
+    gb.box(L.mdt.x, L.mdt.y - L.mdt.h / 2 - 0.04, L.mdt.z + 0.03, 0.05, 0.08, 0.05, TRIM, {});
+    // 센터 스택: 공조 노브·비상등·버튼 열
+    gb.box(0, top - 0.24, zf - 0.004, 0.30, 0.09, 0.01, 0x0f1114, {});
+    for (var kb = -2; kb <= 2; kb++) gb.box(kb * 0.055, top - 0.22, zf - 0.012, 0.04, 0.02, 0.01, kb === 0 ? 0xd12b2b : TRIM, {});
+    gb.cylinder(-0.09, top - 0.30, zf - 0.02, 0.02, 0.02, 0.02, 10, TRIM, true); gb.cylinder(0.09, top - 0.30, zf - 0.02, 0.02, 0.02, 0.02, 10, TRIM, true);
+    // 핸들 컬럼 + 레버 두 개
+    gb.box(L.wheel.x, L.wheel.y - 0.03, (L.wheel.z + zf) / 2, 0.09, 0.09, zf - L.wheel.z + 0.02, 0x111418, {});
+    gb.box(L.wheel.x + 0.14, L.wheel.y + 0.02, L.wheel.z + 0.10, 0.12, 0.02, 0.02, 0x111418, {}); gb.box(L.wheel.x - 0.14, L.wheel.y + 0.02, L.wheel.z + 0.10, 0.12, 0.02, 0.02, 0x111418, {});
+    // 센터 콘솔: 기어 노브·컵홀더·무전기(적색 LED)
+    gb.box(0, belt - 0.56, zf - 0.40, 0.36, 0.44, 0.95, SEAT, {});
+    gb.box(0, belt - 0.32, zf - 0.20, 0.30, 0.03, 0.22, 0x0f1114, {});
+    gb.box(0, belt - 0.24, zf - 0.22, 0.05, 0.14, 0.05, TRIM, {}); gb.box(0, belt - 0.14, zf - 0.22, 0.09, 0.06, 0.09, 0x111418, {});
+    gb.cylinder(-0.08, belt - 0.33, zf - 0.55, 0.035, 0.035, 0.02, 10, 0x0f1114, true); gb.cylinder(0.08, belt - 0.33, zf - 0.55, 0.035, 0.035, 0.02, 10, 0x0f1114, true);
+    gb.box(0, belt - 0.30, zf - 0.02, 0.18, 0.06, 0.12, 0x101215, {}); gb.box(0.05, belt - 0.265, zf - 0.02, 0.012, 0.006, 0.012, 0xff3b30, {});
+    // 시트(운전석·조수석): 방석·등받이·헤드레스트
+    for (var s = -1; s <= 1; s += 2) {
+      var sx = s * 0.40;
+      gb.box(sx, belt - 0.45, L.eye.z - 0.10, 0.52, 0.16, 0.52, SEAT, {});
+      gb.box(sx, belt - 0.02, L.eye.z - 0.34, 0.54, 0.70, 0.16, SEAT, {});
+      gb.box(sx, belt - 0.02, L.eye.z - 0.335, 0.34, 0.50, 0.02, SEAT2, {});
+      gb.box(sx, belt + 0.40, L.eye.z - 0.33, 0.26, 0.20, 0.12, SEAT, {});
     }
-    gb.box(0, L.roof - 0.03, L.wsTop - 0.02, w * 0.9, 0.05, 0.08, DASH, {});                             // 헤더
-    gb.box(0, L.roof - 0.02, L.wsTop - 0.02 - l * 0.16, w * 0.88, 0.03, l * 0.30, DASH, { noTop: true });  // 천장
+    // 동승 경찰관(조수석): 형광 조끼·팔·머리·경찰 모자. 오른쪽 옆 패널에서 보인다
+    var ox = -0.40, oz = L.eye.z - 0.12;
+    gb.box(ox, belt - 0.02, oz, 0.42, 0.56, 0.26, 0x2b3a55, {});                                     // 상의(근무복 남색)
+    gb.box(ox, belt + 0.02, oz + 0.005, 0.40, 0.42, 0.27, VEST, {});                                   // 형광 조끼
+    gb.box(ox, belt + 0.10, oz + 0.01, 0.41, 0.03, 0.275, 0xc8ccd2, {}); gb.box(ox, belt - 0.06, oz + 0.01, 0.41, 0.03, 0.275, 0xc8ccd2, {});   // 반사띠
+    gb.box(ox + 0.26, belt - 0.10, oz + 0.10, 0.10, 0.44, 0.12, 0x2b3a55, {}); gb.box(ox - 0.26, belt - 0.10, oz + 0.10, 0.10, 0.44, 0.12, 0x2b3a55, {});   // 팔
+    gb.box(ox + 0.26, belt - 0.32, oz + 0.22, 0.09, 0.08, 0.10, SKIN, {}); gb.box(ox - 0.26, belt - 0.32, oz + 0.22, 0.09, 0.08, 0.10, SKIN, {});           // 손
+    gb.box(ox, belt + 0.42, oz, 0.20, 0.24, 0.22, SKIN, {});                                           // 머리
+    gb.box(ox, belt + 0.58, oz, 0.24, 0.09, 0.25, CAP, {}); gb.box(ox, belt + 0.60, oz + 0.005, 0.245, 0.03, 0.255, 0xe8ecf0, {}); gb.box(ox, belt + 0.545, oz + 0.16, 0.22, 0.02, 0.10, 0x101215, {});   // 모자(남색·흰 띠·챙)
+    // 도어 트림(양쪽): 창턱·상단 패드·팔걸이·하단 패널·손잡이
+    for (var d = -1; d <= 1; d += 2) {
+      var dx = d * (w / 2 - 0.05), zc = L.eye.z - 0.05;
+      gb.box(dx, belt + 0.01, zc, 0.06, 0.05, 1.45, DASH2, {});
+      gb.box(dx, belt - 0.16, zc, 0.05, 0.30, 1.45, DASH, {});
+      gb.box(dx - d * 0.06, belt - 0.24, zc + 0.10, 0.14, 0.05, 0.55, PAD, {});
+      gb.box(dx, belt - 0.55, zc, 0.05, 0.48, 1.45, 0x3c4048, {});
+      gb.box(dx - d * 0.05, belt - 0.12, zc + 0.30, 0.06, 0.03, 0.14, TRIM, {});
+      gb.box(dx - d * 0.04, belt - 0.05, zc + 0.35, 0.05, 0.02, 0.12, 0x0f1114, {});                   // 창문 스위치
+    }
+    // A필러(앞유리 옆 비스듬히 5토막)·헤더·선바이저·천장(밝은 헤드라이너)·B필러
+    for (var s2 = -1; s2 <= 1; s2 += 2) {
+      for (var i2 = 0; i2 < 5; i2++) {
+        var t = (i2 + 0.5) / 5, pz = zb + (L.wsTop - zb) * t, py = L.wsBaseY + (L.wsTopY - L.wsBaseY) * t;
+        var secP = section(T, pz, pr.top(pz), true, 0xffffff).P, px = s2 * (Math.max(secP[8][0], secP[10][0]) - 0.03);
+        gb.box(px, py, pz, 0.08, Math.abs(L.wsTopY - L.wsBaseY) / 5 + 0.06, Math.abs(L.wsTop - zb) / 5 + 0.03, DASH2, {});
+      }
+      var bz = -l * 0.03, bt = pr.top(bz), bsec = section(T, bz, bt, false, 0xffffff).P;
+      gb.box(s2 * (bsec[8][0] - 0.03), (belt + bt) / 2, bz, 0.07, bt - belt - 0.08, 0.10, DASH2, {});
+    }
+    gb.box(0, L.roof - 0.04, L.wsTop - 0.03, w * 0.92, 0.06, 0.10, DASH2, {});                        // 헤더
+    for (var v = -1; v <= 1; v += 2) gb.box(v * 0.40, L.roof - 0.09, L.wsTop - 0.02 - 0.12, 0.44, 0.012, 0.22, 0x9ea3a9, {});   // 선바이저
+    gb.box(0, L.roof - 0.02, L.wsTop - 0.02 - l * 0.20, w * 0.90, 0.03, l * 0.40, HEAD, { noTop: true });   // 헤드라이너
+    gb.box(0, L.roof - 0.05, L.wsTop - 0.02 - 0.55, 0.16, 0.05, 0.14, 0x1a1c20, {});                    // 실내등·마이크
+    // 룸미러 위 블랙박스(대시캠)
+    gb.box(L.roomMirror.x, L.roomMirror.y + 0.075, L.roomMirror.z + 0.03, 0.10, 0.06, 0.07, 0x111316, {});
+    gb.cylinder(L.roomMirror.x, L.roomMirror.y + 0.05, L.roomMirror.z + 0.075, 0.012, 0.014, 0.02, 8, 0x0a0c0f, true);
     return (cache[key] = gb.build());
   }
-  // 핸들: 원점 = 허브 중심, 링은 로컬 x–y 평면(z 는 운전자 쪽). 조향 시 z 축으로 돌린다.
-  function steering() {
-    if (cache.steer) return cache.steer;
-    var gb = new TG.GeoBuilder(), R = 0.19;
-    for (var k = 0; k < 20; k++) {
-      var a = k / 20 * Math.PI * 2, b = (k + 1) / 20 * Math.PI * 2, mx = Math.cos((a + b) / 2) * R, my = Math.sin((a + b) / 2) * R;
-      gb.box(mx, my, 0, 0.07, 0.07, 0.06, 0x111418, { rotY: 0 });
-    }
-    gb.box(0, 0, 0, R * 1.75, 0.045, 0.05, 0x1a1e24, {});
-    gb.box(0, -R * 0.45, 0, 0.05, R * 0.9, 0.05, 0x1a1e24, {});
-    gb.box(0, 0, 0.01, 0.12, 0.10, 0.07, 0x8a8f96, {});
-    gb.box(0, 0.012, 0.045, 0.06, 0.025, 0.005, 0x1f4fa8, { sidesOnly: true });   // 허브 엠블럼 자리(청색)
-    return (cache.steer = gb.build());
-  }
-  function roofY(T) { var y = 0; for (var i = 0; i < T.pts.length; i++) y = Math.max(y, T.pts[i][1]); return y; }
-  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, steering: steering, roofY: roofY, layout: layout };
+  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, roofY: roofY, layout: layout, hoodAt: hoodAt, profile: profile };
 })();

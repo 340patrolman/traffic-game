@@ -2,3 +2,6 @@
 ref/
 .DS_Store
 Thumbs.db
+_verify*
+_shot*
+_ic*

@@ -32,7 +32,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   function river(x, z) { var d = Math.abs(x - riverX(z)); return -4 * (1 - sstep(9, 17, d)); }
 
   // ---------- 링크 빌더 ----------
-  var links = [];
+  var links = [], walls = [];
   function cr(p0, p1, p2, p3, t) { var t2 = t * t, t3 = t2 * t; return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3); }
   // CP: 제어점 배열. closed 면 고리. kind: 'highway'|'suburb'|'ramp'|'onramp'|'offramp'
   function buildLink(id, CP, kind, closed) {
@@ -91,13 +91,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   function ringIndexNear(x, z) { var best = 0, bd = 1e9; for (var i = 0; i < ring.N; i++) { var d = Math.hypot(ring.pts[i].x - x, ring.pts[i].z - z); if (d < bd) { bd = d; best = i; } } return best; }
   var jE = ringIndexNear(CXC + RA, CZC), jN = ringIndexNear(CXC, CZC - RB);
   var JE = ring.pts[jE], JN = ring.pts[jN];
-  // 동쪽 연결로(교외 굽은 길): 노드(4,2) 동쪽 스텁 끝 → 링 동쪽 안쪽 가장자리
-  var eEnd = [JE.x - 15, JE.z], eStart = [city.xs[4] + cfg.ROAD_HALF + cfg.SIDEWALK_W + 4, city.zs[2]];
-  var connE = buildLink('connE', [[eStart[0] - 30, eStart[1]], eStart, [400, 150], [452, 196], [500, 178], [545, 130], [565, 165], eEnd, [eEnd[0] + 30, eEnd[1]]].slice(0), 'suburb', false);
-  // 북쪽 연결로(진입로): 노드(2,0) 북쪽 스텁 끝 → 링 북쪽 안쪽
-  var nStart = [city.xs[2], city.zs[0] - cfg.ROAD_HALF - cfg.SIDEWALK_W - 4], nEnd = [JN.x, JN.z + 15];
-  var connN = buildLink('connN', [[nStart[0], nStart[1] + 30], nStart, [162, -80], [150, -140], [158, -200], nEnd, [nEnd[0], nEnd[1] - 30]], 'ramp', false);
-  // 스플라인의 첫/끝 팬텀 제어점 때문에 링크 끝이 약간 넘친다 → 실제 시작·끝 샘플 인덱스를 잡아둔다
+  // ---------- 인터체인지 8곳: 도시 스텁 8개 → 연결로 → 링(우회전 합류 on / 우회전 진출 off) ----------
   function trimLink(link, start, end) {
     var a = 0, b = link.N - 1, ba = 1e9, bb = 1e9;
     for (var i = 0; i < link.N; i++) { var da = Math.hypot(link.pts[i].x - start[0], link.pts[i].z - start[1]); if (da < ba) { ba = da; a = i; } var db = Math.hypot(link.pts[i].x - end[0], link.pts[i].z - end[1]); if (db < bb) { bb = db; b = i; } }
@@ -106,9 +100,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     link.P = function (i) { return link.pts[TG.clamp(i, 0, link.N - 1)]; };
     link.total = link.pts[link.N - 1].s;
   }
-  trimLink(connE, eStart, eEnd); trimLink(connN, nStart, nEnd);
-
-  // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로(안쪽에서 9m) 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
+  // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
   function ramps(conn, j, tag) {
     var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
     var LO = cfg.HW_LANES[2];
@@ -119,20 +111,46 @@ TG.buildTerrain = function (scene, city, cfg) {
       [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2], [J.x - tc[0] * 60 - rc[0] * 2, J.z - tc[1] * 60 - rc[1] * 2]], 'offramp', false);
     trimLink(on, [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2], L(9));
     trimLink(off, L(-9), [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2]);
-    // 연결 정보: 연결로 A 끝 → on → 링 A(j+9). 링 A(j−9 지점 결정) → off → 연결로 B(끝 42m 전 지점부터 도시 방향)
-    var connEndIdx = conn.N - 1 - Math.round(42 / STEP);
+    var connEndIdx = conn.N - 1;   // 연결로 끝 = 램프 분기점
     conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
     on.nextA = { link: ring, index: (j + 9) % ring.N, merge: true };
     ring.exitsA.push({ atIndex: ((j - 9) % ring.N + ring.N) % ring.N, decideIndex: ((j - 24) % ring.N + ring.N) % ring.N, link: off });
     off.nextA = { link: conn, index: connEndIdx, dirA: false };
+    // 분기점 직진 차단(램프 쪽 +2m 는 열어 둔다): 링 밑으로 들어가지 않는다
+    var E = conn.pts[conn.N - 1];
+    walls.push({ x1: E.x - E.rx * 7, z1: E.z - E.rz * 7, x2: E.x + E.rx * 0.6, z2: E.z + E.rz * 0.6, icEnd: true, tx: E.tx, tz: E.tz });
     return { on: on, off: off };
   }
-  var rE = ramps(connE, jE, 'E'), rN = ramps(connN, jN, 'N');
-  // 도시 격자 연결
-  connE.cityStart = { node: city.nodes[4][2], dir: 1 };   // 노드(4,2)에서 동쪽으로 나가면 connE A
-  connE.cityEnd = { node: city.nodes[4][2], dir: 3 };     // connE B 끝 → 노드(4,2)에 서쪽 방향으로 접근
-  connN.cityStart = { node: city.nodes[2][0], dir: 2 };
-  connN.cityEnd = { node: city.nodes[2][0], dir: 0 };
+  // IC 정의: 도시 노드 + 나가는 방향 + 링 각도(θ, x=cos·z=sin). 연결로 끝은 링 접속점 15m 안쪽에서 방사 방향으로 닿는다.
+  var ICS = [
+    { tag: 'E',  node: [4, 2], dir: 1, th: 0,    kind: 'suburb', via: [[400, 150], [452, 196], [500, 178], [545, 130]] },
+    { tag: 'N',  node: [2, 0], dir: 2, th: -90,  kind: 'ramp',   via: [[162, -80], [150, -140], [158, -200]] },
+    { tag: 'S',  node: [2, 4], dir: 0, th: 90,   kind: 'suburb', via: [[150, 400], [176, 460], [158, 520]] },
+    { tag: 'W',  node: [0, 2], dir: 3, th: 180,  kind: 'suburb', via: [[-60, 170], [-120, 130], [-190, 168]] },
+    { tag: 'NE', node: [4, 0], dir: 2, th: -45,  kind: 'suburb', via: [[330, -60], [380, -100]] },
+    { tag: 'NW', node: [0, 0], dir: 2, th: -135, kind: 'suburb', via: [[-10, -60], [-70, -100]] },
+    { tag: 'SE', node: [4, 4], dir: 0, th: 45,   kind: 'suburb', via: [[330, 380], [380, 420]] },
+    { tag: 'SW', node: [0, 4], dir: 0, th: 135,  kind: 'suburb', via: [[-10, 380], [-70, 420]] },
+  ];
+  var conns = [], ramps_ = {};
+  ICS.forEach(function (ic) {
+    var node = city.nodes[ic.node[0]][ic.node[1]], dv = TG.DIR_VEC[ic.dir], half = ic.node[0] === 2 || ic.node[1] === 2 ? cfg.ROAD_HALF : cfg.ROAD_HALF;
+    var start = [node.x + dv[0] * (half + cfg.SIDEWALK_W + 4), node.z + dv[1] * (half + cfg.SIDEWALK_W + 4)];
+    var a = ic.th * Math.PI / 180, j = ringIndexNear(CXC + RA * Math.cos(a), CZC + RB * Math.sin(a)), J = ring.pts[j];
+    var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
+    var end = [J.x - rad[0] * 15, J.z - rad[1] * 15];
+    var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * 45, start[1] + dv[1] * 45]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
+    var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);
+    trimLink(conn, start, end);
+    var Ept = conn.pts[conn.N - 1], split = [end[0] - Ept.tx * 42, end[1] - Ept.tz * 42];
+    trimLink(conn, start, split);
+    conn.cityStart = { node: node, dir: ic.dir };
+    conn.cityEnd = { node: node, dir: (ic.dir + 2) % 4 };
+    conn.ic = ic.tag;
+    ramps_[ic.tag] = ramps(conn, j, ic.tag);
+    conns.push(conn);
+  });
+  var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
 
   // ---------- 공간 해시(모든 링크) ----------
   var CELL = 24, grid = {};
@@ -221,7 +239,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(cg.build(), new THREE.MeshBasicMaterial({ map: TG.tex.cloud(), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), false, false);
 
   // 도로 리본(링크 전부)
-  var road = new G(), mark = new G(), props = new G(), walls = [], busTextGeo = new G(), signFaces = {};
+  var road = new G(), mark = new G(), props = new G(), busTextGeo = new G(), signFaces = {};
   var YEL = 0xf0c000, WHT = 0xf2f2ee, BLU = 0x2f6fd6;
   function Pt(p, off, lift) { return [p.x + p.rx * off, p.y + (lift || 0), p.z + p.rz * off]; }
   function ribbon(gb, a, b, oa, ob, lift, color, uvS) {
@@ -233,6 +251,15 @@ TG.buildTerrain = function (scene, city, cfg) {
     gb.quad(A0, B0, B1, A1, [a.rx, 0, a.rz], color, null); gb.quad(B0, A0, A1, B1, [-a.rx, 0, -a.rz], color, null);
   }
   function face(kind, x, y, z, rot, w, h) { (signFaces[kind] = signFaces[kind] || new G()).vquad(x, y, z, w, h, rot, 0xffffff, null); }
+  // IC 분기점 직진 차단봉(황·흑 줄무늬)
+  walls.forEach(function (W) {
+    if (!W.icEnd) return;
+    var cx = (W.x1 + W.x2) / 2, cz = (W.z1 + W.z2) / 2, len = Math.hypot(W.x2 - W.x1, W.z2 - W.z1), rot = Math.atan2(W.tz, W.tx) + Math.PI / 2, y = heightAt(cx, cz);
+    props.box(cx, y + 0.55, cz, len, 0.5, 0.3, 0xf2c200, { rotY: rot });
+    var ux = (W.x2 - W.x1) / (len || 1), uz = (W.z2 - W.z1) / (len || 1);
+    for (var k = -1; k <= 1; k++) props.box(cx + ux * k * len / 3, y + 0.55, cz + uz * k * len / 3, 1.2, 0.52, 0.32, 0x15171a, { rotY: rot });
+    props.box(cx, y + 0.15, cz, len + 0.2, 0.3, 0.4, 0xc9c5ba, { rotY: rot });
+  });
   links.forEach(function (L) {
     var segs = L.closed ? L.N : L.N - 1;
     for (var i = 0; i < segs; i++) {
@@ -343,12 +370,11 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(farm.build(), lambertVC, true, true);
 
   return {
-    links: links, ring: ring, connE: connE, connN: connN, rampsE: rE, rampsN: rN, walls: walls, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    links: links, ring: ring, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     heightAt: heightAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {
-      if (node === connE.cityStart.node && dir === connE.cityStart.dir) return { link: connE, dirA: true };
-      if (node === connN.cityStart.node && dir === connN.cityStart.dir) return { link: connN, dirA: true };
+      for (var c = 0; c < conns.length; c++) if (node === conns[c].cityStart.node && dir === conns[c].cityStart.dir) return { link: conns[c], dirA: true };
       return null;
     },
   };

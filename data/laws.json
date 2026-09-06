@@ -71,15 +71,27 @@
     },
     {
       "id": "jaywalk",
-      "name": "보행자 통행방법 위반(무단횡단)",
-      "short": "무단횡단",
+      "name": "무단횡단(횡단보도가 아닌 곳 횡단)",
+      "short": "무단횡단(횡단보도 밖)",
       "enabled": true,
       "subject": "보행자",
-      "law": { "act": "도로교통법", "article": null, "verified": false },
-      "fine": { "보행자": null, "verified": false, "source": "도로교통법 시행령 별표9" },
-      "points": { "value": null, "verified": false, "source": null },
+      "law": { "act": "도로교통법", "article": "제10조(도로의 횡단)", "verified": false, "candidate_source": "T-Book v21.88 (도교법 §10·§157)" },
+      "fine": { "보행자": null, "verified": false, "source": "도로교통법 시행령 별표9", "note": "T-Book: 현행값 법령DB 확인 — 참고값 없음" },
+      "points": { "value": null, "verified": false, "source": null, "note": "보행자에게는 벌점 없음(확인 중)" },
       "verified": false,
-      "teach": "횡단보도·신호가 있는 곳에서는 신호에 따라 건넌다. 차도 한가운데 횡단은 사고의 지름길."
+      "teach": "횡단보도·지하도·육교가 있는 도로에서는 그곳으로 건넌다(§10②). 차 사이·도로 한가운데 횡단은 사고의 지름길."
+    },
+    {
+      "id": "jaywalk-red",
+      "name": "보행자 신호위반(보행 적색에 횡단보도 횡단)",
+      "short": "횡단보도 신호위반 보행",
+      "enabled": true,
+      "subject": "보행자",
+      "law": { "act": "도로교통법", "article": "제5조(신호 또는 지시에 따를 의무)", "verified": false, "candidate_source": "T-Book v21.88 (도교법 §5·§157)" },
+      "fine": { "보행자": null, "verified": false, "source": "도로교통법 시행령 별표9", "candidate": { "보행자": 30000 }, "candidate_source": "T-Book v21.88" },
+      "points": { "value": null, "verified": false, "source": null, "note": "보행자에게는 벌점 없음(확인 중)" },
+      "verified": false,
+      "teach": "차량 신호가 녹색(직진·좌회전)이면 그 옆 횡단보도의 보행 신호는 적색. 이때는 횡단보도 위라도 건너면 보행자 신호위반(§5) — 「횡단보도 위 무단횡단」. 운전자는 신호에 따라 건너는 보행자를 보호할 의무(§27②)가 있고, 사람을 치면 결과는 같다."
     },
     {
       "id": "motorcycle",

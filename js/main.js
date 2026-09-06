@@ -9,7 +9,7 @@
   if (!C.CARS[settings.car]) settings.car = 'flag';
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
   var lastT = 0, penaltyTotal = 0, penaltyCount = {};
-  var isStress = /[?&]stress=1/.test(location.search), isTest = /[?&]test=1/.test(location.search), noIntro = /[?&]nointro=1/.test(location.search);
+  var isStress = /[?&]stress=1/.test(location.search), isTest = /[?&]test=1/.test(location.search), noIntro = /[?&]nointro=1/.test(location.search), noRender = /[?&]norender=1/.test(location.search);
   var intro = { t: 0, lines: [], idx: -1, done: false };
   var FALLBACK_PURPOSE = '도로에서 일어나는 교통상의 위험과 장해를 방지하고 제거하여 안전하고 원활한 교통을 확보한다';
 
@@ -18,7 +18,7 @@
   function init() {
     canvas = document.getElementById('game');
     input = new TG.Input();
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: noRender });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, input.isTouch ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = input.isTouch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
@@ -71,18 +71,59 @@
   function chaseFov() {
     var w = window.innerWidth, h = window.innerHeight;
     // 세로 화면은 가로 시야가 좁아지므로 수직 시야각을 더 키운다
-    if (settings.cam === 'cockpit') return h > w ? 108 : C.CAM_COCKPIT.fov;
+    if (settings.cam === 'cockpit') return h > w ? 112 : (w / h >= 1.6 ? 92 : 98);
     return h > w ? 88 : (w / h >= 1.6 ? 74 : 70);
+  }
+  // ---------- 차내 광각(3면 파노라마) ----------
+  // 가로 화면·차내 시점에서는 왼쪽·가운데·오른쪽 세 카메라로 나눠 그린다(각 패널의 수직 시야각은 같고, 옆 패널은 가운데 시야각의 절반만큼 더 돌아가 이음새가 이어진다).
+  // 총 가로 시야 ≈ 175°: 운전석에서 양옆 창문 밖까지 보인다. 세로 화면·추적 시점은 카메라 하나.
+  var camC = new THREE.PerspectiveCamera(80, 1, 0.5, 2600), camL = new THREE.PerspectiveCamera(80, 1, 0.5, 2600), camR = new THREE.PerspectiveCamera(80, 1, 0.5, 2600);
+  var pano = { on: false, sw: 0, cw: 0, yaw: 0, total: 0 }, qL = new THREE.Quaternion(), qR = new THREE.Quaternion(), Y_AXIS = new THREE.Vector3(0, 1, 0);
+  function panoLayout(w, h) {
+    var cw = Math.round(w * 0.54), sw = Math.round((w - cw) / 2), best = null, TARGET = 150 * Math.PI / 180;
+    for (var v = 64; v <= 112; v += 1) {
+      var t = Math.tan(v * Math.PI / 360), hc = 2 * Math.atan(t * cw / h), hs = 2 * Math.atan(t * sw / h), tot = hc + 2 * hs;
+      if (!best || Math.abs(tot - TARGET) < Math.abs(best.tot - TARGET)) best = { v: v, hc: hc, hs: hs, tot: tot };
+    }
+    return { on: true, cw: cw, sw: sw, v: best.v, yaw: (best.hc + best.hs) / 2, total: best.tot * 180 / Math.PI };
+  }
+  function panoActive() { return settings.cam === 'cockpit' && settings.pano === true && window.innerWidth > window.innerHeight; }
+  function renderFrame() {
+    var w = window.innerWidth, h = window.innerHeight;
+    if (!(pano.on && G.state === 'play')) { renderer.render(scene, camera); return; }
+    camC.position.copy(camera.position); camC.quaternion.copy(camera.quaternion);
+    camL.position.copy(camera.position); camL.quaternion.copy(camera.quaternion).premultiply(qL);
+    camR.position.copy(camera.position); camR.quaternion.copy(camera.quaternion).premultiply(qR);
+    renderer.setScissorTest(true);
+    renderer.setViewport(0, 0, pano.sw, h); renderer.setScissor(0, 0, pano.sw, h); renderer.render(scene, camL);
+    renderer.setViewport(pano.sw, 0, pano.cw, h); renderer.setScissor(pano.sw, 0, pano.cw, h); renderer.render(scene, camC);
+    renderer.setViewport(pano.sw + pano.cw, 0, pano.sw, h); renderer.setScissor(pano.sw + pano.cw, 0, pano.sw, h); renderer.render(scene, camR);
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h);
+  }
+  // 화면 좌표 → (어느 패널의) 카메라와 정규화 좌표. 터치 단속의 레이캐스트에 쓴다.
+  function pickCamera(cx, cy) {
+    var w = window.innerWidth, h = window.innerHeight, ny = -(cy / h) * 2 + 1;
+    if (!(pano.on && G.state === 'play')) return { cam: camera, nx: (cx / w) * 2 - 1, ny: ny };
+    if (cx < pano.sw) return { cam: camL, nx: (cx / pano.sw) * 2 - 1, ny: ny };
+    if (cx >= pano.sw + pano.cw) return { cam: camR, nx: ((cx - pano.sw - pano.cw) / pano.sw) * 2 - 1, ny: ny };
+    return { cam: camC, nx: ((cx - pano.sw) / pano.cw) * 2 - 1, ny: ny };
   }
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = chaseFov(); camera.updateProjectionMatrix();
     document.body.classList.toggle('portrait', h > w);
+    if (panoActive()) {
+      var L = panoLayout(w, h); pano = L;
+      camC.aspect = L.cw / h; camC.fov = L.v; camC.updateProjectionMatrix();
+      camL.aspect = L.sw / h; camL.fov = L.v; camL.updateProjectionMatrix();
+      camR.aspect = L.sw / h; camR.fov = L.v; camR.updateProjectionMatrix();
+      qL.setFromAxisAngle(Y_AXIS, L.yaw); qR.setFromAxisAngle(Y_AXIS, -L.yaw);
+    } else { pano.on = false; renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h); }
   }
 
   // ---------- 인트로 ----------
   function startIntro() {
-    G.state = 'intro'; intro.t = 0; intro.idx = -1; intro.done = false;
+    G.state = 'intro'; intro.t = 0; intro.idx = -1; intro.done = false; intro.theme = false;
     var purpose = (G.laws && G.laws.act && G.laws.act.purpose) ? G.laws.act.purpose : FALLBACK_PURPOSE;
     var cite = (G.laws && G.laws.act) ? (G.laws.act.name + ' ' + G.laws.act.purposeArticle + '(목적)') : '도로교통법 제1조(목적) · 확인 중';
     intro.lines = [
@@ -91,14 +132,14 @@
       { at: 4.4, text: cite + ' — ' + purpose, small: true },
       { at: 6.6, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
       { at: 8.4, text: '교통경찰.' },
-      { at: 10.4, text: '순찰길', big: true },
+      { at: 10.4, text: 'SEOUL PATROL', big: true },
       { at: 11.4, text: '시내 · 교외 · 순환고속도로 순찰 근무', small: true },
     ];
     hud.introLines(intro.lines, -1);
     hud.showIntro(true);
     TG.audio.setSiren(false);
   }
-  function endIntro() { if (intro.done) return; intro.done = true; hud.showIntro(false); showTitle(); }
+  function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(); hud.showIntro(false); showTitle(); }
   function showTitle() { G.state = 'title'; hud.showTitle(TG.save.get('best', null)); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
@@ -132,7 +173,7 @@
       settings.cam = mode; TG.save.set('settings', settings);
       document.querySelectorAll('.viewpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-view') === mode); });
       if (player) player.setView(mode);
-      camera.fov = chaseFov(); camera.updateProjectionMatrix();
+      resize();
       camInit = false;
       if (announce && G.state === 'play') hud.notice(mode === 'cockpit' ? '차내 시점' : '추적 시점', 'info', 1200);
     }
@@ -147,18 +188,23 @@
     input.bindTap($('btnPause'), function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
     input.bindTap($('btnResume'), function () { setPaused(false, 'menu'); });
     input.bindTap($('btnQuit'), function () { endShift('근무 종료(직접 종료)'); setPaused(false, 'menu'); });
+    input.bindTap($('btnRecover'), function () { setPaused(false, 'menu'); recoverToRoad('마지막 도로 위치로 복귀'); });
     input.bindTap($('btnAgain'), function () { hud.hideEnd(); showTitle(); });
     var optH = $('optHints'), optS = $('optStopbar'), optA = $('optSound');
-    optH.checked = settings.hints; optS.checked = settings.stopbar; optA.checked = settings.sound;
+    if (optH && optS && optA) { optH.checked = settings.hints; optS.checked = settings.stopbar; optA.checked = settings.sound;
     optH.addEventListener('change', function () { settings.hints = optH.checked; hud.setHints(optH.checked); TG.save.set('settings', settings); });
     optS.addEventListener('change', function () { settings.stopbar = optS.checked; hud.setStopbar(optS.checked); TG.save.set('settings', settings); });
-    optA.addEventListener('change', function () { settings.sound = optA.checked; TG.audio.setMuted(!optA.checked); TG.save.set('settings', settings); });
+    optA.addEventListener('change', function () { settings.sound = optA.checked; TG.audio.setMuted(!optA.checked); TG.save.set('settings', settings); }); }
+    var optAs = $('optAssist'), optP = $('optPano');
+    if (optAs) optAs.checked = settings.assist !== false; if (optP) optP.checked = settings.pano === true;
+    if (optAs) optAs.addEventListener('change', function () { settings.assist = optAs.checked; if (player) player.assist = optAs.checked; TG.save.set('settings', settings); });
+    if (optP) optP.addEventListener('change', function () { settings.pano = optP.checked; TG.save.set('settings', settings); resize(); });
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
     var optV = $('optVolume'), optVV = $('optVolumeVal');
-    optV.value = Math.round(settings.volume * 100); optVV.textContent = optV.value + '%';
+    if (optV && optVV) { optV.value = Math.round(settings.volume * 100); optVV.textContent = optV.value + '%'; }
     TG.audio.setVolume(settings.volume);
-    optV.addEventListener('input', function () { settings.volume = optV.value / 100; optVV.textContent = optV.value + '%'; TG.audio.setVolume(settings.volume); TG.save.set('settings', settings); });
+    if (optV) optV.addEventListener('input', function () { settings.volume = optV.value / 100; optVV.textContent = optV.value + '%'; TG.audio.setVolume(settings.volume); TG.save.set('settings', settings); });
     // 앰프(확성기): 버튼·M 키. 누를 때마다 안내 문구를 돌아가며 방송
     var PA_LINES = ['앞 차량, 우측 가장자리에 정차하십시오', '서행하십시오, 전방에 보행자가 있습니다', '무단횡단은 위험합니다, 횡단보도를 이용하십시오', '순찰 중입니다, 안전 운전 부탁드립니다'];
     var paIdx = 0;
@@ -181,8 +227,8 @@
       if (!tapStart || G.state !== 'play' || G.paused) { tapStart = null; G.lookHold = false; return; }
       var moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y); tapStart = null; G.lookHold = false;
       if (moved > 10) return;
-      var nx = (e.clientX / window.innerWidth) * 2 - 1, ny = -(e.clientY / window.innerHeight) * 2 + 1;
-      ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      var pk = pickCamera(e.clientX, e.clientY), nx = pk.nx, ny = pk.ny;
+      ray.setFromCamera(new THREE.Vector2(nx, ny), pk.cam);
       var objs = traffic.cars.map(function (c) { return c.mesh; }).concat(peds.peds.map(function (p) { return p.mesh; }));
       var hits = ray.intersectObjects(objs, true);
       for (var i = 0; i < hits.length; i++) {
@@ -295,7 +341,7 @@
   function onTrafficEvent(kind, car) {
     if (kind === 'witness') {
       var name = { buslane: '버스전용차로 위반', pedestrian: '보행자 보호의무 위반(횡단보도)', signal: '신호위반' }[car.violation.type] || car.violation.type;
-      hud.notice('위반 의심: ' + name + ' — 대상 차량 표시', 'alert', 3200); TG.audio.alert(); G.stats.witnessed++;
+      hud.notice('위반 의심: ' + name + ' — 대상 차량 표시', 'alert', 3200); TG.audio.alert(); if (G.stats) G.stats.witnessed++;
     }
   }
   function onPedEvent(kind, p) {
@@ -373,6 +419,13 @@
     // 7) 물에 빠짐 → 마지막 도로 위치로
     rules.saveT -= dt;
     if (frame.onRoad && T.speed < 25 && rules.saveT <= 0) { rules.saveT = 0.5; rules.lastRoad = { x: player.pos.x, z: player.pos.z, h: player.heading }; }
+    // 구덩이·경사에 빠져 못 나오거나(가속해도 3초 이상 제자리) 도로 밖 낮은 곳에 2.5초 이상 있으면 마지막 도로로 복귀
+    var pushing = (player.controls.throttle > 0.3 || player.controls.reverse > 0) && T.speed < 0.4;
+    rules.stuckT = pushing ? (rules.stuckT || 0) + dt : 0;
+    var pit = !frame.onRoad && (player.y < -0.6 || Math.abs(T.slope) > 0.42);
+    rules.pitT = pit ? (rules.pitT || 0) + dt : 0;
+    var B = city.bounds, outside = player.pos.x < B.x0 || player.pos.x > B.x1 || player.pos.z < B.z0 || player.pos.z > B.z1;
+    if (rules.stuckT > 3 || rules.pitT > 2.5 || outside) { rules.stuckT = 0; rules.pitT = 0; recoverToRoad(outside ? '지도 밖 — 마지막 도로 위치로 복귀' : '도로 밖에 빠졌습니다 — 마지막 도로 위치로 복귀'); }
     if (terrain.isWater(player.pos.x, player.pos.z)) {
       addScore(-5, 'water'); hud.notice('도로 이탈(물) — 마지막 도로 위치로 복귀 (-5)', 'bad', 3000); TG.audio.bad();
       player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); camInit = false;
@@ -423,7 +476,7 @@
     for (var k = 0; k < peds.peds.length; k++) {
       var p = peds.peds[k];
       if (Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z) < player.radius + 0.5 && player.telemetry.speed > 1.0) {
-        addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('보행자 사고 — 근무 종료', 'bad', 5000); TG.audio.thump(1);
+        addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice(p.jayLive ? '보행자 사고 — 신호위반 보행자라도 사람을 치면 근무 종료' : '보행자 사고 — 근무 종료', 'bad', 5000); TG.audio.thump(1);
         endShift('보행자 사고 — 사람을 치면 즉시 임무 실패'); return;
       }
     }
@@ -459,10 +512,17 @@
     world.followSun(player.pos.x, player.pos.z);
   }
 
+  function recoverToRoad(msg) {
+    if (!player || !rules) return;
+    hud.notice(msg || '마지막 도로 위치로 복귀', 'info', 3000); TG.audio.ui();
+    player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync(); camInit = false;
+  }
   function update(dt) {
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
+    player.assist = settings.assist !== false;
+    if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);
     signals.update(dt);
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX));
@@ -498,6 +558,8 @@
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
     } else if (G.state === 'intro') {
       intro.t += dt;
+      if (!intro.theme && TG.audio.running) intro.theme = TG.audio.introTheme(intro.t);   // 브라우저가 소리를 풀어 주는 순간(첫 터치)부터 테마를 이어서 연주
+      var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = TG.audio.running ? 'none' : 'block';
       var idx = -1; for (var i = 0; i < intro.lines.length; i++) if (intro.t >= intro.lines[i].at) idx = i;
       if (idx !== intro.idx) { intro.idx = idx; hud.introLines(intro.lines, idx); }
       introCamera(intro.t);
@@ -514,7 +576,7 @@
     }
     input.clearPressed();
     if (player && settings.cam === 'cockpit' && G.state === 'play' && !G.paused) player.updateMirrors(renderer, scene);
-    renderer.render(scene, camera);
+    if (!noRender) renderFrame();
   }
 
   function installTestHooks() {
@@ -564,13 +626,13 @@
         }
         return G.state;
       },
-      render: function () { renderer.render(scene, camera); return true; },
+      render: function () { renderFrame(); return true; },
       info: function () { var r = renderer.info.render; return { calls: r.calls, triangles: r.triangles, frameMs: TG.perf.frameMs }; },
       intro: startIntro, endIntro: endIntro, introCamera: function (t) { introCamera(t); renderer.render(scene, camera); },
       camAt: function (x, y, z, lx, ly, lz) { camera.position.set(x, y, z); camera.lookAt(lx, ly, lz); renderer.render(scene, camera); },
       hintText: function () { return document.getElementById('hint').textContent; },
       noticeText: function () { return document.getElementById('notice').textContent; },
-      city: city, traffic: traffic, peds: peds, signals: signals, game: G, input: input, terrain: terrain,
+      city: city, traffic: traffic, peds: peds, signals: signals, game: G, input: input, terrain: terrain, camera: camera, pano: function () { return pano; }, settings: settings, resize: resize,
     };
     log('테스트 훅 설치: TG.test.*');
   }

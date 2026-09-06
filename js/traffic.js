@@ -147,7 +147,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (opts.atLink || useLink) {
         var L, i, dirA;
         if (opts.atLink) { L = opts.atLink.link; i = opts.atLink.i; dirA = opts.atLink.dirA; }
-        else { L = TG.pick(rng, [T.ring, T.ring, T.ring, T.connE, T.connN]); i = Math.floor(rng() * L.N); dirA = L.oneWay ? true : rng() < 0.5; if (!L.closed && (i < 12 || i > L.N - 14)) continue; }
+        else { L = TG.pick(rng, [T.ring, T.ring, T.ring, T.ring, TG.pick(rng, T.conns), TG.pick(rng, T.conns)]); i = Math.floor(rng() * L.N); dirA = L.oneWay ? true : rng() < 0.5; if (!L.closed && (i < 12 || i > L.N - 14)) continue; }
         var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES);
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         if (L.kind === 'highway') lane = (opts.lane !== undefined) ? opts.lane : (isBus ? 0 : (rng() < cfg.BUSLANE_VIOLATOR_RATE && type !== 'truck' ? 0 : 1 + Math.floor(rng() * 2)));
@@ -258,15 +258,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       if (car.prevDistStop !== undefined && car.prevDistStop > 0 && distStop <= 0 && car.prevAp === ap) {
         var st2 = signals.state(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h');
-        if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn) { self.stats.violations++; if (self.witness(car)) flag(car, 'signal', ap.node); else car.unseen++; }
+        if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn) { self.stats.violations++; flag(car, 'signal', ap.node, self.witness(car)); }
         car.running = null;
         // 횡단보도 진입 시 보행자가 걷고 있으면 보행자 보호의무 위반
-        if (!car.violation && car.v > 1.5 && pedOnCrosswalk(ap)) { self.stats.violations++; if (self.witness(car)) flag(car, 'pedestrian', ap.node); else car.unseen++; car.cooldown = cfg.VIOLATOR_COOLDOWN; }
+        if (!car.violation && car.v > 1.5 && pedOnCrosswalk(ap)) { self.stats.violations++; flag(car, 'pedestrian', ap.node, self.witness(car)); car.cooldown = cfg.VIOLATOR_COOLDOWN; }
       }
       car.prevDistStop = distStop; car.prevAp = ap;
     } else { car.prevAp = null; car.prevDistStop = undefined; }
     if (onLink && cur.kind === 'highway' && car.route && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
-      if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null); } }
+      if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null, true); } }
     } else car.busLaneT = 0;
     if (self.peds && !onLink) {
       var pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, pedIgnore ? 6 : 18, pedIgnore ? 2.2 : 6.5);
@@ -322,7 +322,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (self.time - car.violation.t > cfg.VIOLATION_MEMORY && car.mode === 'drive') { car.violation = null; car.marker.visible = false; }
     }
   }
-  function flag(car, type, node) { car.violation = { type: type, t: self.time, node: node }; car.marker.visible = true; self.stats.witnessed++; self.onEvent('witness', car); }
+  // 위반은 목격 여부와 상관없이 차량에 기록한다(터치 단속 퀴즈의 정답 근거). 화살표·HUD 알림은 플레이어가 목격했을 때만.
+  function flag(car, type, node, seen) {
+    if (car.violation && car.violation.seen && !seen) return;
+    car.violation = { type: type, t: self.time, node: node, seen: !!seen }; car.marker.visible = !!seen;
+    if (seen) { self.stats.witnessed++; self.onEvent('witness', car); } else car.unseen++;
+  }
   this.witness = function (car) {
     var pl = self.player; if (!pl) return false;
     var dx = car.pos.x - pl.pos.x, dz = car.pos.z - pl.pos.z, dist = Math.hypot(dx, dz);

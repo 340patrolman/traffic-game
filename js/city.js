@@ -146,6 +146,17 @@ TG.buildCity = function (cfg) {
   }
 
   var walls = [];
+  // 격자 도로 스텁 끝 8곳(도시 밖으로 이어지지 않는 곳)에 낮은 벽: 차가 도로 밖으로 나가지 않는다. 북(2,0)·동(4,2) 스텁은 연결로로 이어진다.
+  (function () {
+    for (var i = 0; i < xs.length; i++) {
+      if (i === 1 || i === 3) walls.push({ x1: xs[i] - halfV[i], z1: zs[0] - EXT + 0.6, x2: xs[i] + halfV[i], z2: zs[0] - EXT + 0.6, stub: true });
+      if (i === 1 || i === 3) walls.push({ x1: xs[i] - halfV[i], z1: zs[zs.length - 1] + EXT - 0.6, x2: xs[i] + halfV[i], z2: zs[zs.length - 1] + EXT - 0.6, stub: true });
+    }
+    for (var j = 0; j < zs.length; j++) {
+      if (j !== 2) walls.push({ x1: xs[0] - EXT + 0.6, z1: zs[j] - halfH[j], x2: xs[0] - EXT + 0.6, z2: zs[j] + halfH[j], stub: true });
+      if (j !== 2) walls.push({ x1: xs[xs.length - 1] + EXT - 0.6, z1: zs[j] - halfH[j], x2: xs[xs.length - 1] + EXT - 0.6, z2: zs[j] + halfH[j], stub: true });
+    }
+  })();
   function collideCircle(x, z, r) {
     for (var pass = 0; pass < 2; pass++) {
       for (var b = 0; b < buildings.length; b++) {
@@ -191,7 +202,7 @@ TG.buildCity = function (cfg) {
         var oneLane = p.f < 0.5;
         return { kind: 'link', name: name, lateral: lat, limit: terrain.limitOf(k), half: p.half, shoulder: terrain.shoulderOf(p),
                  shoulderMin: oneLane ? cfg.STOP_SHOULDER_MIN : cfg.HW_LANES[2] + 1.9, onRoad: q.dist <= p.half, lanes: oneLane ? 1 : 3,
-                 y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7, oneWay: q.link.oneWay };
+                 y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7, oneWay: q.link.oneWay, tx: dirA ? q.tx : -q.tx, tz: dirA ? q.tz : -q.tz, oneLane: oneLane };
       }
     }
     return { kind: 'off', name: '도로 밖', lateral: 0, limit: 999, half: 0, shoulder: 0, shoulderMin: 0, onRoad: false, lanes: 0, y: terrain ? terrain.heightAt(x, z) : 0 };

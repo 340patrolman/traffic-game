@@ -38,12 +38,12 @@ TG.Enforcement = function (game) {
   function lawLines(id, cls) {
     var law = lawById(id), out = [];
     out.push(fmtArticle(law));
-    if (id === 'jaywalk') out.push('범칙금(보행자) ' + fmtFine(law, '보행자'));
+    if (id === 'jaywalk' || id === 'jaywalk-red') out.push('범칙금(보행자) ' + fmtFine(law, '보행자') + ' · 벌점 없음');
     else out.push('범칙금 ' + fmtFine(law, cls) + ' · 벌점 ' + fmtPoints(law));
     if (law && law.teach) out.push(law.teach);
     return out;
   }
-  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단', 'jaywalk-red': '신호위반 보행(적색에 횡단)', none: '위반 없음' };
+  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)', none: '위반 없음' };
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
     var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'unsafe'];
@@ -64,19 +64,19 @@ TG.Enforcement = function (game) {
     if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
     if (sel.kind === 'ped' && e.warned) { game.hud.notice('이미 계도한 보행자입니다', 'warn', 1800); return false; }
     var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : 'none') : pedViolationOf(e);
-    var opts = sel.kind === 'car' ? carOptions(e) : [{ id: 'jaywalk', name: '무단횡단(횡단보도 아닌 곳)' }, { id: 'jaywalk-red', name: '신호위반 보행(적색에 횡단)' }, { id: 'none', name: '위반 없음' }];
+    var opts = sel.kind === 'car' ? carOptions(e) : [{ id: 'jaywalk', name: '무단횡단 — 횡단보도가 아닌 곳을 건넘(§10)' }, { id: 'jaywalk-red', name: '보행자 신호위반 — 차량 녹색·보행 적색인데 횡단보도를 건넘(§5)' }, { id: 'none', name: '위반 없음' }];
     self.state = 'quiz'; game.setPaused(true, 'ticket');
     ticket = { sel: sel, answer: answer, t: cfg.TICKET_SECONDS, done: false };
     function choose(choice) {
       if (!ticket || ticket.done) return; ticket.done = true;
-      var lines = [], delta = 0, kind = 'ok', S = cfg.SCORE, lawId = answer === 'jaywalk-red' ? 'jaywalk' : answer, act = false;
+      var lines = [], delta = 0, kind = 'ok', S = cfg.SCORE, lawId = answer, act = false;
       if (answer === 'none') {
         if (choice === 'none') { delta = 5; lines.push('정답 · 위반 없음 — 잘 봤습니다 (+5)'); lines.push('위반을 직접 목격한 대상만 단속합니다.'); TG.audio.good(); game.stats.correct++; }
         else { delta = S.noViolation; kind = 'warn'; lines.push('위반 없음 — 무작위 단속은 감점 (' + delta + ')'); TG.audio.bad(); }
       } else if (choice === answer) {
         delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
       } else if (choice !== 'none' && choice !== 'timeout' && (choice === 'jaywalk' || choice === 'jaywalk-red') && (answer === 'jaywalk' || answer === 'jaywalk-red')) {
-        delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines('jaywalk')); TG.audio.bad();
+        delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines(answer)); TG.audio.bad();
       } else {
         kind = 'warn'; lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + NAMES[answer] + '」'); lines = lines.concat(lawLines(lawId, '승용')); lines.push('다시 관찰하고 단속하세요.'); TG.audio.bad();
       }

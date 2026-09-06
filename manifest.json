@@ -1,6 +1,6 @@
 {
-  "name": "순찰길 — 교통경찰 순찰",
-  "short_name": "순찰길",
+  "name": "SEOUL PATROL — 교통경찰 순찰",
+  "short_name": "SEOUL PATROL",
   "description": "교통경찰 순찰 3D 브라우저 게임. 시내·교외·순환고속도로에서 위반 차량과 보행자를 찾아 단속한다.",
   "start_url": "./index.html",
   "scope": "./",

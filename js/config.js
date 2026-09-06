@@ -39,13 +39,13 @@ TG.CONFIG = {
   // latMax: 교차로 우회전(R≈8m)이 30km/h 는 여유, 40km/h 는 아슬아슬하도록 잡은 값(실차 감각보다 조금 관대한 아케이드 튜닝)
   CARS: {
     sedan: { id: 'sedan', name: '순찰 세단(중형)', w: 1.85, l: 4.7, maxSpeed: 36, accel: 7.0, brake: 8.5, latMax: 10.5,
-             steerMax: 0.62, wheelbase: 2.75, grip: 9, revMax: 4.5, powertrain: 'ice', desc: '내연기관 · 낮은 무게중심 · 코너 한계 높음' },
+             steerMax: 0.62, wheelbase: 2.75, grip: 12, revMax: 4.5, powertrain: 'ice', desc: '내연기관 · 낮은 무게중심 · 코너 한계 높음' },
     suv:   { id: 'suv', name: '순찰 전기 SUV',  w: 1.95, l: 4.9, maxSpeed: 33, accel: 8.0, brake: 8.2, latMax: 8.8,
-             steerMax: 0.58, wheelbase: 2.95,  grip: 8, revMax: 4.5, powertrain: 'ev', desc: '전기차 · 가속 빠름 · 무게중심 높아 코너에서 일찍 한계' },
+             steerMax: 0.58, wheelbase: 2.95,  grip: 10.5, revMax: 4.5, powertrain: 'ev', desc: '전기차 · 가속 빠름 · 무게중심 높아 코너에서 일찍 한계' },
     flag:  { id: 'flag', name: '순찰 대형 세단(플래그십)', w: 1.92, l: 5.05, maxSpeed: 40, accel: 7.6, brake: 8.8, latMax: 10.2,
-             steerMax: 0.60, wheelbase: 3.05, grip: 9, revMax: 4.5, powertrain: 'ice', desc: '내연기관 · 고해상도 차체 · 긴 축거로 안정' },
+             steerMax: 0.60, wheelbase: 3.05, grip: 12, revMax: 4.5, powertrain: 'ice', desc: '내연기관 · 고해상도 차체 · 긴 축거로 안정' },
   },
-  CAM_COCKPIT: { x: 0.38, y: 1.34, z: -0.02, fov: 100, lookDown: 0.08, lookMax: 1.75 },   // 넓은 시야 + 좌우 둘러보기(드래그·Q/E) 최대 ±100°   // 실차 눈높이(≈1.3m). 계기판·핸들 윗부분이 시야 아래쪽에 들어온다   // 넓은 시야(양쪽 사이드미러·룸미러가 화면 안에 들어온다)   // 운전석(좌측 +x) 눈 위치 — 대시보드 위로 도로가 넓게 보이는 높이
+  CAM_COCKPIT: { x: 0.38, y: 1.34, z: -0.02, fov: 96, lookDown: 0.05, lookMax: 1.75 },   // 넓은 시야 + 좌우 둘러보기(드래그·Q/E) 최대 ±100°   // 실차 눈높이(≈1.3m). 계기판·핸들 윗부분이 시야 아래쪽에 들어온다   // 넓은 시야(양쪽 사이드미러·룸미러가 화면 안에 들어온다)   // 운전석(좌측 +x) 눈 위치 — 대시보드 위로 도로가 넓게 보이는 높이
   ROAD_LIMIT_KMH: 50,          // 시내 제한속도
   SPEED_TOLERANCE_KMH: 11,     // 이 초과부터 과속 감점
 

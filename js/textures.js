@@ -182,6 +182,21 @@ TG.tex = (function () {
   }
 
   // 짧은 라벨(차량 문 「경찰」 등). 청색 글자, 투명 배경.
+  // 경찰 엠블럼(양식화): 금색 월계 고리 + 청색 원 + 흰 참수리 실루엣 + 'POLICE'. 실제 휘장을 복제하지 않는다.
+  function emblem() {
+    if (cache.emblem) return cache.emblem;
+    var c = canvas(256, 256), g = c.getContext('2d');
+    g.clearRect(0, 0, 256, 256);
+    g.lineWidth = 16; g.strokeStyle = '#c9a227'; g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#1f4fa8'; g.beginPath(); g.arc(128, 128, 100, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#e8c74a'; g.lineWidth = 3;
+    for (var k = 0; k < 20; k++) { var a = Math.PI * 0.15 + k / 19 * Math.PI * 1.7, r0 = 106, r1 = 118; g.beginPath(); g.moveTo(128 + Math.cos(a) * r0, 128 + Math.sin(a) * r0); g.lineTo(128 + Math.cos(a) * r1, 128 + Math.sin(a) * r1); g.stroke(); }
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.moveTo(128, 70); g.quadraticCurveTo(58, 96, 44, 138); g.quadraticCurveTo(96, 122, 118, 132); g.lineTo(128, 172); g.lineTo(138, 132); g.quadraticCurveTo(160, 122, 212, 138); g.quadraticCurveTo(198, 96, 128, 70); g.closePath(); g.fill();
+    g.beginPath(); g.arc(128, 78, 14, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#c9a227'; g.font = 'bold 30px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('POLICE', 128, 200);
+    return (cache.emblem = toTexture(c));
+  }
   function label(text, color) {
     var key = 'lb:' + text + (color || '');
     if (cache[key]) return cache[key];
@@ -279,6 +294,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label,
+  return { roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

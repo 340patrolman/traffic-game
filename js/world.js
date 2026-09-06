@@ -166,6 +166,14 @@
 
     // 나무·가로등·표지판 기둥·전봇대·전선·버스정류장
     var props = new GeoBuilder(), wires = new GeoBuilder();
+    // 스텁 끝 차단봉(황·흑 줄무늬): 「막다른 길」 표시
+    city.walls.forEach(function (W) {
+      if (!W.stub) return;
+      var vert = Math.abs(W.x2 - W.x1) < 0.01, cx = (W.x1 + W.x2) / 2, cz = (W.z1 + W.z2) / 2, len = vert ? Math.abs(W.z2 - W.z1) : Math.abs(W.x2 - W.x1);
+      props.box(cx, 0.55, cz, vert ? 0.3 : len, 0.5, vert ? len : 0.3, 0xf2c200, {});
+      for (var k = -1; k <= 1; k++) props.box(cx + (vert ? 0 : k * len / 3), 0.55, cz + (vert ? k * len / 3 : 0), vert ? 0.32 : 1.2, 0.52, vert ? 1.2 : 0.32, 0x15171a, {});
+      props.box(cx, 0.15, cz, vert ? 0.4 : len + 0.2, 0.3, vert ? len + 0.2 : 0.4, 0xc9c5ba, {});
+    });
     city.trees.forEach(function (t) {
       props.cylinder(t.x, 0.2, t.z, 0.2 * t.s, 0.14 * t.s, 2.2 * t.s, 6, 0x6b4a2b);
       var col = [0x4f8a3a, 0x5c9a42, 0x437a33][Math.floor(t.s * 10) % 3];

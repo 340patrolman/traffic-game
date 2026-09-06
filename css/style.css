@@ -91,13 +91,14 @@ body.portrait #hint{top:calc(182px + var(--sa-t));max-width:94vw;white-space:nor
 .intro-lines{width:min(92vw,720px);text-align:center;pointer-events:none}
 .intro-lines .il{font-size:clamp(18px,3.4vw,30px);font-weight:700;color:#fff;opacity:0;transform:translateY(14px);transition:opacity .9s ease,transform .9s ease;margin:8px 0;text-shadow:0 2px 12px rgba(0,0,0,.7);line-height:1.4}
 .intro-lines .il.on{opacity:1;transform:none}
-.intro-lines .il.big{font-size:clamp(44px,12vw,110px);font-weight:900;letter-spacing:6px;line-height:1;margin-top:18px;
+.intro-lines .il.big{font-size:clamp(30px,8.6vw,84px);font-weight:900;letter-spacing:5px;white-space:nowrap;line-height:1;margin-top:18px;
   background:linear-gradient(180deg,#fff 0%,#cfe0ff 50%,#4d8dff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6))}
 .intro-lines .il.small{font-size:clamp(12px,1.8vw,15px);font-weight:500;color:var(--dim)}
+.intro-sound{pointer-events:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + var(--sa-t,0px));background:rgba(0,0,0,.35);border:1px solid var(--edge);color:#fff;padding:6px 14px;border-radius:16px;font-size:13px;display:none}
 .skip{pointer-events:auto;position:fixed;right:calc(18px + var(--sa-r));bottom:calc(18px + var(--sa-b));background:rgba(255,255,255,.1);border:1px solid var(--edge);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;cursor:pointer;font-family:inherit}
 .card{width:min(92vw,520px);max-height:94vh;overflow:auto;background:rgba(14,18,28,.92);border:1px solid var(--edge);border-radius:16px;padding:22px 20px;text-align:center}
 .badge{display:inline-block;font-size:11px;letter-spacing:3px;color:#cfe0ff;border:1px solid rgba(77,141,255,.6);padding:4px 12px;border-radius:12px;margin-bottom:10px}
-h1{font-size:min(14vw,64px);font-weight:900;letter-spacing:2px;line-height:1;background:linear-gradient(180deg,#fff 0%,#cfe0ff 50%,#4d8dff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:min(9.5vw,56px);font-weight:900;letter-spacing:3px;white-space:nowrap;line-height:1;background:linear-gradient(180deg,#fff 0%,#cfe0ff 50%,#4d8dff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .sub{margin-top:6px;color:var(--dim);font-size:14px;letter-spacing:1px}
 h2{font-size:26px;letter-spacing:2px}
 .cars{display:flex;gap:10px;justify-content:center;margin:18px 0 12px}
