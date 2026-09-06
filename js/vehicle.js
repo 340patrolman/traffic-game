@@ -31,16 +31,16 @@
     // 실시간 계기판(캔버스 텍스처): 속도계 바늘·디지털 속도·기어·경광등 표시. 차내 시점에서만 갱신
     this.clCanvas = document.createElement('canvas'); this.clCanvas.width = 512; this.clCanvas.height = 192;
     this.clTex = new THREE.CanvasTexture(this.clCanvas);
-    this.cluster = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.158), new THREE.MeshBasicMaterial({ map: this.clTex, transparent: true }));
-    var dyC = T.belt - 0.02 + 0.09, dzC = 0.11 * T.l - 0.07 - 0.012;
-    this.cluster.position.set(0.38, dyC, dzC); this.cluster.rotation.y = Math.PI; this.cluster.visible = false;
+    var LAY = TG.vehmesh.layout(T); this.layout = LAY;
+    this.cluster = new THREE.Mesh(new THREE.PlaneGeometry(LAY.clusterW, LAY.clusterW * 192 / 512), new THREE.MeshBasicMaterial({ map: this.clTex, transparent: true }));
+    this.cluster.position.set(LAY.wheel.x, LAY.clusterY, LAY.clusterZ - 0.002); this.cluster.rotation.y = Math.PI; this.cluster.visible = false;
     g.add(this.cluster); this.clT = 0; this.drawCluster();
     // 거울 3개(룸미러·좌우 사이드미러): 뒤를 보는 카메라를 작은 렌더타깃에 그려 거울 면에 붙인다. 차내 시점에서만 갱신.
     this.mirrorCams = []; this.mirrorMeshes = []; this.mirrorRTs = []; this.mirrorTick = 0;
     var mirrorDefs = [
-      { w: 0.30, h: 0.075, pos: [0, T.belt + 0.50, 0.11 * T.l - 0.03], look: [0, 0.10, -1], fov: 30, aspect: 4 },          // 룸미러
-      { w: 0.22, h: 0.13, pos: [w / 2 + 0.16, T.belt + 0.10, 0.11 * T.l + 0.22], look: [0.55, -0.05, -1], fov: 34, aspect: 1.7 },   // 좌 사이드미러(운전석)
-      { w: 0.22, h: 0.13, pos: [-w / 2 - 0.16, T.belt + 0.10, 0.11 * T.l + 0.22], look: [-0.55, -0.05, -1], fov: 34, aspect: 1.7 },
+      { w: 0.30, h: 0.075, pos: [LAY.roomMirror.x, LAY.roomMirror.y, LAY.roomMirror.z], look: [0, 0.10, -1], fov: 30, aspect: 4 },                 // 룸미러
+      { w: 0.24, h: 0.14, pos: [LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [0.55, -0.05, -1], fov: 34, aspect: 1.7 },   // 좌 사이드미러(운전석)
+      { w: 0.24, h: 0.14, pos: [-LAY.sideMirror.x, LAY.sideMirror.y, LAY.sideMirror.z], look: [-0.55, -0.05, -1], fov: 34, aspect: 1.7 },
     ];
     for (var mi = 0; mi < mirrorDefs.length; mi++) {
       var md = mirrorDefs[mi], rt = new THREE.WebGLRenderTarget(mi === 0 ? 320 : 192, mi === 0 ? 80 : 112);
@@ -57,9 +57,9 @@
     // 디지털 사이드미러 화면(A필러 안쪽, 운전자 쪽으로 기울임): 세로 화면처럼 시야가 좁아도 양옆이 보인다. 같은 렌더타깃을 쓴다.
     for (var di = 1; di <= 2; di++) {
       var sgn = di === 1 ? 1 : -1, dm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.13), new THREE.MeshBasicMaterial({ map: this.mirrorRTs[di].texture }));
-      dm.position.set(sgn * 0.62, T.belt + 0.14, 0.11 * T.l + 0.06); dm.rotation.y = Math.PI + sgn * 0.35; dm.visible = false;
+      dm.position.set(sgn * LAY.screen.x, LAY.screen.y, LAY.screen.z); dm.rotation.y = Math.PI + sgn * 0.30; dm.visible = false;
       var df = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.16, 0.02), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
-      df.position.set(sgn * 0.62, T.belt + 0.14, 0.11 * T.l + 0.075); df.rotation.y = sgn * 0.35; df.visible = false;
+      df.position.set(sgn * LAY.screen.x, LAY.screen.y, LAY.screen.z + 0.015); df.rotation.y = sgn * 0.30; df.visible = false;
       g.add(dm); g.add(df); this.mirrorMeshes.push(dm, df);
     }
     var roofY = TG.vehmesh.roofY(T), barY = roofY + 0.16, l = T.l, w = T.w, bz = -l * 0.04;
@@ -75,9 +75,18 @@
     barTop.position.set(0, barY + 0.085, bz);
     g.add(this.barR); g.add(this.barB); g.add(barW); g.add(barTop);
     // 핸들(차내 시점): 조향에 따라 돈다
-    this.steer3d = new THREE.Mesh(TG.vehmesh.steering(), new THREE.MeshLambertMaterial({ vertexColors: true }));
-    this.steer3d.position.set(0.38, T.belt + 0.02, 0.11 * T.l - 0.36); this.steer3d.rotation.order = 'YXZ';
-    this.steer3d.rotation.x = -0.42; this.steer3d.visible = false; g.add(this.steer3d);
+    // 핸들: 토러스 림 + 스포크 3개 + 허브(그룹). 로컬 z 축이 운전자 쪽, 조향 시 z 축으로 돈다
+    this.steer3d = new THREE.Group();
+    var rimMat = new THREE.MeshLambertMaterial({ color: 0x15181c }), spokeMat = new THREE.MeshLambertMaterial({ color: 0x23272d });
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.022, 10, 36), rimMat); this.steer3d.add(rim);
+    [Math.PI / 2 + 2.6, Math.PI / 2 - 2.6, -Math.PI / 2].forEach(function (a) {
+      var sp = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.04, 0.03), spokeMat);
+      sp.position.set(Math.cos(a) * 0.09, Math.sin(a) * 0.09, 0); sp.rotation.z = a; this.steer3d.add(sp);
+    }, this);
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.05, 16), spokeMat); hub.rotation.x = Math.PI / 2; this.steer3d.add(hub);
+    var emblem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 12), new THREE.MeshBasicMaterial({ color: 0x1f4fa8 })); emblem.rotation.x = Math.PI / 2; emblem.position.z = 0.028; this.steer3d.add(emblem);
+    this.steer3d.position.set(LAY.wheel.x, LAY.wheel.y, LAY.wheel.z); this.steer3d.rotation.order = 'YXZ';
+    this.steer3d.rotation.x = LAY.wheel.tilt; this.steer3d.visible = false; g.add(this.steer3d);
     var hy = T.pts[1][1] * 0.82 + 0.08;
     this.brakeLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 0.14, 0.06), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
     this.brakeLamp.position.set(0, hy, -l / 2 - 0.03); this.brakeLamp.visible = false; g.add(this.brakeLamp);

@@ -199,34 +199,59 @@ TG.vehmesh = (function () {
     return (cache[key] = gb.build());
   }
   // 차내 시점용 실내: 대시보드·계기판·핸들·시트·A필러·룸미러. 원점/축은 차체와 같다.
+  // 실내 배치 치수(실차 비율). 모든 위치는 운전자 눈(E)을 기준으로 잡는다 — 차종이 달라도 같은 느낌이 나도록.
+  //  E: 운전석(+x 0.38), 지붕 최고점보다 0.22 아래, 앞유리 밑단보다 0.85 뒤(단, 시트보다 앞).
+  function layout(T) {
+    var key = 'lay:' + T.w + ':' + T.l;
+    if (cache[key]) return cache[key];
+    var roof = roofY(T), l = T.l, gi = -1;
+    for (var i = 0; i < T.pts.length; i++) if (T.pts[i][2]) { gi = i; break; }
+    var wsBase = (gi > 0 ? T.pts[gi - 1][0] : 0.15) * l, wsTop = (gi >= 0 ? T.pts[gi][0] : 0.05) * l;   // 앞유리 밑단/윗단 z
+    var eyeZ = Math.max(-l * 0.03 + 0.28, wsBase - 0.85), eyeY = roof - 0.22;
+    var L = {
+      eye: { x: 0.38, y: eyeY, z: eyeZ }, roof: roof, wsBase: wsBase, wsTop: wsTop,
+      dashTop: eyeY - 0.34,                 // 대시보드 상판 높이(눈보다 0.34 아래)
+      dashFront: eyeZ + 0.55,               // 대시보드 앞면(눈에서 0.55 앞)
+      clusterY: eyeY - 0.26, clusterZ: eyeZ + 0.62, clusterW: 0.36, clusterH: 0.14,
+      wheel: { x: 0.38, y: eyeY - 0.30, z: eyeZ + 0.42, tilt: -0.45 },
+      roomMirror: { x: 0, y: eyeY + 0.12, z: eyeZ + 0.55 },
+      sideMirror: { x: T.w / 2 + 0.14, y: eyeY - 0.16, z: wsBase + 0.05 },
+      screen: { x: 0.74, y: eyeY - 0.28, z: eyeZ + 0.62 },
+    };
+    return (cache[key] = L);
+  }
+  // 차내 시점용 실내: 대시보드·계기판 후드·센터 콘솔·시트·A필러·헤더·천장. 원점/축은 차체와 같다.
   function interior(T) {
     var key = 'int:' + T.w + ':' + T.l;
     if (cache[key]) return cache[key];
-    var gb = new TG.GeoBuilder(), w = T.w, l = T.l, belt = T.belt, DASH = 0x1f2429, DASH2 = 0x2a3038, LEATHER = 0x2b2f36, TRIM = 0x8a8f96, STITCH = 0x3a4048;
-    // 대시보드: 눈높이(belt+0.5)보다 충분히 낮게. 상판은 앞으로 갈수록 내려가는 3단 경사, 운전석 쪽에 계기판 후드(바이내클).
-    // 눈높이 1.34 기준: 상판은 0.98 이하(앞유리 아래), 계기판·중앙 디스플레이는 눈에서 30~40° 아래에 오도록 높인다
-    var dz = 0.11 * l, dy = belt - 0.02;
-    gb.box(0, dy - 0.05, dz + 0.10, w * 0.92, 0.10, 0.30, DASH, {});                // 상판(앞유리 아래, 평평)
-    gb.box(0, dy - 0.12, dz + 0.36, w * 0.92, 0.06, 0.24, DASH2, {});               // 상판 앞쪽(낮게)
-    gb.box(0, dy - 0.32, dz + 0.02, w * 0.92, 0.42, 0.30, DASH, {});                // 대시보드 앞면(무릎 쪽)
-    gb.box(0, dy - 0.11, dz - 0.14, w * 0.92, 0.02, 0.03, STITCH, {});              // 가로 장식선
-    // 계기판 후드(바이내클): 운전석 앞, 상판 위로 솟아 눈에 보인다
-    gb.box(0.38, dy + 0.10, dz + 0.02, 0.50, 0.20, 0.16, DASH, {});                 // 후드 몸통
-    gb.box(0.38, dy + 0.22, dz - 0.02, 0.54, 0.04, 0.26, DASH, {});                 // 후드 챙
-    gb.box(0.38, dy + 0.09, dz - 0.07, 0.46, 0.17, 0.02, 0x0b0e12, {});             // 계기판 바탕(검정, 텍스처는 vehicle.js)
-    // 중앙 디스플레이(세워서) + 센터 콘솔 + 기어 레버
-    gb.box(0, dy + 0.08, dz - 0.06, 0.36, 0.22, 0.03, 0x0b0e12, {});
-    gb.box(0, dy + 0.08, dz - 0.075, 0.32, 0.18, 0.01, 0x14324f, { sidesOnly: true });
-    gb.box(0, belt - 0.55, dz - 0.55, 0.34, 0.45, 1.0, LEATHER, {});
-    gb.box(0, belt - 0.24, dz - 0.62, 0.05, 0.16, 0.05, TRIM, {}); gb.box(0, belt - 0.14, dz - 0.62, 0.08, 0.06, 0.08, 0x111418, {});
-    // 핸들 컬럼(핸들 자체는 vehicle.js 가 별도 메시로 붙여 조향에 따라 돌린다)
-    gb.box(0.38, dy - 0.02, dz - 0.22, 0.09, 0.09, 0.30, 0x111418, { rotY: 0 });
-    // 시트 2개(등받이·헤드레스트)
-    for (var s = -1; s <= 1; s += 2) { gb.box(s * 0.38, belt - 0.12, -l * 0.03, 0.52, 0.56, 0.14, LEATHER, {}); gb.box(s * 0.38, belt + 0.32, -l * 0.03, 0.26, 0.22, 0.12, LEATHER, {}); }
-    // A필러·앞유리 헤더·룸미러·천장
-    for (var s2 = -1; s2 <= 1; s2 += 2) gb.box(s2 * (w / 2 - 0.07), belt + 0.30, dz + 0.16, 0.07, 0.62, 0.16, DASH, {});
-    gb.box(0, belt + 0.70, dz + 0.16, w * 0.9, 0.05, 0.08, DASH, {});                                   // 앞유리 헤더(가늘게, 눈높이보다 충분히 위)
-    gb.box(0, belt + 0.72, -l * 0.20, w * 0.88, 0.03, l * 0.26, DASH, { noTop: true });               // 천장(눈 뒤쪽부터)
+    var gb = new TG.GeoBuilder(), w = T.w, l = T.l, belt = T.belt, L = layout(T), DASH = 0x1f2429, DASH2 = 0x2a3038, LEATHER = 0x2b2f36, TRIM = 0x8a8f96, STITCH = 0x3a4048;
+    var top = L.dashTop, zf = L.dashFront, zb = L.wsBase + 0.02, depth = zb - zf;
+    gb.box(0, top - 0.05, (zf + zb) / 2, w * 0.92, 0.10, depth, DASH, {});                          // 상판(눈 앞 0.55 → 앞유리 밑단)
+    gb.box(0, top - 0.32, zf + 0.10, w * 0.92, 0.45, 0.20, DASH, {});                               // 대시보드 앞면(무릎 쪽)
+    gb.box(0, top - 0.08, zf - 0.01, w * 0.92, 0.02, 0.03, STITCH, {});                             // 장식선
+    gb.box(0, top - 0.02, zb - 0.02, w * 0.9, 0.04, 0.06, DASH2, {});                               // 앞유리 밑단 턱
+    // 계기판 후드(바이내클): 운전석 앞. 계기판 텍스처는 vehicle.js 가 뒷면에 붙인다
+    gb.box(L.wheel.x, L.clusterY + 0.02, L.clusterZ + 0.07, L.clusterW + 0.10, L.clusterH + 0.10, 0.14, DASH, {});
+    gb.box(L.wheel.x, L.clusterY + L.clusterH / 2 + 0.05, L.clusterZ + 0.02, L.clusterW + 0.14, 0.03, 0.22, DASH, {});   // 챙
+    gb.box(L.wheel.x, L.clusterY, L.clusterZ + 0.005, L.clusterW + 0.02, L.clusterH + 0.02, 0.01, 0x0b0e12, {});          // 검정 바탕
+    // 중앙 디스플레이(운전자 쪽으로 살짝 기울여 세움) + 센터 콘솔 + 기어 레버
+    gb.box(0, L.clusterY + 0.02, L.clusterZ + 0.02, 0.32, 0.20, 0.03, 0x0b0e12, { rotY: 0 });
+    gb.box(0, L.clusterY + 0.02, L.clusterZ + 0.003, 0.28, 0.16, 0.01, 0x14324f, { sidesOnly: true });
+    gb.box(0, belt - 0.55, zf - 0.35, 0.34, 0.45, 0.9, LEATHER, {});
+    gb.box(0, belt - 0.24, zf - 0.45, 0.05, 0.16, 0.05, TRIM, {}); gb.box(0, belt - 0.14, zf - 0.45, 0.08, 0.06, 0.08, 0x111418, {});
+    // 핸들 컬럼(핸들은 vehicle.js 별도 메시)
+    gb.box(L.wheel.x, L.wheel.y - 0.04, (L.wheel.z + zf) / 2, 0.09, 0.09, zf - L.wheel.z + 0.02, 0x111418, {});
+    // 시트(등받이·헤드레스트): 눈 뒤
+    for (var s = -1; s <= 1; s += 2) { gb.box(s * 0.38, belt - 0.12, L.eye.z - 0.30, 0.52, 0.56, 0.14, LEATHER, {}); gb.box(s * 0.38, belt + 0.32, L.eye.z - 0.30, 0.26, 0.22, 0.12, LEATHER, {}); }
+    // A필러(앞유리 옆을 따라 비스듬히: 아래·위 두 토막), 헤더, 천장
+    for (var s2 = -1; s2 <= 1; s2 += 2) {
+      var px = s2 * (w / 2 - 0.08);
+      gb.box(px, top + 0.15, zb - 0.02, 0.07, 0.32, 0.10, DASH, {});
+      gb.box(px, top + 0.42, (zb + L.wsTop) / 2, 0.07, 0.30, 0.10, DASH, {});
+      gb.box(px, L.roof - 0.10, L.wsTop - 0.02, 0.07, 0.18, 0.10, DASH, {});
+    }
+    gb.box(0, L.roof - 0.03, L.wsTop - 0.02, w * 0.9, 0.05, 0.08, DASH, {});                             // 헤더
+    gb.box(0, L.roof - 0.02, L.wsTop - 0.02 - l * 0.16, w * 0.88, 0.03, l * 0.30, DASH, { noTop: true });  // 천장
     return (cache[key] = gb.build());
   }
   // 핸들: 원점 = 허브 중심, 링은 로컬 x–y 평면(z 는 운전자 쪽). 조향 시 z 축으로 돌린다.
@@ -244,5 +269,5 @@ TG.vehmesh = (function () {
     return (cache.steer = gb.build());
   }
   function roofY(T) { var y = 0; for (var i = 0; i < T.pts.length; i++) y = Math.max(y, T.pts[i][1]); return y; }
-  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, steering: steering, roofY: roofY };
+  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, steering: steering, roofY: roofY, layout: layout };
 })();

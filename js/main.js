@@ -341,7 +341,8 @@
     var f = player.forward(), sp = player.telemetry.speed, portrait = document.body.classList.contains('portrait');
     if (settings.cam === 'cockpit') {
       // 운전석 눈 위치에서 전방. 차체 피치·롤을 살짝만 따라가고(멀미 방지) 요는 즉시 따른다.
-      var eye = player.eyeWorld(C.CAM_COCKPIT), ahead = player.eyeWorld({ x: C.CAM_COCKPIT.x * 0.5, y: C.CAM_COCKPIT.y - 14 * Math.tan(C.CAM_COCKPIT.lookDown), z: C.CAM_COCKPIT.z + 14 });
+      var E = player.layout.eye;
+      var eye = player.eyeWorld(E), ahead = player.eyeWorld({ x: E.x * 0.5, y: E.y - 14 * Math.tan(C.CAM_COCKPIT.lookDown), z: E.z + 14 });
       if (!camInit) { camPos.copy(eye); camLook.copy(ahead); camInit = true; }
       var kc = 1 - Math.exp(-30 * dt);
       camPos.lerp(eye, kc); camLook.lerp(ahead, kc);
