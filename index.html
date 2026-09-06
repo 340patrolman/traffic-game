@@ -6,7 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="순찰길: 브라우저에서 바로 실행되는 3인칭 교통경찰 순찰 게임. 시내·교외·순환고속도로. 빌드 없음, 서버 없음, 에셋 없음.">
 <meta name="theme-color" content="#0f1420">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚓</text></svg>">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순찰길">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -41,10 +47,8 @@
   </div>
   <div class="cluster right">
     <div class="tbtn siren" id="btnSiren" title="경광등"><svg viewBox="0 0 40 24" width="34" height="20"><rect x="2" y="4" width="16" height="14" rx="3" fill="#ff3b30"/><rect x="22" y="4" width="16" height="14" rx="3" fill="#2a60ff"/><rect x="0" y="18" width="40" height="4" rx="2" fill="#dde3ea"/></svg><span>경광등</span></div>
+    <div class="tbtn enf" id="btnEnforce" title="단속: 화면의 차량·보행자를 터치하면 위반 객관식이 뜹니다. 버튼은 앞쪽 위반 의심 대상을 자동으로 고릅니다"><span class="ico">🚨</span><span>단속</span></div>
     <div class="tbtn pa" id="btnPA" title="앰프(확성기) 안내"><span class="ico">📢</span><span>앰프</span></div>
-    <div class="tbtn rev" data-btn="rev"><span class="ico">▼</span><span>후진</span></div>
-    <div class="tbtn brake" data-btn="brake"><span class="ico">■</span><span>브레이크</span></div>
-    <div class="tbtn gas" data-btn="gas"><span class="ico">▲</span><span>가속</span></div>
   </div>
   <div class="tbtn small" id="btnPause">❚❚</div>
   <div class="tbtn small view" id="btnView" title="시점 전환">시점</div>
@@ -141,5 +145,11 @@ window.addEventListener('load', function () {
 <script src="js/minimap.js"></script>
 <script src="js/input.js"></script>
 <script src="js/main.js"></script>
+<script>
+// 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.log('[TG] 서비스워커 등록 실패: ' + e.message); }); });
+}
+</script>
 </body>
 </html>

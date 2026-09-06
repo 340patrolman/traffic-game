@@ -134,7 +134,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
     var bl = new THREE.Mesh(new THREE.BoxGeometry(T.w * 0.8, 0.14, 0.06), brakeMat); bl.position.set(0, T.pts[1][1] * 0.82 + 0.08, -T.l / 2 - 0.03); bl.visible = false; g.add(bl); car.brakeLamp = bl;
     var sp = new THREE.Sprite(markerMat); sp.scale.set(1.6, 1.6, 1); sp.position.set(0, (T.bus ? 4.2 : 3.2), 0); sp.visible = false; g.add(sp); car.marker = sp;
-    g.position.set(x, 0, z); g.rotation.y = heading; scene.add(g); car.mesh = g;
+    g.position.set(x, 0, z); g.rotation.y = heading; g.userData.car = car; scene.add(g); car.mesh = g;
     cars.push(car);
     return car;
   }

@@ -44,7 +44,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (pl && !opts.at) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.PED_SPAWN_MIN || dist > cfg.PED_SPAWN_MAX) continue; }
       var p = { pos: { x: x, z: z }, axis: axis, idx: idx, coord: axis === 'v' ? city.xs[idx] : city.zs[idx], side: side, d: d, speed: 1.1 + rng() * 0.6, state: 'walk', t: rng() * 10, waitT: 0, decided: null,
                 jaywalker: opts.jaywalker !== undefined ? opts.jaywalker : rng() < 0.18, jayT: 0, jayDone: false, warned: false, jayLive: false };
-      var m = makeMesh(p); m.position.set(x, 0.2, z); m.rotation.y = TG.DIR_HEADING[d]; scene.add(m); p.mesh = m; peds.push(p);
+      var m = makeMesh(p); m.position.set(x, 0.2, z); m.rotation.y = TG.DIR_HEADING[d]; m.userData.ped = p; scene.add(m); p.mesh = m; peds.push(p);
       return p;
     }
     return null;
@@ -75,12 +75,12 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       p.waitT += dt;
       var walk = signals.pedWalk(node, p.axis === 'v' ? 'h' : 'v');
       if (walk && !carBlocking(p)) { p.state = 'cross'; p.waitT = 0; }
-      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p)) { p.state = 'cross'; p.jayDone = true; p.jayLive = true; p.jayT = 0; self.onEvent('jaywalk', p); }
+      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p)) { p.state = 'cross'; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; self.onEvent('jaywalk', p); }
       else if (p.waitT > 25) turnCorner(p, node);
       return;
     }
     if (p.jaywalker && !p.jayDone && dist > 18 && dist < 48 && rng() < dt * 0.7 && !carBlocking(p, true)) {
-      p.jayDone = true; p.jayLive = true; p.jayT = 0; p.state = 'jaywalk'; p.jayD = p.d;
+      p.jayDone = true; p.jayLive = true; p.jayT = 0; p.state = 'jaywalk'; p.jayD = p.d; p.jayKind = 'mid';
       if (p.axis === 'v') p.d = p.side > 0 ? 3 : 1; else p.d = p.side > 0 ? 2 : 0;
       self.onEvent('jaywalk', p); return;
     }

@@ -63,9 +63,10 @@ TG.hud = (function () {
     show('end', true);
   }
   function hideEnd() { show('end', false); }
-  function showTicket(options, seconds, onChoice) {
+  function showTicket(options, seconds, onChoice, question) {
     el.ticketOptions.innerHTML = ''; el.ticketResult.innerHTML = ''; el.ticketResult.style.display = 'none';
     el.btnTicketClose.style.display = 'none'; el.ticketQuestion.style.display = ''; el.ticketTimer.style.width = '100%';
+    el.ticketQuestion.textContent = question || '위반 내용을 고르세요';
     options.forEach(function (o) {
       var b = document.createElement('button'); b.className = 'opt'; b.textContent = o.name; b.setAttribute('data-id', o.id);
       b.addEventListener('pointerdown', function (e) { e.preventDefault(); TG.audio.ui(); onChoice(o.id); });

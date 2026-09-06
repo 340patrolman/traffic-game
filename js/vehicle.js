@@ -137,8 +137,8 @@
       var b = Math.max(brk, wantRev ? 1 : 0);
       if (vF > 0.25) { vF -= b * s.brake * surface * dt; this.stopT = 0; }
       else if (c.throttle === 0) {
-        this.stopT += dt;                            // 정지 후 0.2초 더 누르면 후진(↓ 키·스틱 아래·브레이크 버튼 모두)
-        if (this.stopT > 0.2 || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;
+        this.stopT += dt;                            // 정지하면 바로(0.08초) 후진 시작 — ↓ 키·스틱 아래 계속 누르기
+        if (this.stopT > 0.08 || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;
       } else vF = 0;
     } else if (c.throttle > 0) {
       this.stopT = 0;

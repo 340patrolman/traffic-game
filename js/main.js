@@ -70,8 +70,9 @@
   // 시야각: 차내 72 / 세로 72 / PC 와이드(가로 1.6배 이상) 64 / 그 외 60
   function chaseFov() {
     var w = window.innerWidth, h = window.innerHeight;
-    if (settings.cam === 'cockpit') return C.CAM_COCKPIT.fov;
-    return h > w ? 72 : (w / h >= 1.6 ? 64 : 60);
+    // 세로 화면은 가로 시야가 좁아지므로 수직 시야각을 더 키운다
+    if (settings.cam === 'cockpit') return h > w ? 108 : C.CAM_COCKPIT.fov;
+    return h > w ? 88 : (w / h >= 1.6 ? 74 : 70);
   }
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
@@ -164,6 +165,39 @@
     function pa() { if (G.state !== 'play') return; TG.audio.resume(); TG.audio.pa(PA_LINES[paIdx % PA_LINES.length]); hud.notice('📢 ' + PA_LINES[paIdx % PA_LINES.length], 'info', 2200); paIdx++; }
     input.bindTap($('btnPA'), pa);
     input.onKey('KeyM', pa);
+    // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
+    // 화면의 차량·보행자를 터치하면 선택(빨간 고리 + 이름표). 「단속」(E) 을 누르면 차량은 정차 유도, 보행자는 계도·통고 화면.
+    var ray = new THREE.Raycaster(), tapStart = null, dragId = null;
+    G.lookYaw = 0; G.lookHold = false;
+    canvas.addEventListener('pointerdown', function (e) { tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; dragId = e.pointerId; });
+    // 드래그(가로)로 둘러보기: 차내 시점에서 머리를 돌린다(최대 ±100°). 놓으면 정면으로 돌아온다.
+    canvas.addEventListener('pointermove', function (e) {
+      if (!tapStart || e.pointerId !== dragId || G.state !== 'play') return;
+      var dx = e.clientX - tapStart.x;
+      if (Math.abs(dx) > 10) { G.lookHold = true; G.lookYaw = TG.clamp(-dx / window.innerWidth * 2.6, -C.CAM_COCKPIT.lookMax, C.CAM_COCKPIT.lookMax); }
+    });
+    canvas.addEventListener('pointercancel', function () { tapStart = null; G.lookHold = false; });
+    canvas.addEventListener('pointerup', function (e) {
+      if (!tapStart || G.state !== 'play' || G.paused) { tapStart = null; G.lookHold = false; return; }
+      var moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y); tapStart = null; G.lookHold = false;
+      if (moved > 10) return;
+      var nx = (e.clientX / window.innerWidth) * 2 - 1, ny = -(e.clientY / window.innerHeight) * 2 + 1;
+      ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      var objs = traffic.cars.map(function (c) { return c.mesh; }).concat(peds.peds.map(function (p) { return p.mesh; }));
+      var hits = ray.intersectObjects(objs, true);
+      for (var i = 0; i < hits.length; i++) {
+        var o = hits[i].object;
+        while (o && !(o.userData && (o.userData.car || o.userData.ped))) o = o.parent;
+        if (!o) continue;
+        var sel = o.userData.car ? { kind: 'car', car: o.userData.car } : { kind: 'ped', ped: o.userData.ped };
+        selectTarget(sel);
+        if (enforcement && enforcement.quiz(sel)) selectTarget(null);   // 터치 즉시 「무슨 위반?」 객관식
+        return;
+      }
+      selectTarget(null);
+    });
+    input.bindTap($('btnEnforce'), enforce);
+    input.onKey('KeyF', enforce);
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro(); });
@@ -171,6 +205,53 @@
     input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } });
     input.onKey('Space', function () { if (G.state === 'intro') endIntro(); });
     canvas.addEventListener('pointerdown', function () { TG.audio.resume(); });
+  }
+  // ---------- 선택 대상 ----------
+  var selRing = null;
+  function ensureRing() {
+    if (selRing) return;
+    selRing = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.8, 32), new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthTest: false }));
+    selRing.rotation.x = -Math.PI / 2; selRing.renderOrder = 5; selRing.visible = false; scene.add(selRing);
+  }
+  function selName(sel) {
+    if (!sel) return null;
+    if (sel.kind === 'car') {
+      var c = sel.car, tn = { sedan: '승용차', hatch: '승용차', suv: 'SUV', van: '승합차', truck: '화물차', bus: '버스' }[c.type] || '차량';
+      var v = c.violation ? ({ signal: '신호위반 의심', pedestrian: '보행자 보호 위반 의심', buslane: '버스전용차로 위반 의심' }[c.violation.type] || '위반 의심') : '위반 없음(목격 안 됨)';
+      return tn + ' · ' + v;
+    }
+    var p = sel.ped, recent = p.jayLive || (p.jayDone && p.jayT < 12);
+    return '보행자 · ' + (recent ? (p.jayKind === 'red' ? '신호위반 보행 의심' : '무단횡단 의심') : '위반 없음');
+  }
+  function selectTarget(sel) {
+    G.selected = sel; ensureRing();
+    var btn = document.getElementById('btnEnforce');
+    if (!sel) { selRing.visible = false; if (btn) btn.classList.remove('ready'); if (enforcement && enforcement.state === 'idle') hud.setTarget(null); return; }
+    selRing.visible = true; if (btn) btn.classList.add('ready');
+    hud.setTarget('선택: ' + selName(sel) + ' — 「단속」(E)');
+    TG.audio.ui();
+  }
+  function updateSelection() {
+    var s = G.selected; if (!s || !selRing) return;
+    var e = s.kind === 'car' ? s.car : s.ped;
+    var alive = s.kind === 'car' ? traffic.cars.indexOf(e) >= 0 : peds.peds.indexOf(e) >= 0;
+    if (!alive || Math.hypot(e.pos.x - player.pos.x, e.pos.z - player.pos.z) > 90) { selectTarget(null); return; }
+    var y = s.kind === 'car' ? e.y : 0.2;
+    selRing.position.set(e.pos.x, y + 0.08, e.pos.z);
+    var sc = s.kind === 'car' ? (e.isBus ? 2.6 : 1.3) : 0.5; selRing.scale.set(sc, sc, 1);
+  }
+  // 「단속」: 선택 대상이 없으면 앞쪽 45m 안의 위반 의심 차량·보행자를 자동으로 고른다
+  function enforce() {
+    if (G.state !== 'play' || G.paused || !enforcement) return;
+    var sel = G.selected;
+    if (!sel) {
+      var pf = player.forward(), best = null, bd = 1e9;
+      traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 45 && dx * pf[0] + dz * pf[1] > -2 && d < bd) { bd = d; best = { kind: 'car', car: c }; } });
+      peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 20 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
+      if (!best) { hud.notice('대상이 없습니다 — 화면에서 차량이나 보행자를 터치해 고르세요', 'warn', 2400); return; }
+      sel = best; selectTarget(sel);
+    }
+    if (enforcement.quiz(sel)) selectTarget(null);
   }
   function toggleSiren() {
     if (G.state !== 'play' || !player) return;
@@ -353,8 +434,9 @@
     var f = player.forward(), sp = player.telemetry.speed, portrait = document.body.classList.contains('portrait');
     if (settings.cam === 'cockpit') {
       // 운전석 눈 위치에서 전방. 차체 피치·롤을 살짝만 따라가고(멀미 방지) 요는 즉시 따른다.
-      var E = player.layout.eye;
-      var eye = player.eyeWorld(E), ahead = player.eyeWorld({ x: E.x * 0.5, y: E.y - 14 * Math.tan(C.CAM_COCKPIT.lookDown), z: E.z + 14 });
+      var E = player.layout.eye, yaw = G.lookYaw || 0;
+      // 둘러보기: 눈을 중심으로 머리를 yaw 만큼 돌린 방향(차체 로컬)으로 14m 앞을 본다
+      var eye = player.eyeWorld(E), ahead = player.eyeWorld({ x: E.x + Math.sin(yaw) * 14 * 1.0 + (yaw === 0 ? -E.x * 0.5 : 0), y: E.y - 14 * Math.tan(C.CAM_COCKPIT.lookDown), z: E.z + Math.cos(yaw) * 14 });
       if (!camInit) { camPos.copy(eye); camLook.copy(ahead); camInit = true; }
       var kc = 1 - Math.exp(-30 * dt);
       camPos.lerp(eye, kc); camLook.lerp(ahead, kc);
@@ -364,7 +446,7 @@
     }
     // PC 와이드(가로 1.6배 이상): 조금 더 뒤·위에서 넓게 본다
     var wide = window.innerWidth / window.innerHeight >= 1.6;
-    var back = C.CAM_BACK + sp * C.CAM_BACK_PER_MS + (portrait ? 1.5 : 0) + (wide ? 1.4 : 0), up = C.CAM_UP + sp * 0.02 + (portrait ? 1.2 : 0) + (wide ? 0.5 : 0);
+    var back = C.CAM_BACK + 1.0 + sp * C.CAM_BACK_PER_MS + (portrait ? 1.8 : 0) + (wide ? 1.4 : 0), up = C.CAM_UP + 0.4 + sp * 0.02 + (portrait ? 1.4 : 0) + (wide ? 0.5 : 0);
     var tx = player.pos.x - f[0] * back, tz = player.pos.z - f[1] * back, ty = player.y + up;
     var lx = player.pos.x + f[0] * 7, lz = player.pos.z + f[1] * 7, ly = player.y + 1.0;
     if (!camInit) { camPos.set(tx, ty, tz); camLook.set(lx, ly, lz); camInit = true; }
@@ -393,6 +475,11 @@
     checkRules(dt, frame);
     updateCamera(dt);
     hud.tick(dt);
+    updateSelection();
+    // 둘러보기: Q(왼쪽)/E(오른쪽) 누르는 동안, 또는 드래그 중. 놓으면 정면으로 복귀
+    var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0);
+    if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 3.0 * dt, -C.CAM_COCKPIT.lookMax, C.CAM_COCKPIT.lookMax);
+    else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 6);
     var T = player.telemetry;
     hud.setSpeed(player.speedKmh(), T.stopDist, frame.kind === 'off' ? 999 : frame.limit);
     hud.setGear(player.gear);

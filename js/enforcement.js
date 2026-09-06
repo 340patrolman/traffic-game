@@ -1,101 +1,27 @@
-// 단속: 목격(traffic) → 경광등 켜고 뒤에 붙기 → 대상이 우측 갓길 정차 → 플레이어가 그 뒤 갓길에 안전 정차 → 고지 미니게임(10초).
+// 단속: 화면의 차량·보행자를 터치 → 「무슨 위반인가?」 객관식(퀴즈) → 정답이면 조치.
+//   차량: 경광등 켜고 정차 유도 → 대상이 우측 갓길에 정차 → 플레이어가 그 뒤 갓길에 안전 정차 → 「고지 완료」 보너스 + 법조항(data/laws.json = T-Book 참고값) 표시.
+//   보행자(무단횡단·신호위반 보행): 정답이면 계도·통고, 법조항 표시.
+// 위반이 없는 대상을 세우면 감점. 법령 수치는 코드에 없다 — laws.json 에서만 읽는다.
 TG.Enforcement = function (game) {
   var cfg = game.cfg, city = game.city;
   var self = this;
-  this.state = 'idle';
+  this.state = 'idle';     // idle | quiz | yielding | stopped | release
   this.target = null;
-  var holdT = 0, lastCand = null, sirenOffT = 0, warnT = 0, releaseT = 0;
-  var ticket = null;
+  var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null;
 
-  function candidate() {
-    var pl = game.player, T = game.traffic;
-    var pf = pl.forward(), rx = -pf[1], rz = pf[0];
-    var best = null, bestD = 1e9;
-    for (var i = 0; i < T.cars.length; i++) {
-      var c = T.cars[i];
-      if (c.mode !== 'drive' && c.mode !== 'release') continue;
-      var dx = c.pos.x - pl.pos.x, dz = c.pos.z - pl.pos.z;
-      var along = dx * pf[0] + dz * pf[1], lat = dx * rx + dz * rz;
-      if (along < 2 || along > cfg.PULL_RANGE || Math.abs(lat) > 4.5) continue;
-      var cf = [Math.sin(c.heading), Math.cos(c.heading)];
-      if (cf[0] * pf[0] + cf[1] * pf[1] < 0.75) continue;
-      var score = along - (c.violation ? 8 : 0);   // 위반 표시 차량 우선
-      if (score < bestD) { bestD = score; best = c; }
-    }
-    return best;
-  }
-  function distToTarget() {
-    var pl = game.player, c = self.target;
-    return Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z);
-  }
+  function distToTarget() { var pl = game.player, c = self.target; return Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z); }
   function cancel(msg) {
     if (self.target) game.traffic.setYield(self.target, false);
-    self.target = null; self.state = 'idle'; holdT = 0; lastCand = null;
+    self.target = null; self.state = 'idle';
     if (msg) game.hud.notice(msg, 'warn');
   }
-
-  this.update = function (dt) {
-    var pl = game.player;
-    if (self.state === 'idle') {
-      if (!pl.siren) { holdT = 0; lastCand = null; return; }
-      var c = candidate();
-      if (c && c === lastCand) holdT += dt; else holdT = 0;
-      lastCand = c;
-      if (c) game.hud.setTarget('정차 유도 중… ' + Math.round(holdT / cfg.PULL_HOLD * 100) + '%');
-      else game.hud.setTarget(null);
-      if (c && holdT >= cfg.PULL_HOLD) {
-        self.target = c; self.state = 'yielding'; sirenOffT = 0;
-        game.traffic.setYield(c, true);
-        game.hud.notice('대상 차량이 우측으로 정차합니다 — 뒤에 안전하게 정차하세요', 'info', 4000);
-        game.hud.setTarget('정차 유도 중');
-        TG.audio.alert();
-        TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오');
-      }
-      return;
-    }
-    if (self.state === 'yielding' || self.state === 'stopped') {
-      // 대상이 안전한 곳(교차로·횡단보도 밖)을 찾아 더 가는 동안은 여유를 둔다
-      if (distToTarget() > 130) { cancel('대상을 놓쳤습니다 — 정차 유도 취소'); game.hud.setTarget(null); return; }
-      if (!pl.siren) { sirenOffT += dt; if (sirenOffT > 3) { cancel('경광등을 꺼서 정차 유도가 취소되었습니다'); game.hud.setTarget(null); return; } }
-      else sirenOffT = 0;
-      var c2 = self.target;
-      if (c2.mode === 'stopped') {
-        if (self.state !== 'stopped') { self.state = 'stopped'; game.hud.setTarget('대상 정차 — 그 뒤 우측 가장자리에 정차하세요'); }
-        // 플레이어 정차 판정: 대상 뒤 3~15m, 횡 3.5m 이내, 차로 밖(중앙선에서 2.6m 이상 우측)
-        if (pl.telemetry.speed < 0.3) {
-          var cf = [Math.sin(c2.heading), Math.cos(c2.heading)], crx = -cf[1], crz = cf[0];
-          var dx = pl.pos.x - c2.pos.x, dz = pl.pos.z - c2.pos.z;
-          var along = dx * cf[0] + dz * cf[1], lat = dx * crx + dz * crz;
-          var frame = city.frameAt(pl.pos.x, pl.pos.z, pl.heading);
-          var behind = along <= -cfg.STOP_BEHIND_MIN && along >= -cfg.STOP_BEHIND_MAX && Math.abs(lat) < 3.5;
-          var shoulder = frame.lateral >= frame.shoulderMin;
-          if (behind && shoulder) { openTicket(c2); return; }
-          warnT -= dt;
-          if (warnT <= 0) {
-            warnT = 2.5;
-            if (!behind) game.hud.notice('대상 차량 바로 뒤(3~15m)에 정차하세요', 'warn', 2200);
-            else game.hud.notice('안전 확보 안 됨 — 차로 위입니다. 우측 가장자리로 이동하세요', 'warn', 2200);
-          }
-        }
-      }
-      return;
-    }
-    if (self.state === 'release') {
-      releaseT -= dt;
-      if (releaseT <= 0) { self.state = 'idle'; self.target = null; }
-    }
-  };
-
-  // ---------- 고지 미니게임 ----------
-  function lawById(id) {
-    var L = game.laws; if (!L) return null;
-    for (var i = 0; i < L.violations.length; i++) if (L.violations[i].id === id) return L.violations[i];
-    return null;
-  }
-  function fmtFine(law) {
+  // ---------- 법령 표시 ----------
+  function lawById(id) { var L = game.laws; if (!L) return null; for (var i = 0; i < L.violations.length; i++) if (L.violations[i].id === id) return L.violations[i]; return null; }
+  function fmtFine(law, cls) {
+    cls = cls || '승용';
     if (!law || !law.fine) return '확인 중';
-    if (law.fine.verified && law.fine['승용'] !== null) return law.fine['승용'].toLocaleString('ko-KR') + '원(승용)';
-    if (law.fine.candidate && law.fine.candidate['승용']) return '확인 중 · ' + (law.fine.candidate_source || '참고') + ' 값 ' + law.fine.candidate['승용'].toLocaleString('ko-KR') + '원';
+    if (law.fine.verified && law.fine[cls] !== null && law.fine[cls] !== undefined) return law.fine[cls].toLocaleString('ko-KR') + '원(' + cls + ')';
+    if (law.fine.candidate && law.fine.candidate[cls]) return '확인 중 · ' + (law.fine.candidate_source || '참고') + ' 값 ' + law.fine.candidate[cls].toLocaleString('ko-KR') + '원';
     return '확인 중';
   }
   function fmtPoints(law) {
@@ -105,67 +31,119 @@ TG.Enforcement = function (game) {
     return '확인 중';
   }
   function fmtArticle(law) {
-    if (!law || !law.law) return '';
+    if (!law || !law.law) return '조문 확인 중';
     if (law.law.article) return law.law.act + ' ' + law.law.article + (law.law.verified ? '' : ' (확인 중)');
     return law.law.act + ' 조문 확인 중';
   }
-  function optionList(car) {
+  function lawLines(id, cls) {
+    var law = lawById(id), out = [];
+    out.push(fmtArticle(law));
+    if (id === 'jaywalk') out.push('범칙금(보행자) ' + fmtFine(law, '보행자'));
+    else out.push('범칙금 ' + fmtFine(law, cls) + ' · 벌점 ' + fmtPoints(law));
+    if (law && law.teach) out.push(law.teach);
+    return out;
+  }
+  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단', 'jaywalk-red': '신호위반 보행(적색에 횡단)', none: '위반 없음' };
+  function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
-    var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'centerline', 'pedestrian', 'unsafe'];
-    var names = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호 위반', unsafe: '안전운전 위반', buslane: '버스전용차로 위반' };
-    var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : names[id] }; });
+    var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'unsafe'];
+    var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
     return out;
   }
-  function openTicket(car) {
-    self.state = 'ticket';
-    game.setPaused(true, 'ticket');
-    var answer = car.violation ? car.violation.type : 'none';
-    ticket = { car: car, answer: answer, t: cfg.TICKET_SECONDS, done: false };
-    game.hud.showTicket(optionList(car), cfg.TICKET_SECONDS, function (choiceId) { resolve(choiceId); });
-    game.hud.setTarget(null);
-  }
-  function resolve(choice) {
-    if (!ticket || ticket.done) return;
-    ticket.done = true;
-    var ans = ticket.answer, S = cfg.SCORE, law = ans !== 'none' ? lawById(ans) : null;
-    var lines = [], delta = 0, kind = 'ok';
-    if (ans === 'none') {
-      delta = S.noViolation; kind = 'warn';
-      lines.push('위반 없음 — 안내 후 귀가 (' + delta + ')');
-      if (choice !== 'none' && choice !== 'timeout') lines.push('이 차량은 위반이 없었습니다. 무작위 정차는 감점입니다.');
-      TG.audio.bad();
-    } else if (choice === ans) {
-      delta = S.correct; lines.push('정답 · ' + (law ? law.name : ans) + ' (+' + delta + ')');
-      if (law) lines.push(fmtArticle(law));
-      lines.push('범칙금 ' + fmtFine(law) + ' · 벌점 ' + fmtPoints(law));
-      if (law && law.law && !law.law.verified) lines.push('조문·수치는 확인 중입니다(소유자가 별표 원문과 대조 후 확정)');
-      TG.audio.good();
-      game.stats.correct++;
-    } else {
-      delta = choice === 'timeout' ? 0 : S.wrongChoice; kind = 'warn';
-      lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + (law ? law.short : ans) + '」' + (delta ? ' (+' + delta + ')' : ''));
-      if (law && law.teach) lines.push(law.teach);
-      TG.audio.bad();
+  function pedViolationOf(p) { var recent = p.jayLive || (p.jayDone && p.jayT < 14); if (!recent) return 'none'; return p.jayKind === 'red' ? 'jaywalk-red' : 'jaywalk'; }
+
+  // ---------- 퀴즈(터치한 대상의 위반 고르기) ----------
+  this.quiz = function (sel) {
+    var pl = game.player;
+    if (self.state === 'quiz') return false;
+    if (self.state !== 'idle') { game.hud.notice('정차 유도 중입니다 — 먼저 마무리하세요', 'warn', 1800); return false; }
+    var e = sel.kind === 'car' ? sel.car : sel.ped, d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z);
+    if (sel.kind === 'car' && d > 75) { game.hud.notice('너무 멉니다 — 75m 이내로 접근하세요', 'warn', 2000); return false; }
+    if (sel.kind === 'ped' && d > 40) { game.hud.notice('너무 멉니다 — 보행자 40m 이내로 접근하세요', 'warn', 2000); return false; }
+    if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
+    if (sel.kind === 'ped' && e.warned) { game.hud.notice('이미 계도한 보행자입니다', 'warn', 1800); return false; }
+    var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : 'none') : pedViolationOf(e);
+    var opts = sel.kind === 'car' ? carOptions(e) : [{ id: 'jaywalk', name: '무단횡단(횡단보도 아닌 곳)' }, { id: 'jaywalk-red', name: '신호위반 보행(적색에 횡단)' }, { id: 'none', name: '위반 없음' }];
+    self.state = 'quiz'; game.setPaused(true, 'ticket');
+    ticket = { sel: sel, answer: answer, t: cfg.TICKET_SECONDS, done: false };
+    function choose(choice) {
+      if (!ticket || ticket.done) return; ticket.done = true;
+      var lines = [], delta = 0, kind = 'ok', S = cfg.SCORE, lawId = answer === 'jaywalk-red' ? 'jaywalk' : answer, act = false;
+      if (answer === 'none') {
+        if (choice === 'none') { delta = 5; lines.push('정답 · 위반 없음 — 잘 봤습니다 (+5)'); lines.push('위반을 직접 목격한 대상만 단속합니다.'); TG.audio.good(); game.stats.correct++; }
+        else { delta = S.noViolation; kind = 'warn'; lines.push('위반 없음 — 무작위 단속은 감점 (' + delta + ')'); TG.audio.bad(); }
+      } else if (choice === answer) {
+        delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
+      } else if (choice !== 'none' && choice !== 'timeout' && (choice === 'jaywalk' || choice === 'jaywalk-red') && (answer === 'jaywalk' || answer === 'jaywalk-red')) {
+        delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines('jaywalk')); TG.audio.bad();
+      } else {
+        kind = 'warn'; lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + NAMES[answer] + '」'); lines = lines.concat(lawLines(lawId, '승용')); lines.push('다시 관찰하고 단속하세요.'); TG.audio.bad();
+      }
+      game.stats.stops++; if (sel.kind === 'ped') game.stats.warned++;
+      game.addScore(delta, null);
+      game.hud.ticketResult(lines, kind, function () {
+        ticket = null; game.hud.hideTicket(); game.setPaused(false, 'ticket'); self.state = 'idle';
+        if (act) { if (sel.kind === 'car') startPullover(e); else warnPed(e); }
+      });
     }
-    game.stats.stops++;
-    if (ans !== 'none') game.stats.violatorStops++;
-    game.addScore(delta, null);
-    game.hud.ticketResult(lines, kind, function () { closeTicket(); });
+    ticket.onChoice = choose;
+    game.hud.showTicket(opts, cfg.TICKET_SECONDS, choose, sel.kind === 'car' ? '이 차량의 위반은?' : '이 보행자의 위반은?');
+    game.hud.setTarget(null);
+    return true;
+  };
+  function warnPed(p) { p.warned = true; if (p.state !== 'jaywalk' && p.state !== 'cross') { p.state = 'warned'; p.waitT = 0; } game.hud.notice('보행자 계도 완료 — 횡단보도로 안내', 'good', 2400); }
+  // 정차 유도 시작(정답 뒤 자동). 경광등을 켜고 대상을 우측으로 세운다.
+  function startPullover(car) {
+    var pl = game.player;
+    if (car.mode !== 'drive' && car.mode !== 'release') return;
+    if (!pl.siren) { pl.setSiren(true); TG.audio.setSiren(true); game.hud.setSiren(true); }
+    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0;
+    game.traffic.setYield(car, true);
+    game.hud.notice('정차 유도 — 대상이 우측으로 정차합니다. 그 뒤 갓길에 안전하게 정차하면 고지 완료', 'info', 4200);
+    game.hud.setTarget('정차 유도 중');
+    TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오');
   }
-  function closeTicket() {
-    var car = ticket.car; ticket = null;
-    game.hud.hideTicket();
-    game.setPaused(false, 'ticket');
+  // 고지 완료: 플레이어가 대상 뒤 갓길에 안전하게 섰을 때
+  function completePullover(car) {
+    var bonus = 10;
+    game.addScore(bonus, null);
+    game.hud.notice('고지 완료 — 안전한 위치에 정차 (+' + bonus + ')', 'good', 3200);
+    game.hud.hint('단속 뒤에는 차로로 안전하게 복귀한다');
+    TG.audio.good();
     game.traffic.setYield(car, false);
-    self.state = 'release'; releaseT = 4;
+    self.state = 'release'; releaseT = 4; game.hud.setTarget(null);
   }
+
+  this.update = function (dt) {
+    var pl = game.player;
+    if (self.state === 'idle' || self.state === 'quiz') return;
+    if (self.state === 'yielding' || self.state === 'stopped') {
+      if (distToTarget() > 130) { cancel('대상을 놓쳤습니다 — 정차 유도 취소'); game.hud.setTarget(null); return; }
+      if (!pl.siren) { sirenOffT += dt; if (sirenOffT > 3) { cancel('경광등을 꺼서 정차 유도가 취소되었습니다'); game.hud.setTarget(null); return; } } else sirenOffT = 0;
+      var c2 = self.target;
+      if (c2.mode === 'stopped') {
+        if (self.state !== 'stopped') { self.state = 'stopped'; game.hud.setTarget('대상 정차 — 그 뒤 우측 가장자리에 정차하세요'); }
+        if (pl.telemetry.speed < 0.3) {
+          var cf = [Math.sin(c2.heading), Math.cos(c2.heading)], crx = -cf[1], crz = cf[0];
+          var dx = pl.pos.x - c2.pos.x, dz = pl.pos.z - c2.pos.z, along = dx * cf[0] + dz * cf[1], lat = dx * crx + dz * crz;
+          var frame = city.frameAt(pl.pos.x, pl.pos.z, pl.heading);
+          var behind = along <= -cfg.STOP_BEHIND_MIN && along >= -cfg.STOP_BEHIND_MAX && Math.abs(lat) < 3.5;
+          var shoulder = frame.lateral >= frame.shoulderMin;
+          if (behind && shoulder) { completePullover(c2); self.target = null; return; }
+          warnT -= dt;
+          if (warnT <= 0) { warnT = 2.5; if (!behind) game.hud.notice('대상 차량 바로 뒤(3~15m)에 정차하세요', 'warn', 2200); else game.hud.notice('안전 확보 안 됨 — 차로 위입니다. 우측 가장자리로 이동하세요', 'warn', 2200); }
+        }
+      }
+      return;
+    }
+    if (self.state === 'release') { releaseT -= dt; if (releaseT <= 0) { self.state = 'idle'; self.target = null; } }
+  };
   this.tickTicket = function (dt) {
     if (!ticket || ticket.done) return;
-    ticket.t -= dt;
-    game.hud.ticketTimer(ticket.t / cfg.TICKET_SECONDS);
-    if (ticket.t <= 0) resolve('timeout');
+    ticket.t -= dt; game.hud.ticketTimer(ticket.t / cfg.TICKET_SECONDS);
+    if (ticket.t <= 0 && ticket.onChoice) ticket.onChoice('timeout');
   };
   this.cancel = cancel;
-  this.reset = function () { if (ticket) { ticket = null; game.hud.hideTicket(); } self.state = 'idle'; self.target = null; holdT = 0; lastCand = null; };
+  this.reset = function () { if (ticket) { ticket = null; game.hud.hideTicket(); } self.state = 'idle'; self.target = null; };
 };

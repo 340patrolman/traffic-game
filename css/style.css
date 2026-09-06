@@ -65,6 +65,10 @@ body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-
 .tbtn.rev .ico{font-size:20px}
 .tbtn.siren{width:66px;height:66px;background:rgba(77,141,255,.22);border-color:rgba(77,141,255,.8);margin-bottom:6px}
 .tbtn.pa{width:60px;height:60px;background:rgba(255,207,63,.16);border-color:rgba(255,207,63,.7);margin-bottom:8px}
+.tbtn.enf{width:72px;height:72px;background:rgba(255,59,48,.22);border-color:rgba(255,120,110,.9);margin-bottom:8px}
+.tbtn.enf .ico{font-size:24px}
+.tbtn.enf.ready{background:rgba(255,59,48,.5);border-color:#fff;box-shadow:0 0 0 4px rgba(255,59,48,.25);animation:blink .7s steps(2) infinite}
+body.portrait .tbtn.enf{width:64px;height:64px}
 .tbtn.pa .ico{font-size:20px}
 .tbtn.pa.held{background:rgba(255,207,63,.45)}
 body.portrait .tbtn.pa{width:56px;height:56px}
