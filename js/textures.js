@@ -326,11 +326,13 @@ TG.tex = (function () {
   function hwSign(text) {
     var key = 'hw:' + text;
     if (cache[key]) return cache[key];
-    var c = canvas(512, 192), g = c.getContext('2d');
-    g.fillStyle = '#1e7a3a'; g.fillRect(0, 0, 512, 192);
-    g.strokeStyle = '#fff'; g.lineWidth = 8; g.strokeRect(10, 10, 492, 172);
-    g.fillStyle = '#fff'; g.font = 'bold 64px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(text, 256, 96);
+    // '|' 로 두 줄(위: IC 이름·화살표, 아래: 방면). 한국 고속도로 안내표지(녹색 바탕·흰 글자·흰 테두리)
+    var lines = String(text).split('|'), c = canvas(768, 256), g = c.getContext('2d');
+    g.fillStyle = '#1e7a3a'; g.fillRect(0, 0, 768, 256);
+    g.strokeStyle = '#fff'; g.lineWidth = 8; g.strokeRect(10, 10, 748, 236);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (lines.length === 1) { g.font = 'bold 72px ' + FONT; g.fillText(lines[0], 384, 128); }
+    else { g.font = 'bold 66px ' + FONT; g.fillText(lines[0], 384, 88); g.font = '600 48px ' + FONT; g.fillStyle = '#e8f5ea'; g.fillText(lines[1], 384, 178); }
     return (cache[key] = toTexture(c));
   }
 

@@ -336,19 +336,32 @@ TG.buildTerrain = function (scene, city, cfg) {
     }
   });
   // 안내 갠트리
-  function gantry(L, i, text) {
+  // 안내표지 갠트리: dn2=+1 쪽 표지는 A 방향 운전자가, -1 쪽은 B 방향 운전자가 본다(textB 생략 시 같은 글).
+  function gantry(L, i, text, textB) {
     var p5 = L.P(i);
     for (var dn2 = -1; dn2 <= 1; dn2 += 2) {
+      var txt = dn2 > 0 ? text : (textB || text);
       var offG = dn2 * (p5.half + 1.2), gx = p5.x + p5.rx * offG, gz = p5.z + p5.rz * offG;
       props.cylinder(gx, p5.y, gz, 0.18, 0.15, 6.5, 6, 0x4a4f55);
       var rotG = Math.atan2(p5.tx * dn2, p5.tz * dn2) + Math.PI, cxg = p5.x + p5.rx * dn2 * (p5.half * 0.5), czg = p5.z + p5.rz * dn2 * (p5.half * 0.5);
       props.box((gx + cxg) / 2, p5.y + 6.6, (gz + czg) / 2, 0.2, 0.2, Math.hypot(gx - cxg, gz - czg), 0x4a4f55, { rotY: Math.atan2(p5.rx, p5.rz) });
-      face('hw:' + text, cxg, p5.y + 5.4, czg, rotG, 6, 2.2);
+      face('hw:' + txt, cxg, p5.y + 5.4, czg, rotG, 6, 2.2);
     }
   }
   gantry(ring, (jE + 20) % ring.N, '순환고속도로 · 1차로 버스전용'); gantry(ring, (jN + 20) % ring.N, '순환고속도로 · 제한 100');
-  gantry(ring, (jE - 40 + ring.N) % ring.N, '동쪽 출구 500m'); gantry(ring, (jN - 40 + ring.N) % ring.N, '북쪽 출구 500m');
-  gantry(connE, 8, '교외 도로 · 급커브 주의'); gantry(connN, 8, '고속도로 진입로');
+  // IC 안내표지(강남·서초 축약): 연결로 도시 쪽 「순환고속도로 → ○○IC」, 분기 54m 전 「↱ ○○IC 진입」, 링 위 출구 500m·직전 「↗ ○○IC 출구」. 시내 방향 면에는 「강남역·시내 방향」.
+  var IC_INFO = { E: ['삼성IC', '코엑스·잠실 방향'], N: ['한남IC', '한남대교·강북 방향'], S: ['경부고속도로 시점', '판교·부산 방향'], W: ['서초IC', '예술의전당·법원 방향'],
+                  NE: ['청담IC', '청담대교·영동대로 방향'], NW: ['반포IC', '고속터미널·반포대교 방향'], SE: ['수서IC', '수서·세곡 방향'], SW: ['양재IC', '양재천·양재역 방향'] };
+  conns.forEach(function (c) {
+    var info = IC_INFO[c.ic] || [c.id, '']; c.icName = info[0]; c.icDest = info[1];
+    gantry(c, Math.min(6, c.N - 1), '순환고속도로 →|' + info[0] + ' · ' + info[1], '강남역 · 시내 방향|' + (c.name || '') );
+    gantry(c, Math.max(2, c.N - 18), '↱ ' + info[0] + ' 진입|' + info[1] + ' · 우측 램프', '강남역 · 시내 방향|직진');
+  });
+  ring.exitsA.forEach(function (ex) {
+    var c = ex.link.nextA && ex.link.nextA.link, info = c && IC_INFO[c.ic]; if (!info) return;
+    gantry(ring, ((ex.atIndex - 45) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구 500m|' + info[1], '순환고속도로|계속 주행');
+    gantry(ring, ((ex.atIndex - 12) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구|' + info[1] + ' · 우측', '순환고속도로|계속 주행');
+  });
   mesh(busTextGeo.build(), new THREE.MeshBasicMaterial({ map: TG.tex.roadText('버스전용', '#2f6fd6'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), false, false);
   var roadMatT = new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }); TG.mats.road.push(roadMatT);
   mesh(road.build(), roadMatT, false, true);
