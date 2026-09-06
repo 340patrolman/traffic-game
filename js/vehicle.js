@@ -91,23 +91,29 @@
     var lens = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), new THREE.MeshBasicMaterial({ color: 0x0a0c10 }));
     lens.rotation.x = Math.PI / 2; lens.position.set(0, barY + 0.03, bz + 0.29);
     g.add(this.barR); g.add(this.barB); g.add(barW); g.add(barTop); g.add(dome); g.add(lens);
-    // 핸들: 토러스 림 + 스포크 3개 + 허브(엠블럼). 로컬 z 축이 운전자 쪽, 조향 시 z 축으로 돈다
+    // 핸들(순찰차 사진 참고): 가죽 림(아래가 살짝 평평), 3스포크(크롬 인서트), 둥근 에어백 패드 + 엠블럼, 컬럼 슈라우드. 로컬 z 축이 운전자 쪽, 조향 시 z 축으로 돈다
     this.steer3d = new THREE.Group();
-    var rimMat = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.6 }), spokeMat = new THREE.MeshStandardMaterial({ color: 0x23272d, roughness: 0.5 });
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.024, 12, 40), rimMat); this.steer3d.add(rim);
-    [Math.PI / 2 + 2.6, Math.PI / 2 - 2.6, -Math.PI / 2].forEach(function (a) {
-      var sp = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.05, 0.035), spokeMat);
-      sp.position.set(Math.cos(a) * 0.10, Math.sin(a) * 0.10, 0); sp.rotation.z = a; this.steer3d.add(sp);
+    var rimMat = new THREE.MeshStandardMaterial({ color: 0x111417, roughness: 0.55, metalness: 0.05 }), spokeMat = new THREE.MeshStandardMaterial({ color: 0x1c2027, roughness: 0.5, metalness: 0.1 });
+    var chromeMat = new THREE.MeshStandardMaterial({ color: 0xaeb4bb, roughness: 0.25, metalness: 0.6 });
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.0215, 14, 48), rimMat); rim.scale.y = 0.96; this.steer3d.add(rim);
+    var flat = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.036, 0.04), rimMat); flat.position.set(0, -0.176, 0); this.steer3d.add(flat);   // 아래 평평한 부분
+    [[Math.PI, 0.17], [0, 0.17], [-Math.PI / 2, 0.16]].forEach(function (sp) {
+      var a = sp[0], len = sp[1], s = new THREE.Mesh(new THREE.BoxGeometry(len, 0.048, 0.024), spokeMat);
+      s.position.set(Math.cos(a) * (0.06 + len / 2), Math.sin(a) * (0.06 + len / 2), 0.004); s.rotation.z = a; this.steer3d.add(s);
+      var ins = new THREE.Mesh(new THREE.BoxGeometry(len * 0.8, 0.012, 0.004), chromeMat); ins.position.set(Math.cos(a) * (0.06 + len / 2), Math.sin(a) * (0.06 + len / 2), 0.017); ins.rotation.z = a; this.steer3d.add(ins);
     }, this);
-    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.05, 18), spokeMat); hub.rotation.x = Math.PI / 2; this.steer3d.add(hub);
-    var hubEm = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.07), new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true })); hubEm.position.z = 0.027; this.steer3d.add(hubEm);
-    // 운전자의 두 손(9시·3시)과 소매: 핸들과 함께 돈다
-    var sleeveMat = new THREE.MeshStandardMaterial({ color: 0x2b3a55, roughness: 0.9 }), skinMat = new THREE.MeshStandardMaterial({ color: 0xe6b89c, roughness: 0.8 });
+    var pad = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 14), spokeMat); pad.scale.set(1.25, 0.95, 0.5); pad.position.z = 0.01; this.steer3d.add(pad);
+    var hubEm = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.06), new THREE.MeshBasicMaterial({ map: TG.tex.emblem(), transparent: true })); hubEm.position.z = 0.049; this.steer3d.add(hubEm);
+    var shroud = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.065, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x0f1216, roughness: 0.8 })); shroud.rotation.x = Math.PI / 2; shroud.position.z = -0.08; this.steer3d.add(shroud);
+    // 운전자의 두 손(9시·3시): 림을 감싼 손가락(토러스 조각) + 손등(둥근 공) + 엄지, 남색 소매 + 형광 커프. 핸들과 함께 돈다
+    var sleeveMat = new THREE.MeshStandardMaterial({ color: 0x2b3a55, roughness: 0.9 }), skinMat = new THREE.MeshStandardMaterial({ color: 0xe0b596, roughness: 0.75 }), cuffMat = new THREE.MeshStandardMaterial({ color: 0xd4ff3c, roughness: 0.9 });
     [-1, 1].forEach(function (hs) {
-      var hand = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.075, 0.10), skinMat); hand.position.set(hs * 0.19, 0.01, 0.035); this.steer3d.add(hand);
-      var thumb = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.05), skinMat); thumb.position.set(hs * 0.15, 0.04, 0.03); this.steer3d.add(thumb);
-      var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.09, 0.30), sleeveMat); sleeve.position.set(hs * 0.20, -0.02, 0.21); sleeve.rotation.x = 0.35; this.steer3d.add(sleeve);
-      var cuff = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.095, 0.03), new THREE.MeshStandardMaterial({ color: 0xd4ff3c, roughness: 0.9 })); cuff.position.set(hs * 0.20, 0.0, 0.085); cuff.rotation.x = 0.35; this.steer3d.add(cuff);
+      var grip = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.016, 10, 16, Math.PI * 1.35), skinMat);
+      grip.position.set(hs * 0.185, 0.012, 0.0); grip.rotation.y = Math.PI / 2; grip.rotation.z = hs > 0 ? -0.2 : Math.PI + 0.2; this.steer3d.add(grip);
+      var palm = new THREE.Mesh(new THREE.SphereGeometry(0.046, 14, 10), skinMat); palm.scale.set(0.8, 0.85, 1.1); palm.position.set(hs * 0.205, -0.01, 0.045); this.steer3d.add(palm);
+      var thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.05, 8), skinMat); thumb.position.set(hs * 0.16, 0.03, 0.03); thumb.rotation.z = hs * 0.9; this.steer3d.add(thumb);
+      var sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.052, 0.30, 12), sleeveMat); sleeve.position.set(hs * 0.215, -0.07, 0.20); sleeve.rotation.x = Math.PI / 2 - 0.45; this.steer3d.add(sleeve);
+      var cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.049, 0.035, 12), cuffMat); cuff.position.set(hs * 0.212, -0.015, 0.075); cuff.rotation.x = Math.PI / 2 - 0.45; this.steer3d.add(cuff);
     }, this);
     this.steer3d.position.set(LAY.wheel.x, LAY.wheel.y, LAY.wheel.z); this.steer3d.rotation.order = 'YXZ';
     this.steer3d.rotation.x = LAY.wheel.tilt; this.steer3d.visible = false; g.add(this.steer3d);
