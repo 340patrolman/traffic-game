@@ -229,8 +229,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   function pedOnCrosswalk(ap) {
     var P = self.peds; if (!P) return false;
     var f = TG.DIR_VEC[ap.d], r = [-f[1], f[0]], node = ap.node, cn = city.crossNear(node, ap.d), cf = city.crossFar(node, ap.d), rd = city.roadOf(node, ap.d), half = city.halfOf(rd.axis, rd.idx);
-    for (var i = 0; i < P.peds.length; i++) {
-      var p = P.peds[i], dx = p.pos.x - node.x, dz = p.pos.z - node.z, along = dx * f[0] + dz * f[1], lat = dx * r[0] + dz * r[1];
+    var list = P.walker ? P.peds.concat([P.walker]) : P.peds;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i], dx = p.pos.x - node.x, dz = p.pos.z - node.z, along = dx * f[0] + dz * f[1], lat = dx * r[0] + dz * r[1];
       if (along <= -cn + 0.6 && along >= -cf - 0.6 && Math.abs(lat) <= half - 0.3 && city.onRoad(p.pos.x, p.pos.z)) return true;
     }
     return false;

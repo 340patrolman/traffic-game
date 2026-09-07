@@ -244,7 +244,7 @@ TG.buildCity = function (cfg) {
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
     schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
-    landmarks: landmarks, roadNamesV: roadNamesV, roadNamesH: roadNamesH, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
+    landmarks: landmarks, roadNamesV: roadNamesV, roadNamesH: roadNamesH, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,

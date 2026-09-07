@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.7.1">
+<link rel="stylesheet" href="css/style.css?v=0.7.2">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -53,6 +53,56 @@
   </div>
   <div class="tbtn small" id="btnPause">❚❚</div>
   <div class="tbtn small view" id="btnView" title="시점 전환">시점</div>
+  <!-- 화면 게임패드 배치(조작 설정 「게임패드」): 왼쪽 십자키 + 오른쪽 △○×□ + L1/R1 -->
+  <div id="pad">
+    <div class="pad-shoulder left"><div class="tbtn pbtn sh" data-key="Comma">L1<span>좌 깜빡이</span></div></div>
+    <div class="pad-shoulder right"><div class="tbtn pbtn sh" data-key="Period">R1<span>우 깜빡이</span></div></div>
+    <div class="dpad">
+      <div class="tbtn pbtn dp up" data-btn="gas">▲<span>가속</span></div>
+      <div class="tbtn pbtn dp left" data-btn="left">◀<span>좌</span></div>
+      <div class="tbtn pbtn dp right" data-btn="right">▶<span>우</span></div>
+      <div class="tbtn pbtn dp down" data-btn="brake">▼<span>제동</span></div>
+      <div class="dp-center"></div>
+    </div>
+    <div class="face">
+      <div class="tbtn pbtn fb tri" data-key="KeyM">△<span>앰프</span></div>
+      <div class="tbtn pbtn fb sq" data-key="KeyF">□<span>단속</span></div>
+      <div class="tbtn pbtn fb cir" data-key="KeyL">○<span>경광등</span></div>
+      <div class="tbtn pbtn fb x" data-key="KeyC">×<span>시점</span></div>
+    </div>
+    <div class="pad-mid"><div class="tbtn pbtn mid" data-key="KeyN">SELECT<span>주행 모드</span></div><div class="tbtn pbtn mid" data-key="Escape">START<span>일시정지</span></div></div>
+  </div>
+  <div class="tbtn small help" id="btnCtlHelp" title="조작 설명">?</div>
+</div>
+
+<!-- 조작 설명(게임패드·조이스틱·키보드) -->
+<div id="ctlHelp" class="overlay">
+  <div class="card help">
+    <h2>조작 설명</h2>
+    <div class="views"><span class="lbl">조작 배치</span>
+      <button class="cpick" data-ctl="stick">🕹 조이스틱</button><button class="cpick" data-ctl="pad">🎮 게임패드(화면)</button>
+    </div>
+    <div class="help-grid">
+      <div class="help-col"><h3>🎮 화면 게임패드 · 실물 패드</h3>
+        <div><b>십자키 / 왼쪽 스틱</b> 좌우 조향 · ▲ 가속 · ▼ 제동(정지 후 계속 누르면 후진)</div>
+        <div><b>RT / A·×</b> 가속 &nbsp; <b>LT / B·○</b> 브레이크 (실물 패드)</div>
+        <div><b>△ (Y)</b> 앰프 방송 &nbsp; <b>□ (X)</b> 단속 &nbsp; <b>○</b> 경광등 &nbsp; <b>×</b> 시점 전환</div>
+        <div><b>L1 / R1</b> 좌·우 방향지시등 &nbsp; <b>SELECT</b> 노말/스포츠 &nbsp; <b>START</b> 일시정지</div>
+        <div><b>L3</b> 경광등 &nbsp; <b>R3</b> 주행 모드 (실물 패드) &nbsp; <b>오른쪽 스틱</b> 둘러보기(보행자 모드)</div>
+        <div class="dim">실물 게임패드(블루투스·USB)는 꽂거나 연결하고 아무 버튼이나 한 번 누르면 자동으로 인식됩니다.</div>
+      </div>
+      <div class="help-col"><h3>🕹 조이스틱 · 키보드</h3>
+        <div><b>왼쪽 원형 스틱</b> 좌우 조향 · 위 가속 · 아래 브레이크 &nbsp; <b>오른쪽 버튼</b> 경광등 · 단속 · 앰프</div>
+        <div><b>← →</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크 <b>R</b> 후진 <b>, .</b> 방향지시등</div>
+        <div><b>F</b> 단속 <b>M</b> 앰프 <b>L</b> 경광등 <b>C</b> 시점 <b>N</b> 주행 모드 <b>Q/E</b> 둘러보기 <b>+/−</b> 지도 확대 <b>Esc</b> 일시정지</div>
+        <h3>🚶 보행자 모드</h3>
+        <div><b>스틱 · 십자키 · 방향키</b> 걷기(카메라 기준) &nbsp; <b>스틱 끝까지 · Shift · A/×</b> 달리기</div>
+        <div><b>단속</b> 가까운 무단횡단 보행자 계도 &nbsp; <b>앰프</b> 대상별 방송 &nbsp; <b>시점</b> 1인칭/3인칭</div>
+        <div class="dim">보행 신호(녹색 걷는 사람)에 횡단보도로 건넌다. 적색에 들어서면 신호위반 보행, 횡단보도 밖 차도는 무단횡단.</div>
+      </div>
+    </div>
+    <button id="btnCtlHelpClose" class="primary">닫기</button>
+  </div>
 </div>
 
 <!-- 인트로: 도로교통법의 목적 → 그것을 실현하는 경찰 → 타이틀 -->
@@ -73,7 +123,10 @@
       <button class="carpick" data-car="flag"><b>순찰 대형 세단</b><span>플래그십 · 고해상도 차체</span></button>
     </div>
     <div class="views"><span class="lbl">모드</span>
-      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
+      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
+    </div>
+    <div class="views"><span class="lbl">조작</span>
+      <button class="cpick" data-ctl="stick">🕹 조이스틱</button><button class="cpick" data-ctl="pad">🎮 게임패드(화면)</button><button class="cpick more" id="btnCtlHelp2">❓ 조작 설명</button>
     </div>
     <div class="views"><span class="lbl">시점</span>
       <button class="viewpick" data-view="chase">추적(3인칭)</button>
@@ -85,11 +138,11 @@
     <button id="btnStart" class="primary">출동</button>
     <div id="best" class="best"></div>
     <div class="controls">
-      <div>터치: 왼쪽 조이스틱(좌우 조향 · 위 가속 · 아래 브레이크) · 오른쪽 경광등 · 단속 · 앰프 (차량·보행자를 터치하면 단속)</div>
+      <div>터치: 왼쪽 조이스틱(좌우 조향 · 위 가속 · 아래 브레이크) · 오른쪽 경광등 · 단속 · 앰프 (차량·보행자를 터치하면 단속) · 「조작」에서 게임패드 배치 선택, 실물 게임패드 자동 인식</div>
       <div>키보드: <b>←→</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크(정지 후 계속 누르면 후진) <b>R</b> 후진 <b>F</b> 단속 <b>Q/E</b> 둘러보기 <b>L</b> 경광등 <b>C</b> 시점 전환 <b>H</b> 교육 안내 <b>Esc</b> 일시정지</div>
       <div class="dim">지나가는 차량·보행자를 터치(클릭)하면 「무슨 위반?」 객관식이 뜹니다. 정답이면 차량은 우측으로 정차하고, 그 뒤 갓길에 안전하게 서면 고지 완료. 보행자는 계도.</div>
     </div>
-    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.6</div>
+    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.7</div>
   </div>
 </div>
 
@@ -102,6 +155,7 @@
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optEasy"> 초보 운전 보조(조향 완화 · 감속 시점에 살짝 자동 제동)</label>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
+    <label class="opt"><span>조작 배치</span><select id="optCtl" style="flex:1"><option value="stick">🕹 조이스틱 + 버튼</option><option value="pad">🎮 게임패드(십자키 · △○×□)</option></select></label>
     <label class="opt"><span>주행 모드</span><select id="optDrive" style="flex:1"><option value="normal">노말 (부드럽게)</option><option value="sport">스포츠 (가속·조향 응답 ↑)</option></select></label>
     <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="auto">🕒 자동(시계·계절)</option><option value="random">🎲 랜덤</option><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option><option value="windy">💨 강풍 (옆바람)</option></select></label>
     <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
@@ -139,28 +193,29 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.7.1"></script>
-<script src="js/config.js?v=0.7.1"></script>
-<script src="js/rng.js?v=0.7.1"></script>
-<script src="js/save.js?v=0.7.1"></script>
-<script src="js/perf.js?v=0.7.1"></script>
-<script src="js/textures.js?v=0.7.1"></script>
-<script src="js/audio.js?v=0.7.1"></script>
-<script src="js/city.js?v=0.7.1"></script>
-<script src="js/world.js?v=0.7.1"></script>
-<script src="js/terrain.js?v=0.7.1"></script>
-<script src="js/weather.js?v=0.7.1"></script>
-<script src="js/signals.js?v=0.7.1"></script>
-<script src="js/vehmesh.js?v=0.7.1"></script>
-<script src="js/vehicle.js?v=0.7.1"></script>
-<script src="js/traffic.js?v=0.7.1"></script>
-<script src="js/peds.js?v=0.7.1"></script>
-<script src="js/enforcement.js?v=0.7.1"></script>
-<script src="js/study.js?v=0.7.1"></script>
-<script src="js/hud.js?v=0.7.1"></script>
-<script src="js/minimap.js?v=0.7.1"></script>
-<script src="js/input.js?v=0.7.1"></script>
-<script src="js/main.js?v=0.7.1"></script>
+<script src="lib/three.min.js?v=0.7.2"></script>
+<script src="js/config.js?v=0.7.2"></script>
+<script src="js/rng.js?v=0.7.2"></script>
+<script src="js/save.js?v=0.7.2"></script>
+<script src="js/perf.js?v=0.7.2"></script>
+<script src="js/textures.js?v=0.7.2"></script>
+<script src="js/audio.js?v=0.7.2"></script>
+<script src="js/city.js?v=0.7.2"></script>
+<script src="js/world.js?v=0.7.2"></script>
+<script src="js/terrain.js?v=0.7.2"></script>
+<script src="js/weather.js?v=0.7.2"></script>
+<script src="js/signals.js?v=0.7.2"></script>
+<script src="js/vehmesh.js?v=0.7.2"></script>
+<script src="js/vehicle.js?v=0.7.2"></script>
+<script src="js/traffic.js?v=0.7.2"></script>
+<script src="js/peds.js?v=0.7.2"></script>
+<script src="js/walker.js?v=0.7.2"></script>
+<script src="js/enforcement.js?v=0.7.2"></script>
+<script src="js/study.js?v=0.7.2"></script>
+<script src="js/hud.js?v=0.7.2"></script>
+<script src="js/minimap.js?v=0.7.2"></script>
+<script src="js/input.js?v=0.7.2"></script>
+<script src="js/main.js?v=0.7.2"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

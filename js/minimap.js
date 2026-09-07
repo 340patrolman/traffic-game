@@ -40,16 +40,21 @@ TG.Minimap = function (canvas, city, terrain) {
   this.setZoom = function (z) { this.zoom = TG.clamp(z, 1, 4); };
   var self = this;
   canvas.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); self.cycleZoom(); });
-  this.draw = function (player, cars, target) {
+  this.draw = function (player, cars, target, marker) {
     ctx.clearRect(0, 0, W, H);
     var zm = self.zoom;
     ctx.save();
+
     if (zm > 1 && player) { ctx.translate(W / 2, H / 2); ctx.scale(zm, zm); ctx.translate(-mx(player.pos.x), -mz(player.pos.z)); }
     ctx.drawImage(base, 0, 0);
     for (var i = 0; i < cars.length; i++) {
       var c = cars[i]; if (!c.violation && c !== target) continue;
       ctx.fillStyle = c === target ? '#ff3b30' : '#ff9f0a';
       ctx.beginPath(); ctx.arc(mx(c.pos.x), mz(c.pos.z), (c === target ? 4 : 3) / Math.sqrt(zm), 0, Math.PI * 2); ctx.fill();
+    }
+    if (marker) {   // 보행자 모드 목적지: 노란 깃발 점
+      var s0 = 1 / Math.sqrt(zm); ctx.fillStyle = '#ffcf3f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(mx(marker.x), mz(marker.z), 4.5 * s0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
     if (player) {
       var px = mx(player.pos.x), pz = mz(player.pos.z), h = player.heading, s = 1 / Math.sqrt(zm);

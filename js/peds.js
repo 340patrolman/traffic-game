@@ -2,7 +2,7 @@
 // 일부는 무단횡단(블록 중간 횡단, 적색 횡단)을 한다 → 차들이 급제동하고, 플레이어는 경광등 켜고 옆에 서면 「보행자 계도」.
 TG.Peds = function (scene, city, signals, cfg, rng) {
   var peds = [], self = this;
-  this.peds = peds; this.player = null; this.traffic = null;
+  this.peds = peds; this.player = null; this.traffic = null; this.walker = null;   // walker: 보행자 모드의 플레이어(차량 AI 가 보행자로 취급)
   this.onEvent = function () {};
   var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var SHIRTS = [0xd94f4f, 0x3b6fd1, 0x2fa36b, 0xe0b84a, 0x8b5cc7, 0xe8e2d4, 0x2b2f38, 0xf08a5d, 0x6fc3d8, 0xc7c7c7];
@@ -127,9 +127,9 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     }
   };
   this.nearestAhead = function (x, z, fx, fz, maxAlong, maxLat) {
-    var best = null;
-    for (var i = 0; i < peds.length; i++) {
-      var p = peds[i], dx = p.pos.x - x, dz = p.pos.z - z, along = dx * fx + dz * fz;
+    var best = null, list = self.walker ? peds.concat([self.walker]) : peds;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i], dx = p.pos.x - x, dz = p.pos.z - z, along = dx * fx + dz * fz;
       if (along <= 0 || along > maxAlong || Math.abs(dx * -fz + dz * fx) > maxLat || !city.onRoad(p.pos.x, p.pos.z)) continue;
       if (best === null || along < best) best = along;
     }

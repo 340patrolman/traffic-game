@@ -85,16 +85,63 @@ TG.Input = function () {
   this.onKey = function (code, fn) { this.handlers[code] = fn; };
   this.consume = function (code) { var p = !!this.pressed[code]; this.pressed[code] = false; return p; };
   this.clearPressed = function () { this.pressed = {}; };
+  // 화면 게임패드의 얼굴 버튼(△○×□·L1·R1 …): data-key="KeyF" 처럼 키 이름을 적어 두면 그 키 핸들러를 그대로 부른다
+  var taps = document.querySelectorAll('[data-key]');
+  for (var ti = 0; ti < taps.length; ti++) (function (el) { var code = el.getAttribute('data-key'); self.bindTap(el, function () { self.pressed[code] = true; if (self.handlers[code]) self.handlers[code](); }); })(taps[ti]);
+
+  // 실물 게임패드(Gamepad API, 표준 배치): 왼쪽 스틱 조향 · RT 가속 · LT 브레이크 · A/× 가속 · B/○ 브레이크 · X/□ 단속 · Y/△ 앰프
+  // L1/R1 좌·우 방향지시등 · L2 후진(브레이크와 겸함) · 십자 = 방향키 · Start 일시정지 · Select 시점 · L3 경광등 · R3 주행 모드
+  var GP_MAP = { 0: 'GpA', 1: 'GpB', 2: 'KeyF', 3: 'KeyM', 4: 'Comma', 5: 'Period', 8: 'KeyC', 9: 'Escape', 10: 'KeyL', 11: 'KeyN', 12: 'ArrowUp', 13: 'ArrowDown', 14: 'ArrowLeft', 15: 'ArrowRight' };
+  this.gp = { on: false, id: '', steer: 0, throttle: 0, brake: 0, prev: {}, held: {}, lx: 0, ly: 0, rx: 0 };
+  this.onGamepad = function () {};
+  addEventListener('gamepadconnected', function (e) { self.gp.on = true; self.gp.id = e.gamepad.id; self.onGamepad(true, e.gamepad.id); });
+  addEventListener('gamepaddisconnected', function () { self.gp.on = false; self.gp.held = {}; self.onGamepad(false, ''); });
+  function pollGamepad() {
+    var g = self.gp; g.steer = 0; g.throttle = 0; g.brake = 0; g.lx = 0; g.ly = 0; g.rx = 0;
+    if (!navigator.getGamepads) return;
+    var pads = navigator.getGamepads(), pad = null;
+    for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { pad = pads[i]; break; }
+    if (!pad) { if (g.on) { g.on = false; g.held = {}; } return; }
+    if (!g.on) { g.on = true; g.id = pad.id; self.onGamepad(true, pad.id); }
+    function ax(i) { var v = pad.axes[i] || 0; return Math.abs(v) < 0.15 ? 0 : (v - Math.sign(v) * 0.15) / 0.85; }
+    function bt(i) { var b = pad.buttons[i]; return b ? (typeof b.value === 'number' ? b.value : (b.pressed ? 1 : 0)) : 0; }
+    g.lx = ax(0); g.ly = -ax(1); g.rx = ax(2);
+    g.steer = -g.lx; g.throttle = Math.max(bt(7), bt(0)); g.brake = Math.max(bt(6), bt(1));
+    for (var k in GP_MAP) {
+      var down = bt(+k) > 0.5, code = GP_MAP[k];
+      g.held[code] = down;
+      if (down && !g.prev[k]) { if (code !== 'GpA' && code !== 'GpB') { self.pressed[code] = true; if (self.handlers[code]) self.handlers[code](); } }
+      g.prev[k] = down;
+    }
+    g.held.ShiftLeft = bt(0) > 0.5;   // 보행자 모드: A/× = 달리기
+  }
+  this.pollGamepad = pollGamepad;
+
+  // 보행자 모드: 이동 벡터(스틱·방향키·십자·게임패드 왼쪽 스틱). x 우측 +, y 앞 +. run: 달리기(Shift · A/×)
+  this.readMove = function () {
+    pollGamepad();
+    var h = this.held, b = this.btn, st = this.stick, g = this.gp;
+    var x = (b.right || h.ArrowRight || h.KeyD || g.held.ArrowRight ? 1 : 0) - (b.left || h.ArrowLeft || h.KeyA || g.held.ArrowLeft ? 1 : 0);
+    var y = (b.gas || h.ArrowUp || h.KeyW || g.held.ArrowUp ? 1 : 0) - (b.brake || b.rev || h.ArrowDown || h.KeyS || g.held.ArrowDown ? 1 : 0);
+    var run = !!(h.ShiftLeft || h.ShiftRight || g.held.ShiftLeft);
+    if (x || y) { var l = Math.hypot(x, y); x = x / l * 0.75; y = y / l * 0.75; }
+    if (st.active && Math.hypot(st.x, st.y) > 0.1) { x = st.x; y = st.y; }
+    else if (g.on && Math.hypot(g.lx, g.ly) > 0.1) { x = g.lx; y = g.ly; }
+    if (!st.active && nub) { mirrorX += (x - mirrorX) * 0.35; mirrorY += (-y - mirrorY) * 0.35; nub.style.transform = 'translate(' + (mirrorX * R * 0.8) + 'px,' + (mirrorY * R * 0.8) + 'px)'; if (base) base.classList.toggle('live', Math.abs(mirrorX) > 0.05 || Math.abs(mirrorY) > 0.05); }
+    return { x: x, y: y, run: run, look: g.rx };
+  };
 
   // 프레임마다 읽는 조작값. steer: +1 = 좌회전(물리 관례), throttle/brake/reverse 0..1
   // 키보드·버튼 입력은 화면의 원형 스틱에도 그대로 비춰 준다(PC 에서도 원판이 살아 움직인다).
   var mirrorX = 0, mirrorY = 0;
   this.read = function () {
-    var h = this.held, b = this.btn, st = this.stick;
-    var steer = (b.left || h.ArrowLeft || h.KeyA ? 1 : 0) - (b.right || h.ArrowRight || h.KeyD ? 1 : 0);
-    var throttle = (b.gas || h.ArrowUp || h.KeyW) ? 1 : 0;
-    var brake = (b.brake || h.ArrowDown || h.KeyS || h.Space) ? 1 : 0;
+    pollGamepad();
+    var h = this.held, b = this.btn, st = this.stick, g = this.gp;
+    var steer = (b.left || h.ArrowLeft || h.KeyA || g.held.ArrowLeft ? 1 : 0) - (b.right || h.ArrowRight || h.KeyD || g.held.ArrowRight ? 1 : 0);
+    var throttle = (b.gas || h.ArrowUp || h.KeyW || g.held.ArrowUp) ? 1 : 0;
+    var brake = (b.brake || h.ArrowDown || h.KeyS || h.Space || g.held.ArrowDown) ? 1 : 0;
     var reverse = (b.rev || h.KeyR) ? 1 : 0;
+    if (g.on) { if (Math.abs(g.steer) > 0.02) steer = g.steer; throttle = Math.max(throttle, g.throttle); brake = Math.max(brake, g.brake); }
     if (!st.active && nub) {
       var tx = -steer, ty = throttle ? -1 : (brake || reverse) ? 1 : 0;
       mirrorX += (tx - mirrorX) * 0.35; mirrorY += (ty - mirrorY) * 0.35;

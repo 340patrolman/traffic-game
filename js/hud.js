@@ -91,8 +91,9 @@ TG.hud = (function () {
   function showTouch(on) { el.touch.style.display = on ? 'block' : 'none'; }
   function showHud(on) { el.hud.style.display = on ? 'block' : 'none'; }
   function setTimerText(t) { el.timer.textContent = t; }
+  function setSectionText(t) { if (el._sec !== t) { el._sec = t; el.section.textContent = t; } }
   function hintNow(text) { hintGap = 0; hint(text); }   // 감속 시점처럼 급한 안내: 간격 무시
-  return { init: init, setTimerText: setTimerText, hintNow: hintNow, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
+  return { init: init, setTimerText: setTimerText, setSectionText: setSectionText, hintNow: hintNow, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
            setTarget: setTarget, notice: notice, hint: hint, vignette: vignette, showTitle: showTitle, hideTitle: hideTitle, showIntro: showIntro, introLines: introLines, showPause: showPause,
            showEnd: showEnd, hideEnd: hideEnd, showTicket: showTicket, ticketTimer: ticketTimer, ticketResult: ticketResult, hideTicket: hideTicket,
            closeTicketNow: closeTicketNow, setHints: setHints, setStopbar: setStopbar, showTouch: showTouch, showHud: showHud, tick: tick };

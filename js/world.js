@@ -271,7 +271,7 @@
     Object.keys(signFaces).forEach(function (k) { addMesh(signFaces[k].build(), new THREE.MeshBasicMaterial({ map: TG.tex.sign(k), transparent: true, side: THREE.DoubleSide }), false, false); });
 
     // 신호등: 접근로마다 교차로 건너편 우측 모서리 기둥 + 암 + 머리(차로 위). 4차로면 암을 길게 뽑아 두 차로를 덮는다.
-    var sigProps = new GeoBuilder(), heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.4, 0.8);
+    var sigProps = new GeoBuilder(), heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.5, 1.0);
     for (var hi = 0; hi < xs.length; hi++) for (var hj = 0; hj < zs.length; hj++) {
       var nd = city.nodes[hi][hj];
       for (var hd = 0; hd < 4; hd++) {

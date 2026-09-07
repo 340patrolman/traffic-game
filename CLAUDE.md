@@ -64,3 +64,12 @@
 `index.html`을 브라우저로 연다(파일 또는 정적 서버). 콘솔에 `[TG]` 로그 외 에러가 없어야 한다.
 `?stress=1`을 붙이면 교통량 최대 + 프레임 저하 시뮬레이션 로그(`[perf]`)가 찍힌다.
 `?test=1`을 붙이면 `TG.test.*` 자동 확인 훅이 활성화된다(README 참고).
+
+## v0.7.2 추가(2026-09-07) — 보행자 모드 · 게임패드
+
+* 모드 `walk`(🚶 보행자 체험): `js/walker.js` `TG.Walker`(도보 경찰관 메시·카메라 기준 이동·목적지 빛기둥) + `TG.walkerPlace(city, signals, x, z)`(보도/횡단보도/차도/교차로 판정).
+  main.js `startWalk/walkRules/walkCamera/walkUpdate` — 순찰차는 강남대로 갓길에 세워 두고 걷는다. `traffic.player`·`peds.player`·`peds.walker` 를 walker 로 바꿔 차량 AI 가 보행자로 보고 선다
+  (walker 는 `vF`·`len`·`telemetry.speed` 등 차량 AI 가 읽는 필드를 갖는다). 규칙: 적색 보행 신호에 횡단보도 진입 = `walkRed`(제5조), 횡단보도 밖 차도 = `jaywalk`(제10조), 녹색 진입 후 반대편 보도 = `safeCross`, 모퉁이 목적지 8곳 `arrive`. 차에 닿으면 즉시 종료.
+* 보행 신호등: `signals.pedRemain(node, crossAxis)` 잔여 시간, 끝 3초 전 녹색 깜빡임, `TG.tex.pedHead(walk, n)` 서 있는/걷는 사람 픽토그램 + 잔여 초 숫자. HUD `section` 에 앞 횡단보도의 보행 신호·잔여 초.
+* 조작 배치 `settings.ctl` stick|pad: `body.padctl` 이면 `#pad`(십자키 `data-btn` + △○×□·L1/R1·SELECT/START `data-key` → 키 핸들러 호출) 를 쓰고 스틱·버튼을 숨긴다. 설명 창 `#ctlHelp`(`G.showCtlHelp`, 게임 중엔 일시정지 사유 'help').
+* 실물 게임패드: `input.pollGamepad()` 표준 배치(왼쪽 스틱 조향·RT/A 가속·LT/B 브레이크·X 단속·Y 앰프·L1/R1 깜빡이·십자=방향키·Start=Esc·Select=시점·L3 경광등·R3 주행 모드). 연결 시 `input.onGamepad` 로 안내. `readMove()` 가 보행자 이동 벡터(스틱·십자·패드 왼쪽 스틱·Shift/A 달리기).

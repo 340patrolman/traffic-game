@@ -79,5 +79,7 @@ TG.CONFIG = {
   // --- 근무·점수 ---
   SHIFT_SECONDS: 360,
   SCORE: { correct: 30, wrongChoice: 10, noViolation: -5, redLight: -10, speeding: -5, centerline: -5,
-           crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5 },
+           crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5,
+           jaywalk: -10, walkRed: -10, safeCross: 10, arrive: 20 },   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착
+  WALK_SECONDS: 360, WALK_DESTS: 8,
 };

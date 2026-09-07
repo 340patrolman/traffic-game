@@ -174,14 +174,25 @@ TG.tex = (function () {
     return (cache[key] = toTexture(c));
   }
 
-  // 보행 신호등(세로 2구)
-  function pedHead(walk) {
-    var key = 'ph:' + walk;
+  // 보행 신호등(세로 2구): 위 = 적색 서 있는 사람, 아래 = 녹색 걷는 사람 + 잔여시간 숫자. n = -1 이면 둘 다 꺼짐(깜빡임 프레임)
+  function pedHead(walk, n) {
+    var key = 'ph:' + walk + ':' + (n === undefined ? '' : n);
     if (cache[key]) return cache[key];
     var c = canvas(64, 128), g = c.getContext('2d');
     g.fillStyle = '#1d2126'; g.fillRect(0, 0, 64, 128);
-    g.fillStyle = walk ? '#2a2f36' : '#ff3b30'; g.beginPath(); g.arc(32, 32, 22, 0, Math.PI * 2); g.fill();
-    g.fillStyle = walk ? '#34c759' : '#2a2f36'; g.beginPath(); g.arc(32, 96, 22, 0, Math.PI * 2); g.fill();
+    var redOn = !walk, greenOn = walk && n !== -1;
+    g.fillStyle = redOn ? '#ff3b30' : '#2a2f36'; g.beginPath(); g.arc(32, 32, 24, 0, Math.PI * 2); g.fill();
+    g.fillStyle = greenOn ? '#34c759' : '#2a2f36'; g.beginPath(); g.arc(32, 96, 24, 0, Math.PI * 2); g.fill();
+    function man(cx, cy, walking, color) {
+      g.fillStyle = color; g.strokeStyle = color; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.arc(cx, cy - 13, 3.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(cx, cy - 9); g.lineTo(cx, cy + 2); g.stroke();
+      if (walking) { g.beginPath(); g.moveTo(cx, cy + 2); g.lineTo(cx - 6, cy + 13); g.moveTo(cx, cy + 2); g.lineTo(cx + 6, cy + 12); g.moveTo(cx, cy - 6); g.lineTo(cx - 6, cy - 1); g.moveTo(cx, cy - 6); g.lineTo(cx + 6, cy - 9); g.stroke(); }
+      else { g.beginPath(); g.moveTo(cx - 2, cy + 2); g.lineTo(cx - 2, cy + 13); g.moveTo(cx + 2, cy + 2); g.lineTo(cx + 2, cy + 13); g.moveTo(cx, cy - 6); g.lineTo(cx - 5, cy); g.moveTo(cx, cy - 6); g.lineTo(cx + 5, cy); g.stroke(); }
+    }
+    man(32, 32, false, redOn ? '#3a0c0a' : '#1a1d22');
+    man(walk && n > 0 ? 22 : 32, 96, true, greenOn ? '#0b3d1c' : '#1a1d22');
+    if (walk && n > 0) { g.fillStyle = greenOn ? '#0b3d1c' : '#1a1d22'; g.font = 'bold 22px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n), 44, 96); }
     return (cache[key] = toTexture(c));
   }
 
