@@ -238,8 +238,8 @@
     },
     {
       "id": "cargo",
-      "name": "화물 고정조치 위반(낙하물)",
-      "short": "화물 고정 위반",
+      "name": "적재물 추락방지 조치 위반(낙하물)",
+      "short": "적재물 추락방지 위반",
       "enabled": true,
       "law": { "act": "도로교통법", "article": "제39조 제4항", "verified": false, "candidate_source": "study12 항목 — 조문 번호 확인 필요" },
       "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
@@ -286,7 +286,7 @@
       { "id": "school", "name": "어린이보호구역 안전운전의무 위반", "law": "도로교통법 제12조 제3항", "verified": false, "scene": "school",
         "situation": "어린이보호구역(스쿨존)에서 제한속도(30km/h)를 넘거나 안전운전 의무를 소홀히 해 어린이를 다치게 한다.",
         "tip": "게임: 시내 남서쪽 학교 블록 주변은 30km/h. 무신호 횡단보도 앞에서는 보행자가 없어도 일시정지(§27⑦)." },
-      { "id": "cargo", "name": "화물 고정조치 위반", "law": "도로교통법 제39조 제4항", "verified": false, "scene": "cargo",
+      { "id": "cargo", "name": "적재물 추락방지 조치 위반", "law": "도로교통법 제39조 제4항", "verified": false, "scene": "cargo",
         "situation": "화물이 떨어지지 않게 덮개·포장·고정 조치를 하지 않고 운행해 낙하물 사고가 난다.",
         "tip": "고속도로에서 트럭 뒤에서는 거리를 더 둔다. 게임: 짐칸 상자를 흘리는 트럭 → 「화물 고정 위반」, 떨어진 상자는 도로 위 장애물." }
     ]
