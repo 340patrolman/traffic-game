@@ -18,7 +18,7 @@ TG.audio = (function () {
   // 앰프(차량 확성기) 안내: 브라우저 내장 음성(오프라인, 파일 없음). 음성이 없으면 차임만.
   // 음성(speechSynthesis, 오프라인): 한국어 목소리를 고르고 화자별 높낮이·속도. officer(경찰관) · kid(어린이) · pa(확성기)
   var VOICE = { officer: { pitch: 0.88, rate: 0.98 }, kid: { pitch: 1.45, rate: 1.04 }, pa: { pitch: 0.9, rate: 1.0 }, narrator: { pitch: 1.0, rate: 0.95 } };
-  var koVoice = null, lastSaid = '';
+  var koVoice = null, lastSaid = '', speaking = null;
   function pickVoice() {
     try {
       if (!window.speechSynthesis) return null;
@@ -41,6 +41,8 @@ TG.audio = (function () {
       if (!koVoice) koVoice = pickVoice(); if (koVoice) u.voice = koVoice;
       if (!opts.queue) window.speechSynthesis.cancel();
       else if (text === lastSaid && window.speechSynthesis.speaking) return false;   // 같은 말이 겹쳐 쌓이지 않게
+      // 말하는 동안 캐릭터 입이 움직이도록 화자 표시(speaking = 'officer'|'kid'|...)
+      u.onstart = function () { speaking = opts.kind || 'officer'; }; u.onend = function () { speaking = null; }; u.onerror = function () { speaking = null; };
       lastSaid = text; window.speechSynthesis.speak(u);
       return true;
     } catch (e) { return false; }   /* 음성 미지원 브라우저 */
@@ -175,6 +177,35 @@ TG.audio = (function () {
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
     o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + dur);
   }
+  // ---------- 효과음 팩(전부 합성) ----------
+  function env(node, t0, a, d, peak) { node.gain.setValueAtTime(0.0001, t0); node.gain.exponentialRampToValueAtTime(peak, t0 + a); node.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d); }
+  function tone(freq, t0, a, d, type, vol, slide) { var o = ctx.createOscillator(), g = ctx.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + a + d); env(g, t0, a, d, vol); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + a + d + 0.02); }
+  function noiseHit(t0, dur, vol, fc, q) { var s = ctx.createBufferSource(); s.buffer = noiseBuf || (noiseBuf = noiseBuffer(1.0)); var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fc; f.Q.value = q || 1; var g = ctx.createGain(); env(g, t0, 0.005, dur, vol); s.connect(f); f.connect(g); g.connect(master); s.start(t0); s.stop(t0 + dur + 0.05); }
+  var noiseBuf = null, stepL = false;
+  // 발소리: 걷기(부드러운 두드림) / 달리기(빠르고 큼). 왼발·오른발 음색을 살짝 다르게
+  function footstep(run, surface) { if (!ready) return; stepL = !stepL; var t0 = ctx.currentTime, fc = surface === 'road' ? 900 : 1400; noiseHit(t0, run ? 0.09 : 0.07, run ? 0.16 : 0.09, fc + (stepL ? 0 : 250), 1.2); tone(stepL ? 95 : 110, t0, 0.004, 0.06, 'sine', run ? 0.12 : 0.06); }
+  // 방향지시등 릴레이 「딱·딱」
+  function tick(on) { if (!ready) return; var t0 = ctx.currentTime; noiseHit(t0, 0.025, on ? 0.12 : 0.08, on ? 2400 : 1600, 3); }
+  // 횡단보도 음향신호기: 남북 = 뻐꾸기(두 음), 동서 = 귀뚜라미(짧은 떨림). 실제 한국 신호기 규격을 흉내 낸 합성음
+  function crossSignal(kind) {
+    if (!ready) return; var t0 = ctx.currentTime;
+    if (kind === 'cuckoo') { tone(1046, t0, 0.01, 0.16, 'sine', 0.16); tone(830, t0 + 0.2, 0.01, 0.2, 'sine', 0.15); }
+    else { for (var i = 0; i < 6; i++) tone(2400 + (i % 2) * 300, t0 + i * 0.045, 0.004, 0.03, 'square', 0.05); }
+  }
+  // 별·정답 팡파르(아르페지오) — 별 개수만큼 길어진다
+  function jingle(n) { if (!ready) return; var t0 = ctx.currentTime, notes = [523, 659, 784, 1046, 1318]; for (var i = 0; i < Math.min(5, 2 + (n || 1)); i++) { tone(notes[i], t0 + i * 0.09, 0.01, 0.35, 'triangle', 0.16); tone(notes[i] * 2, t0 + i * 0.09, 0.01, 0.18, 'sine', 0.05); } }
+  // 점수 팝 · 메뉴 전환 휙 · 경적 · 카메라 셔터(위반 포착)
+  function pop() { if (!ready) return; var t0 = ctx.currentTime; tone(880, t0, 0.005, 0.09, 'triangle', 0.14, 1320); }
+  function whoosh() { if (!ready) return; noiseHit(ctx.currentTime, 0.22, 0.12, 1200, 0.6); }
+  function horn(long) { if (!ready) return; var t0 = ctx.currentTime, d = long ? 0.5 : 0.18; tone(440, t0, 0.02, d, 'sawtooth', 0.09); tone(554, t0, 0.02, d, 'square', 0.06); }
+  function shutter() { if (!ready) return; var t0 = ctx.currentTime; noiseHit(t0, 0.03, 0.2, 3000, 2); noiseHit(t0 + 0.05, 0.05, 0.14, 1800, 2); }
+  // 비 소리(필터 노이즈 루프) — 날씨가 비일 때만
+  var rainNode = null;
+  function rain(on) {
+    if (!ready) return;
+    if (on && !rainNode) { var s = ctx.createBufferSource(); s.buffer = noiseBuffer(3.0); s.loop = true; var f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1800; var g = ctx.createGain(); g.gain.value = 0.0001; s.connect(f); f.connect(g); g.connect(master); s.start(); g.gain.setTargetAtTime(0.07, ctx.currentTime, 1.2); rainNode = { s: s, g: g }; }
+    else if (!on && rainNode) { var rn = rainNode; rainNode = null; rn.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.8); setTimeout(function () { try { rn.s.stop(); } catch (e) {} }, 2500); }
+  }
   function thump(strength) {
     if (!ready) return;
     var src = ctx.createBufferSource(); src.buffer = noiseBuffer(0.3);
@@ -263,6 +294,7 @@ TG.audio = (function () {
   }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, bell: bell, say: say, good: good, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, get running() { return ready && ctx.state === 'running'; },
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, bell: bell, say: say, good: good,
+           footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

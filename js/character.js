@@ -26,11 +26,8 @@ TG.Character = (function () {
   // 얼굴: 눈·눈썹·입·귀. 앞 = +z
   function face(gb, y, r, skin, hair, kid) {
     gb.sphere(0, y, 0, r, 18, 12, skin, 1.08);
-    gb.box(-0.04, y + 0.02, r * 0.86, 0.035, 0.028, 0.02, C.WHITE, {}); gb.box(0.04, y + 0.02, r * 0.86, 0.035, 0.028, 0.02, C.WHITE, {});
-    gb.box(-0.04, y + 0.02, r * 0.9, 0.018, 0.02, 0.015, C.EYE, {}); gb.box(0.04, y + 0.02, r * 0.9, 0.018, 0.02, 0.015, C.EYE, {});
     gb.box(-0.045, y + 0.055, r * 0.86, 0.05, 0.008, 0.015, hair, {}); gb.box(0.045, y + 0.055, r * 0.86, 0.05, 0.008, 0.015, hair, {});   // 눈썹
     gb.box(0, y - 0.005, r * 0.95, 0.02, 0.03, 0.02, skin, {});   // 코
-    gb.box(0, y - 0.05, r * 0.88, kid ? 0.035 : 0.045, 0.012, 0.012, C.LIP, {});   // 입
     gb.box(-r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {}); gb.box(r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {});   // 귀
     gb.sphere(0, y + 0.035, -0.01, r * 1.02, 16, 8, hair, 0.72);   // 머리카락(윗부분·뒤)
     gb.box(0, y + 0.06, -r * 0.55, r * 1.9, r * 0.9, r * 0.9, hair, {});
@@ -79,6 +76,13 @@ TG.Character = (function () {
       hb.box(0, HY + HR * 0.45 + 0.005, HR * 1.0, HR * 1.6, 0.018, HR * 0.8, C.KID_CAP, {});
     } else if (opts.hat) { hb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); }
     var head = mesh(hb); neck.add(head); R.parts.head = head;
+    // 눈·입은 따로(깜빡임·말할 때 움직임). 눈: 흰자 + 눈동자, 입: 살구색 선(웃으면 넓어진다)
+    var eg = new TG.GeoBuilder(); eg.box(0, 0, 0, 0.036, 0.03, 0.012, C.WHITE, {}); eg.box(0, 0, 0.008, 0.018, 0.022, 0.012, C.EYE, {}); eg.box(0.004, 0.005, 0.016, 0.006, 0.006, 0.004, C.WHITE, {});
+    var eyeGeo = eg.build(), eyes = [];
+    [-0.04, 0.04].forEach(function (ex) { var e = new THREE.Mesh(eyeGeo, mat); e.position.set(ex, HY + 0.02, HR * 0.9); neck.add(e); eyes.push(e); });
+    var mg = new TG.GeoBuilder(); mg.box(0, 0, 0, kid ? 0.036 : 0.046, 0.012, 0.012, C.LIP, {}); mg.box(0, -0.002, 0.004, kid ? 0.024 : 0.03, 0.006, 0.006, 0x6b2a25, {});
+    var mouth = new THREE.Mesh(mg.build(), mat); mouth.position.set(0, HY - 0.05, HR * 0.88); neck.add(mouth);
+    R.parts.eyes = eyes; R.parts.mouth = mouth; R.blinkT = 2 + Math.random() * 3; R.blink = 0; R.talkT = 0; R.smile = 0;
     // ---- 팔(어깨 → 위팔 → 팔꿈치 → 아래팔 → 손) ----
     var UA = kid ? 0.22 : 0.28, FA = kid ? 0.20 : 0.26;
     function arm(side) {
@@ -144,6 +148,35 @@ TG.Character = (function () {
     var lookT = TG.clamp((s.look || 0) + R.glance * (s.lookScan ? 1.6 : 1), -1.3, 1.3);
     R.lookNow = lerp(R.lookNow, lookT, Math.min(1, dt * 3.5));
     J.neck.rotation.y = R.lookNow; J.neck.rotation.x = Math.cos(ph) * 0.03 * amp + (run ? 0.05 : 0); J.neck.rotation.z = -R.parts.torso.rotation.z * 0.6;
+    // 표정: 눈 깜빡임(3~6초마다 0.12초), 말할 때 입 벌림(talking), 웃음(smile → 입 넓고 살짝 위로)
+    if (R.parts.eyes) {
+      R.blinkT -= dt; if (R.blinkT <= 0) { R.blinkT = 3 + Math.random() * 3; R.blink = 0.13; }
+      var closed = R.blink > 0; if (closed) R.blink -= dt;
+      for (var e = 0; e < 2; e++) R.parts.eyes[e].scale.y = closed ? 0.12 : 1;
+      var talking = !!s.talking; R.talkT += dt * (talking ? 14 : 0);
+      var open = talking ? 1 + Math.abs(Math.sin(R.talkT)) * 2.2 + Math.abs(Math.sin(R.talkT * 0.37)) * 0.8 : 1;
+      R.smile = lerp(R.smile, s.smile ? 1 : 0, Math.min(1, dt * 4));
+      R.parts.mouth.scale.set(1 + R.smile * 0.5, open, 1); R.parts.mouth.position.y = (R.parts.head.userData.my || (R.parts.head.userData.my = R.parts.mouth.position.y)) + R.smile * 0.012;
+    }
+  }
+  // ---- 자율 배우(홍보 장면·어린이 교실 동행 경찰관): 목표점으로 걷고 바라보고 몸짓한다 ----
+  function actor(scene, terrain, kind, x, z, h) {
+    var rig = build(kind), a = { kind: kind, rig: rig, pos: { x: x, z: z }, heading: h || 0, v: 0, target: null, speed: kind === 'kid' ? 1.15 : 1.35, hand: 0, gesture: null, look: 0, lookScan: false, smile: false, len: 0.6, wid: 0.6, vF: 0, radius: 0.4, telemetry: { speed: 0 } };
+    a.forward = function () { return [Math.sin(a.heading), Math.cos(a.heading)]; };
+    a.goTo = function (tx, tz, spd) { a.target = { x: tx, z: tz }; if (spd) a.speed = spd; };
+    a.face = function (hh) { a.faceTo = hh; };
+    a.lookAtPos = function (p) { a.look = p ? TG.wrapAngle(Math.atan2(p.x - a.pos.x, p.z - a.pos.z) - a.heading) * 0.85 : 0; };
+    a.update = function (dt, talking) {
+      var want = 0;
+      if (a.target) { var dx = a.target.x - a.pos.x, dz = a.target.z - a.pos.z, d = Math.hypot(dx, dz); if (d < 0.1) a.target = null; else { want = a.speed; var dh = TG.wrapAngle(Math.atan2(dx, dz) - a.heading); a.heading += dh * Math.min(1, dt * 8); } }
+      else if (a.faceTo !== undefined) { var dh2 = TG.wrapAngle(a.faceTo - a.heading); a.heading += dh2 * Math.min(1, dt * 5); }
+      a.v += (want - a.v) * Math.min(1, dt * 7); var f = a.forward(); a.pos.x += f[0] * a.v * dt; a.pos.z += f[1] * a.v * dt; a.vF = a.v; a.telemetry.speed = a.v;
+      if (a.hand > 0) a.hand -= dt;
+      rig.baseY = terrain ? terrain.heightAt(a.pos.x, a.pos.z) : 0; rig.group.position.x = a.pos.x; rig.group.position.z = a.pos.z; rig.group.rotation.y = a.heading;
+      animate(rig, { speed: a.v, moving: a.v > 0.12, hand: a.hand, gesture: a.gesture, look: a.look, lookScan: a.lookScan, talking: talking, smile: a.smile }, dt);
+    };
+    a.dispose = function () { scene.remove(rig.group); };
+    scene.add(rig.group); return a;
   }
   // ---- 행인용 경량 캐릭터(메시 5개: 몸통+머리, 팔 2, 다리 2 — 폰 성능): 얼굴·머리카락·신발·가방은 같은 품질, 관절은 어깨·엉덩이만 ----
   var liteCache = {};
@@ -171,5 +204,5 @@ TG.Character = (function () {
     g.add(legL); g.add(legR); g.add(armL); g.add(armR);
     return { group: g, limbs: [legL, legR, armL, armR] };
   }
-  return { build: build, animate: animate, lite: lite, COLORS: C };
+  return { build: build, animate: animate, lite: lite, actor: actor, COLORS: C };
 })();

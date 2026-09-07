@@ -29,7 +29,8 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.sync = function (dt) {
     this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z) : 0;
     rig.baseY = this.y; g.position.x = this.pos.x; g.position.z = this.pos.z; g.rotation.y = this.heading;
-    TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan }, dt || 0.016);
+    var sp = TG.audio.speaking, talking = sp === (this.kid ? 'kid' : 'officer');
+    TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan, talking: talking, smile: !!this.smile }, dt || 0.016);
   };
   this.raiseHand = function (sec) { this.hand = sec || 3; };
   // move: {x, y, run} — 카메라 기준(위 = 카메라가 보는 방향). camYaw: 카메라가 향하는 헤딩

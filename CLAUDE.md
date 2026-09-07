@@ -94,3 +94,11 @@
 * 음성: `TG.audio.say(text, {kind:'officer'|'kid'|'pa'|'narrator', queue})` — 한국어 목소리 자동 선택(Google/Neural 우선), 화자별 높낮이. `pa()` 는 say 를 쓴다. main `LINES`/`pickLine` 으로 같은 뜻의 말을 돌려 쓴다(kidVoice 키: stop/hand/wait/go/red/green/road/good1~3, kidSay 'kidOk').
 * 홍보 페이지 `promo.html` + `js/promo.js`: 게임 본체 없이(main.js·hud·input 미포함) 같은 도시에서 경찰관·어린이가 「횡단보도 5원칙」을 50초 루프로 시연(자막·음성·차량 정지·마지막 QR 카드). `?test=1` 로 헤드리스 검증. `js/qr.js` `TG.qr.encode/draw`(티북 QR 과 같은 인코더).
 * 랜드마크 추가: `'0,1': 'terminal'`(고속버스터미널) · `'0,2': 'gu'`(서초구청) — world.js 에 그리기.
+
+## v0.7.5 추가(2026-09-07 밤) — 게임 감각·효과음·표정·동행 경찰관
+
+* 효과음 팩(`audio.js`, 전부 합성): `footstep(run, surface)`(왼발·오른발 음색 다름) · `tick(on)`(방향지시등 릴레이) · `crossSignal('cuckoo'|'cricket')`(횡단보도 음향신호기: 남북 뻐꾸기·동서 귀뚜라미) · `jingle(n)`(별·정답 아르페지오) · `pop()`(점수) · `whoosh()`(모드 전환) · `horn()` · `shutter()`(위반 포착) · `rain(on)`(빗소리 루프) · `bell()`. `TG.audio.speaking` 은 지금 말하는 화자(officer/kid/narrator/pa).
+* 표정(`character.js`): 눈·입은 별도 메시. 3~6초마다 깜빡임, `talking` 이면 입이 열렸다 닫히고, `smile` 이면 입이 넓어진다. `TG.Character.actor(scene, terrain, kind, x, z, h)` 자율 배우(goTo/face/lookAtPos/gesture/smile, `update(dt, talking)`) — 홍보 장면과 어린이 교실 동행 경찰관이 같이 쓴다.
+* main: `addScore` → `hud.pop`(떠오르는 점수)+`pop` 소리, 위반 목격 → `hud.flash`+셔터+`G.punch`(FOV 펀치), 충돌 → `G.shake`(`camFx(dt)` 가 두 카메라 끝에서 적용), 깜빡이 릴레이 소리, 비 오면 빗소리, 모드 버튼 휙 소리, 출동 버튼 맥동(CSS).
+  걷기 모드: 발소리(`walker.rig.ph` 반 바퀴마다, `walk.onRoad` 면 노면 소리), 앞 횡단보도가 보행 녹색이면 음향신호기(`walk.greenAxis`), 별 획득 시 `hud.burst('⭐')`+`jingle`+웃음(`walk.smileT`).
+  어린이 교실 `walk.officer`(동행 교통경찰관): 아이 왼쪽 뒤 1.3m 를 따라 걷고, 아이가 건널 땐 「정지」 수신호, 별을 따면 손 흔들며 웃는다. 안내 음성(narrator)이 나올 때 입이 움직인다. start() 에서 dispose.

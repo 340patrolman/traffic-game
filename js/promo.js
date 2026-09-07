@@ -4,7 +4,7 @@
   var C = TG.CONFIG, isTest = /[?&]test=1/.test(location.search), $ = function (id) { return document.getElementById(id); };
   var canvas = $('game'), renderer, scene, camera, city, world, terrain, weather, signals, traffic, peds, player;
   var actors = {}, t = 0, running = false, started = false, stepIdx = -1, lastNow = 0, loopCount = 0, spoken = {};
-  var N, CX, CZ, EAST, WEST, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
+  var N, CX, CZ, EAST, WEST, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false, crossT = 0, burstDone = false;
 
   function init() {
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: isTest });
@@ -37,23 +37,9 @@
   }
   function resize() { var w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = h > w ? 74 : 58; camera.updateProjectionMatrix(); }
   // ---- 배우: 목표점으로 걷고, 리그를 움직인다 ----
-  function actor(kind, x, z, h) {
-    var rig = TG.Character.build(kind), a = { kind: kind, rig: rig, pos: { x: x, z: z }, heading: h, v: 0, target: null, speed: kind === 'kid' ? 1.15 : 1.35, hand: 0, gesture: null, look: 0, lookScan: false, len: 0.6, wid: 0.6, vF: 0, radius: 0.4 };
-    a.forward = function () { return [Math.sin(a.heading), Math.cos(a.heading)]; };
-    a.telemetry = { speed: 0 };
-    a.goTo = function (tx, tz) { a.target = { x: tx, z: tz }; };
-    a.face = function (h) { a.faceTo = h; };
-    a.update = function (dt) {
-      var want = 0;
-      if (a.target) { var dx = a.target.x - a.pos.x, dz = a.target.z - a.pos.z, d = Math.hypot(dx, dz); if (d < 0.08) a.target = null; else { want = a.speed; var dh = TG.wrapAngle(Math.atan2(dx, dz) - a.heading); a.heading += dh * Math.min(1, dt * 8); } }
-      else if (a.faceTo !== undefined) { var dh2 = TG.wrapAngle(a.faceTo - a.heading); a.heading += dh2 * Math.min(1, dt * 5); }
-      a.v += (want - a.v) * Math.min(1, dt * 7); var f = a.forward(); a.pos.x += f[0] * a.v * dt; a.pos.z += f[1] * a.v * dt; a.vF = a.v; a.telemetry.speed = a.v;
-      if (a.hand > 0) a.hand -= dt;
-      rig.baseY = terrain.heightAt(a.pos.x, a.pos.z); rig.group.position.x = a.pos.x; rig.group.position.z = a.pos.z; rig.group.rotation.y = a.heading;
-      TG.Character.animate(rig, { speed: a.v, moving: a.v > 0.12, hand: a.hand, gesture: a.gesture, look: a.look, lookScan: a.lookScan }, dt);
-    };
-    scene.add(rig.group); return a;
-  }
+  function actor(kind, x, z, h) { return TG.Character.actor(scene, terrain, kind, x, z, h); }
+  // 발소리: 걸음 위상이 반 바퀴 돌 때마다
+  function steps(a) { var ph = a.rig.ph, k = Math.floor(ph / Math.PI); if (a.stepK === undefined) a.stepK = k; if (k !== a.stepK && a.v > 0.2) { a.stepK = k; TG.audio.footstep(a.v > 2.4, 'road'); } }
   // ---- 대본: 단계마다 자막·음성·동작·카메라 ----
   var STEPS = [
     { at: 0,  step: '', sub: '횡단보도, 안전하게 건너는 다섯 가지 약속', say: '횡단보도, 안전하게 건너는 다섯 가지 약속. 서울경찰이 알려 드릴게요',
@@ -84,7 +70,7 @@
   ];
   var LOOP_AT = 50;
   function restart() {
-    t = 0; stepIdx = -1; spoken = {}; loopCount++; $('card').style.display = 'none';
+    t = 0; stepIdx = -1; spoken = {}; loopCount++; burstDone = false; $('card').style.display = 'none';
     actors.kid.pos.x = EAST + 13; actors.kid.pos.z = CZ; actors.kid.heading = -Math.PI / 2; actors.kid.target = null; actors.kid.hand = 0; actors.kid.lookScan = false;
     actors.officer.pos.x = EAST + 1.6; actors.officer.pos.z = CZ - 1.7; actors.officer.heading = -Math.PI / 2; actors.officer.target = null; actors.officer.gesture = null;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
@@ -101,7 +87,11 @@
     // 보행 신호: 4단계까지 적색(차량 남북 녹색), 5단계부터 녹색(차량 동서 녹색)
     if (t < 24) signals.set(N, 'v', 'green'); else if (t < 36) signals.set(N, 'h', 'green');
     signals.update(dt);
-    actors.kid.update(dt); actors.officer.update(dt);
+    var sp = TG.audio.speaking;
+    actors.kid.smile = stepIdx === 6; actors.officer.smile = stepIdx === 6 || stepIdx === 0;
+    actors.kid.update(dt, sp === 'kid'); actors.officer.update(dt, sp === 'narrator' || sp === 'officer'); steps(actors.kid); steps(actors.officer);
+    if (stepIdx === 5 && !isTest) { crossT -= dt; if (crossT <= 0) { crossT = 0.95; TG.audio.crossSignal('cuckoo'); } }   // 횡단보도 음향신호기(뻐꾸기)
+    if (stepIdx === 6 && !burstDone) { burstDone = true; }
     // 경찰관 시선: 어린이 또는 다가오는 차
     var lead = null; for (var k = 0; k < traffic.cars.length; k++) { var c = traffic.cars[k]; if (Math.hypot(c.pos.x - actors.officer.pos.x, c.pos.z - actors.officer.pos.z) < 30) lead = c; }
     var tgt = (stepIdx === 5 && lead) ? lead.pos : actors.kid.pos;
