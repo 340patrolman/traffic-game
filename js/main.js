@@ -11,6 +11,7 @@
   if (!C.CARS[settings.car] && settings.car !== 'random') settings.car = 'random';
   if ((settings.v || 0) < 3) { settings.car = 'random'; settings.weather = 'auto'; settings.v = 3; TG.save.set('settings', settings); }   // v3: 소유자 「모두 랜덤, 날씨는 현재와」 → 차량 랜덤·날씨 자동(시계·계절, 티북 연동이면 실제 날씨)
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
+  var vfx = null, vfxT = 0, flares = null;   // 차량 감각 입자·플레어(js/vfx.js)
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
   function onFoot() { return G.mode === 'walk' || G.mode === 'kid'; }
@@ -51,6 +52,7 @@
       log('티북 연동 날씨: ' + JSON.stringify(G.tbLink));
     })();
     weather.set(G.tbLink ? G.tbLink.preset : settings.weather);
+    vfx = new TG.VFX(scene); G.vfx = vfx;
     signals = new TG.Signals(city, world, C);
     var rng = TG.makeRNG((Date.now() & 0xffff) + 1);
     traffic = new TG.Traffic(scene, city, signals, C, rng); traffic.terrain = terrain;
@@ -416,7 +418,7 @@
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
-    player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len);
+    player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len); if (vfx) flares = vfx.attachFlares(player.mesh, player.wid, player.len, 0.72);
     TG.audio.setPowertrain(player.spec.powertrain || 'ice');
     G.player = player; traffic.player = player; peds.player = player;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
@@ -645,7 +647,7 @@
       else { of.gesture = null; of.smile = false; if (Math.hypot(hx - of.pos.x, hz - of.pos.z) > 1.6) of.goTo(hx, hz, walker.v > 2.4 ? 3.4 : 1.55); else if (!of.target) of.face(walker.heading); }
       of.lookAtPos(walker.pos); of.update(dt, TG.audio.speaking === 'narrator' || TG.audio.speaking === 'officer');
     }
-    weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain');
+    weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain'); if (vfx) vfx.update(dt);
     signals.update(dt); if (rail) rail.update(dt);
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX)); traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
@@ -754,7 +756,21 @@
     var best = TG.save.get('best', null);
     if (!best || G.score > best.score) { best = { score: G.score, stops: G.stats.stops, date: new Date().toISOString().slice(0, 10) }; TG.save.set('best', best); }
     TG.save.set('last', { score: G.score, stops: G.stats.stops, correct: G.stats.correct, penalty: penaltyTotal, date: new Date().toISOString().slice(0, 10) });
-    hud.showEnd(G.stats); hud.setTarget(null);
+    // 별(1~5)·배지: 점수·정답률·감점·계도·별로 계산. 어린이 교실은 딴 별 그대로
+    var st = G.stats, kidMode = G.mode === 'kid', badges = [];
+    if (kidMode) { st.stars = Math.max(1, Math.min(5, Math.round((walk ? walk.stars : 0) / 2.4))); if (walk && walk.stars >= 12) badges.push({ text: '🏅 횡단보도 박사', gold: true }); if (walk && walk.arrived >= walk.dests.length) badges.push({ text: '🏠 무사히 집까지' }); if (!penaltyCount.pedestrian) badges.push({ text: '🛡 안전 보행' }); }
+    else {
+      var acc = st.stops ? st.correct / st.stops : 0;
+      st.stars = Math.max(1, Math.min(5, Math.round(1 + G.score / 60 + acc * 1.5 + (penaltyTotal >= -10 ? 0.5 : 0))));
+      if (!penaltyCount.crash && !penaltyCount.pedestrian && G.mode !== 'walk') badges.push({ text: '🛡 무사고', gold: true });
+      if (st.correct >= 5) badges.push({ text: '🚨 단속왕 ' + st.correct + '건', gold: st.correct >= 8 });
+      if (acc >= 0.8 && st.stops >= 3) badges.push({ text: '🎯 정확한 판단 ' + Math.round(acc * 100) + '%' });
+      if ((st.warned || 0) >= 2) badges.push({ text: '🚸 보행자 지킴이' });
+      if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
+      if (walk && walk.crossings >= 4) badges.push({ text: '🚶 모범 보행 ' + walk.crossings + '회' });
+    }
+    st.badges = badges;
+    if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
   }
   G.endShift = endShift;
@@ -979,9 +995,17 @@
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
     player.assist = settings.assist !== false; player.easy = settings.easy !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading); player.driveMode = settings.drive || 'normal';
     player.autoBrake = Math.max(0, (player.autoBrake || 0) - dt * 0.4);   // 초보 보조 자동 감속은 안내가 뜰 때 걸리고 서서히 풀린다
-    weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain');
+    weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain'); if (vfx) vfx.update(dt);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);
+    // 차량 감각: 급가속 배기(내연기관) · 타이어 연기(미끄러짐) · 밤 전조등 플레어
+    if (vfx) {
+      var Tq = player.telemetry, pf2 = player.forward(), pr2 = [-pf2[1], pf2[0]];
+      vfxT = (vfxT || 0) - dt;
+      if (vfxT <= 0 && player.spec.powertrain !== 'ev' && player.controls.throttle > 0.7 && Tq.speed < 9 && Tq.speed > 0.3) { vfxT = 0.06; vfx.puff(player.pos.x - pf2[0] * (player.len / 2) + pr2[0] * 0.55, player.y + 0.3, player.pos.z - pf2[1] * (player.len / 2) + pr2[1] * 0.55, -pf2[0] * 1.5 + (Math.random() - 0.5), 0.4, -pf2[1] * 1.5 + (Math.random() - 0.5), 0.9, 1); }
+      if (vfxT <= 0 && Tq.skid > 0.35 && Tq.speed > 4) { vfxT = 0.05; for (var wsd = -1; wsd <= 1; wsd += 2) vfx.puff(player.pos.x - pf2[0] * (player.len * 0.3) + pr2[0] * wsd * player.wid * 0.45, player.y + 0.15, player.pos.z - pf2[1] * (player.len * 0.3) + pr2[1] * wsd * player.wid * 0.45, (Math.random() - 0.5) * 1.2, 0.8, (Math.random() - 0.5) * 1.2, 1.2 + Tq.skid, 1.6); }
+      if (flares) for (var fl2 = 0; fl2 < flares.length; fl2++) flares[fl2].visible = !!weather.dark && settings.cam !== 'cockpit';
+    }
     signals.update(dt); if (rail) rail.update(dt);
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX));
     traffic.separate();
@@ -1027,7 +1051,7 @@
       if (intro.t > 13.5) endIntro();
     } else if (G.state === 'title' || G.state === 'end') {
       var t = now / 1000 * 0.25;
-      if (G.state === 'title') { camera.position.set(player.pos.x + Math.cos(t) * 8.5, player.y + 2.4, player.pos.z + Math.sin(t) * 8.5); camera.lookAt(player.pos.x, player.y + 0.9, player.pos.z); player.update(0.0001); }
+      if (G.state === 'title') { var tb = Math.sin(t * 1.7) * 0.6; camera.position.set(player.pos.x + Math.cos(t) * (8.5 + tb), player.y + 2.4 + Math.sin(t * 0.8) * 0.7, player.pos.z + Math.sin(t) * (8.5 + tb)); camera.lookAt(player.pos.x, player.y + 0.9, player.pos.z); player.update(0.0001); if (flares) for (var fl3 = 0; fl3 < flares.length; fl3++) flares[fl3].visible = !!weather.dark; if (vfx) vfx.update(dt); }
       else if (walker && onFoot()) walkCamera(dt);
       else if (player) updateCamera(dt);
       signals.update(dt); if (rail) rail.update(dt);

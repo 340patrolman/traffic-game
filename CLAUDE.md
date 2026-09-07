@@ -102,3 +102,12 @@
 * main: `addScore` → `hud.pop`(떠오르는 점수)+`pop` 소리, 위반 목격 → `hud.flash`+셔터+`G.punch`(FOV 펀치), 충돌 → `G.shake`(`camFx(dt)` 가 두 카메라 끝에서 적용), 깜빡이 릴레이 소리, 비 오면 빗소리, 모드 버튼 휙 소리, 출동 버튼 맥동(CSS).
   걷기 모드: 발소리(`walker.rig.ph` 반 바퀴마다, `walk.onRoad` 면 노면 소리), 앞 횡단보도가 보행 녹색이면 음향신호기(`walk.greenAxis`), 별 획득 시 `hud.burst('⭐')`+`jingle`+웃음(`walk.smileT`).
   어린이 교실 `walk.officer`(동행 교통경찰관): 아이 왼쪽 뒤 1.3m 를 따라 걷고, 아이가 건널 땐 「정지」 수신호, 별을 따면 손 흔들며 웃는다. 안내 음성(narrator)이 나올 때 입이 움직인다. start() 에서 dispose.
+
+## v0.7.6 추가(2026-09-08) — 보행 신호등 현실화 · 차량 감각 · 결과 카드 · 경적 · 홍보 장면 2
+
+* 보행 신호등(`world.js`): 횡단보도마다 양쪽 연석에 하나씩(노드당 8개), 기둥 3m·함체·차양·작동 버튼함, 머리(잔여시간)는 길 건너편을 향한다(`rotation.y = atan2(-ps*r, ...)`). `world.heads` 의 ped 항목이 2배가 되었다(signals.update 가 그대로 돈다).
+* `js/vfx.js` `TG.VFX(scene)`: 입자 풀(THREE.Points 160개, `puff(x,y,z,vx,vy,vz,sec,size)`) + `attachFlares(mesh,w,l,y)`(가산 스프라이트 2개). main: 내연기관 급가속 배기(속도 <9), 미끄러짐 타이어 연기(`telemetry.skid>0.35`), 밤이면 전조등 플레어(추적 시점만). 텍스처 `TG.tex.smoke/flare`.
+* 결과 카드(`hud.showEnd`): `stats.stars`(1~5)·`stats.badges`(무사고·단속왕·정확한 판단·보행자 지킴이·신호·속도 준수·모범 보행 / 어린이: 횡단보도 박사·무사히 집까지·안전 보행) — `endShift` 가 계산. 4별 이상이면 팡파르.
+* AI 경적(`traffic.js`): 앞차가 3~7초 서 있으면 성질 급한 운전자가 울린다(플레이어 45m 안에서만 소리), 보행자 급제동 때 짧은 경적.
+* 타이틀: 카메라가 숨 쉬듯 오르내리고 제목 글자에 반짝임(CSS shimmer).
+* 홍보 페이지 장면 2 「이륜차 보도 통행」(`MOTO_STEPS`, `?scene=moto`): 동쪽 보도로 북상하는 오토바이(edgeRider)를 경찰관이 수신호로 세운다. 장면 1(50초) → 장면 2(30초) 번갈아 자동 재생. 헤드리스 테스트는 82초를 돌려 두 장면을 거친다.

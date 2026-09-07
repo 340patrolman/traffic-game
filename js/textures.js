@@ -358,6 +358,9 @@ TG.tex = (function () {
   }
 
   // 위반 차량 표시 화살표(스프라이트)
+  // 연기(부드러운 원) · 전조등 플레어(가운데 밝고 가로로 긴 빛)
+  function smoke() { var key = 'smoke'; if (cache[key]) return cache[key]; var c = canvas(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (cache[key] = toTexture(c)); }
+  function flare() { var key = 'flare'; if (cache[key]) return cache[key]; var c = canvas(128, 64), g = c.getContext('2d'), gr = g.createRadialGradient(64, 32, 1, 64, 32, 62); gr.addColorStop(0, 'rgba(255,250,235,1)'); gr.addColorStop(0.15, 'rgba(255,240,200,0.75)'); gr.addColorStop(0.5, 'rgba(255,225,160,0.18)'); gr.addColorStop(1, 'rgba(255,220,150,0)'); g.save(); g.scale(1, 0.5); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); g.restore(); return (cache[key] = toTexture(c)); }
   function marker() {
     if (cache.marker) return cache.marker;
     var c = canvas(128, 128), g = c.getContext('2d');
@@ -367,6 +370,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, liverySide: liverySide, liveryHood: liveryHood,
+  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, liverySide: liverySide, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

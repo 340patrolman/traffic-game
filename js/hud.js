@@ -52,8 +52,11 @@ TG.hud = (function () {
   }
   function showPause(on) { show('pause', on); }
   function showEnd(stats) {
-    var acc = stats.stops ? Math.round(stats.correct / stats.stops * 100) : 0;
+    var acc = stats.stops ? Math.round(stats.correct / stats.stops * 100) : 0, starsN = stats.stars === undefined ? 0 : stats.stars, sh = '';
+    for (var si = 0; si < 5; si++) sh += '<span class="' + (si < starsN ? 'on' : 'off') + '">★</span>';
+    var bh = (stats.badges || []).map(function (b) { return '<span class="badge2' + (b.gold ? ' gold' : '') + '">' + b.text + '</span>'; }).join('');
     el.endStats.innerHTML =
+      '<div class="stars">' + sh + '</div>' + (bh ? '<div class="badges">' + bh + '</div>' : '') +
       '<div class="row"><span>점수</span><b>' + stats.score + '</b></div>' +
       '<div class="row"><span>단속</span><b>' + stats.stops + '건 (정답률 ' + acc + '%)</b></div>' +
       '<div class="row"><span>보행자 계도</span><b>' + (stats.warned || 0) + '건</b></div>' +

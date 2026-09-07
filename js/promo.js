@@ -68,9 +68,29 @@
       on: function () { $('card').style.display = 'flex'; actors.officer.gesture = null; },
       cam: function (u) { return [[CX + 6, 12 + u * 6, CZ + 26 + u * 6], [CX, 1, CZ]]; } },
   ];
-  var LOOP_AT = 50;
+  // ---- 장면 2: 이륜차 보도 통행 — 보도로 달려오는 오토바이를 경찰관이 세운다(?scene=moto). 카드 뒤에 자동으로 이어진다 ----
+  var moto = null, MOTO_STEPS = [
+    { at: 0, step: '', sub: '보도는 사람이 걷는 길이에요', say: '보도는 사람이 걷는 길. 이륜차가 보도로 달리면 안 돼요',
+      on: function () { actors.kid.goTo(EAST + 2.6, CZ + 4.0); actors.officer.goTo(EAST + 1.0, CZ - 6); actors.officer.gesture = null;
+        moto = traffic.spawn({ at: { x: CX + C.LANE2_OFF, z: CZ + 70, d: 2, node: city.nodes[1][3] }, v: 6, cruise: 6, straight: true, violator: false, laneIdx: 1, type: 'moto' }); if (moto) { moto.edgeRider = true; moto.edgeOff = 6.0; moto.edgeT = 0; } },
+      cam: function () { return null; } },
+    { at: 6, step: '🛵 보도로 달리는 이륜차', sub: '오토바이가 보도로 올라와 달려요 — 사람들이 위험해요', say: '보도로 올라온 오토바이. 걷는 사람들이 위험해요', on: function () { actors.officer.face(0); actors.kid.face(0); actors.officer.lookScan = false; }, cam: function () { return null; } },
+    { at: 11, step: '✋ 정지!', sub: '교통경찰관이 수신호로 세워요', say: '정지! 교통경찰관이 손을 들어 세웁니다', kid: '와, 멈췄다!',
+      on: function () { actors.officer.gesture = 'stop'; if (moto) { moto.edgeRider = false; moto.cruise = 0; moto.speedK = 0; moto.violation = { type: 'motorcycle', t: traffic.time, node: null, seen: true }; } }, cam: function () { return null; } },
+    { at: 17, step: '이륜차는 차도 우측으로', sub: '이륜차 보도 통행은 위반이에요 — 차도 가장자리로 다녀요 (도로교통법 제13조)', say: '이륜차 보도 통행은 위반이에요. 차도 우측 가장자리로 다니세요', on: function () { actors.officer.gesture = 'go'; }, cam: function () { return null; } },
+    { at: 24, step: '', sub: '', say: null, card: true, on: function () { $('card').style.display = 'flex'; actors.officer.gesture = null; if (moto) { traffic.setYield(moto, false); moto.cruise = 6; moto.speedK = 1; } }, cam: function () { return null; } },
+  ];
+  var SCENE = /[?&]scene=moto/.test(location.search) ? 'moto' : 'cross', LOOP_AT = 50;
+  function motoCam(u) {
+    var O = actors.officer.pos, M = moto ? moto.pos : { x: EAST + 0.5, z: CZ + 30 };
+    if (stepIdx <= 0) return [[EAST + 7, 4.0, CZ + 8], [EAST + 1, 1.2, CZ - 12]];
+    if (stepIdx === 1) return [[M.x + 4, 2.2, M.z + 6], [M.x, 1.0, M.z]];
+    if (stepIdx === 2) return [[O.x - 4.5, 1.8, O.z + 3.5], [(O.x + M.x) / 2, 1.1, (O.z + M.z) / 2]];
+    if (stepIdx === 3) return [[O.x + 5, 2.4, O.z + 4], [M.x, 1.0, M.z]];
+    return [[CX + 6, 12 + u * 6, CZ + 26 + u * 6], [CX, 1, CZ]];
+  }
   function restart() {
-    t = 0; stepIdx = -1; spoken = {}; loopCount++; burstDone = false; $('card').style.display = 'none';
+    t = 0; stepIdx = -1; spoken = {}; loopCount++; burstDone = false; moto = null; $('card').style.display = 'none';
     actors.kid.pos.x = EAST + 13; actors.kid.pos.z = CZ; actors.kid.heading = -Math.PI / 2; actors.kid.target = null; actors.kid.hand = 0; actors.kid.lookScan = false;
     actors.officer.pos.x = EAST + 1.6; actors.officer.pos.z = CZ - 1.7; actors.officer.heading = -Math.PI / 2; actors.officer.target = null; actors.officer.gesture = null;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
@@ -80,28 +100,29 @@
   function update(dt) {
     t += dt;
     // 단계 진입
-    for (var i = 0; i < STEPS.length; i++) if (t >= STEPS[i].at && stepIdx < i) {
-      stepIdx = i; var S = STEPS[i]; S.on(); setText('step', S.step); setText('sub', S.sub);
+    var ST = SCENE === 'moto' ? MOTO_STEPS : STEPS;
+    for (var i = 0; i < ST.length; i++) if (t >= ST[i].at && stepIdx < i) {
+      stepIdx = i; var S = ST[i]; S.on(); setText('step', S.step); setText('sub', S.sub);
       if (S.say && !isTest) { TG.audio.say(S.say, { kind: 'narrator' }); if (S.kid) setTimeout(function () { TG.audio.say(S.kid, { kind: 'kid', queue: true }); }, 2600); }
     }
     // 보행 신호: 4단계까지 적색(차량 남북 녹색), 5단계부터 녹색(차량 동서 녹색)
-    if (t < 24) signals.set(N, 'v', 'green'); else if (t < 36) signals.set(N, 'h', 'green');
+    if (SCENE === 'cross') { if (t < 24) signals.set(N, 'v', 'green'); else if (t < 36) signals.set(N, 'h', 'green'); }
     signals.update(dt);
     var sp = TG.audio.speaking;
     actors.kid.smile = stepIdx === 6; actors.officer.smile = stepIdx === 6 || stepIdx === 0;
     actors.kid.update(dt, sp === 'kid'); actors.officer.update(dt, sp === 'narrator' || sp === 'officer'); steps(actors.kid); steps(actors.officer);
-    if (stepIdx === 5 && !isTest) { crossT -= dt; if (crossT <= 0) { crossT = 0.95; TG.audio.crossSignal('cuckoo'); } }   // 횡단보도 음향신호기(뻐꾸기)
+    if (SCENE === 'cross' && stepIdx === 5 && !isTest) { crossT -= dt; if (crossT <= 0) { crossT = 0.95; TG.audio.crossSignal('cuckoo'); } }   // 횡단보도 음향신호기(뻐꾸기)
     if (stepIdx === 6 && !burstDone) { burstDone = true; }
     // 경찰관 시선: 어린이 또는 다가오는 차
     var lead = null; for (var k = 0; k < traffic.cars.length; k++) { var c = traffic.cars[k]; if (Math.hypot(c.pos.x - actors.officer.pos.x, c.pos.z - actors.officer.pos.z) < 30) lead = c; }
-    var tgt = (stepIdx === 5 && lead) ? lead.pos : actors.kid.pos;
+    var tgt = (stepIdx === 5 && lead) ? lead.pos : (SCENE === 'moto' && moto ? moto.pos : actors.kid.pos);
     actors.officer.look = TG.wrapAngle(Math.atan2(tgt.x - actors.officer.pos.x, tgt.z - actors.officer.pos.z) - actors.officer.heading) * 0.8;
     traffic.update(dt, stepIdx >= 5 ? 6 : 4); traffic.separate(); peds.update(dt, 8);
     player.update(0.0001);
     weather.update(dt, camera.position); world.followSun(CX, CZ);
     // 카메라
     // 카메라는 배우 위치 기준(어린이·둘의 가운데)으로 잡아 항상 화면 가운데에 온다
-    var S2 = STEPS[Math.max(0, stepIdx)], nextAt = stepIdx + 1 < STEPS.length ? STEPS[stepIdx + 1].at : LOOP_AT, u = TG.clamp((t - S2.at) / Math.max(1, nextAt - S2.at), 0, 1);
+    var S2 = ST[Math.max(0, stepIdx)], nextAt = stepIdx + 1 < ST.length ? ST[stepIdx + 1].at : LOOP_AT, u = TG.clamp((t - S2.at) / Math.max(1, nextAt - S2.at), 0, 1);
     var K = actors.kid.pos, O = actors.officer.pos, mid = [(K.x + O.x) / 2, (K.z + O.z) / 2], P, L, si = Math.max(0, stepIdx);
     if (si === 0) { P = [K.x + 6 - u * 2, 3.2 - u * 1.2, K.z + 9]; L = [K.x - 2, 0.9, K.z]; }
     else if (si === 1) { P = [K.x + 4.2, 2.3, K.z + 5.8]; L = [K.x, 0.85, K.z]; }
@@ -111,12 +132,13 @@
     else if (si === 5) { P = [mid[0] - 6.5 + u * 2, 2.4, mid[1] + 7.5]; L = [mid[0], 0.9, mid[1]]; }   // 남서쪽에서: 남쪽에 선 어린이가 앞에 온다
     else if (si === 6) { P = [mid[0] - 5.5, 2.1, mid[1] + 5.5]; L = [mid[0], 1.0, mid[1]]; }
     else { P = [CX + 6, 12 + u * 6, CZ + 26 + u * 6]; L = [CX, 1, CZ]; }
+    if (SCENE === 'moto') { var mk = motoCam(u); P = mk[0]; L = mk[1]; }
     if (!camInit) { camPos.set(P[0], P[1], P[2]); camLook.set(L[0], L[1], L[2]); camInit = true; }
     var kc = 1 - Math.exp(-2.2 * dt); camPos.x += (P[0] - camPos.x) * kc; camPos.y += (P[1] - camPos.y) * kc; camPos.z += (P[2] - camPos.z) * kc;
     camLook.x += (L[0] - camLook.x) * kc * 1.3; camLook.y += (L[1] - camLook.y) * kc * 1.3; camLook.z += (L[2] - camLook.z) * kc * 1.3;
     var gy = terrain.heightAt(camPos.x, camPos.z) + 0.6; if (camPos.y < gy) camPos.y = gy;
     camera.position.copy(camPos); camera.lookAt(camLook);
-    if (t >= LOOP_AT) restart();
+    if (t >= (SCENE === 'moto' ? 30 : LOOP_AT)) { SCENE = SCENE === 'moto' ? 'cross' : 'moto'; restart(); }   // 두 장면을 번갈아
   }
   function loop(now) {
     requestAnimationFrame(loop);
@@ -129,8 +151,8 @@
     var errs = [], R = [];
     window.addEventListener('error', function (e) { errs.push(e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno); });
     try {
-      for (var i = 0; i < 50 * 30; i++) update(1 / 30);
-      R.push('loops = ' + loopCount + ' · step = ' + stepIdx + ' · kid = ' + Math.round(actors.kid.pos.x) + ',' + Math.round(actors.kid.pos.z) + ' · officer = ' + Math.round(actors.officer.pos.x) + ' · cars = ' + traffic.cars.length);
+      for (var i = 0; i < 82 * 30; i++) update(1 / 30);
+      R.push('scene = ' + SCENE + ' · moto = ' + (moto ? Math.round(moto.v * 10) / 10 : null) + ' · loops = ' + loopCount + ' · step = ' + stepIdx + ' · kid = ' + Math.round(actors.kid.pos.x) + ',' + Math.round(actors.kid.pos.z) + ' · officer = ' + Math.round(actors.officer.pos.x) + ' · cars = ' + traffic.cars.length);
       R.push('rig parts = ' + Object.keys(actors.officer.rig.joints).length + ' joints · officer height ' + actors.officer.rig.height.toFixed(2));
       renderer.render(scene, camera); R.push('render calls = ' + renderer.info.render.calls);
       var q = TG.qr.encode('https://340patrolman.github.io/traffic-game/'); R.push('qr = v' + q.version + ' size ' + q.size);
