@@ -73,3 +73,15 @@
 * 보행 신호등: `signals.pedRemain(node, crossAxis)` 잔여 시간, 끝 3초 전 녹색 깜빡임, `TG.tex.pedHead(walk, n)` 서 있는/걷는 사람 픽토그램 + 잔여 초 숫자. HUD `section` 에 앞 횡단보도의 보행 신호·잔여 초.
 * 조작 배치 `settings.ctl` stick|pad: `body.padctl` 이면 `#pad`(십자키 `data-btn` + △○×□·L1/R1·SELECT/START `data-key` → 키 핸들러 호출) 를 쓰고 스틱·버튼을 숨긴다. 설명 창 `#ctlHelp`(`G.showCtlHelp`, 게임 중엔 일시정지 사유 'help').
 * 실물 게임패드: `input.pollGamepad()` 표준 배치(왼쪽 스틱 조향·RT/A 가속·LT/B 브레이크·X 단속·Y 앰프·L1/R1 깜빡이·십자=방향키·Start=Esc·Select=시점·L3 경광등·R3 주행 모드). 연결 시 `input.onGamepad` 로 안내. `readMove()` 가 보행자 이동 벡터(스틱·십자·패드 왼쪽 스틱·Shift/A 달리기).
+
+## v0.7.3 추가(2026-09-07) — 12항목 소재 완성 · 건널목 · 침수 · 어린이 교실 · 도보 단속
+
+* 교통 AI 습관 추가(`traffic.js` makeCar `trait`): `drunk`(차로 안 비틀거림 `car.weave` → extra, 목격 5초 → 'drunk'), `overtake`(느린 앞차를 우측 차로로 추월 → 'overtake', 랜덤 차로 변경은 이 습관 차량엔 없음), `sidewalk`(30초 주기 7초 보도 주행 → edgeRider 재사용, 'sidewalk'),
+  트럭 `cargo`(짐칸 상자 3개, 15~25초마다 낙하 → litters 에 life 20초, 'cargo'), 버스 `door`(열린 문 + 문가 승객, 달리며 3초 목격 → 'passenger'). `noLicense`(8%)는 고지 완료 때 MDT 면허 조회로만 드러난다(+15).
+  `spawn(opts)` 는 `trait`·`noLicense`·`type`·`color` 를 makeCar 로 넘긴다(전엔 버려졌다 — 체험 장면이 안 되던 원인).
+* 철길건널목 `js/rail.js` `TG.Rail(scene, terrain, link, idx)`: 서초대로 연장(`conns[3]`) 샘플 22. 주기 58초(열림 38 → 경보 3 → 닫힘 17, 열차 통과). `approach(car, cur)`(AI: 정지선, 위반 성향 70% 통과 → 'railroad'), `distFor(x,z,h)`(플레이어: 통과 시 −10, 열려 있어도 일시정지 안내), `forceClose/forceOpen`(테스트·체험). 경보종 `TG.audio.bell`.
+* 양재천(`terrain.yjZ`, `river()` 두 번째 항, 남부순환로 남쪽 z≈356) + 산책로. 비(`weather.set('rain')`) → `terrain.setFlood(true)`: 수면 +1.2m(양재천·한강), `isWater` 임계 상승(둔치·산책로 침수 → 빠지면 복귀), 잠수교 통제 표지·차단봉(`jamsuGroup`), 산책로 「통제」 표지.
+  잠수교 낮은 상판은 강을 건너는 첫 연결로(`terrain.jamsu.link`, 축약 지도에선 한남대교) 아래 −0.55m.
+* 모드 `kid`(🧒 어린이 보행 교실): `TG.Walker(..., {kid:true})` 작은 몸·노란 모자·책가방, 학교 블록 모퉁이 4곳(학교 정문→놀이터→문방구→우리 집). 감점 없음, 횡단마다 별(초록불 1 + 멈춤 0.8초 1 + ✋ 손 들기 1). `kidStep()` 단계 칩(`#kidSteps`), `kidVoice()` 쉬운 말 음성, `#btnHand`(G 키) 손 들기, `walker.raiseHand`.
+* 도보 단속: walk 모드에서 위반 차량 터치/단속 버튼 → 퀴즈 → 정답이면 `enforcement` 가 수신호 정차(`onFoot()`: 경광등 조건 없음, 운전석 옆 3.6m 안에 서면 고지 완료). enforcement 는 `game.actor()` 로 걷는 경찰관을 본다.
+* 타이틀 정리: 부제 「서울교통 순찰근무」, 모드 6개만 보이고 차량·시점·날씨·조작은 `<details class="more">` 안. 설정 v3: 차량 `random`(`carSpec()`), 날씨 `auto` 기본. laws.json 에 overtake·railroad·license·drunk·sidewalk·passenger·cargo(모두 verified:false), study12 7개에 scene 연결.

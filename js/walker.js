@@ -1,8 +1,9 @@
 // 보행자 모드: 플레이어가 도보 순찰 경찰관이 되어 걷는다. 「보행자가 보는 도로」 — 보행 신호등·횡단보도·차량을 보행자 눈높이에서.
 // 규칙(도로교통법 제5조 신호 준수 · 제10조 횡단 방법): 횡단보도 밖 차도 진입 = 무단횡단, 적색 보행 신호에 횡단보도 진입 = 신호위반 보행,
 // 녹색에 건너서 반대편 보도에 닿으면 안전 횡단(+). 차에 닿으면 즉시 실패. 목적지(사거리 모퉁이)를 차례로 찾아간다.
-TG.Walker = function (scene, city, terrain, cfg) {
-  var self = this;
+TG.Walker = function (scene, city, terrain, cfg, opts) {
+  var self = this; opts = opts || {};
+  this.kid = !!opts.kid; this.hand = 0;   // kid: 어린이(작은 몸·노란 모자·책가방), hand: 손 들기 남은 초
   this.pos = { x: 0, z: 0 }; this.heading = 0; this.y = 0.2; this.v = 0; this.vF = 0; this.vx = 0; this.vz = 0;   // vF: 차량 AI(leadOf)가 앞차 속도로 읽는다
   this.radius = 0.45; this.len = 0.6; this.wid = 0.6; this.siren = false; this.signal = null; this.controls = { throttle: 0, brake: 0, steer: 0, reverse: 0 };
   this.telemetry = { speed: 0, ratio: 0, understeer: false, oversteer: false, skid: 0, stopDist: 0, kappa: 0, offroad: false, slope: 0, limit: 1 };
@@ -11,8 +12,16 @@ TG.Walker = function (scene, city, terrain, cfg) {
   var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   // 교통경찰 제복: 남색 상의·바지, 형광 조끼(반사 띠), 흰 장갑, 정모(흰 덮개 + 검정 챙 + 금색 표장)
   var NAVY = 0x1e3763, VEST = 0xd7ff3a, STRIPE = 0xe8e8e8, SKIN = 0xf1c9a5, BLACK = 0x15171c, WHITE = 0xf4f4f4, GOLD = 0xc9a227;
+  var KID_SHIRT = 0xff6b6b, KID_PANTS = 0x2f5fd1, KID_CAP = 0xffd23f, KID_BAG = 0xe53935;
   function body() {
     var gb = new TG.GeoBuilder();
+    if (self.kid) {   // 어린이: 빨간 티셔츠·파란 바지·노란 안전모자·빨간 책가방
+      gb.box(0, 1.12, 0, 0.40, 0.56, 0.26, KID_SHIRT, {}); gb.box(0, 0.86, 0, 0.36, 0.06, 0.26, KID_PANTS, {});
+      gb.box(0, 1.44, 0, 0.14, 0.08, 0.14, SKIN, {}); gb.box(0, 1.60, 0, 0.24, 0.26, 0.24, SKIN, {});
+      gb.box(0, 1.76, 0, 0.28, 0.10, 0.28, KID_CAP, {}); gb.box(0, 1.72, 0.17, 0.28, 0.03, 0.12, KID_CAP, {});
+      gb.box(0, 1.10, -0.20, 0.34, 0.40, 0.16, KID_BAG, {});
+      return gb.build();
+    }
     gb.box(0, 1.12, 0, 0.42, 0.56, 0.26, NAVY, {});
     gb.box(0, 1.14, 0, 0.46, 0.44, 0.30, VEST, {}); gb.box(0, 1.24, 0, 0.47, 0.06, 0.31, STRIPE, {}); gb.box(0, 1.04, 0, 0.47, 0.06, 0.31, STRIPE, {});
     gb.box(0, 0.86, 0, 0.38, 0.06, 0.26, BLACK, {});   // 벨트
@@ -23,10 +32,12 @@ TG.Walker = function (scene, city, terrain, cfg) {
   }
   function limb(color, len, w, cuff) { var gb = new TG.GeoBuilder(); gb.box(0, -len / 2, 0, w, len, w, color, {}); if (cuff) gb.box(0, -len + 0.03, 0, w + 0.02, 0.07, w + 0.02, cuff, {}); return gb.build(); }
   var g = new THREE.Group(), torso = new THREE.Mesh(body(), mat); torso.castShadow = true; g.add(torso);
-  var legL = new THREE.Mesh(limb(NAVY, 0.84, 0.16, BLACK), mat), legR = new THREE.Mesh(limb(NAVY, 0.84, 0.16, BLACK), mat), armL = new THREE.Mesh(limb(NAVY, 0.62, 0.12, WHITE), mat), armR = new THREE.Mesh(limb(NAVY, 0.62, 0.12, WHITE), mat);
+  var LEGC = self.kid ? KID_PANTS : NAVY, ARMC = self.kid ? KID_SHIRT : NAVY, CUFF = self.kid ? SKIN : WHITE;
+  var legL = new THREE.Mesh(limb(LEGC, 0.84, 0.16, BLACK), mat), legR = new THREE.Mesh(limb(LEGC, 0.84, 0.16, BLACK), mat), armL = new THREE.Mesh(limb(ARMC, 0.62, 0.12, CUFF), mat), armR = new THREE.Mesh(limb(ARMC, 0.62, 0.12, CUFF), mat);
   legL.position.set(0.11, 0.86, 0); legR.position.set(-0.11, 0.86, 0); armL.position.set(0.28, 1.36, 0); armR.position.set(-0.28, 1.36, 0);
   g.add(legL); g.add(legR); g.add(armL); g.add(armR);
   var limbs = [legL, legR, armL, armR];
+  if (self.kid) { g.scale.set(0.62, 0.62, 0.62); this.radius = 0.35; }
   g.userData.walker = this; scene.add(g); this.mesh = g;
   // 목적지 표지: 높은 빛기둥 + 바닥 고리
   var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 40, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcf3f, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
@@ -46,8 +57,10 @@ TG.Walker = function (scene, city, terrain, cfg) {
     this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z) : 0;
     g.position.set(this.pos.x, this.y + (this.moving ? Math.abs(Math.cos(this.walkT)) * 0.03 : 0), this.pos.z); g.rotation.y = this.heading;
     var sw = this.moving ? Math.sin(this.walkT) * (0.45 + 0.35 * Math.min(1, this.v / 4)) : 0;
-    limbs[0].rotation.x = sw; limbs[1].rotation.x = -sw; limbs[2].rotation.x = -sw * 0.7; limbs[3].rotation.x = sw * 0.7;
+    limbs[0].rotation.x = sw; limbs[1].rotation.x = -sw; limbs[2].rotation.x = -sw * 0.7; limbs[3].rotation.x = this.hand > 0 ? -2.9 : sw * 0.7;   // 손 들기: 오른팔을 위로
   };
+  this.raiseHand = function (sec) { this.hand = sec || 3; };
+  this.eyeHeight = function () { return this.kid ? 1.05 : 1.62; };
   // move: {x, y, run} — 카메라 기준(위 = 카메라가 보는 방향). camYaw: 카메라가 향하는 헤딩
   this.update = function (dt, move, camYaw) {
     var mx = move.x, my = move.y, mag = Math.min(1, Math.hypot(mx, my));
@@ -57,8 +70,9 @@ TG.Walker = function (scene, city, terrain, cfg) {
       var fx = Math.sin(camYaw), fz = Math.cos(camYaw), rx = -fz, rz = fx;
       var dx = fx * my + rx * mx, dz = fz * my + rz * mx, dl = Math.hypot(dx, dz) || 1;
       dir = Math.atan2(dx / dl, dz / dl);
-      want = (move.run || mag > 0.92) ? 4.2 : 1.5 * Math.max(0.5, mag);
+      want = (move.run || mag > 0.92) ? (this.kid ? 3.4 : 4.2) : (this.kid ? 1.25 : 1.5) * Math.max(0.5, mag);
     }
+    if (this.hand > 0) this.hand -= dt;
     this.v += ((want - this.v) * Math.min(1, dt * (want > this.v ? 6 : 9)));
     if (dir !== null) { var d = TG.wrapAngle(dir - this.heading); this.heading += d * Math.min(1, dt * 12); }
     var f = this.forward(), nx = this.pos.x + f[0] * this.v * dt, nz = this.pos.z + f[1] * this.v * dt;

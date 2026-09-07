@@ -206,3 +206,27 @@ body.portrait .tbtn.small.help{top:calc(216px + var(--sa-t))}
 /* 보행자 모드: 보행 신호 안내 */
 .section.walk{font-size:13px;font-weight:700}
 .section.walk.go{color:var(--ok)} .section.walk.stop{color:var(--bad)}
+/* ---------- 타이틀 정리(설정은 접힘) · 보행자/어린이 모드 UI ---------- */
+.views.modes .mpick{font-size:14px;padding:9px 16px}
+details.more{margin:10px auto 0;max-width:640px;text-align:left}
+details.more summary{cursor:pointer;pointer-events:auto;list-style:none;font-size:13px;color:var(--fg);padding:8px 12px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.05);text-align:center}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary .dim{font-size:11px;color:var(--dim)}
+details.more[open] summary{border-radius:12px 12px 0 0}
+details.more .cars{margin:12px 0 8px}
+.tbtn.hand{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(200px + var(--sa-b));width:76px;height:76px;background:rgba(255,210,63,.22);border-color:rgba(255,210,63,.9)}
+.tbtn.hand .ico{font-size:28px}
+body.onfoot .tbtn.hand{display:flex}
+body.onfoot .tbtn.siren,body.onfoot .sigs,body.onfoot .pad-shoulder{display:none}
+body.kidmode .tbtn.enf,body.kidmode .tbtn.pa,body.kidmode .face .tri,body.kidmode .face .sq,body.kidmode .face .cir,body.kidmode .pad-mid{display:none}
+body.kidmode .tbtn.hand{width:96px;height:96px;bottom:calc(150px + var(--sa-b))} body.kidmode .tbtn.hand .ico{font-size:40px}
+#kidSteps{display:none;position:fixed;top:calc(62px + var(--sa-t));left:50%;transform:translateX(-50%);pointer-events:none;text-align:center}
+body.kidmode #kidSteps{display:block}
+#kidSteps .chips{display:flex;gap:6px;justify-content:center}
+#kidSteps .chip{font-size:12px;padding:4px 9px;border-radius:12px;background:rgba(10,14,22,.55);border:1px solid var(--edge);color:var(--dim)}
+#kidSteps .chip.on{background:rgba(255,210,63,.9);color:#111;font-weight:800;transform:scale(1.08)}
+#kidNow{margin-top:6px;font-size:20px;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+body.kidmode .notice{font-size:16px}
+body.kidmode #hint{font-size:14px}
+body.portrait #kidSteps{top:calc(150px + var(--sa-t))}
+body.portrait .tbtn.hand{bottom:calc(230px + var(--sa-b))}

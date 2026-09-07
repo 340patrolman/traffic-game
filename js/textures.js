@@ -58,6 +58,16 @@ TG.tex = (function () {
       var num = kind.slice(5);
       g.fillStyle = '#111'; g.font = 'bold ' + (num.length > 2 ? 96 : 120) + 'px ' + FONT;
       g.fillText(num, 128, 136);
+    } else if (kind === 'rail') {   // 철길건널목: 황색 삼각 경고 + 열차 실루엣 + 「건널목」
+      tri('#ffe94a', '#d7262b');
+      g.fillStyle = '#111'; g.fillRect(84, 120, 88, 46); g.fillRect(100, 100, 56, 24);
+      g.beginPath(); g.arc(102, 176, 12, 0, Math.PI * 2); g.arc(154, 176, 12, 0, Math.PI * 2); g.fill();
+      g.font = 'bold 26px ' + FONT; g.fillText('건널목', 128, 214);
+    } else if (kind === 'flood') {   // 침수·통제: 청색 원 + 물결 + 「통제」
+      circle('#1f4fa8', '#ffffff');
+      g.strokeStyle = '#ffffff'; g.lineWidth = 10; g.lineCap = 'round';
+      for (var wv = 0; wv < 2; wv++) { g.beginPath(); for (var wx = 48; wx <= 208; wx += 8) { var wy = 100 + wv * 34 + Math.sin(wx / 12) * 8; if (wx === 48) g.moveTo(wx, wy); else g.lineTo(wx, wy); } g.stroke(); }
+      g.fillStyle = '#ffffff'; g.font = 'bold 40px ' + FONT; g.fillText('통제', 128, 190);
     } else if (kind === 'school') {
       rect('#f7c600');
       g.fillStyle = '#111'; g.font = 'bold 44px ' + FONT;

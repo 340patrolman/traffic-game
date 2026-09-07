@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.7.2">
+<link rel="stylesheet" href="css/style.css?v=0.7.3">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -73,6 +73,10 @@
     <div class="pad-mid"><div class="tbtn pbtn mid" data-key="KeyN">SELECT<span>주행 모드</span></div><div class="tbtn pbtn mid" data-key="Escape">START<span>일시정지</span></div></div>
   </div>
   <div class="tbtn small help" id="btnCtlHelp" title="조작 설명">?</div>
+  <!-- 보행자·어린이 모드: 손 들기 -->
+  <div class="tbtn hand" id="btnHand" title="손 들기(G)"><span class="ico">✋</span><span>손 들기</span></div>
+  <!-- 어린이 보행 교실: 횡단보도 단계 -->
+  <div id="kidSteps"><div class="chips"><span class="chip">🛑 멈춰요</span><span class="chip">✋ 손 들어요</span><span class="chip">🔴 기다려요</span><span class="chip">🟢 건너요</span></div><div id="kidNow">보도로 걸어요 🚶</div></div>
 </div>
 
 <!-- 조작 설명(게임패드·조이스틱·키보드) -->
@@ -116,33 +120,35 @@
   <div class="card">
     <div class="badge">SEOUL POLICE · 교통순찰</div>
     <h1>SEOUL PATROL</h1>
-    <div class="sub">서울 강남 · 서초 · 순환고속도로 순찰 근무</div>
-    <div class="cars">
-      <button class="carpick" data-car="sedan"><b>순찰 세단(중형)</b><span>낮은 무게중심 · 코너 한계 높음</span></button>
-      <button class="carpick" data-car="suv"><b>순찰 전기 SUV</b><span>가속 빠름 · 코너에서 일찍 한계</span></button>
-      <button class="carpick" data-car="flag"><b>순찰 대형 세단</b><span>플래그십 · 고해상도 차체</span></button>
-    </div>
-    <div class="views"><span class="lbl">모드</span>
-      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
-    </div>
-    <div class="views"><span class="lbl">조작</span>
-      <button class="cpick" data-ctl="stick">🕹 조이스틱</button><button class="cpick" data-ctl="pad">🎮 게임패드(화면)</button><button class="cpick more" id="btnCtlHelp2">❓ 조작 설명</button>
-    </div>
-    <div class="views"><span class="lbl">시점</span>
-      <button class="viewpick" data-view="chase">추적(3인칭)</button>
-      <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
-    </div>
-    <div class="views"><span class="lbl">날씨</span>
-      <button class="wpick" data-weather="auto">🕒 자동</button><button class="wpick" data-weather="random">🎲 랜덤</button><button class="wpick" data-weather="clear">☀ 맑음</button><button class="wpick" data-weather="sunset">🌇 석양</button><button class="wpick" data-weather="night">🌙 밤</button><button class="wpick" data-weather="rain">🌧 비</button><button class="wpick" data-weather="snow">❄ 눈</button><button class="wpick" data-weather="windy">💨 강풍</button>
+    <div class="sub">서울교통 순찰근무</div>
+    <div class="views modes"><span class="lbl">모드</span>
+      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="kid">🧒 어린이 보행 교실</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
     </div>
     <button id="btnStart" class="primary">출동</button>
     <div id="best" class="best"></div>
-    <div class="controls">
-      <div>터치: 왼쪽 조이스틱(좌우 조향 · 위 가속 · 아래 브레이크) · 오른쪽 경광등 · 단속 · 앰프 (차량·보행자를 터치하면 단속) · 「조작」에서 게임패드 배치 선택, 실물 게임패드 자동 인식</div>
-      <div>키보드: <b>←→</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크(정지 후 계속 누르면 후진) <b>R</b> 후진 <b>F</b> 단속 <b>Q/E</b> 둘러보기 <b>L</b> 경광등 <b>C</b> 시점 전환 <b>H</b> 교육 안내 <b>Esc</b> 일시정지</div>
-      <div class="dim">지나가는 차량·보행자를 터치(클릭)하면 「무슨 위반?」 객관식이 뜹니다. 정답이면 차량은 우측으로 정차하고, 그 뒤 갓길에 안전하게 서면 고지 완료. 보행자는 계도.</div>
-    </div>
-    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.6</div>
+    <details class="more">
+      <summary>⚙ 차량 · 시점 · 날씨 · 조작 <span class="dim">(기본: 🎲 랜덤 차량 · 🕒 현재 시각 날씨 — 티북에서 열면 실제 날씨)</span></summary>
+      <div class="cars">
+        <button class="carpick" data-car="random"><b>🎲 랜덤</b><span>근무마다 다른 순찰차</span></button>
+        <button class="carpick" data-car="sedan"><b>순찰 세단(중형)</b><span>낮은 무게중심 · 코너 한계 높음</span></button>
+        <button class="carpick" data-car="suv"><b>순찰 전기 SUV</b><span>가속 빠름 · 코너에서 일찍 한계</span></button>
+        <button class="carpick" data-car="flag"><b>순찰 대형 세단</b><span>플래그십 · 고해상도 차체</span></button>
+      </div>
+      <div class="views"><span class="lbl">시점</span>
+        <button class="viewpick" data-view="chase">추적(3인칭)</button>
+        <button class="viewpick" data-view="cockpit">차내(1인칭)</button>
+      </div>
+      <div class="views"><span class="lbl">날씨</span>
+        <button class="wpick" data-weather="auto">🕒 현재(시계·계절)</button><button class="wpick" data-weather="random">🎲 랜덤</button><button class="wpick" data-weather="clear">☀ 맑음</button><button class="wpick" data-weather="sunset">🌇 석양</button><button class="wpick" data-weather="night">🌙 밤</button><button class="wpick" data-weather="rain">🌧 비</button><button class="wpick" data-weather="snow">❄ 눈</button><button class="wpick" data-weather="windy">💨 강풍</button>
+      </div>
+      <div class="views"><span class="lbl">조작</span>
+        <button class="cpick" data-ctl="stick">🕹 조이스틱</button><button class="cpick" data-ctl="pad">🎮 게임패드(화면)</button><button class="cpick more" id="btnCtlHelp2">❓ 조작 설명</button>
+      </div>
+      <div class="controls">
+        <div class="dim">차량·보행자를 터치(클릭)하면 「무슨 위반?」 객관식. 정답이면 차량은 우측 정차 → 그 뒤 갓길에 서면 고지 완료. 자세한 조작은 「❓ 조작 설명」.</div>
+      </div>
+    </details>
+    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.7</div>
   </div>
 </div>
 
@@ -193,29 +199,30 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.7.2"></script>
-<script src="js/config.js?v=0.7.2"></script>
-<script src="js/rng.js?v=0.7.2"></script>
-<script src="js/save.js?v=0.7.2"></script>
-<script src="js/perf.js?v=0.7.2"></script>
-<script src="js/textures.js?v=0.7.2"></script>
-<script src="js/audio.js?v=0.7.2"></script>
-<script src="js/city.js?v=0.7.2"></script>
-<script src="js/world.js?v=0.7.2"></script>
-<script src="js/terrain.js?v=0.7.2"></script>
-<script src="js/weather.js?v=0.7.2"></script>
-<script src="js/signals.js?v=0.7.2"></script>
-<script src="js/vehmesh.js?v=0.7.2"></script>
-<script src="js/vehicle.js?v=0.7.2"></script>
-<script src="js/traffic.js?v=0.7.2"></script>
-<script src="js/peds.js?v=0.7.2"></script>
-<script src="js/walker.js?v=0.7.2"></script>
-<script src="js/enforcement.js?v=0.7.2"></script>
-<script src="js/study.js?v=0.7.2"></script>
-<script src="js/hud.js?v=0.7.2"></script>
-<script src="js/minimap.js?v=0.7.2"></script>
-<script src="js/input.js?v=0.7.2"></script>
-<script src="js/main.js?v=0.7.2"></script>
+<script src="lib/three.min.js?v=0.7.3"></script>
+<script src="js/config.js?v=0.7.3"></script>
+<script src="js/rng.js?v=0.7.3"></script>
+<script src="js/save.js?v=0.7.3"></script>
+<script src="js/perf.js?v=0.7.3"></script>
+<script src="js/textures.js?v=0.7.3"></script>
+<script src="js/audio.js?v=0.7.3"></script>
+<script src="js/city.js?v=0.7.3"></script>
+<script src="js/world.js?v=0.7.3"></script>
+<script src="js/terrain.js?v=0.7.3"></script>
+<script src="js/weather.js?v=0.7.3"></script>
+<script src="js/signals.js?v=0.7.3"></script>
+<script src="js/vehmesh.js?v=0.7.3"></script>
+<script src="js/vehicle.js?v=0.7.3"></script>
+<script src="js/traffic.js?v=0.7.3"></script>
+<script src="js/peds.js?v=0.7.3"></script>
+<script src="js/walker.js?v=0.7.3"></script>
+<script src="js/rail.js?v=0.7.3"></script>
+<script src="js/enforcement.js?v=0.7.3"></script>
+<script src="js/study.js?v=0.7.3"></script>
+<script src="js/hud.js?v=0.7.3"></script>
+<script src="js/minimap.js?v=0.7.3"></script>
+<script src="js/input.js?v=0.7.3"></script>
+<script src="js/main.js?v=0.7.3"></script>
 <script src="_probe_tail.js"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.

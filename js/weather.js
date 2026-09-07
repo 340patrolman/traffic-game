@@ -97,6 +97,7 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     self.wind = P.wind || 0;
     lampPts.visible = !!P.dark; spot.visible = !!P.dark; spot.intensity = P.dark ? 2.2 : 0;
     if (terrain.waterMat) terrain.waterMat.opacity = P.dark ? 0.95 : 0.88;
+    if (terrain.setFlood) terrain.setFlood(self.name === 'rain');   // 비: 양재천·한강 둔치 침수, 잠수교 통제
     (M.facade || []).forEach(function (m) { m.emissive.setHex(P.dark ? 0x7a6a44 : 0x000000); m.emissiveMap = P.dark ? m.map : null; m.needsUpdate = true; });   // 밤: 창문 불빛
   };
   this.update = function (dt, cam) {

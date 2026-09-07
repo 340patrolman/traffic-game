@@ -32,7 +32,14 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 한강(축약): 도시 북쪽을 동서로 흐른다. 북쪽 IC 연결로(반포대로 등)가 다리로 건넌다. 옛 남북 강은 없앴다.
   function riverZ(x) { return -212 + 18 * Math.sin(x / 230 + 0.6); }
   function riverX(z) { return 99999; }
-  function river(x, z) { var d = Math.abs(z - riverZ(x)); return -4 * (1 - sstep(24, 34, d)); }
+  // 양재천(축약): 도시 남쪽(남부순환로 아래)을 동서로 흐르는 얕은 하천. 경부고속도로·양재IC·수서IC 연결로가 다리로 건넌다. 비가 오면 setFlood 로 수위가 올라 산책로가 잠긴다.
+  function yjZ(x) { return 356 + 5 * Math.sin(x / 120); }
+  function river(x, z) {
+    var d = Math.abs(z - riverZ(x)), rv = -4 * (1 - sstep(24, 34, d));
+    var d2 = Math.abs(z - yjZ(x)); rv += -2.4 * (1 - sstep(7, 12, d2)) * sstep(-90, -50, x) * (1 - sstep(390, 430, x));
+    return rv;
+  }
+  var flood = false;   // 강우 침수(수위 +1.2m): 양재천 산책로·한강 둔치가 물에 잠기고 잠수교가 통제된다
 
   // ---------- 링크 빌더 ----------
   var links = [], walls = [];
@@ -198,7 +205,8 @@ TG.buildTerrain = function (scene, city, cfg) {
     }
     return h;
   }
-  function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9; }
+  function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9 + (flood ? 1.2 : 0); }
+  function nearStream(x, z) { return Math.abs(z - yjZ(x)) < 16 && x > -80 && x > -80 && x < 420; }
   function limitOf(kind) { return kind === 'highway' ? cfg.HW_LIMIT_KMH : kind === 'suburb' ? cfg.SUB_LIMIT_KMH : kind === 'circuit' ? 999 : 80; }
   function laneOffsets(p) { return p.f > 0.5 ? cfg.HW_LANES.slice() : [cfg.LANE_OFF]; }
   function shoulderOf(p) { return p.f > 0.5 ? cfg.HW_SHOULDER : (p.link.oneWay ? 3.4 : cfg.SHOULDER_OFF); }
@@ -223,7 +231,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     else if (hh < 70) col = mix(C_HILL, C_FOREST, sstep(14, 70, hh));
     else if (hh < 130) col = mix(C_FOREST, C_ROCK, sstep(70, 130, hh));
     else col = mix(C_ROCK, C_SNOW, sstep(130, 185, hh));
-    if (wx > -70 && wx < 390 && wz > -70 && wz < 390) col = rgb(0x7a9c58);
+    if (wx > -70 && wx < 390 && wz > -70 && wz < 390 && hh > -0.8) col = rgb(0x7a9c58);
     tc.push(col[0], col[1], col[2]);
   }
   for (var iz2 = 0; iz2 < NZ - 1; iz2++) for (var ix2 = 0; ix2 < NX - 1; ix2++) { var a0 = iz2 * NX + ix2, b0 = a0 + 1, c0 = a0 + NX, d0 = c0 + 1; ti.push(a0, c0, b0, b0, c0, d0); }
@@ -236,7 +244,16 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(wgeo, waterMat, false, false);
   var rg = new G();
   for (var rx2 = X0; rx2 < X1; rx2 += 20) { var za = riverZ(rx2), zb = riverZ(rx2 + 20); rg.quad([rx2, -1.3, za - 36], [rx2, -1.3, za + 36], [rx2 + 20, -1.3, zb + 36], [rx2 + 20, -1.3, zb - 36], [0, 1, 0], 0x3f7fb0, [[0, rx2 / 40], [1.8, rx2 / 40], [1.8, (rx2 + 20) / 40], [0, (rx2 + 20) / 40]]); }
-  mesh(rg.build(), waterMat, false, false);
+  var hanMesh = mesh(rg.build(), waterMat, false, false);
+  // 양재천 수면(폭 18m) + 양쪽 산책로(콘크리트 띠). 침수 때 수면이 1.2m 올라 산책로가 잠긴다.
+  var sg2 = new G(), pathG = new G();
+  for (var sx2 = -80; sx2 < 420; sx2 += 10) {
+    var zA = yjZ(sx2), zB = yjZ(sx2 + 10);
+    sg2.quad([sx2, -1.05, zA - 9], [sx2, -1.05, zA + 9], [sx2 + 10, -1.05, zB + 9], [sx2 + 10, -1.05, zB - 9], [0, 1, 0], 0x4f8fbf, [[0, sx2 / 20], [0.9, sx2 / 20], [0.9, (sx2 + 10) / 20], [0, (sx2 + 10) / 20]]);
+    for (var pside = -1; pside <= 1; pside += 2) { var pz0 = zA + pside * 11.5, pz1 = zB + pside * 11.5, py0 = heightAt(sx2, pz0) + 0.05, py1 = heightAt(sx2 + 10, pz1) + 0.05; pathG.quad([sx2, py0, pz0 - 1.3], [sx2, py0, pz0 + 1.3], [sx2 + 10, py1, pz1 + 1.3], [sx2 + 10, py1, pz1 - 1.3], [0, 1, 0], 0xd9d4c7, null); }
+  }
+  var streamMesh = mesh(sg2.build(), waterMat, false, false); mesh(pathG.build(), lambertVC, false, true);
+  hanMesh.matrixAutoUpdate = true; streamMesh.matrixAutoUpdate = true;
 
   var sky = new THREE.SphereGeometry(2200, 28, 14), spos = sky.attributes.position, scol = [], ZEN = rgb(0x3f7fd6), HOR = rgb(0xdbe9f6);
   for (var sv = 0; sv < spos.count; sv++) { var yy = spos.getY(sv) / 2200, tcol = mix(HOR, ZEN, sstep(-0.05, 0.6, yy)); scol.push(tcol[0], tcol[1], tcol[2]); }
@@ -405,9 +422,46 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
   mesh(farm.build(), lambertVC, true, true);
 
+  // ---------- 잠수교(반포대교 아래 낮은 다리) + 침수 통제 ----------
+  // 반포대교(conns[5]) 다리 구간 아래 −0.55m 에 낮은 상판. 평소엔 수면(−1.3) 위로 드러나고, 비가 오면 수면이 올라 잠긴다 → 양쪽 끝 차단봉·「잠수교 통제」 표지가 선다.
+  var jamsu = { x: 0, z: 0, ends: [] }, jamsuGroup = new THREE.Group(), jg = new G(), jb = new G();
+  (function () {
+    var L5 = null, first = -1, last = -1;   // 반포대교(conns[5])가 강을 건너지 않는 축약 지도에서는 강을 건너는 첫 연결로(한남대교) 아래에 둔다
+    [conns[5], conns[1], conns[4]].forEach(function (Lc) { if (L5) return; for (var q = 0; q < Lc.N; q++) if (Lc.pts[q].bridge) { L5 = Lc; break; } });
+    if (!L5) return; jamsu.link = L5;
+    for (var i5 = 0; i5 < L5.N; i5++) if (L5.pts[i5].bridge) { if (first < 0) first = i5; last = i5; }
+    if (first < 0) return;
+    for (var i6 = first; i6 < last; i6++) {
+      var a = L5.P(i6), b = L5.P(i6 + 1);
+      jg.quad([a.x + a.rx * -4.2, -0.55, a.z + a.rz * -4.2], [a.x + a.rx * 4.2, -0.55, a.z + a.rz * 4.2], [b.x + b.rx * 4.2, -0.55, b.z + b.rz * 4.2], [b.x + b.rx * -4.2, -0.55, b.z + b.rz * -4.2], [0, 1, 0], 0x9a9a92, null);
+      for (var cs = -1; cs <= 1; cs += 2) jg.quad([a.x + a.rx * cs * 4.2, -0.55, a.z + a.rz * cs * 4.2], [a.x + a.rx * cs * 4.6, -0.3, a.z + a.rz * cs * 4.6], [b.x + b.rx * cs * 4.6, -0.3, b.z + b.rz * cs * 4.6], [b.x + b.rx * cs * 4.2, -0.55, b.z + b.rz * cs * 4.2], [0, 1, 0], 0xc9c5ba, null);
+      if (i6 % 6 === 0) jg.cylinder(a.x, -6, a.z, 1.1, 1.1, 5.6, 8, 0x7d7d76);   // 교각
+    }
+    var mid = L5.P(Math.floor((first + last) / 2)); jamsu.x = mid.x; jamsu.z = mid.z;
+    [first, last].forEach(function (ie, k) {
+      var e = L5.P(ie); jamsu.ends.push({ x: e.x, z: e.z });
+      jb.box(e.x, -0.2, e.z, 8.4, 0.5, 0.3, 0xf2c200, { rotY: Math.atan2(e.tx, e.tz) + Math.PI / 2 });
+      for (var kk = -1; kk <= 1; kk++) jb.box(e.x + e.rx * kk * 2.8, -0.2, e.z + e.rz * kk * 2.8, 1.2, 0.52, 0.32, 0x15171a, { rotY: Math.atan2(e.tx, e.tz) + Math.PI / 2 });
+      jb.cylinder(e.x + e.rx * 4.9, -0.55, e.z + e.rz * 4.9, 0.08, 0.08, 3.0, 5, 0x4a4f55);
+      var sgn = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshBasicMaterial({ map: TG.tex.hwSign('잠수교 통제|수위 상승 · ' + ((L5.name || '').split(' · ')[1] || '상판') + ' 이용'), side: THREE.DoubleSide }));
+      sgn.position.set(e.x + e.rx * 4.9, 2.0, e.z + e.rz * 4.9); sgn.rotation.y = Math.atan2(e.tx, e.tz) + (k === 0 ? Math.PI : 0); jamsuGroup.add(sgn);
+    });
+    var jm = new THREE.Mesh(jg.build(), lambertVC); jm.matrixAutoUpdate = false; jm.updateMatrix(); jm.receiveShadow = true; scene.add(jm);
+    var jbm = new THREE.Mesh(jb.build(), lambertVC); jamsuGroup.add(jbm);
+    jamsuGroup.visible = false; scene.add(jamsuGroup);
+    var fsm = new THREE.MeshBasicMaterial({ map: TG.tex.sign('flood'), transparent: true, side: THREE.DoubleSide });
+    for (var fx2 = -60; fx2 <= 400; fx2 += 115) { var fz = yjZ(fx2) + 14.5, fm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), fsm); fm.position.set(fx2, heightAt(fx2, fz) + 2.2, fz); jamsuGroup.add(fm); }   // 양재천 산책로 「통제」 표지(침수 때만)
+  })();
+  function setFlood(on) {
+    flood = !!on;
+    hanMesh.position.y = flood ? 1.2 : 0; streamMesh.position.y = flood ? 1.2 : 0;
+    jamsuGroup.visible = flood;
+  }
+
   return {
     links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     heightAt: heightAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {
       for (var c = 0; c < conns.length; c++) if (node === conns[c].cityStart.node && dir === conns[c].cityStart.dir) return { link: conns[c], dirA: true };
