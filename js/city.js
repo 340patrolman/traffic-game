@@ -37,7 +37,7 @@ TG.buildCity = function (cfg) {
   // 서울 강남·서초를 본뜬 배치(축약). 세로: 반포대로·논현로·강남대로(4차로)·언주로·선릉로 / 가로: 사평대로·도산대로·테헤란로(4차로)·역삼로·남부순환로.
   // 강남대로×테헤란로 = 강남역 사거리(중심). 랜드마크: 북동 무역센터·전시장(삼성동), 남서 법원(서초동), 남서 끝 예술의전당(돔), 북쪽 강남대로 쌍둥이 타워. 실존 상호·로고는 쓰지 않는다.
   var roadNamesV = ['반포대로', '논현로', '강남대로', '언주로', '선릉로'], roadNamesH = ['사평대로', '도산대로', '테헤란로', '역삼로', '남부순환로'];
-  var LANDMARK_BLOCKS = { '3,0': 'trade', '0,3': 'court', '0,4': 'arts', '1,0': 'twin', '3,3': 'stadium' };
+  var LANDMARK_BLOCKS = { '3,0': 'trade', '0,3': 'court', '0,4': 'arts', '1,0': 'twin', '3,3': 'stadium', '0,1': 'terminal', '0,2': 'gu' };   // + 고속버스터미널(반포) · 서초구청(서초역)
   // 가로 2번 도로는 강남대로 서쪽이 서초대로, 동쪽이 테헤란로(실제처럼 강남역에서 이름이 바뀐다)
   function hName(j, x) { return j === 2 ? (x < xs[2] ? '서초대로' : '테헤란로') : roadNamesH[j]; }
   function nodeName(node) { if (node.i === 2 && node.j === 2) return '강남역 사거리'; return roadNamesV[node.i] + '·' + hName(node.j, node.x - 1) + ' 교차로'; }

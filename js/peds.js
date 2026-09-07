@@ -19,13 +19,11 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     return (geo[key] = gb.build());
   }
   function limbGeo(color, len, w) { var key = 'l' + color + ':' + len + ':' + w; if (geo[key]) return geo[key]; var gb = new TG.GeoBuilder(); gb.box(0, -len / 2, 0, w, len, w, color, {}); return (geo[key] = gb.build()); }
+  // 행인 몸: TG.Character.lite(얼굴·머리카락·신발·가방·모자·치마, 메시 5개). 옷·피부·머리색은 무작위
   function makeMesh(p) {
-    var shirt = TG.pick(rng, SHIRTS), pants = TG.pick(rng, PANTS), skin = TG.pick(rng, SKINS), hair = TG.pick(rng, HAIRS), g = new THREE.Group();
-    var torso = new THREE.Mesh(torsoGeo(shirt, skin, hair, rng() < 0.3), mat); torso.castShadow = true; g.add(torso);
-    var legL = new THREE.Mesh(limbGeo(pants, 0.84, 0.15), mat), legR = new THREE.Mesh(limbGeo(pants, 0.84, 0.15), mat), armL = new THREE.Mesh(limbGeo(shirt, 0.62, 0.11), mat), armR = new THREE.Mesh(limbGeo(shirt, 0.62, 0.11), mat);
-    legL.position.set(0.1, 0.86, 0); legR.position.set(-0.1, 0.86, 0); armL.position.set(0.26, 1.36, 0); armR.position.set(-0.26, 1.36, 0);
-    g.add(legL); g.add(legR); g.add(armL); g.add(armR);
-    p.limbs = [legL, legR, armL, armR]; p.scale = 0.9 + rng() * 0.2; g.scale.set(p.scale, p.scale, p.scale);
+    var shirt = TG.pick(rng, SHIRTS), pants = TG.pick(rng, PANTS), skin = TG.pick(rng, SKINS), hair = TG.pick(rng, HAIRS);
+    var r = TG.Character.lite({ shirt: shirt, pants: pants, skin: skin, hair: hair, bag: rng() < 0.3, hat: rng() < 0.12 ? TG.pick(rng, [0x2b2f38, 0xe0b84a, 0xd94f4f]) : 0, female: rng() < 0.45, shoe: rng() < 0.5 ? 0x2a2a2a : 0xe8e2d4 });
+    var g = r.group; p.limbs = r.limbs; p.scale = 0.9 + rng() * 0.2; g.scale.set(p.scale, p.scale, p.scale);
     return g;
   }
   // 이 행인이 걷는 보도선의 오프셋(자기 도로 기준)

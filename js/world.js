@@ -206,6 +206,22 @@
         for (var t = -1; t <= 1; t += 2) { walls.office.box(cx + t * w * 0.22, 0.2 + 34, cz, w * 0.3, 68, dd * 0.55, 0xb3563a, { sidesOnly: true, uvScale: [4, 3] }); roofs.box(cx + t * w * 0.22, 68.5, cz, w * 0.32, 0.6, dd * 0.57, 0x4a2c22, { noBottom: true }); }
         glass.box(cx, 42, cz, w * 0.16, 4, dd * 0.3, 0x3a5470, {});                                          // 연결 다리
         roofs.box(cx, 2.2, cz, w * 0.75, 4.4, dd * 0.6, 0x9a4b33, {});                                       // 저층부
+      } else if (L.kind === 'terminal') {   // 고속버스터미널: 긴 승강장 캐노피 + 대합실 + 서 있는 버스들
+        roofs.box(cx, 5.2, cz + dd * 0.22, w * 0.86, 10, dd * 0.36, 0xd9d6cf, {});                              // 대합실·상가
+        glass.box(cx, 4.4, cz + dd * 0.22, w * 0.86 + 0.4, 5, dd * 0.36 + 0.4, 0x3a5470, { sidesOnly: true });
+        roofs.box(cx, 7.4, cz - dd * 0.18, w * 0.9, 0.5, dd * 0.4, 0x8b8f96, { noBottom: true });                 // 승강장 캐노피
+        for (var pc = 0; pc < 8; pc++) roofs.box(L.x0 + w * 0.08 + pc * (w * 0.84) / 7, 3.6, cz - dd * 0.18, 0.5, 7.4, 0.5, 0xb9bec4, {});
+        for (var bb = 0; bb < 5; bb++) { var bx = L.x0 + w * 0.14 + bb * (w * 0.72) / 4; roofs.box(bx, 1.8, cz - dd * 0.2, 2.5, 3.2, 11, [0x2f6fd6, 0xd7262b, 0x2ea043, 0xf3c418, 0x1f4fa8][bb], {}); roofs.box(bx, 2.6, cz - dd * 0.2, 2.55, 1.0, 11.05, 0xdfe4ea, {}); }   // 정차한 고속버스
+        roofs.box(cx, 0.3, cz - dd * 0.42, w * 0.9, 0.25, dd * 0.12, 0xc9c5ba, {});
+        roofs.box(cx, 13.5, cz + dd * 0.22, w * 0.5, 2.2, 0.4, 0x1f4fa8, {});                                     // 옥상 간판 띠
+      } else if (L.kind === 'gu') {   // 서초구청: 8층 백색 청사 + 앞 광장·국기 게양대·「서초구청」 표지
+        roofs.box(cx, 14.2, cz + dd * 0.12, w * 0.62, 28, dd * 0.42, 0xe9ebee, {});
+        for (var fl = 1; fl < 8; fl++) glass.box(cx, 1.5 + fl * 3.5, cz + dd * 0.12, w * 0.62 + 0.2, 1.6, dd * 0.42 + 0.2, 0x3a5470, { sidesOnly: true });
+        roofs.box(cx, 28.6, cz + dd * 0.12, w * 0.66, 0.8, dd * 0.46, 0x9aa0a8, { noBottom: true });
+        roofs.box(cx, 2.4, cz - dd * 0.22, w * 0.5, 4.8, dd * 0.2, 0xe2e4e8, {});                                 // 민원실(저층)
+        roofs.box(cx, 0.3, cz - dd * 0.4, w * 0.8, 0.25, dd * 0.14, 0xc9c5ba, {});                                // 광장
+        for (var fp = -1; fp <= 1; fp++) { roofs.cylinder(cx + fp * 4, 0.3, cz - dd * 0.44, 0.12, 0.1, 10, 6, 0x8f959c); roofs.box(cx + fp * 4 + 0.7, 9.3, cz - dd * 0.44, 1.4, 0.9, 0.05, fp === 0 ? 0xffffff : 0x2f6fd6, {}); }   // 국기·구기
+        roofs.box(cx, 5.6, cz - dd * 0.22 - dd * 0.1 - 0.3, w * 0.36, 1.2, 0.3, 0x1f4fa8, {});                    // 정문 간판 띠
       } else if (L.kind === 'stadium') {
         var rs = Math.min(w, dd) * 0.42;
         roofs.cylinder(cx, 0.3, cz, rs, rs * 1.04, 14, 36, 0xd8d3ca, false);                                  // 관중석 외벽

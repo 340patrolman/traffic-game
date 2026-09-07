@@ -1,11 +1,11 @@
 // SEOUL PATROL 서비스워커: 앱 파일을 미리 저장해 두고(설치형·오프라인), 새 버전이 올라오면 다음 실행 때 바꿔 끼운다.
 // 네트워크 요청은 같은 폴더의 자기 파일뿐이다. 서버·외부 통신 없음.
-var CACHE = 'tg-v0.7.3';
+var CACHE = 'tg-v0.7.4';
 var FILES = [
-  './', './index.html', './manifest.json', './css/style.css?v=0.7.3', './data/laws.json', './lib/three.min.js?v=0.7.3',
-  './js/config.js?v=0.7.3', './js/rng.js?v=0.7.3', './js/save.js?v=0.7.3', './js/perf.js?v=0.7.3', './js/textures.js?v=0.7.3', './js/audio.js?v=0.7.3', './js/city.js?v=0.7.3', './js/world.js?v=0.7.3',
-  './js/terrain.js?v=0.7.3', './js/weather.js?v=0.7.3', './js/signals.js?v=0.7.3', './js/vehmesh.js?v=0.7.3', './js/vehicle.js?v=0.7.3', './js/traffic.js?v=0.7.3', './js/peds.js?v=0.7.3', './js/walker.js?v=0.7.3', './js/rail.js?v=0.7.3', './js/enforcement.js?v=0.7.3', './js/study.js?v=0.7.3',
-  './js/hud.js?v=0.7.3', './js/minimap.js?v=0.7.3', './js/input.js?v=0.7.3', './js/main.js?v=0.7.3', './icon-192.png', './icon-512.png'
+  './', './index.html', './manifest.json', './css/style.css?v=0.7.4', './data/laws.json', './lib/three.min.js?v=0.7.4',
+  './js/config.js?v=0.7.4', './js/rng.js?v=0.7.4', './js/save.js?v=0.7.4', './js/perf.js?v=0.7.4', './js/textures.js?v=0.7.4', './js/audio.js?v=0.7.4', './js/city.js?v=0.7.4', './js/world.js?v=0.7.4',
+  './js/terrain.js?v=0.7.4', './js/weather.js?v=0.7.4', './js/signals.js?v=0.7.4', './js/vehmesh.js?v=0.7.4', './js/vehicle.js?v=0.7.4', './js/traffic.js?v=0.7.4', './js/peds.js?v=0.7.4', './js/character.js?v=0.7.4', './js/walker.js?v=0.7.4', './js/qr.js?v=0.7.4', './promo.html?v=0.7.4', './js/promo.js?v=0.7.4', './js/rail.js?v=0.7.4', './js/enforcement.js?v=0.7.4', './js/study.js?v=0.7.4',
+  './js/hud.js?v=0.7.4', './js/minimap.js?v=0.7.4', './js/input.js?v=0.7.4', './js/main.js?v=0.7.4', './icon-192.png', './icon-512.png'
 ];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

@@ -332,7 +332,7 @@
     input.bindTap($('btnEnforce'), enforce);
     input.onKey('KeyF', enforce);
     // 손 들기(보행자·어린이 모드): ✋ 버튼 · G 키
-    function raiseHand() { if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요', 'good', 1200); TG.audio.ui(); } } }
+    function raiseHand() { if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요', 'good', 1200); TG.audio.ui(); kidSay('kidOk'); } } }
     input.bindTap($('btnHand'), raiseHand); input.onKey('KeyG', raiseHand);
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
@@ -379,7 +379,7 @@
   // 「단속」: 선택 대상이 없으면 앞쪽 45m 안의 위반 의심 차량·보행자를 자동으로 고른다
   function enforce() {
     if (G.state !== 'play' || G.paused || !enforcement) return;
-    if (G.mode === 'kid') { walker.raiseHand(4); hud.notice('✋ 손을 들었어요', 'good', 1200); return; }
+    if (G.mode === 'kid') { walker.raiseHand(4); hud.notice('✋ 손을 들었어요', 'good', 1200); kidSay('kidOk'); return; }
     if (onFoot()) {   // 도보: 선택한(또는 45m 안에서 목격한) 위반 차량 → 퀴즈 → 수신호 정차. 없으면 가까운 무단횡단 보행자 계도(+8)
       var selW = G.selected && G.selected.kind === 'car' ? G.selected : null;
       if (!selW) { var pfW = walker.forward(), bdW = 45; traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - walker.pos.x, dz = c.pos.z - walker.pos.z, d = Math.hypot(dx, dz); if (d < bdW && dx * pfW[0] + dz * pfW[1] > -2 && (c.mode === 'drive' || c.mode === 'release')) { bdW = d; selW = { kind: 'car', car: c }; } }); }
@@ -446,6 +446,7 @@
     document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid');
     hud.notice(G.mode === 'kid' ? '어린이 보행 교실 — 횡단보도 앞에서 멈추고 ✋ 손을 들고, 초록불에 건너요. 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 순환고속도로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
+    if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
   var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', walk: '보행자 체험', kid: '어린이 보행 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
   // ---------- 보행자 모드 ----------
@@ -481,7 +482,25 @@
     walker.setMarker(dests[0]);
   }
   // 어린이 교실: 쉬운 말로 음성 안내(앰프와 같은 speechSynthesis, 없으면 차임). 너무 자주 말하지 않는다
-  function kidVoice(text, force) { if (!walk) return; if (!force && walk.voiceCd > 0) return; walk.voiceCd = 3.5; TG.audio.resume(); TG.audio.pa(text); }
+  // 목소리: 어린이 교실의 안내는 따뜻한 선생님(경찰관) 목소리, 아이의 대답은 높은 목소리. 같은 뜻의 말을 여러 개 두고 돌려 쓴다(같은 말 반복 방지).
+  var LINES = {
+    stop: ['횡단보도예요. 먼저 멈춰요', '잠깐, 여기서 멈추자', '횡단보도 앞에서는 딱 멈추는 거예요'],
+    hand: ['손을 번쩍 들어요', '자, 손을 높이 들어 볼까요?', '운전자가 잘 보이게 손을 들어요'],
+    wait: ['빨간불. 초록불이 될 때까지 기다려요', '아직 빨간불이에요. 조금만 기다리자', '빨간불엔 기다리는 거예요'],
+    go: ['초록불! 좌우를 보고 건너요', '초록불이에요. 왼쪽, 오른쪽 보고 건너요', '지금 건너요. 뛰지 말고 걸어요'],
+    red: ['빨간불이에요! 멈춰요. 초록불을 기다려요', '앗, 빨간불! 여기서 멈추자'],
+    green: ['초록불! 손을 들고 좌우를 보면서 건너요', '초록불이에요. 손 들고, 살피고, 건너요'],
+    road: ['차도는 위험해요! 횡단보도로 가요', '거긴 차가 다니는 길이에요. 횡단보도로 돌아가요'],
+    good3: ['참 잘했어요! 별 세 개', '완벽해요! 멈추고, 손 들고, 초록불에 건넜어요'],
+    good2: ['잘했어요! 다음엔 한 가지만 더 챙겨요'],
+    good1: ['건넜어요. 다음엔 멈추고 손을 들어요'],
+    kidOk: ['네!', '알겠어요!', '손 들었어요!', '초록불이다!'],
+  };
+  var lastLine = {};
+  function pickLine(key) { var arr = LINES[key] || [key], i = Math.floor(Math.random() * arr.length); if (arr.length > 1 && i === lastLine[key]) i = (i + 1) % arr.length; lastLine[key] = i; return arr[i]; }
+  function kidVoice(text, force) { if (!walk) return; if (!force && walk.voiceCd > 0) return; walk.voiceCd = 3.5; TG.audio.resume(); TG.audio.say(pickLine(text), { kind: 'narrator', queue: !force }); }
+  function kidSay(key) { if (!walk || !walker || !walker.kid) return; TG.audio.say(pickLine(key), { kind: 'kid', queue: true }); }
+  function officerSay(text) { TG.audio.resume(); TG.audio.say(text, { kind: 'officer', queue: true }); }
   // 어린이 교실 단계 표시: 0 멈춰요 · 1 손 들어요 · 2 초록불 기다려요 · 3 건너요 · -1 보도로 걸어요
   function kidStep(i) {
     if (walk.step === i) return; walk.step = i;
@@ -508,7 +527,7 @@
     if (p.where === 'crosswalk') {
       if (!walk.cross || walk.cross.node !== p.node || walk.cross.d !== p.d) {
         walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 0.8, hand: walker.hand > 0 };
-        if (kid) { if (!p.walk) { kidVoice('빨간불이에요! 멈춰요. 초록불을 기다려요', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); } else kidVoice('초록불! 손을 들고 좌우를 보면서 건너요', true); }
+        if (kid) { if (!p.walk) { kidVoice('red', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); } else kidVoice('green', true); }
         else if (!p.walk) penalize('walkRed', '신호위반 보행 — 적색 보행 신호에 횡단보도 진입', '보행 신호(녹색 걷는 사람)를 기다린다 · ' + lawLine('jaywalk-red', '도로교통법 제5조'));
         else hud.hint('보행 신호 — 좌우를 살피고 횡단보도 안으로 건넌다 (남은 ' + Math.ceil(p.remain) + '초)');
       }
@@ -517,7 +536,7 @@
       if (kid) kidStep(3);
       if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
     } else if (p.where === 'road' || p.where === 'box') {
-      if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('차도는 위험해요! 횡단보도로 가요', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
+      if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('road', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
       sec = '⚠ 차도 위 — 횡단보도로'; walk.stopT = 0; if (kid) kidStep(-1);
     } else {
       walk.jay = false;
@@ -527,7 +546,7 @@
           if (kid) {
             var st = 1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.hand ? 1 : 0); walk.stars += st; walk.crossings++; addScore(st * 10, null);
             hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춤 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 손 ' + (walk.cross.hand ? '✓' : '✗') + ' · 초록불 ✓) 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
-            kidVoice(st === 3 ? '참 잘했어요! 별 세 개' : st === 2 ? '잘했어요! 다음엔 ' + (walk.cross.stopped ? '손도 들어요' : '먼저 멈춰요') : '건넜어요. 다음엔 멈추고 손을 들어요', true);
+            kidVoice(st === 3 ? 'good3' : st === 2 ? 'good2' : 'good1', true);
           } else { addScore(C.SCORE.safeCross, null); walk.crossings++; hud.notice('안전 횡단 (+' + C.SCORE.safeCross + ')', 'good', 2000); TG.audio.good(); }
         }
         walk.cross = null;
@@ -546,9 +565,9 @@
         var nearX = best !== null && bd < 4.5;
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
         if (!nearX) kidStep(-1);
-        else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('횡단보도예요. 먼저 멈춰요'); }
-        else if (walker.hand <= 0) { kidStep(1); if (walk.voiceCd <= 0) kidVoice('손을 번쩍 들어요'); }
-        else { var wk = signals.pedWalk(node, city.roadOf(node, best).axis); kidStep(wk ? 3 : 2); if (walk.voiceCd <= 0) kidVoice(wk ? '초록불! 좌우를 보고 건너요' : '빨간불. 초록불이 될 때까지 기다려요'); }
+        else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
+        else if (walker.hand <= 0) { kidStep(1); if (walk.voiceCd <= 0) kidVoice('hand'); }
+        else { var wk = signals.pedWalk(node, city.roadOf(node, best).axis); kidStep(wk ? 3 : 2); if (walk.voiceCd <= 0) kidVoice(wk ? 'go' : 'wait'); if (wk && walk.step !== 3) kidSay('kidOk'); }
       }
     }
     var secEl = document.getElementById('section'); if (secEl) { secEl.className = 'section walk ' + (sec.charAt(0) === '🟢' ? 'go' : sec.charAt(0) === '🔴' || sec.charAt(0) === '⚠' ? 'stop' : ''); }
@@ -603,6 +622,12 @@
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
     if (walker.jumped) { walker.jumped = false; camInit = false; walk.camYaw = walker.heading; G.lookYaw = 0; }   // 순간이동 뒤에는 카메라·이동 기준을 바로 맞춘다
     var camYaw = walk.camYaw !== undefined ? walk.camYaw : walker.heading;
+    // 몸짓·시선: 수신호 정차 중엔 왼팔을 들어 「정지」, 풀어 줄 땐 「가세요」 손짓. 어린이는 횡단보도에서 좌우를 살핀다. 시선은 선택 대상이나 정차 대상 쪽
+    var es = enforcement.state;
+    walker.gesture = (es === 'yielding' || es === 'stopped') ? 'stop' : es === 'release' ? 'go' : null;
+    var lookAt = enforcement.target || (G.selected && G.selected.kind === 'car' ? G.selected.car : null);
+    walker.look = lookAt ? TG.wrapAngle(Math.atan2(lookAt.pos.x - walker.pos.x, lookAt.pos.z - walker.pos.z) - walker.heading) * 0.9 : 0;
+    walker.lookScan = !!(walk && walker.kid && (walk.step === 2 || walk.step === 3));
     walker.update(dt, mv, camYaw);
     weather.update(dt, camera.position);
     signals.update(dt); if (rail) rail.update(dt);

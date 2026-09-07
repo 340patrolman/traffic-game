@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>서울경찰 교통안전 교실 — 횡단보도 안전하게 건너기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="교통경찰관과 어린이가 함께 보여 주는 횡단보도 5원칙. SEOUL PATROL 게임에서 떼어낸 홍보용 3D 장면(빌드 0 · 서버 0 · 에셋 0).">
+<meta name="theme-color" content="#0f1420">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--fg:#eef2f6;--dim:#a9b4c0;--accent:#ffcf3f;--blue:#4d8dff;--bg:rgba(10,14,22,.62);--sa-b:env(safe-area-inset-bottom,0px);--sa-t:env(safe-area-inset-top,0px)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0f1420;color:var(--fg);font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none}
+canvas#game{display:block;width:100%;height:100%}
+#ui{position:fixed;inset:0;pointer-events:none}
+.badge{position:fixed;top:calc(14px + var(--sa-t));left:50%;transform:translateX(-50%);font-size:12px;letter-spacing:3px;color:#cfe0ff;border:1px solid rgba(77,141,255,.6);padding:5px 14px;border-radius:14px;background:var(--bg);white-space:nowrap}
+#step{position:fixed;top:calc(52px + var(--sa-t));left:50%;transform:translateX(-50%);font-size:clamp(18px,3.6vw,30px);font-weight:900;color:var(--accent);text-shadow:0 2px 10px rgba(0,0,0,.7);white-space:nowrap;transition:opacity .4s}
+#sub{position:fixed;bottom:calc(84px + var(--sa-b));left:50%;transform:translateX(-50%);max-width:92vw;font-size:clamp(16px,2.8vw,26px);font-weight:700;line-height:1.35;text-align:center;background:rgba(10,14,22,.7);padding:10px 20px;border-radius:14px;border:1px solid rgba(255,255,255,.14);transition:opacity .4s}
+#bar{position:fixed;bottom:calc(16px + var(--sa-b));left:50%;transform:translateX(-50%);display:flex;gap:10px;pointer-events:auto}
+#bar button,#bar a{font-family:inherit;font-size:14px;font-weight:700;color:var(--fg);background:var(--bg);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:9px 16px;cursor:pointer;text-decoration:none}
+#bar a.game{background:rgba(77,141,255,.35);border-color:var(--blue)}
+#card{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(8,12,20,.78);pointer-events:auto}
+#card .in{text-align:center;max-width:min(92vw,560px);padding:26px 22px;border-radius:18px;background:rgba(15,20,32,.92);border:1px solid rgba(255,255,255,.14)}
+#card h1{font-size:clamp(28px,7vw,54px);font-weight:900;letter-spacing:2px;background:linear-gradient(180deg,#fff,#cfe0ff 50%,#4d8dff);-webkit-background-clip:text;background-clip:text;color:transparent}
+#card .s{color:var(--dim);margin:6px 0 14px;font-size:14px}
+#card canvas{width:180px;height:180px;border-radius:10px;background:#fff;image-rendering:pixelated}
+#card .u{font-size:12px;color:var(--dim);margin-top:8px;word-break:break-all}
+#card .five{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+#card .five span{font-size:13px;padding:5px 10px;border-radius:12px;background:rgba(255,207,63,.15);border:1px solid rgba(255,207,63,.5)}
+#tap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,12,20,.6);pointer-events:auto;cursor:pointer}
+#tap div{font-size:clamp(18px,4vw,28px);font-weight:900;background:var(--bg);padding:18px 28px;border-radius:18px;border:1px solid rgba(255,255,255,.2)}
+.foot{position:fixed;right:10px;bottom:calc(6px + var(--sa-b));font-size:10px;color:var(--dim)}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div class="badge">SEOUL POLICE · 교통안전 교실</div>
+  <div id="step"></div>
+  <div id="sub"></div>
+  <div id="bar"><button id="btnPlay">❚❚ 일시정지</button><button id="btnMute">🔊 소리</button><button id="btnFull">⛶ 전체화면</button><a class="game" href="./" target="_blank" rel="noopener">🚓 게임 열기</a></div>
+  <div class="foot">빌드 0 · 서버 0 · 에셋 0 · 코드로 만든 장면</div>
+</div>
+<div id="card"><div class="in">
+  <h1>SEOUL PATROL</h1>
+  <div class="s">게임으로 배우는 교통안전 · 서울 강남·서초 3D 순찰</div>
+  <div class="five"><span>🛑 멈춰요</span><span>👀 살펴요</span><span>✋ 손 들어요</span><span>🟢 초록불에</span><span>🚶 걸어서 건너요</span></div>
+  <canvas id="qr"></canvas>
+  <div class="u">340patrolman.github.io/traffic-game</div>
+</div></div>
+<div id="tap"><div>▶ 터치하면 시작합니다</div></div>
+<script src="lib/three.min.js?v=0.7.4"></script>
+<script src="js/config.js?v=0.7.4"></script>
+<script src="js/rng.js?v=0.7.4"></script>
+<script src="js/save.js?v=0.7.4"></script>
+<script src="js/perf.js?v=0.7.4"></script>
+<script src="js/textures.js?v=0.7.4"></script>
+<script src="js/audio.js?v=0.7.4"></script>
+<script src="js/city.js?v=0.7.4"></script>
+<script src="js/world.js?v=0.7.4"></script>
+<script src="js/terrain.js?v=0.7.4"></script>
+<script src="js/weather.js?v=0.7.4"></script>
+<script src="js/signals.js?v=0.7.4"></script>
+<script src="js/vehmesh.js?v=0.7.4"></script>
+<script src="js/vehicle.js?v=0.7.4"></script>
+<script src="js/traffic.js?v=0.7.4"></script>
+<script src="js/peds.js?v=0.7.4"></script>
+<script src="js/character.js?v=0.7.4"></script>
+<script src="js/qr.js?v=0.7.4"></script>
+<script src="js/promo.js?v=0.7.4"></script>
+</body>
+</html>

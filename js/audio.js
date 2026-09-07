@@ -16,14 +16,39 @@ TG.audio = (function () {
     ambient = { g: g2 };
   }
   // 앰프(차량 확성기) 안내: 브라우저 내장 음성(오프라인, 파일 없음). 음성이 없으면 차임만.
+  // 음성(speechSynthesis, 오프라인): 한국어 목소리를 고르고 화자별 높낮이·속도. officer(경찰관) · kid(어린이) · pa(확성기)
+  var VOICE = { officer: { pitch: 0.88, rate: 0.98 }, kid: { pitch: 1.45, rate: 1.04 }, pa: { pitch: 0.9, rate: 1.0 }, narrator: { pitch: 1.0, rate: 0.95 } };
+  var koVoice = null, lastSaid = '';
+  function pickVoice() {
+    try {
+      if (!window.speechSynthesis) return null;
+      var vs = window.speechSynthesis.getVoices(), best = null, score = -1;
+      for (var i = 0; i < vs.length; i++) {
+        var v = vs[i], lang = (v.lang || '').toLowerCase(); if (lang.indexOf('ko') !== 0) continue;
+        var s = 1 + (/google|neural|natural|premium|heami|sunhi|injoon|yuna/i.test(v.name) ? 2 : 0) + (v.localService ? 0.5 : 0);
+        if (s > score) { score = s; best = v; }
+      }
+      return best;
+    } catch (e) { return null; }
+  }
+  if (window.speechSynthesis) { try { window.speechSynthesis.onvoiceschanged = function () { koVoice = pickVoice(); }; koVoice = pickVoice(); } catch (e) {} }
+  function say(text, opts) {
+    opts = opts || {};
+    try {
+      if (!window.speechSynthesis || !text) return false;
+      var kind = VOICE[opts.kind] || VOICE.officer, u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR'; u.rate = opts.rate || kind.rate; u.pitch = opts.pitch || kind.pitch; u.volume = muted ? 0 : (opts.volume || 1);
+      if (!koVoice) koVoice = pickVoice(); if (koVoice) u.voice = koVoice;
+      if (!opts.queue) window.speechSynthesis.cancel();
+      else if (text === lastSaid && window.speechSynthesis.speaking) return false;   // 같은 말이 겹쳐 쌓이지 않게
+      lastSaid = text; window.speechSynthesis.speak(u);
+      return true;
+    } catch (e) { return false; }   /* 음성 미지원 브라우저 */
+  }
   function pa(text) {
     if (!ready) return;
     blip(880, 0.12, 'square', 0.15); setTimeout(function () { blip(1174, 0.16, 'square', 0.15); }, 150);
-    try {
-      if (!window.speechSynthesis) return;
-      var u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 0.9; u.volume = muted ? 0 : 1;
-      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
-    } catch (e) { /* 음성 미지원 브라우저 */ }
+    say(text, { kind: 'pa' });
   }
 
   function ensure() {
@@ -238,6 +263,6 @@ TG.audio = (function () {
   }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, bell: bell, good: good, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, get running() { return ready && ctx.state === 'running'; },
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, bell: bell, say: say, good: good, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

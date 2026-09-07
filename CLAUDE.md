@@ -85,3 +85,12 @@
 * 모드 `kid`(🧒 어린이 보행 교실): `TG.Walker(..., {kid:true})` 작은 몸·노란 모자·책가방, 학교 블록 모퉁이 4곳(학교 정문→놀이터→문방구→우리 집). 감점 없음, 횡단마다 별(초록불 1 + 멈춤 0.8초 1 + ✋ 손 들기 1). `kidStep()` 단계 칩(`#kidSteps`), `kidVoice()` 쉬운 말 음성, `#btnHand`(G 키) 손 들기, `walker.raiseHand`.
 * 도보 단속: walk 모드에서 위반 차량 터치/단속 버튼 → 퀴즈 → 정답이면 `enforcement` 가 수신호 정차(`onFoot()`: 경광등 조건 없음, 운전석 옆 3.6m 안에 서면 고지 완료). enforcement 는 `game.actor()` 로 걷는 경찰관을 본다.
 * 타이틀 정리: 부제 「서울교통 순찰근무」, 모드 6개만 보이고 차량·시점·날씨·조작은 `<details class="more">` 안. 설정 v3: 차량 `random`(`carSpec()`), 날씨 `auto` 기본. laws.json 에 overtake·railroad·license·drunk·sidewalk·passenger·cargo(모두 verified:false), study12 7개에 scene 연결.
+
+## v0.7.4 추가(2026-09-07 밤) — 캐릭터 리그 · 홍보 페이지
+
+* `js/character.js` `TG.Character.build('officer'|'kid'|'civilian', opts)` → 관절 리그(목·어깨·팔꿈치·엉덩이·무릎 9관절, 얼굴·정모/모자·조끼·「POLICE」 라벨·장갑·신발·책가방). `animate(rig, {speed, moving, hand, gesture:'stop'|'go'|'wave', look, lookScan}, dt)` 가 걷기(무릎·팔꿈치·몸통 흔들림·숨쉬기)·손 들기·수신호·시선·두리번을 만든다.
+  `TG.Character.lite(opts)` 는 행인용(메시 5개, 얼굴·치마·가방·모자) — `peds.js` 가 쓴다(limbs 4개 API 유지, 발 높이 0.02). GeoBuilder 에 `sphere()` 추가.
+* `walker.js` 는 리그를 쓴다(`walker.rig`, `gesture`, `look`, `lookScan`). main `walkUpdate` 가 수신호(정차 유도 중 stop, 풀 때 go)와 시선(대상 차량)을 넣는다.
+* 음성: `TG.audio.say(text, {kind:'officer'|'kid'|'pa'|'narrator', queue})` — 한국어 목소리 자동 선택(Google/Neural 우선), 화자별 높낮이. `pa()` 는 say 를 쓴다. main `LINES`/`pickLine` 으로 같은 뜻의 말을 돌려 쓴다(kidVoice 키: stop/hand/wait/go/red/green/road/good1~3, kidSay 'kidOk').
+* 홍보 페이지 `promo.html` + `js/promo.js`: 게임 본체 없이(main.js·hud·input 미포함) 같은 도시에서 경찰관·어린이가 「횡단보도 5원칙」을 50초 루프로 시연(자막·음성·차량 정지·마지막 QR 카드). `?test=1` 로 헤드리스 검증. `js/qr.js` `TG.qr.encode/draw`(티북 QR 과 같은 인코더).
+* 랜드마크 추가: `'0,1': 'terminal'`(고속버스터미널) · `'0,2': 'gu'`(서초구청) — world.js 에 그리기.
