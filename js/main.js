@@ -21,7 +21,7 @@
   var lastT = 0, penaltyTotal = 0, penaltyCount = {};
   var isStress = /[?&]stress=1/.test(location.search), isTest = /[?&]test=1/.test(location.search), noIntro = /[?&]nointro=1/.test(location.search), noRender = /[?&]norender=1/.test(location.search);
   var intro = { t: 0, lines: [], idx: -1, done: false };
-  var FALLBACK_PURPOSE = '도로에서 일어나는 교통상의 위험과 장해를 방지하고 제거하여 안전하고 원활한 교통을 확보한다';
+  var FALLBACK_PURPOSE = '도로에서 일어나는 교통상의 위험과 장애를 방지하고 제거하여 안전하고 원활한 교통을 확보한다';
 
   function log(m) { console.log('[TG] ' + m); }
 
@@ -153,13 +153,13 @@
     var purpose = (G.laws && G.laws.act && G.laws.act.purpose) ? G.laws.act.purpose : FALLBACK_PURPOSE;
     var cite = (G.laws && G.laws.act) ? (G.laws.act.name + ' ' + G.laws.act.purposeArticle + '(목적)') : '도로교통법 제1조(목적) · 확인 중';
     intro.lines = [
-      { at: 0.6, text: '도로에서 일어나는 위험과 장해를 막고, 없애고,' },
+      { at: 0.6, text: '도로에서 일어나는 위험과 장애를 막고, 없애고,' },
       { at: 2.6, text: '안전하고 원활한 교통을 확보한다.' },
       { at: 4.4, text: cite + ' — ' + purpose, small: true },
       { at: 6.6, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
       { at: 8.4, text: '교통경찰.' },
       { at: 10.4, text: 'SEOUL PATROL', big: true },
-      { at: 11.4, text: '서울 강남 · 서초 · 순환고속도로 순찰 근무', small: true },
+      { at: 11.4, text: '서울교통 순찰근무 · 강남 · 서초 · 순환고속도로', small: true },
     ];
     hud.introLines(intro.lines, -1);
     hud.showIntro(true);
@@ -297,7 +297,7 @@
     var optDr = $('optDrive');
     function applyDrive(m) { settings.drive = m === 'sport' ? 'sport' : 'normal'; TG.save.set('settings', settings); if (optDr) optDr.value = settings.drive; var dm = $('driveMode'); if (dm) { dm.textContent = settings.drive === 'sport' ? 'S' : 'N'; dm.classList.toggle('sport', settings.drive === 'sport'); } }
     if (optDr) optDr.addEventListener('change', function () { applyDrive(optDr.value); });
-    input.onKey('KeyN', function () { applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노말 모드', 'info', 1500); });
+    input.onKey('KeyN', function () { applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노멀 모드', 'info', 1500); });
     applyDrive(settings.drive || 'normal');
     // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
     // 화면의 차량·보행자를 터치하면 선택(빨간 고리 + 이름표). 「단속」(E) 을 누르면 차량은 정차 유도, 보행자는 계도·통고 화면.
