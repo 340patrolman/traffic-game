@@ -239,15 +239,15 @@
     function paTarget() {
       var best = null, bd = 1e9, pf = player.forward();
       peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 45 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
-      traffic.cars.forEach(function (c) { if (!c.violation && !c.trait) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 60 && dx * pf[0] + dz * pf[1] > -3 && d < bd) { bd = d; best = { kind: c.isMoto ? 'moto' : c.isBike ? 'bike' : 'car', car: c }; } });
+      traffic.cars.forEach(function (c) { if (!c.violation && !c.trait) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 60 && dx * pf[0] + dz * pf[1] > -3 && d < bd) { bd = d; best = { kind: 'car', sub: c.isMoto ? 'moto' : c.isBike ? 'bike' : 'car', car: c }; } });
       return best;
     }
     function pa() {
       if (G.state !== 'play') return; TG.audio.resume();
       var tgt = paTarget(), line;
       if (tgt && tgt.kind === 'ped') line = tgt.ped.jayKind === 'red' ? '보행자, 정지하세요. 보행 신호를 기다리세요' : '보행자, 정지하세요. 횡단보도로 건너세요';
-      else if (tgt && tgt.kind === 'bike') line = '자전거, 정지하세요. 내려서 끌고 가세요';
-      else if (tgt && tgt.kind === 'moto') line = '이륜차, 정지하세요. 우측 가장자리에 정차하십시오';
+      else if (tgt && tgt.sub === 'bike') line = '자전거, 정지하세요. 내려서 끌고 가세요';
+      else if (tgt && tgt.sub === 'moto') line = '이륜차, 정지하세요. 우측 가장자리에 정차하십시오';
       else if (tgt && tgt.kind === 'car') line = (tgt.car.isBus ? '앞 버스' : tgt.car.type === 'truck' ? '앞 화물차' : '앞 차량') + ', 우측 가장자리에 정차하십시오';
       else { line = PA_LINES[paIdx % PA_LINES.length]; paIdx++; }
       TG.audio.pa(line); hud.notice('📢 ' + line, 'info', 2400);
@@ -324,8 +324,8 @@
   function selName(sel) {
     if (!sel) return null;
     if (sel.kind === 'car') {
-      var c = sel.car, tn = { sedan: '승용차', hatch: '승용차', suv: 'SUV', van: '승합차', truck: '화물차', bus: '버스' }[c.type] || '차량';
-      var v = c.violation ? ({ signal: '신호위반 의심', pedestrian: '보행자 보호 위반 의심', buslane: '버스전용차로 위반 의심' }[c.violation.type] || '위반 의심') : '위반 없음(목격 안 됨)';
+      var c = sel.car, tn = { sedan: '승용차', hatch: '승용차', suv: 'SUV', van: '승합차', truck: '화물차', bus: '버스', moto: '이륜차', bike: '자전거' }[c.type] || '차량';
+      var vn = c.violation && enforcement && enforcement.nameOf ? enforcement.nameOf(c.violation.type) : null; var v = c.violation ? ((vn || { signal: '신호위반', pedestrian: '보행자 보호 위반', buslane: '버스전용차로 위반' }[c.violation.type] || '위반') + ' 의심') : '위반 없음(목격 안 됨)';
       return tn + ' · ' + v;
     }
     var p = sel.ped, recent = p.jayLive || (p.jayDone && p.jayT < 12);

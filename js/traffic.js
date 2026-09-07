@@ -9,12 +9,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   this.time = 0;
   this.stats = { violations: 0, witnessed: 0 };
 
-  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'bus'];
+  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'bus', 'moto', 'moto', 'bike'];
   var HW_TYPES = ['sedan', 'sedan', 'sedan', 'suv', 'suv', 'hatch', 'van', 'truck', 'truck', 'bus', 'bus'];
   var COLORS = { sedan: [0xc94d43, 0x3e6bb0, 0x9aa3ad, 0x2f3438, 0xe6e2d8, 0x6b8f5a, 0xb08a3e, 0x7d5a96],
                  hatch: [0xd77a3a, 0x5c8bd6, 0xbfb8aa, 0x7d5a96, 0xd9d34f, 0x2f3438],
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
-                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8] };
+                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f] };
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
@@ -59,7 +59,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car && car.straight && city.nodeFrom(N, d)) return 'S';
     if (car && car.wantsExit && exit) return 'X';
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
-    if (exit && !car.isBus) opts.push(['X', 0.5]);
+    if (exit && !car.isBus && !car.isMoto && !car.isBike) opts.push(['X', 0.5]);   // 이륜차·자전거는 고속도로로 나가지 않는다
     if (city.nodeFrom(N, (d + 3) % 4) && (!car || car.laneIdx === 1 || city.lanesOf(city.roadOf(N, d).axis, city.roadOf(N, d).idx) === 1)) opts.push(['R', 0.28]);  // 4차로에서는 바깥 차로만 우회전
     if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', opts.length ? 0.0 : 1]);
     if (!opts.length) {   // 모퉁이(직진 불가)에서 안쪽 차로 차량: 우회전·좌회전 허용(차로 바꿔 돈다)
@@ -140,6 +140,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
+    // 이륜차·자전거: 바깥 차로, 자전거는 느리게. 일부는 보도로 올라가 달린다(edgeRider → 이륜차 '보도 통행', 자전거 '보도 주행' 위반 소재)
+    car.isMoto = type === 'moto'; car.isBike = type === 'bike';
+    if (car.isMoto || car.isBike) { car.laneIdx = 1; car.trait = null; car.noSignalViolator = false; car.edgeRider = rng() < (car.isBike ? 0.45 : 0.3); car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5; if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; } else if (car.violator) car.pedViolator = false; }
     var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false), bodyMat); mesh.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
     var bl = new THREE.Mesh(new THREE.BoxGeometry(T.w * 0.8, 0.14, 0.06), brakeMat); bl.position.set(0, T.pts[1][1] * 0.82 + 0.08, -T.l / 2 - 0.03); bl.visible = false; g.add(bl); car.brakeLamp = bl;
@@ -166,7 +169,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var L, i, dirA;
         if (opts.atLink) { L = opts.atLink.link; i = opts.atLink.i; dirA = opts.atLink.dirA; }
         else { L = TG.pick(rng, [T.ring, T.ring, T.ring, T.ring, TG.pick(rng, T.conns), TG.pick(rng, T.conns)]); i = Math.floor(rng() * L.N); dirA = L.oneWay ? true : rng() < 0.5; if (!L.closed && (i < 12 || i > L.N - 14)) continue; }
-        var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES);
+        var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES); if (type === 'bike' && !opts.type) type = 'sedan';   // 교외 링크엔 자전거 없음
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         if (L.kind === 'highway') lane = (opts.lane !== undefined) ? opts.lane : (isBus ? 0 : (rng() < cfg.BUSLANE_VIOLATOR_RATE && type !== 'truck' ? 0 : 1 + Math.floor(rng() * 2)));
         var offs = T.laneOffsets(p), off = offs[Math.min(lane, offs.length - 1)], x = p.x + p.rx * off * sgn, z = p.z + p.rz * off * sgn;
@@ -303,6 +306,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (distStop < 32) { self.stats.violations++; flag(car, 'solidline', ap.node, self.witness(car)); }   // 정지선 앞 실선 구간
       }
     }
+    if (car.edgeRider && !onLink && car.mode === 'drive') { car.edgeT += dt; if (car.edgeT > 6 && self.witness(car) && (!car.violation || (car.violation.type !== 'motorcycle' && car.violation.type !== 'bicycle'))) { self.stats.violations++; flag(car, car.isMoto ? 'motorcycle' : 'bicycle', null, true); car.edgeT = -30; } }
     if (car.trait === 'phone' || car.trait === 'animal') { car.traitT += dt; if (car.traitT > 8 && self.witness(car) && (!car.violation || car.violation.type !== car.trait)) { self.stats.violations++; flag(car, car.trait, null, true); car.traitT = -25; } }
     if (car.trait === 'litter' && car.mode === 'drive') {
       car.litterT -= dt;
@@ -328,7 +332,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       for (var mi = 0; mi < cars.length; mi++) { var o2 = cars[mi]; if (o2 === car) continue; var ddx = o2.pos.x - car.pos.x, ddz = o2.pos.z - car.pos.z; if (ddx * ddx + ddz * ddz < 14 * 14 && (ddx * fx + ddz * fz) < 0 && Math.abs(ddx * rx + ddz * rz) < 5) target = Math.min(target, 4); }
     }
     // 정차 유도: 갓길로 옮기고, 교차로·횡단보도 밖에서 선다
-    var extraT = car.mode === 'drive' ? (car.lcShift || 0) : 0;   // 차로 변경: 경로점 대비 옆 이동
+    var extraT = car.mode === 'drive' ? (car.lcShift || 0) + (car.edgeRider ? car.edgeOff : 0) : 0;   // 차로 변경·보도 주행(이륜차·자전거 위반): 경로점 대비 옆 이동
     if (car.mode === 'yield' || car.mode === 'stopped') {
       var frame = city.frameAt(car.pos.x, car.pos.z, car.heading);
       var shoulder = onLink ? self.terrain.shoulderOf(cur.lp) : frame.shoulder;

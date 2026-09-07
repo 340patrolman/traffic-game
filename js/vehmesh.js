@@ -249,10 +249,44 @@ TG.vehmesh = (function () {
     gb.quad(P(-hl, -ht, 1), P(hl, -ht, 1), P(hl, -ht, -1), P(-hl, -ht, -1), [0, s, -c], color, null);
   }
 
+  // 이륜차(오토바이)·자전거: 바퀴 2개 + 프레임 + 탑승자(헬멧·상체·팔·다리). 로프트를 쓰지 않는다. 원점 = 바닥 중심, +z 앞, +x 왼쪽.
+  TYPES.moto = { w: 0.78, l: 2.15, belt: 0.85, wheelR: 0.31, two: 'moto', pts: [[0.5, 0.3], [-0.5, 0.3]] };
+  TYPES.bike = { w: 0.55, l: 1.80, belt: 0.95, wheelR: 0.34, two: 'bike', pts: [[0.5, 0.3], [-0.5, 0.3]] };
+  function twoWheeler(gb, T, color) {
+    var moto = T.two === 'moto', l = T.l, r = T.wheelR, FR = moto ? color : 0x2f8f5a, SKIN = 0xe0b596, JEANS = 0x2b3a55, TOP = moto ? 0x1f2429 : (color || 0xc94d43), HELMET = moto ? 0xf2f2f2 : 0xf3c418;
+    gb.wheel(0, r, l * 0.36, r, moto ? 0.14 : 0.05, 14, DARK); gb.wheel(0, r, -l * 0.36, r, moto ? 0.16 : 0.05, 14, DARK);
+    gb.wheel(0, r, l * 0.36, r * 0.55, moto ? 0.10 : 0.03, 8, RIM); gb.wheel(0, r, -l * 0.36, r * 0.55, moto ? 0.12 : 0.03, 8, RIM);
+    if (moto) {
+      gb.box(0, r + 0.25, 0.05, 0.42, 0.34, 1.0, FR, {});                       // 탱크·엔진부
+      gb.box(0, r + 0.42, -0.35, 0.36, 0.10, 0.62, 0x15171a, {});               // 시트
+      gb.box(0, r + 0.32, l * 0.30, 0.34, 0.30, 0.34, FR, {});                  // 앞 카울
+      gb.box(0, r + 0.44, l * 0.36, 0.14, 0.10, 0.06, LIGHT, { sidesOnly: true });   // 전조등
+      gb.box(0, r + 0.30, -l * 0.40, 0.14, 0.06, 0.05, TAIL, { sidesOnly: true });   // 후미등
+      gb.box(0, r + 0.55, l * 0.22, 0.66, 0.03, 0.03, 0x2a2e33, {});            // 핸들바
+      gb.box(0, r + 0.02, -l * 0.44, 0.30, 0.10, 0.04, PLATE, { sidesOnly: true }); // 번호판
+      for (var s = -1; s <= 1; s += 2) gb.box(s * 0.18, r + 0.05, l * 0.02, 0.06, 0.18, 0.5, 0x2a2e33, {});   // 머플러·프레임
+    } else {
+      gb.box(0, r + 0.18, 0.0, 0.05, 0.05, l * 0.62, FR, {});                     // 아래 프레임
+      gb.box(0, r + 0.55, -0.02, 0.05, 0.05, l * 0.46, FR, {});                   // 위 프레임
+      gb.box(0, r + 0.36, -l * 0.32, 0.05, 0.36, 0.05, FR, {}); gb.box(0, r + 0.36, l * 0.28, 0.05, 0.36, 0.05, FR, {});   // 시트 기둥·헤드튜브
+      gb.box(0, r + 0.62, -l * 0.30, 0.20, 0.05, 0.24, 0x15171a, {});            // 안장
+      gb.box(0, r + 0.62, l * 0.30, 0.50, 0.03, 0.03, 0x2a2e33, {});             // 핸들
+      gb.box(0, r + 0.02, l * 0.0, 0.28, 0.02, 0.02, 0x2a2e33, {});              // 페달 축
+    }
+    // 탑승자: 다리·몸통·팔·머리·헬멧
+    var seatY = r + (moto ? 0.47 : 0.65), seatZ = moto ? -0.2 : -l * 0.24;
+    for (var q = -1; q <= 1; q += 2) { gb.box(q * (moto ? 0.2 : 0.14), seatY - 0.16, seatZ + 0.10, 0.12, 0.32, 0.14, JEANS, {}); gb.box(q * (moto ? 0.2 : 0.14), seatY - 0.36, seatZ + 0.22, 0.10, 0.10, 0.22, 0x1a1c20, {}); }
+    gb.box(0, seatY + 0.28, seatZ + 0.02, 0.38, 0.52, 0.24, TOP, {});          // 상체(앞으로 살짝 숙임)
+    for (var a = -1; a <= 1; a += 2) gb.box(a * 0.22, seatY + 0.32, seatZ + 0.28, 0.09, 0.09, 0.46, TOP, {});   // 팔(핸들로)
+    gb.box(0, seatY + 0.62, seatZ + 0.02, 0.18, 0.18, 0.18, SKIN, {});          // 머리
+    gb.box(0, seatY + 0.68, seatZ + 0.02, 0.22, 0.15, 0.24, HELMET, {});        // 헬멧
+    if (moto) gb.box(0, seatY + 0.60, seatZ + 0.15, 0.2, 0.08, 0.02, 0x0b0e12, { sidesOnly: true });   // 바이저
+  }
   function build(type, color, bodyOnly) {
     var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0);
     if (cache[key]) return cache[key];
     var T = TYPES[type], gb = new TG.GeoBuilder();
+    if (T.two) { twoWheeler(gb, T, color); return (cache[key] = gb.build()); }
     body(gb, T, color, {});
     if (!bodyOnly) wheels(gb, T);
     return (cache[key] = gb.build());
