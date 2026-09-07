@@ -134,7 +134,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   var ICS = [
     { tag: 'E',  node: [4, 2], dir: 1, th: 0,    kind: 'suburb', via: [[420, 150], [455, 176]] },
     { tag: 'N',  node: [2, 0], dir: 2, th: -90,  kind: 'ramp',   via: [[162, -80], [150, -140], [158, -200]] },
-    { tag: 'S',  node: [2, 4], dir: 0, th: 90,   kind: 'suburb', via: [[150, 405], [172, 440]] },
+    { tag: 'S',  node: [2, 4], dir: 0, th: 90,   kind: 'highway', via: [[150, 405], [172, 440]] },   // 경부고속도로: 편도 3차로 + 1차로 버스전용(다인승)
     { tag: 'W',  node: [0, 2], dir: 3, th: 180,  kind: 'suburb', via: [[-100, 150], [-140, 172]] },
     { tag: 'NE', node: [4, 0], dir: 2, th: -45,  kind: 'suburb', via: [[330, -60], [380, -100]] },
     { tag: 'NW', node: [0, 0], dir: 2, th: -135, kind: 'suburb', via: [[-10, -60], [-70, -100]] },
@@ -161,7 +161,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
   // 도로명·제한속도(축약 서울): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 테헤란로 연장(60). 링 북쪽 호는 올림픽대로(80, frameAt).
-  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '삼성로 연장'; conns[6].name = '언주로 연장'; conns[7].name = '남부순환로 연장';
+  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
   // 연습 서킷(도시 남동쪽 언덕, 링 안): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   var circuit = buildLink('circuit', [[200, 400], [300, 400], [318, 428], [292, 456], [255, 455], [238, 486], [266, 514], [242, 536], [200, 532], [184, 502], [196, 470], [180, 436]], 'circuit', true);
 
