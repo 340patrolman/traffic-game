@@ -293,7 +293,7 @@
     G.setSignal = setSignal; G.paOnce = function () { pa(); };
     input.bindTap($('btnSigL'), function () { setSignal('L'); }); input.bindTap($('btnSigR'), function () { setSignal('R'); });
     input.onKey('Comma', function () { setSignal('L'); }); input.onKey('Period', function () { setSignal('R'); });
-    // 주행 모드: 노말 / 스포츠(일시정지 메뉴 · N 키)
+    // 주행 모드: 노멀 / 스포츠(일시정지 메뉴 · N 키)
     var optDr = $('optDrive');
     function applyDrive(m) { settings.drive = m === 'sport' ? 'sport' : 'normal'; TG.save.set('settings', settings); if (optDr) optDr.value = settings.drive; var dm = $('driveMode'); if (dm) { dm.textContent = settings.drive === 'sport' ? 'S' : 'N'; dm.classList.toggle('sport', settings.drive === 'sport'); } }
     if (optDr) optDr.addEventListener('change', function () { applyDrive(optDr.value); });
