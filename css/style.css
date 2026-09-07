@@ -250,3 +250,8 @@ h1{background-size:200% 200%;animation:shimmer 6s ease-in-out infinite}
 .badges{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 10px}
 .badge2{font-size:12px;padding:5px 10px;border-radius:12px;background:rgba(77,141,255,.16);border:1px solid rgba(77,141,255,.6);color:#dbe8ff;animation:popUp 0s}
 .badge2.gold{background:rgba(255,207,63,.18);border-color:var(--accent);color:#ffe9a8}
+.tbtn.runbtn{display:none;position:fixed;left:calc(24px + var(--sa-l));bottom:calc(250px + var(--sa-b));width:64px;height:64px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.5)}
+.tbtn.runbtn .ico{font-size:24px}
+.tbtn.runbtn.on{background:rgba(90,211,122,.35);border-color:rgba(90,211,122,.9)}
+body.onfoot .tbtn.runbtn{display:flex}
+body.portrait .tbtn.runbtn{bottom:calc(290px + var(--sa-b))}

@@ -128,11 +128,12 @@ TG.Character = (function () {
     R.handAmt = lerp(R.handAmt, hand ? 1 : 0, Math.min(1, dt * 7)); R.gestureAmt = lerp(R.gestureAmt, ges ? 1 : 0, Math.min(1, dt * 6));
     var armSw = 0.5 * amp;
     // 왼팔(+x)
-    var lx = Math.sin(ph + Math.PI) * armSw, lel = -(0.32 + Math.max(0, Math.sin(ph + Math.PI)) * 0.55 * amp), lz = 0.10 + 0.06 * amp;
+    // 팔은 반대쪽 다리와 함께(왼다리 앞 = 오른팔 앞). 왼다리는 sin(ph)>0 일 때 앞으로 나간다
+    var lx = Math.sin(ph) * armSw, lel = -(0.32 + Math.max(0, -Math.sin(ph)) * 0.55 * amp), lz = 0.10 + 0.06 * amp;
     if (ges === 'stop') { lx = lerp(lx, -0.25, R.gestureAmt); lz = lerp(lz, 1.35, R.gestureAmt); lel = lerp(lel, -0.2, R.gestureAmt); J.elL.rotation.z = lerp(J.elL.rotation.z, 1.25 * R.gestureAmt, k); } else J.elL.rotation.z = lerp(J.elL.rotation.z, 0, k);
     J.shL.rotation.x = lerp(J.shL.rotation.x, lx, k); J.shL.rotation.z = lerp(J.shL.rotation.z, lz, k); J.elL.rotation.x = lerp(J.elL.rotation.x, lel, k);
     // 오른팔(−x): 손 들기 / 「가세요」 손짓 / 인사
-    var rx = Math.sin(ph) * armSw, rel = -(0.32 + Math.max(0, Math.sin(ph)) * 0.55 * amp), rz = -(0.10 + 0.06 * amp);
+    var rx = -Math.sin(ph) * armSw, rel = -(0.32 + Math.max(0, Math.sin(ph)) * 0.55 * amp), rz = -(0.10 + 0.06 * amp);
     if (hand) { rx = lerp(rx, -2.95, R.handAmt); rz = lerp(rz, -0.18, R.handAmt); rel = lerp(rel, -0.15, R.handAmt); }
     else if (ges === 'go') { var wv = Math.sin(R.t * 5) * 0.35; rx = lerp(rx, -1.35 + wv, R.gestureAmt); rel = lerp(rel, -0.5, R.gestureAmt); rz = lerp(rz, -0.25, R.gestureAmt); }
     else if (ges === 'wave') { var wv2 = Math.sin(R.t * 7) * 0.3; rx = lerp(rx, -2.6, R.gestureAmt); rel = lerp(rel, -0.6, R.gestureAmt); rz = lerp(rz, -0.35 + wv2, R.gestureAmt); }

@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.7.6">
+<link rel="stylesheet" href="css/style.css?v=0.7.7">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -77,6 +77,7 @@
   <div class="tbtn small help" id="btnCtlHelp" title="조작 설명">?</div>
   <!-- 보행자·어린이 모드: 손 들기 -->
   <div class="tbtn hand" id="btnHand" title="손 들기(G)"><span class="ico">✋</span><span>손 들기</span></div>
+  <div class="tbtn runbtn" id="btnRun" title="걷기/달리기 전환(Shift 누르면 달리기)"><span class="ico">🚶</span><span>걷기</span></div>
   <!-- 어린이 보행 교실: 횡단보도 단계 -->
   <div id="kidSteps"><div class="chips"><span class="chip">🛑 멈춰요</span><span class="chip">✋ 손 들어요</span><span class="chip">🔴 기다려요</span><span class="chip">🟢 건너요</span></div><div id="kidNow">보도로 걸어요 🚶</div></div>
 </div>
@@ -201,32 +202,32 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.7.6"></script>
-<script src="js/config.js?v=0.7.6"></script>
-<script src="js/rng.js?v=0.7.6"></script>
-<script src="js/save.js?v=0.7.6"></script>
-<script src="js/perf.js?v=0.7.6"></script>
-<script src="js/textures.js?v=0.7.6"></script>
-<script src="js/audio.js?v=0.7.6"></script>
-<script src="js/city.js?v=0.7.6"></script>
-<script src="js/world.js?v=0.7.6"></script>
-<script src="js/terrain.js?v=0.7.6"></script>
-<script src="js/weather.js?v=0.7.6"></script>
-<script src="js/signals.js?v=0.7.6"></script>
-<script src="js/vehmesh.js?v=0.7.6"></script>
-<script src="js/vehicle.js?v=0.7.6"></script>
-<script src="js/traffic.js?v=0.7.6"></script>
-<script src="js/peds.js?v=0.7.6"></script>
-<script src="js/character.js?v=0.7.6"></script>
-<script src="js/vfx.js?v=0.7.6"></script>
-<script src="js/walker.js?v=0.7.6"></script>
-<script src="js/rail.js?v=0.7.6"></script>
-<script src="js/enforcement.js?v=0.7.6"></script>
-<script src="js/study.js?v=0.7.6"></script>
-<script src="js/hud.js?v=0.7.6"></script>
-<script src="js/minimap.js?v=0.7.6"></script>
-<script src="js/input.js?v=0.7.6"></script>
-<script src="js/main.js?v=0.7.6"></script>
+<script src="lib/three.min.js?v=0.7.7"></script>
+<script src="js/config.js?v=0.7.7"></script>
+<script src="js/rng.js?v=0.7.7"></script>
+<script src="js/save.js?v=0.7.7"></script>
+<script src="js/perf.js?v=0.7.7"></script>
+<script src="js/textures.js?v=0.7.7"></script>
+<script src="js/audio.js?v=0.7.7"></script>
+<script src="js/city.js?v=0.7.7"></script>
+<script src="js/world.js?v=0.7.7"></script>
+<script src="js/terrain.js?v=0.7.7"></script>
+<script src="js/weather.js?v=0.7.7"></script>
+<script src="js/signals.js?v=0.7.7"></script>
+<script src="js/vehmesh.js?v=0.7.7"></script>
+<script src="js/vehicle.js?v=0.7.7"></script>
+<script src="js/traffic.js?v=0.7.7"></script>
+<script src="js/peds.js?v=0.7.7"></script>
+<script src="js/character.js?v=0.7.7"></script>
+<script src="js/vfx.js?v=0.7.7"></script>
+<script src="js/walker.js?v=0.7.7"></script>
+<script src="js/rail.js?v=0.7.7"></script>
+<script src="js/enforcement.js?v=0.7.7"></script>
+<script src="js/study.js?v=0.7.7"></script>
+<script src="js/hud.js?v=0.7.7"></script>
+<script src="js/minimap.js?v=0.7.7"></script>
+<script src="js/input.js?v=0.7.7"></script>
+<script src="js/main.js?v=0.7.7"></script>
 <script src="_probe_tail.js"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.

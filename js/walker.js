@@ -42,11 +42,13 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
       var fx = Math.sin(camYaw), fz = Math.cos(camYaw), rx = -fz, rz = fx;
       var dx = fx * my + rx * mx, dz = fz * my + rz * mx, dl = Math.hypot(dx, dz) || 1;
       dir = Math.atan2(dx / dl, dz / dl);
-      want = (move.run || mag > 0.92) ? (this.kid ? 3.4 : 4.2) : (this.kid ? 1.25 : 1.5) * Math.max(0.5, mag);
+      want = move.run ? (this.kid ? 3.4 : 4.2) : (this.kid ? 1.25 : 1.5) * Math.max(0.5, mag);   // 달리기는 「달리기」 버튼/Shift/A 로만(스틱 끝까지 밀어도 걷는다)
+      this.running = !!move.run;
     }
     if (this.hand > 0) this.hand -= dt;
     this.v += ((want - this.v) * Math.min(1, dt * (want > this.v ? 6 : 9)));
-    if (dir !== null) { var d = TG.wrapAngle(dir - this.heading); this.heading += d * Math.min(1, dt * 12); }
+    // 방향 전환: 급회전 금지 — 최대 3.2rad/s, 작은 각도는 부드럽게(MMORPG 식: 살짝 밀면 살짝 휜다)
+    if (dir !== null) { var d = TG.wrapAngle(dir - this.heading), stp = Math.min(Math.abs(d), (1.6 + 2.2 * Math.abs(d)) * dt); this.heading += Math.sign(d) * stp; }
     var f = this.forward(), nx = this.pos.x + f[0] * this.v * dt, nz = this.pos.z + f[1] * this.v * dt;
     var c = city.collideCircle(nx, nz, 0.4); this.pos.x = c.x; this.pos.z = c.z;
     this.vx = f[0] * this.v; this.vz = f[1] * this.v; this.vF = this.v;

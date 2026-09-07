@@ -336,6 +336,8 @@
     // 손 들기(보행자·어린이 모드): ✋ 버튼 · G 키
     function raiseHand() { if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요', 'good', 1200); TG.audio.ui(); kidSay('kidOk'); } } }
     input.bindTap($('btnHand'), raiseHand); input.onKey('KeyG', raiseHand);
+    // 걷기/달리기 토글(보행자·어린이 모드): 스틱을 끝까지 밀어도 걷는다. 달리기는 이 버튼(또는 Shift·패드 A)으로만
+    input.bindTap($('btnRun'), function () { input.runToggle = !input.runToggle; var b = $('btnRun'); b.classList.toggle('on', input.runToggle); b.querySelector('.ico').textContent = input.runToggle ? '🏃' : '🚶'; b.querySelector('span:last-child').textContent = input.runToggle ? '달리기' : '걷기'; TG.audio.ui(); if (G.mode === 'kid' && input.runToggle) kidVoice('norun', true); });
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro(); });
@@ -498,6 +500,7 @@
     good2: ['잘했어요! 다음엔 한 가지만 더 챙겨요'],
     good1: ['건넜어요. 다음엔 멈추고 손을 들어요'],
     kidOk: ['네!', '알겠어요!', '손 들었어요!', '초록불이다!'],
+    norun: ['뛰지 말고 걸어요', '횡단보도에서는 걷는 거예요', '천천히 걸어도 돼요. 뛰지 않아요'],
   };
   var lastLine = {};
   function pickLine(key) { var arr = LINES[key] || [key], i = Math.floor(Math.random() * arr.length); if (arr.length > 1 && i === lastLine[key]) i = (i + 1) % arr.length; lastLine[key] = i; return arr[i]; }
@@ -536,7 +539,7 @@
       }
       walk.jay = false; walk.stopT = 0;
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
-      if (kid) kidStep(3);
+      if (kid) { kidStep(3); if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
       if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
     } else if (p.where === 'road' || p.where === 'box') {
       if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('road', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
@@ -547,9 +550,9 @@
         var moved = Math.hypot(walker.pos.x - walk.cross.x0, walker.pos.z - walk.cross.z0), rd = city.roadOf(walk.cross.node, walk.cross.d), half = city.halfOf(rd.axis, rd.idx);
         if (moved > half * 1.2 && walk.cross.legal) {
           if (kid) {
-            var st = 1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.hand ? 1 : 0); walk.stars += st; walk.crossings++; addScore(st * 10, null);
+            var st = Math.max(1, 1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.hand ? 1 : 0) - (walk.cross.ran ? 1 : 0)); walk.stars += st; walk.crossings++; addScore(st * 10, null);
             hud.burst('⭐', st * 4); TG.audio.jingle(st); walk.smileT = 4; walk.waveT = 3.5;
-            hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춤 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 손 ' + (walk.cross.hand ? '✓' : '✗') + ' · 초록불 ✓) 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
+            hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춤 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 손 ' + (walk.cross.hand ? '✓' : '✗') + ' · 초록불 ✓ · 걷기 ' + (walk.cross.ran ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
             kidVoice(st === 3 ? 'good3' : st === 2 ? 'good2' : 'good1', true);
           } else { addScore(C.SCORE.safeCross, null); walk.crossings++; hud.notice('안전 횡단 (+' + C.SCORE.safeCross + ')', 'good', 2000); TG.audio.good(); }
         }
@@ -602,7 +605,10 @@
     }
   }
   function walkCamera(dt, look) {
-    var w = walker, yaw = w.heading + (G.lookYaw || 0);
+    // 3인칭 카메라 방향은 캐릭터 헤딩을 천천히 따른다(MMORPG 식). 스틱을 살짝 옆으로 밀면 캐릭터만 살짝 휘고 시야는 급히 돌지 않는다.
+    var w = walker, cy = walk.cyaw === undefined ? w.heading : walk.cyaw, dcy = TG.wrapAngle(w.heading - cy);
+    cy += dcy * Math.min(1, dt * (w.moving ? (Math.abs(dcy) > 1.4 ? 3.0 : 1.3) : 0.5)); walk.cyaw = cy;
+    var yaw = (settings.cam === 'cockpit' ? w.heading : cy) + (G.lookYaw || 0);
     if (settings.cam === 'cockpit') {
       w.mesh.visible = false;
       var eh = w.eyeHeight ? w.eyeHeight() : 1.62, eye = new THREE.Vector3(w.pos.x, w.y + eh, w.pos.z), ahead = new THREE.Vector3(w.pos.x + Math.sin(yaw) * 10, w.y + eh - 0.6, w.pos.z + Math.cos(yaw) * 10);
@@ -626,7 +632,7 @@
     var mv = input.readMove(); if (G.testMove) mv = G.testMove;
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
-    if (walker.jumped) { walker.jumped = false; camInit = false; walk.camYaw = walker.heading; G.lookYaw = 0; }   // 순간이동 뒤에는 카메라·이동 기준을 바로 맞춘다
+    if (walker.jumped) { walker.jumped = false; camInit = false; walk.camYaw = walker.heading; walk.cyaw = walker.heading; G.lookYaw = 0; }   // 순간이동 뒤에는 카메라·이동 기준을 바로 맞춘다
     var camYaw = walk.camYaw !== undefined ? walk.camYaw : walker.heading;
     // 몸짓·시선: 수신호 정차 중엔 왼팔을 들어 「정지」, 풀어 줄 땐 「가세요」 손짓. 어린이는 횡단보도에서 좌우를 살핀다. 시선은 선택 대상이나 정차 대상 쪽
     var es = enforcement.state;

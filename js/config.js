@@ -29,8 +29,8 @@ TG.CONFIG = {
   BUSLANE_WITNESS_SEC: 1.5,
 
   // --- 신호 ---
-  SIG_GREEN: 11, SIG_YELLOW: 3, SIG_ALLRED: 1,
-  PED_WALK: 7,         // 보행 신호: 직각 방향 차량 녹색 시작 후 n초 동안
+  SIG_GREEN: 24, SIG_YELLOW: 3, SIG_ALLRED: 1.5,   // 차량 녹색 24초(보행 신호 20초를 품는다)
+  PED_WALK: 20,        // 보행 신호: 직각 방향 차량 녹색 시작 후 n초 동안 — 왕복 4차로(20m)를 어린이 걸음(1.25m/s)으로 건널 시간
 
   // --- 카메라 ---
   CAM_BACK: 6.2, CAM_UP: 2.9, CAM_BACK_PER_MS: 0.11, CAM_LERP: 6,

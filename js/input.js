@@ -123,7 +123,7 @@ TG.Input = function () {
     var h = this.held, b = this.btn, st = this.stick, g = this.gp;
     var x = (b.right || h.ArrowRight || h.KeyD || g.held.ArrowRight ? 1 : 0) - (b.left || h.ArrowLeft || h.KeyA || g.held.ArrowLeft ? 1 : 0);
     var y = (b.gas || h.ArrowUp || h.KeyW || g.held.ArrowUp ? 1 : 0) - (b.brake || b.rev || h.ArrowDown || h.KeyS || g.held.ArrowDown ? 1 : 0);
-    var run = !!(h.ShiftLeft || h.ShiftRight || g.held.ShiftLeft);
+    var run = !!(h.ShiftLeft || h.ShiftRight || g.held.ShiftLeft || this.runToggle);   // 달리기: Shift · 패드 A · 화면 「달리기」 토글
     if (x || y) { var l = Math.hypot(x, y); x = x / l * 0.75; y = y / l * 0.75; }
     if (st.active && Math.hypot(st.x, st.y) > 0.1) { x = st.x; y = st.y; }
     else if (g.on && Math.hypot(g.lx, g.ly) > 0.1) { x = g.lx; y = g.ly; }
