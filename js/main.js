@@ -21,7 +21,7 @@
   var lastT = 0, penaltyTotal = 0, penaltyCount = {};
   var isStress = /[?&]stress=1/.test(location.search), isTest = /[?&]test=1/.test(location.search), noIntro = /[?&]nointro=1/.test(location.search), noRender = /[?&]norender=1/.test(location.search);
   var intro = { t: 0, lines: [], idx: -1, done: false };
-  var FALLBACK_PURPOSE = '도로에서 일어나는 교통상의 위험과 장애를 방지하고 제거하여 안전하고 원활한 교통을 확보한다';
+  var FALLBACK_PURPOSE = '도로에서 일어나는 교통상의 위험과 장해를 방지하고 제거하여 안전하고 원활한 교통을 확보한다';
 
   function log(m) { console.log('[TG] ' + m); }
 
@@ -153,13 +153,14 @@
     var purpose = (G.laws && G.laws.act && G.laws.act.purpose) ? G.laws.act.purpose : FALLBACK_PURPOSE;
     var cite = (G.laws && G.laws.act) ? (G.laws.act.name + ' ' + G.laws.act.purposeArticle + '(목적)') : '도로교통법 제1조(목적) · 확인 중';
     intro.lines = [
-      { at: 0.6, text: '도로에서 일어나는 위험과 장애를 막고, 없애고,' },
+      { at: 0.6, text: '도로에서 일어나는 위험과 장해(障害)를 막고, 없애고,' },
       { at: 2.6, text: '안전하고 원활한 교통을 확보한다.' },
-      { at: 4.4, text: cite + ' — ' + purpose, small: true },
-      { at: 6.6, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
-      { at: 8.4, text: '교통경찰.' },
-      { at: 10.4, text: 'SEOUL PATROL', big: true },
-      { at: 11.4, text: '서울교통 순찰근무 · 강남 · 서초 · 순환고속도로', small: true },
+      { at: 4.4, text: cite + ' 원문 인용 — ' + purpose.replace('장해', '장해(障害)'), small: true },
+      { at: 5.6, text: '※ 장해(障害): 법령 용어로 「가로막아 해가 되는 것」. 도로교통법 제1조 원문 그대로 씁니다.', small: true },
+      { at: 8.0, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
+      { at: 9.8, text: '교통경찰.' },
+      { at: 11.6, text: 'SEOUL PATROL', big: true },
+      { at: 12.6, text: '서울교통 순찰근무 · 강남 · 서초 · 순환고속도로', small: true },
     ];
     hud.introLines(intro.lines, -1);
     hud.showIntro(true);
@@ -1054,7 +1055,7 @@
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;
       traffic.update(dt, 14); traffic.separate(); peds.update(dt, 10);
       player.update(0.0001);
-      if (intro.t > 13.5) endIntro();
+      if (intro.t > 15) endIntro();
     } else if (G.state === 'title' || G.state === 'end') {
       var t = now / 1000 * 0.25;
       if (G.state === 'title') { var tb = Math.sin(t * 1.7) * 0.6; camera.position.set(player.pos.x + Math.cos(t) * (8.5 + tb), player.y + 2.4 + Math.sin(t * 0.8) * 0.7, player.pos.z + Math.sin(t) * (8.5 + tb)); camera.lookAt(player.pos.x, player.y + 0.9, player.pos.z); player.update(0.0001); if (flares) for (var fl3 = 0; fl3 < flares.length; fl3++) flares[fl3].visible = !!weather.dark; if (vfx) vfx.update(dt); }
