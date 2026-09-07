@@ -118,7 +118,7 @@
     else if (si === 2) { P = [K.x - 2.6, 1.25, K.z + 1.6]; L = [K.x, 0.95, K.z]; }
     else if (si === 3) { P = [K.x - 2.0, 1.7, K.z + 3.4]; L = [K.x + 0.3, 1.0, K.z - 0.4]; }
     else if (si === 4) { P = [K.x + 2.6, 1.9, K.z - 3.6]; L = [EAST - 0.5, 2.2, CZ + 0.9]; }
-    else if (si === 5) { P = [mid[0] - 6.5 + u * 2, 2.6, mid[1] - 7.5]; L = [mid[0], 0.9, mid[1]]; }
+    else if (si === 5) { P = [mid[0] - 6.5 + u * 2, 2.4, mid[1] + 7.5]; L = [mid[0], 0.9, mid[1]]; }   // 남서쪽에서: 남쪽에 선 어린이가 앞에 온다
     else if (si === 6) { P = [mid[0] - 5.5, 2.1, mid[1] + 5.5]; L = [mid[0], 1.0, mid[1]]; }
     else { P = [CX + 6, 12 + u * 6, CZ + 26 + u * 6]; L = [CX, 1, CZ]; }
     if (!camInit) { camPos.set(P[0], P[1], P[2]); camLook.set(L[0], L[1], L[2]); camInit = true; }
