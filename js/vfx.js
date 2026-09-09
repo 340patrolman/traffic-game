@@ -1,7 +1,7 @@
 // 차량 감각 입자·플레어(파일 0개): 배기 연기(내연기관 급가속) · 타이어 연기(미끄러짐) · 야간 전조등 플레어(가산 스프라이트) · 물보라(비).
 // 입자는 THREE.Points 하나(고정 풀 160개). 매 프레임 위치·크기·투명도를 갱신한다.
 TG.VFX = function (scene) {
-  var N = 160, pos = new Float32Array(N * 3), life = new Float32Array(N), max = new Float32Array(N), vel = new Float32Array(N * 3), size = new Float32Array(N), head = 0;
+  var N = 260, pos = new Float32Array(N * 3), life = new Float32Array(N), max = new Float32Array(N), vel = new Float32Array(N * 3), size = new Float32Array(N), head = 0;
   var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   var mat = new THREE.PointsMaterial({ map: TG.tex.smoke ? TG.tex.smoke() : null, size: 1.2, transparent: true, opacity: 0.55, depthWrite: false, color: 0xd9d9d9, sizeAttenuation: true });
   var pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);

@@ -12,7 +12,7 @@ TG.Chase = function (game) {
   var self = this, city = game.city, traffic = game.traffic, cfg = game.cfg, S = cfg.SCORE;
   var KIND = [
     { id: 'theft', name: '차량 절도 피의자', radio: '차량 절도 피의자가 탄 차량으로 확인됩니다. 추적 중' },
-    { id: 'drunk', name: '음주 의심 차량', radio: '음주 의심 차량입니다. 비틀거리며 주행 중' },
+    { id: 'drunk', name: '음주 의심 도주차량', radio: '음주 의심 차량입니다. 비틀거리며 도주 중' },   // 음주 도주는 적당한 범위에서 추격이 가능하다(법익이 크다)
     { id: 'wanted', name: '수배 차량', radio: '수배 차량으로 조회됩니다. 지원 요청합니다' },
   ];
   this.car = null; this.state = 'idle'; this.kind = KIND[0];
@@ -26,6 +26,7 @@ TG.Chase = function (game) {
       var ahead = 55 + tries * 4, x = pl.pos.x + f[0] * ahead, z = pl.pos.z + f[1] * ahead;
       var fr = city.frameAt(x, z, pl.heading);
       if (!fr.onRoad || fr.kind === 'link') continue;
+      if (city.inSchoolZone(x, z)) continue;   // 시작부터 보호구역이면 바로 중단 판정이 떠 배울 기회가 없다
       var i = city.nearestIdx(city.xs, x), j = city.nearestIdx(city.zs, z), node = city.nodes[i][j];
       var d = Math.abs(f[0]) > Math.abs(f[1]) ? (f[0] > 0 ? 1 : 3) : (f[1] > 0 ? 0 : 2);
       if (!city.nodeFrom(node, d)) continue;
@@ -36,7 +37,7 @@ TG.Chase = function (game) {
       self.state = 'follow'; self.t = { safe: 0, close: 0, follow: 0, lost: 0, warn: 0, tick: 0 };
       self.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '' };
       game.hud.notice('📡 상황실 — ' + self.kind.name + ' 발견. 경광등 켜고 뒤에 붙되 안전거리를 지키세요', 'alert', 5200);
-      game.hud.hint('📡 무전으로 먼저 전파한다. 무전 없는 추격은 정당화되지 않는다');
+      game.hud.hint('경광등을 켜고 안전거리 10~40m 로 따라간다. 📡 무전을 하면 공조로 앞을 막아 준다(모든 것을 무전보고하지는 않는다)');
       if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
       if (TG.audio.chaseTheme) TG.audio.chaseTheme();   // 추격 음악 시작 — 대상과 가까울수록 밝고 크게(chaseTension)
       document.body.classList.add('chasing');
@@ -79,16 +80,18 @@ TG.Chase = function (game) {
   }
   this.breakOff = breakOff;
   // 검거: 대상이 포기하고 우측에 정차한다
-  function caught() {
-    self.state = 'stopped'; self.log.result = 'caught';
+  function caught(coop) {
+    self.state = 'stopped'; self.log.result = 'caught'; self.log.coop = !!coop;
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.6);
     document.body.classList.remove('chasing');
     game.slowmo = 1.1; game.punch = 1.2;   // 검거 순간: 짧은 슬로모션 + 화각 펀치(재미)
     var c = self.car; if (c) { c.flee = false; c.chase = false; c.cruise = 0; c.violation = c.violation || { type: self.kind.id === 'drunk' ? 'drunk' : 'license', seen: true }; }
-    game.addScore(S.chaseCatch, null); game.stats.chaseCatch = (game.stats.chaseCatch || 0) + 1;
-    game.hud.notice('✅ 대상 정차 — 원칙대로 따라가 검거 (+' + S.chaseCatch + ')', 'good', 6000);
-    game.hud.pop('✅ +' + S.chaseCatch, 'good'); TG.audio.jingle(4);
-    game.hud.hint('안전거리를 지키고 무전으로 전파했다 — 이것이 추격의 정석');
+    var bonus = S.chaseCatch + (coop ? 20 : 0);
+    game.addScore(bonus, null); game.stats.chaseCatch = (game.stats.chaseCatch || 0) + 1;
+    game.hud.notice('✅ 대상 정차 — ' + (coop ? '📡 공조 검거(앞을 막았다)' : '단독 검거') + ' (+' + bonus + ')', 'good', 6000);
+    game.hud.pop('✅ +' + bonus, 'good'); TG.audio.jingle(4);
+    game.hud.hint(coop ? '📡 공조로 검거했다 — 앞을 막으면 무리한 추격이 필요 없다' : '안전거리를 지켜 스스로 세웠다. 무전으로 공조하면 더 빨리 끝난다');
+    if (coop && TG.audio.squelch) TG.audio.squelch();
   }
   this.update = function (dt) {
     var pl = game.player, c = self.car;
@@ -113,7 +116,7 @@ TG.Chase = function (game) {
       }
     }
     // 어린이보호구역으로 도주 → 추격을 끊는 것이 정답
-    if (city.inSchoolZone(c.pos.x, c.pos.z) && d < 90) { breakOff('어린이보호구역으로 도주 — 추격을 끊고 무전·영상으로', S.chaseBreak); return; }
+    if (self.t.follow > 5 && city.inSchoolZone(c.pos.x, c.pos.z) && d < 90) { breakOff('어린이보호구역으로 도주 — 추격을 끊고 무전·영상으로', S.chaseBreak); return; }
     // 상황실 중단 지시를 따랐는가(경광등 끄고 감속)
     if (self.order && !siren && pl.speedKmh() < 45) { breakOff('상황실 지시에 따라 중단', S.chaseBreak); return; }
     // 안전 거리
@@ -122,19 +125,21 @@ TG.Chase = function (game) {
       if (self.t.close > 1.2) { self.t.close = 0; self.log.closeCalls++; game.penalize('chaseClose', '추격 중 안전거리 미확보(8m 안)', '뒤에 붙어 밀어내지 않는다 — 대상이 급제동하면 추돌이다'); }
     } else self.t.close = Math.max(0, self.t.close - dt * 0.5);
     // 원칙대로 따라가는 시간: 경광등 ON · 무전 전파 · 10~40m · 대상이 앞에
-    var ok = siren && radioed && bh && d >= 9 && d <= 42;
+    // 원칙대로 따라가는 시간: 경광등 ON · 대상이 앞에 · 10~42m. **무전은 필수가 아니다** —
+    // 무전을 하면 공조(인접 순찰차가 앞을 막는다)로 12초에 끝나고, 안 하면 단독으로 20초를 따라간다.
+    var ok = siren && bh && d >= 9 && d <= 42;
+    var need = radioed ? 12 : 20;
     if (ok) {
       self.t.safe += dt; self.t.lost = 0;
       self.t.tick += dt;
       if (self.t.tick >= 10) { self.t.tick = 0; self.log.safeAwards++; game.addScore(S.chaseSafe, null); game.hud.notice('📏 안전거리 유지 · 무전 전파 — 원칙대로 따라가고 있습니다 (+' + S.chaseSafe + ')', 'good', 2600); }
-      if (self.t.safe >= 20) { caught(); return; }
+      if (self.t.safe >= need) { caught(radioed); return; }
     } else {
       self.t.lost += dt; self.t.tick = Math.max(0, self.t.tick - dt * 0.5);
       if (self.t.lost > 4 && self.t.warn <= 0) {
         self.t.warn = 8;
         game.hud.hint(!siren ? '경광등을 켠다 — 다른 차와 보행자에게 알리는 것이 먼저다'
-          : !radioed ? '📡 무전으로 상황을 전파한다 — 무전 없는 추격은 정당화되지 않는다'
-          : d > 42 ? '너무 멀어졌다 — 시야에 두고 따라간다' : '너무 가깝다 — 10m 이상 벌린다');
+          : d > 42 ? '너무 멀어졌다 — 먼지와 제동등을 보고 따라간다' : '너무 가깝다 — 10m 이상 벌린다');
       }
       self.t.warn -= dt;
     }
@@ -145,8 +150,8 @@ TG.Chase = function (game) {
     if (self.state !== 'follow' || !self.car) return self.state === 'break' ? '🛑 추격 중단 — 무전·영상 처리' : self.state === 'stopped' ? '✅ 대상 정차' : '';
     var d = Math.round(dist()), radioed = !!(self.car.radioed || self.car.pursuitOk);
     return '🚨 ' + self.kind.name + ' · ' + d + 'm ' + (d < 9 ? '⚠ 너무 가깝다' : d > 42 ? '멀다' : '적정') +
-           ' · ' + (game.player.siren ? '경광등 ON' : '⚠ 경광등 OFF') + ' · ' + (radioed ? '📡 전파됨' : '⚠ 무전 필요') +
-           ' · 원칙 유지 ' + self.t.safe.toFixed(0) + '/20초';
+           ' · ' + (game.player.siren ? '경광등 ON' : '⚠ 경광등 OFF') + ' · ' + (radioed ? '📡 공조' : '단독') +
+           ' · ' + self.t.safe.toFixed(0) + '/' + (radioed ? 12 : 20) + '초';
   };
   this.dispose = function () {
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(0.6);

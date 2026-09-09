@@ -344,7 +344,25 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.idx > 40) { path.splice(0, car.idx); car.idx = 0; }
     var cur = path[Math.min(car.idx, path.length - 1)], onLink = !!cur.lp;
     var target = onLink ? cruiseFor(car, cur.kind) : car.cruise, emergency = false;
-    if (car.flee) target *= 1.6;   // 도주 차량(추격전): 흐름보다 빠르다. 앞차·보행자 앞에서는 여전히 선다
+    if (car.flee) {
+      // 도주 운전: 2~4초 주기로 급가속과 급제동을 번갈아 한다(골목에서 특히 심하다).
+      car.fleeT = (car.fleeT || 0) + dt;
+      var narrow = !onLink && cur && (city.lanesOf(city.roadOf(car.lastNode || cur.node || city.nodes[0][0], car.lastDir || 0).axis, city.roadOf(car.lastNode || cur.node || city.nodes[0][0], car.lastDir || 0).idx) <= 2);
+      var cyc = (car.fleeT % (narrow ? 2.6 : 3.8)) / (narrow ? 2.6 : 3.8);
+      car.fleeBrake = cyc > 0.72;                       // 뒤쪽 28% 는 급제동
+      target *= car.fleeBrake ? 0.45 : 1.75;
+      car.fleeDust = (car.fleeDust || 0) - dt;
+      if (self.vfx && car.fleeDust <= 0 && car.v > 3) {
+        car.fleeDust = 0.09;
+        var ff = forwardOf(car), rr = [-ff[1], ff[0]], back = car.len * 0.5 + 0.2;
+        for (var ds = -1; ds <= 1; ds += 2) {           // 뒷바퀴 두 곳에서 흙먼지가 피어오른다(오래 남아 흔적이 된다)
+          self.vfx.puff(car.pos.x - ff[0] * back + rr[0] * ds * car.wid * 0.42, 0.18,
+                        car.pos.z - ff[1] * back + rr[1] * ds * car.wid * 0.42,
+                        -ff[0] * 1.4 + (rng() - 0.5) * 1.2, 0.55 + rng() * 0.5, -ff[1] * 1.4 + (rng() - 0.5) * 1.2,
+                        car.fleeBrake ? 3.4 : 2.4, car.fleeBrake ? 2.6 : 1.9);
+        }
+      }
+    }
 
     for (var t = car.idx; t < Math.min(path.length, car.idx + 12); t++) {
       var q = path[t]; if (q.vmax === undefined) continue;

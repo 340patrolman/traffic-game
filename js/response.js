@@ -180,9 +180,10 @@ TG.Response = function (game) {
         }
         if (st.pursuitT > 5.5) { st.pursuitT = -6; game.penalize('pursuitBan', kindName(near) + ' 단순 위반 추격', '추격 대신 영상·무전으로 처리한다(부수적 피해 최소화)'); }
       } else if (t2 === 'A' && !near.pursuitOk) {
+        // 소유자: 「추격 중 무전을 할 수도, 못 할 수도, 안 할 수도 있다. 단 공조로 검거할 때는 무전을 한다.
+        //          모든 것을 무전보고하지는 않는다.」 → 무전을 강제하지 않는다. 감점 없이 한 번만 권한다.
         st.pursuitT += dt;
-        if (st.pursuitT > 2 && st.pursuitWarn <= 0) { st.pursuitWarn = 8; game.hud.notice('📡 무전 전파를 먼저 하세요 — 중대 위반 정차 유도 전 상황 전파', 'warn', 3600); }
-        if (st.pursuitT > 8) { st.pursuitT = -8; game.penalize('noRadio', '무전 전파 없이 추격', '중대 위반은 상황을 먼저 전파하고 지원을 받는다'); }
+        if (st.pursuitT > 4 && st.pursuitWarn <= 0) { st.pursuitWarn = 20; game.hud.hint('💭 혼자 쫓기 어려우면 📡 무전으로 공조를 부른다 — 앞을 막아 주면 무리한 추격이 필요 없다'); }
       } else st.pursuitT = Math.max(0, st.pursuitT - dt);
     } else st.pursuitT = Math.max(0, st.pursuitT - dt * 2);
     st.pursuitWarn = Math.max(0, st.pursuitWarn - dt);
