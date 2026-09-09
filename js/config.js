@@ -53,7 +53,7 @@ TG.CONFIG = {
   SPEED_TOLERANCE_KMH: 11,     // 이 초과부터 과속 감점
 
   // --- AI 교통 ---
-  TRAFFIC_MAX: 18,
+  TRAFFIC_MAX: 26,
   AI_CRUISE: 11.5,             // ≈ 41 km/h
   AI_CRUISE_VAR: 1.5,
   AI_TURN_SPEED: 4.5,
@@ -69,7 +69,7 @@ TG.CONFIG = {
   VIOLATION_MEMORY: 45,        // 목격 표시 유지(초)
 
   // --- 행인 ---
-  PED_MAX: 22,
+  PED_MAX: 30,
   PED_SPAWN_MIN: 30, PED_SPAWN_MAX: 95, PED_DESPAWN: 130,
 
   // --- 단속 ---

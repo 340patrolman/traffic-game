@@ -20,26 +20,29 @@ TG.GeoBuilder.prototype.sphere = function (cx, cy, cz, r, seg, rings, color, sy)
 TG.Character = (function () {
   var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var C = { NAVY: 0x1e3763, NAVY2: 0x25417a, VEST: 0xe6ff4d, SILVER: 0xdfe6ea, SKIN: 0xf1c9a5, BLACK: 0x15171c, WHITE: 0xf7f7f7, GOLD: 0xd7ab2a, HAIR: 0x2a1c14, LIP: 0xc9776b, EYE: 0x1b1d22,
-            CHEEK: 0xf49a9a, BATON: 0xe2342c, BATON2: 0x2a2e33,
+            CHEEK: 0xf49a9a, BATON: 0xe2342c, BATON2: 0x2a2e33, SHIRT_W: 0xf2f4f7, EPAU: 0x1b2c52,
             KID_SHIRT: 0xff6b6b, KID_PANTS: 0x2f5fd1, KID_CAP: 0xffd23f, KID_BAG: 0xe53935, KID_SHOE: 0xf4f4f4 };
   function mesh(gb, cast) { var m = new THREE.Mesh(gb.build(), mat); m.castShadow = cast !== false; return m; }
   function seg(r0, r1, len, color) { var gb = new TG.GeoBuilder(); gb.cylinder(0, -len, 0, r1, r0, len, 10, color, false); gb.sphere(0, 0, 0, r0 * 1.02, 8, 6, color); return gb; }   // 관절 위(0)에서 아래(-len)로
   // 얼굴: 눈·눈썹·입·귀. 앞 = +z
   function face(gb, y, r, skin, hair, kid) {
     gb.sphere(0, y, 0, r, 18, 12, skin, 1.08);
-    gb.box(-0.045, y + 0.055, r * 0.86, 0.05, 0.008, 0.015, hair, {}); gb.box(0.045, y + 0.055, r * 0.86, 0.05, 0.008, 0.015, hair, {});   // 눈썹
-    gb.box(0, y - 0.005, r * 0.95, 0.02, 0.03, 0.02, skin, {});   // 코
+    var bw = kid ? 0.040 : 0.05, bh = kid ? 0.006 : 0.009;                                        // 어린이는 눈썹을 얇고 짧게
+    gb.box(-0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {}); gb.box(0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {});
+    gb.box(0, y - 0.008, r * 1.01, 0.022, 0.032, 0.022, skin, {});   // 코
     gb.box(-r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {}); gb.box(r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {});   // 귀
     var ch = kid ? 0.030 : 0.022;                                                                                   // 볼 홍조(친근한 인상)
-    gb.box(-r * 0.56, y - 0.028, r * 0.86, ch, ch * 0.72, 0.008, C.CHEEK, {}); gb.box(r * 0.56, y - 0.028, r * 0.86, ch, ch * 0.72, 0.008, C.CHEEK, {});
-    gb.sphere(0, y + 0.035, -0.01, r * 1.02, 16, 8, hair, 0.72);   // 머리카락(윗부분·뒤)
-    gb.box(0, y + 0.06, -r * 0.55, r * 1.9, r * 0.9, r * 0.9, hair, {});
+    gb.box(-r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {}); gb.box(r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {});
+    gb.sphere(0, y + 0.045, -r * 0.22, r * 0.99, 16, 8, hair, 0.80);            // 뒷머리(얼굴 앞으로 나오지 않게 뒤로 물린다)
+    gb.box(0, y + 0.075, -r * 0.58, r * 1.82, r * 0.86, r * 0.86, hair, {});     // 뒤통수
+    gb.box(0, y + r * 0.66, r * 0.26, r * 1.55, r * 0.34, r * 0.86, hair, {});   // 앞머리(이마 위 — 눈보다 위에만)
   }
   function build(kind, opts) {
     opts = opts || {};
     var kid = kind === 'kid', officer = kind === 'officer', civ = kind === 'civilian';
     var skin = opts.skin || C.SKIN, hair = opts.hair || C.HAIR;
-    var shirt = officer ? C.NAVY : kid ? C.KID_SHIRT : (opts.shirt || 0x3b6fd1), pants = officer ? C.NAVY2 : kid ? C.KID_PANTS : (opts.pants || 0x2b3140);
+    // 교통경찰 근무복: **상의 흰색 · 하의 남색**(지역경찰의 남색 상의와 다르다 — 소유자 정정)
+    var shirt = officer ? C.SHIRT_W : kid ? C.KID_SHIRT : (opts.shirt || 0x3b6fd1), pants = officer ? C.NAVY : kid ? C.KID_PANTS : (opts.pants || 0x2b3140);
     var shoe = kid ? C.KID_SHOE : (officer ? C.BLACK : (opts.shoe || 0x2a2a2a)), glove = officer ? C.WHITE : skin;
     var g = new THREE.Group(), R = { group: g, kind: kind, kid: kid, joints: {}, parts: {}, t: 0, ph: 0, lookNow: 0, glance: 0, glanceT: 2 + Math.random() * 3, gestureAmt: 0, handAmt: 0 };
     // ---- 골반·몸통(한 메시) ----
@@ -51,6 +54,8 @@ TG.Character = (function () {
     if (officer) {
       tb.box(0, HIP + 0.40, 0, 0.43, 0.38, 0.29, C.VEST, {}); tb.box(0, HIP + 0.50, 0, 0.44, 0.05, 0.30, C.SILVER, {}); tb.box(0, HIP + 0.30, 0, 0.44, 0.05, 0.30, C.SILVER, {});
       tb.box(0, HIP + 0.02, 0, 0.36, 0.06, 0.24, C.BLACK, {}); tb.box(0, HIP + 0.02, 0.125, 0.05, 0.05, 0.015, C.GOLD, {});   // 벨트·버클
+      tb.box(0, HIP + 0.615, 0, 0.30, 0.035, 0.235, C.EPAU, {});                                                                  // 남색 옷깃
+      for (var ep = -1; ep <= 1; ep += 2) { tb.box(ep * 0.175, HIP + 0.625, 0, 0.10, 0.028, 0.13, C.EPAU, {}); tb.box(ep * 0.175, HIP + 0.641, 0.03, 0.05, 0.012, 0.02, C.GOLD, {}); }   // 견장(계급장)
       tb.box(-0.13, HIP + 0.46, 0.15, 0.05, 0.10, 0.03, C.BLACK, {});   // 무전기(가슴 왼쪽, 착용자 기준 오른쪽)
       tb.box(0.12, HIP + 0.52, 0.152, 0.06, 0.02, 0.005, C.GOLD, {});   // 명찰
     }
@@ -77,8 +82,9 @@ TG.Character = (function () {
       hb.box(0, HY + HR * 0.55 + 0.002, HR * 1.06, HR * 1.95, 0.02, HR * 0.95, C.BLACK, {});                     // 검정 챙
       hb.box(0, HY + HR * 0.55 + 0.026, HR * 1.10, 0.062, 0.042, 0.012, C.GOLD, {});                             // 참수리 표장(금색)
       hb.box(0, HY + HR * 0.55 + 0.048, HR * 1.10, 0.030, 0.020, 0.012, C.GOLD, {});
-    } else if (kid) {   // 노란 안전 모자
-      hb.cylinder(0, HY + HR * 0.45, 0, HR * 1.1, HR * 1.0, 0.09, 16, C.KID_CAP, true);
+    } else if (kid) {   // 노란 안전 모자 + 모자 아래로 보이는 머리카락
+      hb.sphere(0, HY + HR * 0.30, -HR * 0.06, HR * 1.02, 14, 8, hair, 0.62);
+      hb.cylinder(0, HY + HR * 0.45, 0, HR * 1.12, HR * 1.03, 0.09, 16, C.KID_CAP, true);
       hb.box(0, HY + HR * 0.45 + 0.005, HR * 1.0, HR * 1.6, 0.018, HR * 0.8, C.KID_CAP, {});
     } else if (opts.helmet) {   // 이륜차·자전거·킥보드 탑승자 헬멧: 둥근 껍데기 + 바이저 + 턱끈
       hb.sphere(0, HY + 0.02, 0, HR * 1.16, 16, 10, opts.helmet === true ? 0xf2f2f2 : opts.helmet, 0.92);
@@ -87,13 +93,15 @@ TG.Character = (function () {
     } else if (opts.hat) { hb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); }
     var head = mesh(hb); neck.add(head); R.parts.head = head;
     // 눈·입은 따로(깜빡임·말할 때 움직임). 눈: 흰자 + 눈동자, 입: 살구색 선(웃으면 넓어진다)
-    var ek = kid ? 1.42 : 1.0, eg = new TG.GeoBuilder();                                                        // 어린이 눈은 크고 동그랗게
+    var ek = kid ? 1.72 : 1.05, eg = new TG.GeoBuilder();                                                        // 어린이 눈은 크고 동그랗게
     eg.box(0, 0, 0, 0.036 * ek, 0.03 * ek, 0.012, C.WHITE, {}); eg.box(0, 0, 0.008, 0.018 * ek, 0.022 * ek, 0.012, C.EYE, {});
     eg.box(0.004 * ek, 0.005 * ek, 0.016, 0.007 * ek, 0.007 * ek, 0.004, C.WHITE, {});
     var eyeGeo = eg.build(), eyes = [];
-    [-0.04 * (kid ? 1.12 : 1), 0.04 * (kid ? 1.12 : 1)].forEach(function (ex) { var e = new THREE.Mesh(eyeGeo, mat); e.position.set(ex, HY + 0.02, HR * 0.9); neck.add(e); eyes.push(e); });
-    var mg = new TG.GeoBuilder(); mg.box(0, 0, 0, kid ? 0.036 : 0.046, 0.012, 0.012, C.LIP, {}); mg.box(0, -0.002, 0.004, kid ? 0.024 : 0.03, 0.006, 0.006, 0x6b2a25, {});
-    var mouth = new THREE.Mesh(mg.build(), mat); mouth.position.set(0, HY - 0.05, HR * 0.88); neck.add(mouth);
+    // 눈은 머리 표면 **밖으로** 내밀어야 보인다(전에는 HR·0.9 로 구 안쪽에 박혀 얼굴이 없어 보였다)
+    [-0.042 * (kid ? 1.18 : 1), 0.042 * (kid ? 1.18 : 1)].forEach(function (ex) { var e = new THREE.Mesh(eyeGeo, mat); e.position.set(ex, HY + (kid ? 0.012 : 0.02), HR * 1.05); neck.add(e); eyes.push(e); });
+    var mg = new TG.GeoBuilder(); mg.box(0, 0, 0, kid ? 0.050 : 0.046, kid ? 0.016 : 0.012, 0.012, C.LIP, {}); mg.box(0, -0.002, 0.004, kid ? 0.034 : 0.03, 0.008, 0.006, 0x6b2a25, {});
+    if (kid) { mg.box(-0.030, 0.008, 0.002, 0.014, 0.011, 0.010, C.LIP, {}); mg.box(0.030, 0.008, 0.002, 0.014, 0.011, 0.010, C.LIP, {}); }   // 입꼬리를 올려 웃는 입
+    var mouth = new THREE.Mesh(mg.build(), mat); mouth.position.set(0, HY - (kid ? 0.055 : 0.05), HR * 1.03); neck.add(mouth);
     R.parts.eyes = eyes; R.parts.mouth = mouth; R.blinkT = 2 + Math.random() * 3; R.blink = 0; R.talkT = 0; R.smile = 0;
     // ---- 팔(어깨 → 위팔 → 팔꿈치 → 아래팔 → 손) ----
     var UA = kid ? 0.20 : 0.28, FA = kid ? 0.18 : 0.26;
@@ -148,7 +156,7 @@ TG.Character = (function () {
     // 팔: 반대쪽 다리와 함께. 팔꿈치는 항상 약간 굽고, 앞으로 갈 때 더 굽는다
     var hand = s.hand > 0, ges = s.gesture || null;
     R.handAmt = lerp(R.handAmt, hand ? 1 : 0, Math.min(1, dt * 7)); R.gestureAmt = lerp(R.gestureAmt, ges ? 1 : 0, Math.min(1, dt * 6));
-    if (R.parts.baton) R.parts.baton.visible = R.gestureAmt > 0.08;   // 신호봉은 수신호할 때만 든다
+    if (R.parts.baton) R.parts.baton.visible = R.gestureAmt > 0.08 && ges !== 'operate';   // 신호봉은 수신호할 때만 든다(박스 조작 중에는 넣는다)
     var armSw = 0.5 * amp;
     // 왼팔(+x)
     // 팔은 반대쪽 다리와 함께(왼다리 앞 = 오른팔 앞). 왼다리는 sin(ph)>0 일 때 앞으로 나간다
@@ -160,6 +168,10 @@ TG.Character = (function () {
     if (hand) { rx = lerp(rx, -2.95, R.handAmt); rz = lerp(rz, -0.18, R.handAmt); rel = lerp(rel, -0.15, R.handAmt); }
     else if (ges === 'go') { var wv = Math.sin(R.t * 5) * 0.35; rx = lerp(rx, -1.35 + wv, R.gestureAmt); rel = lerp(rel, -0.5, R.gestureAmt); rz = lerp(rz, -0.25, R.gestureAmt); }
     else if (ges === 'wave') { var wv2 = Math.sin(R.t * 7) * 0.3; rx = lerp(rx, -2.6, R.gestureAmt); rel = lerp(rel, -0.6, R.gestureAmt); rz = lerp(rz, -0.35 + wv2, R.gestureAmt); }
+    else if (ges === 'operate') {   // 신호기 박스 조작: 팔을 앞으로 들어 스위치를 만진다(작게 흔들려 손끝이 움직인다)
+      var op = Math.sin(R.t * 3.1) * 0.10;
+      rx = lerp(rx, -1.28 + op, R.gestureAmt); rel = lerp(rel, -0.95, R.gestureAmt); rz = lerp(rz, -0.42, R.gestureAmt);
+    }
     J.shR.rotation.x = lerp(J.shR.rotation.x, rx, k); J.shR.rotation.z = lerp(J.shR.rotation.z, rz, k); J.elR.rotation.x = lerp(J.elR.rotation.x, rel, k);
     // 몸통: 위아래 흔들림·좌우 기울기·달릴 때 앞으로 숙임·숨쉬기
     var bob = Math.abs(Math.cos(ph)) * 0.035 * amp, breathe = (1 - Math.min(1, amp)) * Math.sin(R.t * 1.6) * 0.008;

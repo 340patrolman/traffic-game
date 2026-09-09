@@ -974,6 +974,7 @@
     var lookAt = enforcement.target || (G.selected && G.selected.kind === 'car' ? G.selected.car : null);
     walker.look = lookAt ? TG.wrapAngle(Math.atan2(lookAt.pos.x - walker.pos.x, lookAt.pos.z - walker.pos.z) - walker.heading) * 0.9 : 0;
     if (G.mode === 'duty' && junction && junction.hand) walker.gesture = 'stop';   // 꼬리 끊기 수신호는 계속 유지한다
+    else if (G.mode === 'duty' && duty && duty.open && junction.nearBox(walker.pos.x, walker.pos.z) < 3.2) walker.gesture = 'operate';   // 제어함 앞에서는 조작 자세
     walker.lookScan = !!(walk && walker.kid && (walk.step === 2 || walk.step === 3));
     walker.smile = walk.smileT > 0; walk.smileT = Math.max(0, (walk.smileT || 0) - dt);
     walker.update(dt, mv, camYaw);

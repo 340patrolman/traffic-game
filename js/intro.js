@@ -50,14 +50,14 @@ TG.Intro = function (game) {
         return { p: [pl.pos.x + 8.4 - e * 2.0, 1.55 + e * 0.45, pl.pos.z + 3.2 + e * 7.2], l: [pl.pos.x, (pl.y || 0) + 0.82, pl.pos.z - e * 2] };
       } },
     // ③ 하차 근무 — 제어함 앞의 경찰관. 어깨 너머에서 돌아 나온다.
-    { at: 6.5, dur: 2.6, fov: 38, kick: '01 · 교차로 근무', ttl: '신호를 손으로 잡는다', sub: '자동 → 수동. 막힌 방향에 녹색을 더 준다', cam: function (u) {
+    { at: 6.5, dur: 2.6, fov: 38, kick: '01 · 교차로 근무', ttl: '신호기 박스를 조작한다', sub: '자동 → 수동. 막힌 방향에 녹색을 더 준다', cam: function (u) {
         var e = sm(u), b = BOX || { x: 18.5, z: 99 };
-        return { p: mix([16.4, 1.78, b.z + 11.5], [15.2, 1.62, b.z + 4.6], e), l: mix([b.x + 0.6, 1.36, b.z + 1.6], [b.x + 0.5, 1.28, b.z + 1.0], e) };
+        return { p: mix([b.x - 2.4, 1.66, b.z - 5.2], [b.x - 1.7, 1.46, b.z - 2.3], e), l: mix([b.x - 0.3, 1.24, b.z + 0.5], [b.x - 0.25, 1.18, b.z + 0.2], e) };   // 북쪽에서 남쪽을 보고 — 경찰관 앞모습 + 열린 함체, 뒤로 교차로
       } },
     // ④ 어린이 횡단 — 손을 든 아이, 정지 수신호를 하는 경찰관. 낮은 각도에서 밀고 들어간다.
-    { at: 9.1, dur: 1.3, fov: 34, kick: '02 · 어린이 보행 교실', ttl: '멈춘다 · 본다 · 손을 든다 · 걷는다', sub: '어린이 보행 안전수칙 4단계', cam: function (u) {
+    { at: 9.1, dur: 1.3, fov: 28, kick: '02 · 어린이 보행 교실', ttl: '멈춘다 · 본다 · 손을 든다 · 걷는다', sub: '어린이 보행 안전수칙 4단계', cam: function (u) {
         var e = ease(u);
-        return { p: mix([3.6, 1.02, 101.5], [10.4, 1.12, 96.6], e), l: mix([17.4, 1.06, 92.3], [16.2, 1.10, 92.3], e) };
+        return { p: mix([6.5, 1.00, 100.5], [13.8, 1.02, 95.0], e), l: mix([17.5, 0.95, 92.3], [17.2, 0.98, 92.3], e) };   // 아이가 크게 보이게 더 붙는다
       } },
     // ⑤ 타이틀 — 대타격에 맞춰 확 빠진다. 도로 위에서 곧게 솟구쳐 건물을 뚫지 않는다(블록은 전부 건물이다).
     { at: 10.4, dur: 1.6, fov: 60, cam: function (u) {
@@ -94,7 +94,7 @@ TG.Intro = function (game) {
     // 무대 만들기: 신호제어기 + 제어함 앞의 경찰관 + 횡단보도의 어린이와 보호 경찰관
     junc = new TG.Junction(game); junc.node = NODE;
     BOX = junc.placeBox(NODE, 1, 1);
-    officer = TG.Character.actor(game.scene, terrain, 'officer', BOX.x + 0.8, BOX.z + 2.0, Math.atan2(BOX.x - (BOX.x + 0.8), BOX.z - (BOX.z + 2.0)));
+    officer = TG.Character.actor(game.scene, terrain, 'officer', BOX.x - 0.82, BOX.z + 0.30, Math.PI / 2);   // 제어함 왼쪽에서 함을 마주 본다
     var cz = NODE.z + city.halfH[NODE.j] + 2.3;                       // 남쪽 횡단보도 띠
     kid = TG.Character.actor(game.scene, terrain, 'kid', 17.6, cz, -Math.PI / 2);
     guard = TG.Character.actor(game.scene, terrain, 'officer', 12.4, cz - 1.1, 0);
@@ -102,6 +102,8 @@ TG.Intro = function (game) {
     game.player.setSiren(true); TG.audio.setSiren(false);
     game.signals.set(NODE, 'h', 'green');                             // 남북 적색 → 반포대로 횡단보도 보행 녹색
     if (game.weather) game.weather.set('sunset');                     // 인트로는 석양 고정 — 근무 시작 때 다시 뽑는다
+    if (junc.setPanel) junc.setPanel(true, true, false);              // 조작문을 열고 수동으로 넣은 상태(인트로의 핵심 동작)
+    if (junc.setBoxLamp) junc.setBoxLamp(true);
     self.actors = { officer: officer, kid: kid, guard: guard, box: BOX };   // 검증·디버그용
     return true;
   };
@@ -140,7 +142,8 @@ TG.Intro = function (game) {
     if (!self.theme && TG.audio.running) self.theme = TG.audio.introTheme(t);   // 소리가 풀리는 순간부터 테마를 이어서
     driveCar(t);
     // 배우 연기: 6.5초 경찰관이 제어함을 조작(수신호) → 8.8초 어린이가 손을 들고, 보호 경찰관이 정지 수신호
-    if (officer) { officer.gesture = (t > 7.2 && t < 9.0) ? 'go' : null; officer.lookAtPos({ x: BOX.x, z: BOX.z }); officer.update(dt, false); }
+    if (junc && junc.boxAnim) junc.boxAnim(dt);
+    if (officer) { officer.gesture = (t >= 6.4 && t < 8.5) ? 'operate' : (t >= 8.5 && t < 9.1) ? 'go' : null; officer.lookAtPos({ x: BOX.x, z: BOX.z }); officer.update(dt, false); }   // 박스를 조작하다가 손으로 「가세요」
     if (kid) { if (t > 8.6) kid.hand = 30; kid.lookScan = t > 8.4 && t < 9.6; if (t > 9.6 && kid.goTo) kid.goTo(-2, NODE.z + city.halfH[NODE.j] + 2.3, 1.1); kid.smile = t > 9.0; kid.update(dt, false); }
     if (guard) { guard.gesture = t > 8.8 ? 'stop' : null; guard.update(dt, false); }
     // 샷 찾기 + 카메라

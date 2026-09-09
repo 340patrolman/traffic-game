@@ -124,7 +124,7 @@ TG.buildCity = function (cfg) {
       if (bi2 < 0 || bj2 < 0 || bi2 >= xs.length || bj2 >= zs.length) continue;
       var node = nodes[si][sj], road = roadOf(node, d), sideS = halfOf(road.axis, road.idx) + 1.4, back0 = stopDist(node, d);
       var mx = node.x - f[0] * 30, mz = node.z - f[1] * 30;
-      var nearSchool = (mx >= schoolX0 - 8 && mx <= schoolX1 + 8 && mz >= schoolZ0 - 8 && mz <= schoolZ1 + 8);
+      var nearSchool = inSchoolZone(mx, mz);   // 표지·노면 표시와 실제 규칙을 같은 판정으로(전에는 간선 강남대로에도 칠해졌다)
       var kindA = nearSchool ? 'school' : ((si * 3 + sj * 5 + d) % 4 === 0 ? (lanesOf(road.axis, road.idx) >= 2 ? 'limit50' : 'limit40') : (d % 2 === 0 ? 'crosswalk' : 'signalAhead'));
       signs.push(Object.assign(approachSpot(node, d, back0 + 15, sideS), { kind: kindA }));
       if (nearSchool) {
