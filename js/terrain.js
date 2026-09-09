@@ -113,7 +113,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
   function ramps(conn, j, tag) {
     var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
-    var LO = cfg.HW_LANES[2];
+    var LO = cfg.HW_LANES[cfg.HW_LANES.length - 1];
     function L(k) { var p = ring.P(j + k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
     var on = buildLink('on' + tag, [[J.x - tc[0] * 60 + rc[0] * 2, J.z - tc[1] * 60 + rc[1] * 2], [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2],
       [J.x - tc[0] * 20 + rc[0] * 5, J.z - tc[1] * 20 + rc[1] * 5], L(4), L(9), L(12)], 'onramp', false);
@@ -143,12 +143,14 @@ TG.buildTerrain = function (scene, city, cfg) {
   ];
   var conns = [], ramps_ = {};
   ICS.forEach(function (ic) {
-    var node = city.nodes[ic.node[0]][ic.node[1]], dv = TG.DIR_VEC[ic.dir], half = ic.node[0] === 2 || ic.node[1] === 2 ? cfg.ROAD_HALF : cfg.ROAD_HALF;
-    var start = [node.x + dv[0] * (half + cfg.SIDEWALK_W + 4), node.z + dv[1] * (half + cfg.SIDEWALK_W + 4)];
+    var node = city.nodes[ic.node[0]][ic.node[1]], dv = TG.DIR_VEC[ic.dir], half = city.crossHalf(node, ic.dir);   // 도로 폭에 맞춰 교차로 상자 밖에서 시작(고정값이면 넓은 도로에서 연결부가 꺾였다)
+    var start = [node.x + dv[0] * city.EXT, node.z + dv[1] * city.EXT];   // 스텁 끝 = 연결로 시작(city.EXT 로 통일해 정확히 맞물린다)
     var a = ic.th * Math.PI / 180, j = ringIndexNear(CXC + RA * Math.cos(a), CZC + RB * Math.sin(a)), J = ring.pts[j];
     var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
     var end = [J.x - rad[0] * 15, J.z - rad[1] * 15];
-    var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * 45, start[1] + dv[1] * 45]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
+    // 도시에서 곧게 나가는 길이는 첫 경유점까지 거리의 절반까지만(고정 45m 면 경유점을 지나쳐 스플라인이 꺾인다 — 차가 튕겨 나가던 원인)
+    var v0 = ic.via[0], run = Math.min(45, Math.max(12, Math.hypot(v0[0] - start[0], v0[1] - start[1]) * 0.45));
+    var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
     var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);
     trimLink(conn, start, end);
     var Ept = conn.pts[conn.N - 1], split = [end[0] - Ept.tx * 42, end[1] - Ept.tz * 42];
@@ -161,7 +163,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
   // 도로명·제한속도(축약 서울): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 테헤란로 연장(60). 링 북쪽 호는 올림픽대로(80, frameAt).
-  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
+  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[2].busLane = true;   // 서울 구간 왕복 8차로 + 1차로 버스전용(다인승). 올림픽대로·순환고속도로에는 버스전용차로가 없다 conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
   // 연습 서킷(도시 남동쪽 언덕, 링 안): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   var circuit = buildLink('circuit', [[200, 400], [300, 400], [318, 428], [292, 456], [255, 455], [238, 486], [266, 514], [242, 536], [200, 532], [184, 502], [196, 470], [180, 436]], 'circuit', true);
 
@@ -310,11 +312,15 @@ TG.buildTerrain = function (scene, city, cfg) {
         ribbon(mark, p, q, -0.3, -0.15, LIFT, YEL); ribbon(mark, p, q, 0.15, 0.3, LIFT, YEL);
         ribbon(mark, p, q, 3.63, 3.77, LIFT, WHT); ribbon(mark, p, q, -3.77, -3.63, LIFT, WHT);
       } else {
-        var dash = (i % 2) === 0;
+        var dash = (i % 2) === 0, nHW = cfg.HW_LANES.length;
         for (var side = -1; side <= 1; side += 2) {
-          ribbon(mark, p, q, side * 3.6, side * 3.8, LIFT, BLU);
-          if (dash) ribbon(mark, p, q, side * 7.23, side * 7.37, LIFT, WHT);
-          ribbon(mark, p, q, side * 10.63, side * 10.77, LIFT, WHT);
+          // 차로 경계: 편도 4차로면 3곳. 1차로 경계는 버스전용차로가 있는 도로(경부고속도로)만 청색 실선, 나머지는 흰 점선
+          for (var hk = 1; hk < nHW; hk++) {
+            var hb = 0.25 + cfg.LANE_W * hk;
+            if (hk === 1 && L.busLane) ribbon(mark, p, q, side * (hb - 0.1), side * (hb + 0.1), LIFT, BLU);
+            else if (dash) ribbon(mark, p, q, side * (hb - 0.07), side * (hb + 0.07), LIFT, WHT);
+          }
+          ribbon(mark, p, q, side * (0.25 + cfg.LANE_W * nHW - 0.07), side * (0.25 + cfg.LANE_W * nHW + 0.07), LIFT, WHT);
           if (!rampGap(L, p, side)) wallQuad(props, p, q, side * (half - 0.4), 0.55, 0.85, 0xd9dde2);
           if (i % 2 === 0) { var gp = Pt(p, side * (half - 0.4), 0); props.box(gp[0], gp[1] + 0.4, gp[2], 0.12, 0.8, 0.12, 0x8f959c, {}); }
           var w0 = Pt(p, side * (half - 0.4), 0), w1 = Pt(q, side * (half - 0.4), 0);

@@ -9,7 +9,10 @@ TG.CONFIG = {
   ROAD_ZS: [0, 80, 160, 240, 320],   // 동서 방향 도로(z 고정)의 z 좌표
   ROAD_HALF: 6,        // 왕복 2차로 반폭(중앙선에서 연석까지)
   ROAD_HALF4: 10,      // 왕복 4차로(간선) 반폭: 차로 2개(0.3~3.7, 3.7~7.2) + 갓길(7.2~10)
-  AVENUE_V: [0, 1, 2, 3, 4], AVENUE_H: [0, 1, 2, 3, 4],   // 강남·서초 도로는 전부 왕복 4차로 이상(소유자 요청). 인덱스가 빠진 도로는 왕복 2차로가 된다
+  // 편도 차로 수(실제 서초구 기준, 소유자 확인): 반포대로 왕복 8 · 서초중앙로 4 · 강남대로 8 · 논현로 4 · 언주로 4
+  //                                          신반포로 4 · 사평대로 4 · 서초대로(테헤란로) 6 · 효령로 4 · 남부순환로 8
+  LANES_V: [4, 2, 4, 2, 2], LANES_H: [2, 2, 3, 2, 4],
+  LANE_W: 3.5,         // 차로 폭. 반폭 = 3 + 3.5 × 편도차로수(1차로 중심 2.0 → 마지막 차로 밖 0.25 여유 + 갓길 2.75)
   LANE_OFF: 2.0,       // 1차로 중심: 중앙선에서 우측으로
   LANE2_OFF: 5.5,      // 4차로 도로의 2차로(바깥) 중심
   SHOULDER_OFF: 4.6,   // 2차로 도로 갓길(정차 유도 위치) 중심
@@ -20,9 +23,9 @@ TG.CONFIG = {
 
   // --- 교외·고속도로(스플라인 도로) ---
   LINK_STEP: 4,                // 도로 샘플 간격(m)
-  HW_LANES: [2.0, 5.5, 9.0],   // 고속도로 차로 중심(중앙선에서 우측). 0번 = 버스전용차로(1차로)
-  HW_HALF: 13.5,               // 고속도로 반폭(갓길 포함)
-  HW_SHOULDER: 12.1,           // 고속도로 갓길 중심
+  HW_LANES: [2.0, 5.5, 9.0, 12.5],   // 고속도로 편도 4차로(왕복 8차로) 중심. 경부고속도로만 1차로가 버스전용(link.busLane) — 올림픽대로·순환고속도로에는 없다
+  HW_HALF: 17,                 // 고속도로 반폭(갓길 포함) = 3 + 3.5 × 4
+  HW_SHOULDER: 15.65,          // 고속도로 갓길 중심
   SUB_LIMIT_KMH: 60, HW_LIMIT_KMH: 100,
   AI_CRUISE_SUB: 15, AI_CRUISE_HW: 26, AI_CRUISE_BUS: 22,
   BUSLANE_VIOLATOR_RATE: 0.35, // 고속도로 승용차 중 버스전용차로로 달리는 비율
@@ -81,6 +84,6 @@ TG.CONFIG = {
   SCORE: { correct: 30, wrongChoice: 10, noViolation: -5, redLight: -10, speeding: -5, centerline: -5,
            video: 25, videoLow: 12, radio: 8, handover: 10, pursuitBan: -15, noRadio: -8,   // 대응 원칙: 영상 단속·무전 전파·인계 / 추격 금지 위반·무전 없이 추격
            crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5,
-           jaywalk: -10, walkRed: -10, safeCross: 10, arrive: 20, railroad: -10 },   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
+           jaywalk: -10, walkRed: -10, safeCross: 10, arrive: 20, railroad: -10, incident: 30 },   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
   WALK_SECONDS: 360, WALK_DESTS: 8,
 };

@@ -105,12 +105,15 @@
     var mk = new GeoBuilder(), Y = 0.07, YEL = 0xf0c000, WHT = 0xf2f2ee;
     function seg(axis, fixed, a0, a1, lanes) {
       var len = a1 - a0, mid = (a0 + a1) / 2; if (len <= 0) return;
-      var edge = lanes === 2 ? 7.2 : 3.7;
+      var edge = 0.25 + cfg.LANE_W * lanes;   // 마지막 차로 밖 가장자리 실선
       function line(off, wdt, col) { if (axis === 'v') mk.rect(fixed + off, mid, wdt, len, 0, Y, col); else mk.rect(mid, fixed + off, len, wdt, 0, Y, col); }
       line(-0.22, 0.15, YEL); line(0.22, 0.15, YEL); line(-edge, 0.14, WHT); line(edge, 0.14, WHT);
-      if (lanes === 2) for (var s = a0 + 1; s < a1 - 2; s += 8) { // 차로 사이 점선(4m 선, 4m 공백)
-        if (axis === 'v') { mk.rect(fixed - 3.7, s + 2, 0.14, 4, 0, Y, WHT); mk.rect(fixed + 3.7, s + 2, 0.14, 4, 0, Y, WHT); }
-        else { mk.rect(s + 2, fixed - 3.7, 4, 0.14, 0, Y, WHT); mk.rect(s + 2, fixed + 3.7, 4, 0.14, 0, Y, WHT); }
+      for (var lk = 1; lk < lanes; lk++) {   // 차로 사이 점선(4m 선, 4m 공백) — 편도 차로 수 −1 개
+        var bnd = 0.25 + cfg.LANE_W * lk;
+        for (var s = a0 + 1; s < a1 - 2; s += 8) {
+          if (axis === 'v') { mk.rect(fixed - bnd, s + 2, 0.14, 4, 0, Y, WHT); mk.rect(fixed + bnd, s + 2, 0.14, 4, 0, Y, WHT); }
+          else { mk.rect(s + 2, fixed - bnd, 4, 0.14, 0, Y, WHT); mk.rect(s + 2, fixed + bnd, 4, 0.14, 0, Y, WHT); }
+        }
       }
     }
     for (var i2 = 0; i2 < xs.length; i2++) {
@@ -296,7 +299,7 @@
         var farA = city.crossHalf(nd, hd) + 1.6, sideA = halfA + 1.6;
         var px2 = nd.x + f2[0] * farA + r2[0] * sideA, pz2 = nd.z + f2[1] * farA + r2[1] * sideA;
         sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.2, 6, 0x4a4f55);
-        var headOff = lanes === 2 ? (cfg.LANE_OFF + cfg.LANE2_OFF) / 2 : cfg.LANE_OFF, armLen = sideA - headOff + 0.6;
+        var headOff = cfg.LANE_OFF + cfg.LANE_W * (lanes - 1) / 2, armLen = sideA - headOff + 0.6;
         sigProps.box(px2 - r2[0] * armLen / 2, 6.1, pz2 - r2[1] * armLen / 2, 0.14, 0.14, armLen, 0x4a4f55, { rotY: TG.DIR_HEADING[hd] + Math.PI / 2 });
         var hx = nd.x + f2[0] * farA + r2[0] * headOff, hz = nd.z + f2[1] * farA + r2[1] * headOff;
         sigProps.box(hx + f2[0] * 0.18, 5.6, hz + f2[1] * 0.18, 2.1, 0.66, 0.3, 0x1d2126, { rotY: TG.DIR_HEADING[hd] });

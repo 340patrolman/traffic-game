@@ -36,7 +36,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       nd = d; lb = m === 'X' ? la : gridLane(car, N, nd);
       pts.push({ x: C.x + f[0] * (city.crossHalf(N, d) + 3) + r[0] * lb, z: C.z + f[1] * (city.crossHalf(N, d) + 3) + r[1] * lb, y: 0 });
     } else if (m === 'R') {
-      nd = (d + 3) % 4; lb = gridLane(car, N, nd); R = 5;
+      nd = (d + 3) % 4; lb = gridLane(car, N, nd); R = 5 + Math.max(0, city.crossHalf(N, d) - 6) * 0.3;   // 넓은 교차로는 우회전 반경도 크게
       cx = C.x + (la + R) * r[0] - (lb + R) * f[0]; cz = C.z + (la + R) * r[1] - (lb + R) * f[1];
       for (k = 1; k <= 5; k++) { th = k / 5 * Math.PI / 2; pts.push({ x: cx - r[0] * R * Math.cos(th) + f[0] * R * Math.sin(th), z: cz - r[1] * R * Math.cos(th) + f[1] * R * Math.sin(th), y: 0, vmax: cfg.AI_TURN_SPEED }); }
     } else {
@@ -62,7 +62,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car && car.wantsExit && exit) return 'X';
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
     if (exit && !car.isBus && !car.isMoto && !car.isBike && !car.isPM) opts.push(['X', 0.5]);   // 이륜차·자전거·PM 은 고속도로로 나가지 않는다
-    if (city.nodeFrom(N, (d + 3) % 4) && (!car || car.laneIdx === 1 || city.lanesOf(city.roadOf(N, d).axis, city.roadOf(N, d).idx) === 1)) opts.push(['R', 0.28]);  // 4차로에서는 바깥 차로만 우회전
+    var rdN = city.roadOf(N, d), nLn = city.lanesOf(rdN.axis, rdN.idx);
+    if (city.nodeFrom(N, (d + 3) % 4) && (!car || nLn === 1 || car.laneIdx >= nLn - 1)) opts.push(['R', 0.28]);  // 우회전은 가장 바깥 차로에서만
     if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', opts.length ? 0.0 : 1]);
     if (!opts.length) {   // 모퉁이(직진 불가)에서 안쪽 차로 차량: 우회전·좌회전 허용(차로 바꿔 돈다)
       if (city.nodeFrom(N, (d + 3) % 4)) return 'R';
@@ -74,10 +75,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     for (var i = 0; i < opts.length; i++) { x -= opts[i][1]; if (x <= 0) return opts[i][0]; }
     return opts[opts.length - 1][0];
   }
+  // 고속도로 차로 배정: 버스전용차로가 있는 도로(경부)에서만 버스가 1차로. 나머지 고속도로는 버스도 일반 차로로 달린다.
   function laneFor(car, link) {
     if (link.kind !== 'highway') return 0;
-    if (car.isBus || car.busLaneViolator) return 0;
-    return 1 + Math.floor(rng() * 2);
+    var n = self.terrain.laneOffsets(link.pts[0]).length, busl = !!link.busLane;
+    if (busl && (car.isBus || car.busLaneViolator)) return 0;
+    var lo = busl ? 1 : 0;
+    return lo + Math.floor(rng() * Math.max(1, n - lo));
   }
   // ---------- 링크 경로 ----------
   function appendLink(car, count) {
@@ -89,7 +93,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         for (var e = 0; e < L.exitsA.length; e++) {
           var ex = L.exitsA[e];
           if (i === ex.decideIndex && !car.isBus && !car.stayRing && rng() < 0.35) rt.pendingExit = ex;
-          if (rt.pendingExit === ex && i === ex.atIndex) { car.route = rt = { link: ex.link, dirA: true, i: 0, lane: 0, lanePrev: cfg.HW_LANES[2], blend: 0 }; L = ex.link; i = 0; break; }
+          if (rt.pendingExit === ex && i === ex.atIndex) { car.route = rt = { link: ex.link, dirA: true, i: 0, lane: 0, lanePrev: cfg.HW_LANES[cfg.HW_LANES.length - 1], blend: 0 }; L = ex.link; i = 0; break; }
         }
       }
       if (atEnd) {
@@ -98,7 +102,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
           var lanePrev = laneOffsetOf(car, L, rt.lane, rt);
           car.route = rt = { link: nx.link, dirA: nx.dirA !== false, i: nx.index, lane: laneFor(car, nx.link), lanePrev: lanePrev, blend: 0, merge: !!nx.merge };
           L = nx.link; i = rt.i;
-          if (rt.merge) rt.lanePrev = cfg.HW_LANES[2];
+          if (rt.merge) rt.lanePrev = cfg.HW_LANES[cfg.HW_LANES.length - 1];
         } else if (L.cityEnd && !rt.dirA) {
           car.route = null; car.laneIdx = 0;
           var ce = L.cityEnd; car.path.push(approachPoint(car, ce.node, ce.dir)); car.lastNode = ce.node; car.lastDir = ce.dir;
@@ -216,7 +220,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var gi = TG.irange(rng, 0, city.xs.length - 1), gj = TG.irange(rng, 0, city.zs.length - 1), d = TG.irange(rng, 0, 3);
       var N = city.nodes[gi][gj], N2 = city.nodeFrom(N, d);
       if (!N2 && !opts.at) continue;
-      var laneIdx = opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1);
+      var laneIdx = opts.laneIdx !== undefined ? opts.laneIdx : TG.irange(rng, 0, city.lanesOf(city.roadOf(city.nodes[gi][gj], d).axis, city.roadOf(city.nodes[gi][gj], d).idx) - 1);
       var rdS = city.roadOf(N, d), la = city.laneOff(rdS.axis, rdS.idx, laneIdx);
       var f = TG.DIR_VEC[d], r = [-f[1], f[0]], u = opts.u !== undefined ? opts.u : 0.2 + rng() * 0.6, gx, gz;
       if (opts.at) { gx = opts.at.x; gz = opts.at.z; d = opts.at.d; N = opts.at.node; N2 = city.nodeFrom(N, d); f = TG.DIR_VEC[d]; if (!N2) return null; }
@@ -269,7 +273,54 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     return false;
   }
 
+  // ---------- 고장차량·교통사고 현장 ----------
+  // mode 'incident' 인 차는 그 자리에 서서 비상등만 켠다. 삼각대(안전삼각대)·라바콘을 뒤에 놓는다.
+  var incidentGroup = null;
+  this.spawnIncident = function (kind, at) {
+    var pl = self.player; if (!pl && !at) return null;
+    var spot = at, node = null, d = 0;
+    if (!spot) {   // 플레이어 앞 70~110m, 진행 방향 도로의 갓길
+      var pf = pl.forward(), dd = 70 + rng() * 40, x = pl.pos.x + pf[0] * dd, z = pl.pos.z + pf[1] * dd;
+      var fr = city.frameAt(x, z, pl.heading); if (fr.kind !== 'grid') return null;
+      d = TG.headingToDir(pl.heading); var f = TG.DIR_VEC[d], r = [-f[1], f[0]];
+      var rd = city.roadOf({ i: fr.idx, j: fr.idx, x: x, z: z }, d);
+      var off = city.shoulderOff(fr.axis, fr.idx) - 0.6;
+      spot = { x: fr.axis === 'v' ? fr.center + r[0] * off : x, z: fr.axis === 'h' ? fr.center + r[1] * off : z, heading: TG.DIR_HEADING[d] };
+    }
+    var made = [];
+    function place(type, dx, dz, hd) {
+      var c = makeCar(type, spot.x + dx, spot.z + dz, hd, { violator: false, straight: true, trait: null });
+      c.mode = 'incident'; c.v = 0; c.cruise = 0; c.speedK = 0; c.path = []; c.route = null; c.lastNode = null;
+      c.incident = { kind: kind, handled: false }; made.push(c); return c;
+    }
+    var hd0 = spot.heading || 0, fx = Math.sin(hd0), fz = Math.cos(hd0);
+    if (kind === 'crash') { place('sedan', 0, 0, hd0); place('hatch', -fx * 5.4 * 0.9 + 0.9, -fz * 5.4 * 0.9 + 0.9, hd0 + 0.35); }
+    else place(rng() < 0.3 ? 'truck' : 'sedan', 0, 0, hd0);
+    // 안전삼각대 + 라바콘(뒤 10m·18m)
+    if (!incidentGroup) { incidentGroup = new THREE.Group(); scene.add(incidentGroup); }
+    var gb = new TG.GeoBuilder();
+    gb.box(0, 0.42, 0, 0.72, 0.06, 0.05, 0xd7262b, {}); gb.box(-0.3, 0.24, 0, 0.06, 0.42, 0.05, 0xd7262b, { rotY: 0 }); gb.box(0.3, 0.24, 0, 0.06, 0.42, 0.05, 0xd7262b, {});
+    gb.box(0, 0.03, 0, 0.8, 0.06, 0.2, 0xe8e8e8, {});
+    var tri = new THREE.Mesh(gb.build(), bodyMat); tri.position.set(spot.x - fx * 11, 0, spot.z - fz * 11); tri.rotation.y = hd0; incidentGroup.add(tri);
+    for (var k = 1; k <= 2; k++) {
+      var cb = new TG.GeoBuilder(); cb.cylinder(0, 0, 0, 0.26, 0.06, 0.72, 8, 0xff7a00, true); cb.box(0, 0.02, 0, 0.5, 0.04, 0.5, 0x2a2e33, {}); cb.cylinder(0, 0.34, 0, 0.16, 0.13, 0.1, 8, 0xf2f2f2, false);
+      var cone = new THREE.Mesh(cb.build(), bodyMat); cone.position.set(spot.x - fx * (5 + k * 7), 0, spot.z - fz * (5 + k * 7)); incidentGroup.add(cone);
+    }
+    made[0].incident.props = [tri];
+    self.onEvent('incident', made[0]);
+    return made[0];
+  };
+  this.clearIncidents = function () {
+    for (var i = cars.length - 1; i >= 0; i--) if (cars[i].incident) remove(cars[i]);
+    if (incidentGroup) { scene.remove(incidentGroup); incidentGroup = null; }
+  };
   function drive(car, dt) {
+    if (car.mode === 'incident') {   // 현장 차량: 비상등(양쪽 깜빡이)만 켜고 정지
+      var on = ((self.time * 1.4) % 1) < 0.5;
+      for (var bi3 = 0; bi3 < car.blinkL.length; bi3++) { car.blinkL[bi3].visible = on; car.blinkR[bi3].visible = on; }
+      car.braking = true; car.brakeLamp.visible = true;
+      return;
+    }
     var path = car.path;
     while (path.length - car.idx < 6 && (car.route || car.lastNode)) { var before = path.length; extend(car); if (path.length === before) break; }
     var fx = Math.sin(car.heading), fz = Math.cos(car.heading), rx = -fz, rz = fx;
@@ -319,7 +370,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       car.prevDistStop = distStop; car.prevAp = ap;
     } else { car.prevAp = null; car.prevDistStop = undefined; }
-    if (onLink && cur.kind === 'highway' && car.route && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
+    if (onLink && cur.kind === 'highway' && cur.link && cur.link.busLane && car.route && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
       if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null, true); } }
     } else car.busLaneT = 0;
     // ---- 방향지시등·차로 변경·운전자 습관 ----
@@ -330,12 +381,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.prevApRef = ap;
     if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
-      var rdL = city.roadOf(ap.node, ap.d);
-      if (city.lanesOf(rdL.axis, rdL.idx) === 2) {
-        var oldL = car.laneIdx, newL = 1 - oldL, offOld = city.laneOff(rdL.axis, rdL.idx, oldL), offNew = city.laneOff(rdL.axis, rdL.idx, newL);
+      var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
+      if (nL >= 2) {
+        var oldL = TG.clamp(car.laneIdx, 0, nL - 1), newL = oldL + (oldL === 0 ? 1 : oldL === nL - 1 ? -1 : (rng() < 0.5 ? -1 : 1));   // 옆 차로로만 한 칸
+        var offOld = city.laneOff(rdL.axis, rdL.idx, oldL), offNew = city.laneOff(rdL.axis, rdL.idx, newL);
         car.laneIdx = newL; car.lcShift += offNew - offOld; car.lcCd = 14 + rng() * 22;
         if (car.noSignalViolator) { car.signal = null; self.stats.violations++; flag(car, 'nosignal', ap.node, self.witness(car)); }
-        else { car.signal = newL === 1 ? 'R' : 'L'; car.signalT = 3; }
+        else { car.signal = newL > oldL ? 'R' : 'L'; car.signalT = 3; }
         if (distStop < 32) { self.stats.violations++; flag(car, 'solidline', ap.node, self.witness(car)); }   // 정지선 앞 실선 구간
       }
     }
@@ -381,7 +433,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     // 우측 앞지르기(overtake 습관): 느린 앞차 뒤에서 바깥(우측) 차로로 빠져 속도를 올려 추월한다 → 「앞지르기 위반」(앞지르기는 좌측으로)
     if (car.trait === 'overtake' && !onLink && car.mode === 'drive' && car.laneIdx === 0 && car.lcCd <= 0 && lead && lead.along < 24 && lead.v < car.cruise - 2 && car.v > 3 && ap && distStop > 20) {
       var rdO = city.roadOf(ap.node, ap.d);
-      if (city.lanesOf(rdO.axis, rdO.idx) === 2) { car.laneIdx = 1; car.lcShift += city.laneOff(rdO.axis, rdO.idx, 1) - city.laneOff(rdO.axis, rdO.idx, 0); car.signal = 'R'; car.signalT = 2; car.lcCd = 25 + rng() * 20; car.cruise *= 1.35; car.otBoost = 7; lead = null; self.stats.violations++; flag(car, 'overtake', ap.node, self.witness(car)); }
+      var nO = city.lanesOf(rdO.axis, rdO.idx), oL = TG.clamp(car.laneIdx, 0, nO - 1);
+      if (nO >= 2 && oL < nO - 1) { car.laneIdx = oL + 1; car.lcShift += city.laneOff(rdO.axis, rdO.idx, oL + 1) - city.laneOff(rdO.axis, rdO.idx, oL); car.signal = 'R'; car.signalT = 2; car.lcCd = 25 + rng() * 20; car.cruise *= 1.35; car.otBoost = 7; lead = null; self.stats.violations++; flag(car, 'overtake', ap.node, self.witness(car)); }
     }
     if (car.otBoost > 0) { car.otBoost -= dt; if (car.otBoost <= 0) car.cruise /= 1.35; }
     // 철길건널목: 차단기가 내려오면 정지선 앞에 선다. 위반 성향 차량 일부는 그대로 통과 → 「건널목 위반」
@@ -476,7 +529,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     var pl = self.player;
     if (pl) for (var k = cars.length - 1; k >= 0; k--) {
-      var c = cars[k]; if (c.mode !== 'drive' || c.violation) continue;
+      var c = cars[k]; if (c.mode !== 'drive' || c.violation || c.incident) continue;
       var far = city.frameAt(pl.pos.x, pl.pos.z, pl.heading).kind === 'link' ? cfg.DESPAWN * 1.7 : cfg.DESPAWN;
       var ddp = Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z), pfd = pl.forward(), inView = (c.pos.x - pl.pos.x) * pfd[0] + (c.pos.z - pl.pos.z) * pfd[1] > 0;
       if (ddp > far && (!inView || ddp > far * 1.8)) remove(c);   // 시야 앞의 차는 훨씬 멀어질 때까지 남긴다(눈앞에서 사라지지 않게)

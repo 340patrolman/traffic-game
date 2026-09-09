@@ -27,11 +27,46 @@ TG.Response = function (game) {
     if (sel && sel.kind === 'car' && sel.car.violation) return sel.car;
     var me = game.actor ? game.actor() : game.player, pf = me.forward(), best = null, bd = maxDist || 70;
     game.traffic.cars.forEach(function (c) {
-      if (!c.violation && !c.wanted) return;
+      if (!c.violation && !c.wanted && !(c.incident && !c.incident.handled)) return;
       var dx = c.pos.x - me.pos.x, dz = c.pos.z - me.pos.z, d = Math.hypot(dx, dz);
       if (d < bd && dx * pf[0] + dz * pf[1] > -4) { bd = d; best = c; }
     });
     return best;
+  }
+  // ---------- 고장차량·교통사고 현장 처리 ----------
+  // 절차: 경광등 켜고 현장 뒤에 정차 → 📡 무전(상황 전파·견인/구급 요청) → 2초 유지 = 안전조치 완료.
+  var inc = { car: null, t: 0, notice: 0 };
+  function incidentUpdate(dt) {
+    var pl = game.player; if (!pl || game.mode === 'kid' || game.mode === 'walk') { inc.car = null; return; }
+    var near = null, bd = 45;
+    game.traffic.cars.forEach(function (c) {
+      if (!c.incident || c.incident.handled) return;
+      var d = Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z);
+      if (d < bd) { bd = d; near = c; }
+    });
+    if (near !== inc.car) { inc.car = near; inc.t = 0; if (near) { inc.notice = 0; } }
+    if (!near) return;
+    var kindTxt = near.incident.kind === 'crash' ? '교통사고' : '고장차량';
+    inc.notice -= dt;
+    var behind = false, pf2 = pl.forward(), dx2 = near.pos.x - pl.pos.x, dz2 = near.pos.z - pl.pos.z, along = dx2 * pf2[0] + dz2 * pf2[1];
+    behind = along > 3 && along < 22 && Math.abs(dx2 * -pf2[1] + dz2 * pf2[0]) < 6;
+    if (inc.notice <= 0) {
+      inc.notice = 7;
+      game.hud.notice('⚠ ' + kindTxt + ' 발견 — 경광등 켜고 뒤에 정차 → 📡 무전으로 견인·구급 요청', 'alert', 4200);
+      game.hud.hint('현장 뒤에 서서 뒤차를 막아 준다. 삼각대 안쪽으로 들어가지 않는다');
+    }
+    var ok = pl.siren && behind && pl.speedKmh() < 2 && near.radioed;
+    inc.t = ok ? inc.t + dt : 0;
+    if (inc.t > 2) {
+      near.incident.handled = true; inc.car = null; inc.t = 0;
+      game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1;
+      game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
+      game.hud.pop('✅ +' + S.incident, 'good'); TG.audio.jingle(3);
+      TG.audio.say(kindTxt + ' 안전조치 완료. 견인 요청했습니다', { kind: 'officer', queue: true });
+      setTimeout(function () { if (game.traffic.clearIncidents) game.traffic.clearIncidents(); }, 6000);
+    } else if (pl.siren && behind && pl.speedKmh() < 2 && !near.radioed && inc.notice < 5.6) {
+      game.hud.hint('📡 무전으로 상황을 전파하고 견인·구급을 요청하세요');
+    }
   }
   this.target = target;
   function vName(car) { return car.violation ? game.enforcement.nameOf(car.violation.type) : (car.wanted ? '수배차량' : '위반 없음'); }
@@ -74,6 +109,14 @@ TG.Response = function (game) {
       TG.audio.say('상황실, 순찰 중 특이사항 없습니다', { kind: 'officer', queue: true });
       return false;
     }
+    if (car.incident && !car.incident.handled) {   // 현장: 견인·구급 요청 무전
+      car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1;
+      var it = car.incident.kind === 'crash' ? '교통사고' : '고장차량', wi = placeName(car);
+      game.addScore(S.radio, null);
+      game.hud.notice('📡 무전 — ' + wi + ' ' + it + '. ' + (it === '교통사고' ? '구급차·견인차 요청, 후방 차단합니다' : '견인차 요청, 후방 차단합니다'), 'alert', 4200);
+      TG.audio.say('상황실, ' + wi + ' ' + it + '. ' + (it === '교통사고' ? '구급차와 견인차 요청합니다' : '견인차 요청합니다'), { kind: 'officer', queue: true });
+      return true;
+    }
     var t = tierOf(car), nm = vName(car), kn = kindName(car), where = placeName(car);
     car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1;
     var msg = kn + ' ' + nm + ', ' + where + '. ' + (t === 'A' ? '중대 위반 — 인접 순찰차 지원 요청, 정차 유도합니다' : '인접 순찰차 확인 요청합니다');
@@ -93,6 +136,7 @@ TG.Response = function (game) {
   // ---------- 추격 감시 ----------
   // 등급 C 를 사이렌 켜고 바짝 붙어 빠르게 쫓으면 경고 → 계속하면 감점(추격 금지 원칙). 등급 A 는 무전 전파 전 추격만 감점.
   this.update = function (dt) {
+    incidentUpdate(dt);
     for (var i = pending.length - 1; i >= 0; i--) {
       var p = pending[i]; p.t -= dt;
       if (p.t <= 0) {
@@ -143,6 +187,7 @@ TG.Response = function (game) {
   };
   // MDT·HUD 에 보여 줄 대응 지침
   this.adviceFor = function (car) {
+    if (car.incident && !car.incident.handled) return (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 현장 · 경광등 + 뒤 정차 + 📡 무전';
     var t = tierOf(car);
     if (t === 'A') return car.pursuitOk ? '중대 위반 · 정차 유도(무전 전파 완료)' : '중대 위반 · 📡 무전 전파 먼저';
     if (t === 'C') return '단순 위반 · 추격 금지 → 📹 영상 · 📡 무전';

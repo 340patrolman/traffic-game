@@ -20,8 +20,8 @@ TG.Minimap = function (canvas, city, terrain) {
       g.stroke();
     });
     // 도시 격자
-    for (var i = 0; i < city.xs.length; i++) { g.strokeStyle = '#b9c3cf'; g.lineWidth = city.lanesV[i] === 2 ? 3.2 : 1.8; g.beginPath(); g.moveTo(mx(city.xs[i]), mz(city.zs[0] - 10)); g.lineTo(mx(city.xs[i]), mz(city.zs[city.zs.length - 1] + 10)); g.stroke(); }
-    for (var j = 0; j < city.zs.length; j++) { g.strokeStyle = '#b9c3cf'; g.lineWidth = city.lanesH[j] === 2 ? 3.2 : 1.8; g.beginPath(); g.moveTo(mx(city.xs[0] - 10), mz(city.zs[j])); g.lineTo(mx(city.xs[city.xs.length - 1] + 10), mz(city.zs[j])); g.stroke(); }
+    for (var i = 0; i < city.xs.length; i++) { g.strokeStyle = '#b9c3cf'; g.lineWidth = 1.2 + city.lanesV[i] * 0.9; g.beginPath(); g.moveTo(mx(city.xs[i]), mz(city.zs[0] - 10)); g.lineTo(mx(city.xs[i]), mz(city.zs[city.zs.length - 1] + 10)); g.stroke(); }
+    for (var j = 0; j < city.zs.length; j++) { g.strokeStyle = '#b9c3cf'; g.lineWidth = 1.2 + city.lanesH[j] * 0.9; g.beginPath(); g.moveTo(mx(city.xs[0] - 10), mz(city.zs[j])); g.lineTo(mx(city.xs[city.xs.length - 1] + 10), mz(city.zs[j])); g.stroke(); }
     // 강·바다 힌트
     g.strokeStyle = 'rgba(80,150,220,0.7)'; g.lineWidth = 2; g.beginPath();
     g.lineWidth = 5; g.strokeStyle = 'rgba(80,150,220,0.75)';
@@ -56,14 +56,24 @@ TG.Minimap = function (canvas, city, terrain) {
       var s0 = 1 / Math.sqrt(zm); ctx.fillStyle = '#ffcf3f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(mx(marker.x), mz(marker.z), 4.5 * s0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
+    // 현재 위치: 흰 테두리 원 + 진행 방향 화살표 + 맥동 고리(작은 미니맵에서도 눈에 띄게)
     if (player) {
       var px = mx(player.pos.x), pz = mz(player.pos.z), h = player.heading, s = 1 / Math.sqrt(zm);
-      ctx.save(); ctx.translate(px, pz); ctx.rotate(Math.PI - h); ctx.scale(s, s);   // heading 0(+z) 이 캔버스 아래쪽
-      ctx.fillStyle = '#4d8dff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4, 5); ctx.lineTo(0, 2.5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      var pulse = 1 + 0.35 * Math.sin(Date.now() / 260);
+      ctx.save(); ctx.translate(px, pz); ctx.scale(s, s);
+      ctx.strokeStyle = 'rgba(77,141,255,0.85)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0, 0, 8.5 * pulse, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(10,14,22,0.75)'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.rotate(Math.PI - h);   // heading 0(+z) 이 캔버스 아래쪽
+      ctx.fillStyle = '#4d8dff'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(0, -7.5); ctx.lineTo(5, 5.5); ctx.lineTo(0, 2.5); ctx.lineTo(-5, 5.5); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
     }
     ctx.restore();
+    if (player) {   // 범례는 확대·이동 변환 밖에서(항상 왼쪽 아래 고정)
+      ctx.fillStyle = 'rgba(10,14,22,0.6)'; ctx.fillRect(3, H - 15, 62, 12);
+      ctx.fillStyle = '#9fc0ff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('▲ 현재 위치', 6, H - 6);
+    }
     if (zm > 1) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(W - 30, 4, 26, 14); ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('×' + zm, W - 17, 15); }
   };
 };

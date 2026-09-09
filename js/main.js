@@ -745,6 +745,11 @@
     addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad(); }
   G.penalize = penalize;
   function onTrafficEvent(kind, car) {
+    if (kind === 'incident') {   // 상황실 신고 → 현장으로
+      hud.notice('📻 상황실 — 전방 도로에 ' + (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 신고. 확인 바랍니다', 'alert', 4600);
+      TG.audio.alert(); TG.audio.say('순찰차, 전방 도로 ' + (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 확인 바랍니다', { kind: 'narrator', queue: true });
+      return;
+    }
     if (kind === 'witness') {
       if (G.mode === 'kid') return;
       var name = { buslane: '버스전용차로 위반', pedestrian: '보행자 보호의무 위반(횡단보도)', signal: '신호위반' }[car.violation.type] || (enforcement && enforcement.nameOf ? enforcement.nameOf(car.violation.type) : car.violation.type);
@@ -781,6 +786,7 @@
       if (st.correct >= 5) badges.push({ text: '🚨 단속왕 ' + st.correct + '건', gold: st.correct >= 8 });
       if (acc >= 0.8 && st.stops >= 3) badges.push({ text: '🎯 정확한 판단 ' + Math.round(acc * 100) + '%' });
       if ((st.warned || 0) >= 2) badges.push({ text: '🚸 보행자 지킴이' });
+      if ((st.incidents || 0) >= 1) badges.push({ text: '🛠 현장 안전조치', gold: (st.incidents || 0) >= 2 });
       if ((st.videos || 0) >= 2 && !penaltyCount.pursuitBan) badges.push({ text: '📹 원칙대로 대응', gold: true });
       if ((st.radios || 0) >= 3) badges.push({ text: '📡 상황 전파' });
       if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
@@ -855,8 +861,8 @@
     if (!!sigOnHud !== !!rules.sigWas) { rules.sigWas = !!sigOnHud; if (player.signal) TG.audio.tick(!!sigOnHud); }   // 릴레이 「딱·딱」
     if (eL) eL.classList.toggle('on', !!(sigOnHud && player.signal === 'L')); if (eR) eR.classList.toggle('on', !!(sigOnHud && player.signal === 'R'));
     // 8-2) 플레이어 차로 변경 판정(4차로 격자): 차로 인덱스가 바뀌면 방향지시등 없음 → 감점, 정지선 30m 안(실선) → 감점. 경광등 추격 중은 특례
-    if (frame.kind === 'grid' && frame.lanes === 2 && T.speed > 3) {
-      var laneNow = frame.lateral > (C.LANE_OFF + C.LANE2_OFF) / 2 ? 1 : 0, roadKey = frame.axis + frame.idx;
+    if (frame.kind === 'grid' && frame.lanes >= 2 && T.speed > 3) {
+      var laneNow = city.laneIndexAt(frame.axis, frame.idx, frame.lateral), roadKey = frame.axis + frame.idx;
       if (rules.laneKey === roadKey && rules.laneIdx !== undefined && laneNow !== rules.laneIdx && !player.siren) {
         // 실선 구간 = 진행 방향 앞 교차로의 정지선까지 30m 안(뒤쪽 교차로는 무관)
         var dLc = TG.headingToDir(player.heading), nLc = city.nodeAhead(player.pos.x, player.pos.z, dLc, 0), fLc = TG.DIR_VEC[dLc];
@@ -893,6 +899,13 @@
     if (terrain.isWater(player.pos.x, player.pos.z) && !frame.onRoad) {
       addScore(-5, 'water'); hud.notice('도로 이탈(물) — 마지막 도로 위치로 복귀 (-5)', 'bad', 3000); TG.audio.bad();
       player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); camInit = false;
+    }
+    // 8-4) 고장차량·교통사고 현장: 순찰 근무에서 70~110초마다 하나(처리 중이면 새로 만들지 않는다)
+    rules.incT = (rules.incT === undefined ? 25 : rules.incT) - dt;
+    if (rules.incT <= 0 && G.mode === 'patrol') {
+      rules.incT = 70 + Math.random() * 40;
+      var hasInc = traffic.cars.some(function (c) { return c.incident && !c.incident.handled; });
+      if (!hasInc && T.speed > 4) traffic.spawnIncident(Math.random() < 0.4 ? 'crash' : 'broken');
     }
     // 9) 철길건널목(§24): 차단기가 내려온 건널목을 지나면 감점. 열려 있어도 일시정지 안내
     rules.railCd = (rules.railCd || 0) - dt;

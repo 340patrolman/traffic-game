@@ -1,5 +1,5 @@
 // 도로망 = 진실의 원천. 격자 도로(우측통행), 교차로 노드, 블록·건물·표지 배치, 충돌.
-// 도로마다 폭이 다르다: 이면도로 왕복 2차로(반폭 6), 간선 왕복 4차로(반폭 10, 가운데 남북·동서 도로).
+// 도로마다 편도 차로 수가 다르다(config.LANES_V/H): 반포대로·강남대로·남부순환로 왕복 8차로, 서초대로(테헤란로) 왕복 6차로, 나머지 왕복 4차로.
 // 좌표계: y 위. heading h → forward f=(sin h, cos h), right r=(-fz, fx). 방위 0..3 = 남(+z) 동(+x) 북(-z) 서(-x).
 TG.buildCity = function (cfg) {
   var rng = TG.makeRNG(cfg.SEED);
@@ -7,10 +7,11 @@ TG.buildCity = function (cfg) {
   var M = cfg.WORLD_MARGIN;
   var bounds = { x0: xs[0] - M, x1: xs[xs.length - 1] + M, z0: zs[0] - M, z1: zs[zs.length - 1] + M };
   // 도로별 차로 수(편도) 와 반폭
-  var lanesV = xs.map(function (_, i) { return cfg.AVENUE_V.indexOf(i) >= 0 ? 2 : 1; });
-  var lanesH = zs.map(function (_, j) { return cfg.AVENUE_H.indexOf(j) >= 0 ? 2 : 1; });
-  var halfV = lanesV.map(function (n) { return n === 2 ? cfg.ROAD_HALF4 : cfg.ROAD_HALF; });
-  var halfH = lanesH.map(function (n) { return n === 2 ? cfg.ROAD_HALF4 : cfg.ROAD_HALF; });
+  // 도로마다 편도 차로 수가 다르다(config.LANES_V/H). 반폭 = 3 + 차로폭 × 편도차로수
+  function halfFor(n) { return 3 + cfg.LANE_W * n; }
+  var lanesV = xs.map(function (_, i) { return (cfg.LANES_V && cfg.LANES_V[i]) || 2; });
+  var lanesH = zs.map(function (_, j) { return (cfg.LANES_H && cfg.LANES_H[j]) || 2; });
+  var halfV = lanesV.map(halfFor), halfH = lanesH.map(halfFor);
 
   var nodes = [];
   for (var i = 0; i < xs.length; i++) { nodes[i] = []; for (var j = 0; j < zs.length; j++) nodes[i][j] = { i: i, j: j, x: xs[i], z: zs[j] }; }
@@ -26,9 +27,11 @@ TG.buildCity = function (cfg) {
   function stopDist(node, d) { return crossHalf(node, d) + cfg.STOP_GAP; }
   function crossNear(node, d) { return crossHalf(node, d) + 0.5; }
   function crossFar(node, d) { return crossHalf(node, d) + 4.0; }
-  function laneOff(axis, idx, laneIdx) { return (laneIdx === 1 && lanesOf(axis, idx) === 2) ? cfg.LANE2_OFF : cfg.LANE_OFF; }
-  function shoulderOff(axis, idx) { return lanesOf(axis, idx) === 2 ? cfg.SHOULDER4_OFF : cfg.SHOULDER_OFF; }
-  function shoulderMin(axis, idx) { return lanesOf(axis, idx) === 2 ? cfg.LANE2_OFF + 1.9 : cfg.STOP_SHOULDER_MIN; }
+  // 차로 중심(중앙선에서 우측 +): 1차로 2.0, 그다음부터 차로폭씩. 갓길은 마지막 차로 밖.
+  function laneOff(axis, idx, laneIdx) { var n = lanesOf(axis, idx); return cfg.LANE_OFF + cfg.LANE_W * TG.clamp(laneIdx || 0, 0, n - 1); }
+  function shoulderOff(axis, idx) { return cfg.LANE_W * lanesOf(axis, idx) + 1.65; }
+  function shoulderMin(axis, idx) { return laneOff(axis, idx, lanesOf(axis, idx) - 1) + 1.9; }
+  function laneIndexAt(axis, idx, lateral) { return TG.clamp(Math.round((lateral - cfg.LANE_OFF) / cfg.LANE_W), 0, lanesOf(axis, idx) - 1); }
   function sideOff(axis, idx) { return halfOf(axis, idx) + SW / 2; }   // 보도 중앙선(행인이 걷는 선)
 
   // ---- 블록 채우기 ----
@@ -122,7 +125,7 @@ TG.buildCity = function (cfg) {
       var node = nodes[si][sj], road = roadOf(node, d), sideS = halfOf(road.axis, road.idx) + 1.4, back0 = stopDist(node, d);
       var mx = node.x - f[0] * 30, mz = node.z - f[1] * 30;
       var nearSchool = (mx >= schoolX0 - 8 && mx <= schoolX1 + 8 && mz >= schoolZ0 - 8 && mz <= schoolZ1 + 8);
-      var kindA = nearSchool ? 'school' : ((si * 3 + sj * 5 + d) % 4 === 0 ? (lanesOf(road.axis, road.idx) === 2 ? 'limit50' : 'limit40') : (d % 2 === 0 ? 'crosswalk' : 'signalAhead'));
+      var kindA = nearSchool ? 'school' : ((si * 3 + sj * 5 + d) % 4 === 0 ? (lanesOf(road.axis, road.idx) >= 2 ? 'limit50' : 'limit40') : (d % 2 === 0 ? 'crosswalk' : 'signalAhead'));
       signs.push(Object.assign(approachSpot(node, d, back0 + 15, sideS), { kind: kindA }));
       if (nearSchool) {
         signs.push(Object.assign(approachSpot(node, d, back0 + 10, sideS), { kind: 'limit30' }));
@@ -137,7 +140,7 @@ TG.buildCity = function (cfg) {
   function nearestX(x) { return xs[nearestIdx(xs, x)]; }
   function nearestZ(z) { return zs[nearestIdx(zs, z)]; }
   function inBounds(x, z) { return x >= bounds.x0 && x <= bounds.x1 && z >= bounds.z0 && z <= bounds.z1; }
-  var EXT = cfg.ROAD_HALF + SW + 4;
+  var EXT = Math.max.apply(null, halfV.concat(halfH)) + SW + 4;   // 스텁(도시 밖 연장) 길이 = 가장 넓은 도로 기준. IC 연결로 시작점과 같은 값이라 정확히 맞물린다
   function onRoad(x, z) {
     var i = nearestIdx(xs, x), j = nearestIdx(zs, z);
     var onV = Math.abs(x - xs[i]) <= halfV[i] && z >= zs[0] - EXT && z <= zs[zs.length - 1] + EXT;
@@ -219,8 +222,8 @@ TG.buildCity = function (cfg) {
     if (inGridArea(x, z) || (x > -20 && x < 340 && z > -20 && z < 340)) {
       var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z);
       // 제한속도(안전속도 5030 취지): 4차로 간선 50, 2차로 40, 어린이보호구역 30
-      var lim = school ? 30 : (lf.lanes === 2 ? 50 : 40);
-      return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + (lf.lanes === 2 ? '(왕복 4차로)' : '(왕복 2차로)') + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
+      var lim = school ? 30 : (lf.lanes >= 2 ? 50 : 40);
+      return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + '(왕복 ' + (lf.lanes * 2) + '차로)' + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
                shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center };
     }
     if (terrain) {
@@ -251,7 +254,7 @@ TG.buildCity = function (cfg) {
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,
     axisOfDir: axisOfDir, halfOf: halfOf, lanesOf: lanesOf, roadOf: roadOf, crossHalf: crossHalf, stopDist: stopDist, crossNear: crossNear, crossFar: crossFar,
-    laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff,
+    laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff, laneIndexAt: laneIndexAt,
     attachTerrain: function (t) { terrain = t; city.terrain = t; bounds.x0 = t.bounds.x0; bounds.x1 = t.bounds.x1; bounds.z0 = t.bounds.z0; bounds.z1 = t.bounds.z1; for (var i = 0; i < t.walls.length; i++) walls.push(t.walls[i]); },
     exitFor: function (node, dir) { return terrain ? terrain.exitFor(node, dir) : null; },
   };
