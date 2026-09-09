@@ -29,8 +29,9 @@ TG.buildTerrain = function (scene, city, cfg) {
     h *= sstep(0, 90, Math.hypot(ddx, ddz));
     return h * sstep(52, 130, Math.abs(z - riverZ(x)));   // 한강 둔치: 강 양옆 52m 는 평지, 130m 까지 완만히 언덕으로
   }
-  // 한강(축약): 도시 북쪽을 동서로 흐른다. 북쪽 IC 연결로(반포대로 등)가 다리로 건넌다. 옛 남북 강은 없앴다.
-  function riverZ(x) { return -212 + 18 * Math.sin(x / 230 + 0.6); }
+  // 한강(축약): 도시 북쪽을 동서로 흐른다. **반포대교(반포대로) · 한남대교(강남대로) · 동작대교(동작대로)**
+  // 세 다리가 건너고, 건너면 올림픽대로(링 북쪽 호)에 붙어 순환도로로 이어진다 — 길이 끝나지 않는다(소유자 설계).
+  function riverZ(x) { return -112 + 18 * Math.sin(x / 230 + 0.6); }   // 도시(z 0) 와 올림픽대로(z 약 -245) 사이
   function riverX(z) { return 99999; }
   // 양재천(축약): 도시 남쪽(남부순환로 아래)을 동서로 흐르는 얕은 하천. 경부고속도로·양재IC·수서IC 연결로가 다리로 건넌다. 비가 오면 setFlood 로 수위가 올라 산책로가 잠긴다.
   function yjZ(x) { return 356 + 5 * Math.sin(x / 120); }
@@ -265,7 +266,8 @@ TG.buildTerrain = function (scene, city, cfg) {
   conns[1].name = '반포대로 · 반포대교'; conns[1].limit = 80;
   conns[5].name = '동작대로 · 동작대교'; conns[5].limit = 80;
   conns[3].name = '서초대로 연장 · 사당 방향'; conns[0].name = '서초대로 연장 · 테헤란로 방향';
-  conns[4].name = '강남대로 · 신논현 방향'; conns[6].name = '강남대로 연장 · 도곡 방향'; conns[7].name = '동작대로 연장 · 남태령 방향';
+  conns[4].name = '강남대로 · 한남대교'; conns[4].limit = 80;   // 강남대로 북단 = 한남대교(소유자 지시: 다리 둘은 반포대교·한남대교)
+  conns[6].name = '강남대로 연장 · 도곡 방향'; conns[7].name = '동작대로 연장 · 남태령 방향';
   // 연습 서킷(도시 동쪽 해안 평지, 링 바깥): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   // 전에는 x 180~318 · z 400~536 에 있어서 **경부고속도로 연결로와 양재IC 램프를 22m 파고들었다** —
   // 고속도로 옆에 적·백 코너 연석과 서킷 노면이 겹쳐 보였고, frameAt 이 고속도로 위를 「연습 서킷(반폭 7.5m) 밖」으로
@@ -643,6 +645,106 @@ TG.buildTerrain = function (scene, city, cfg) {
     tree(tx2, tz2, hh2 < 14 ? 0.9 + trng() * 0.6 : 1.4 + trng() * 1.4, hh2 > 30);
   }
   for (var i5 = 6; i5 < connE.N - 6; i5 += 8) { var p6 = connE.P(i5); if (p6.bridge) continue; for (var dn3 = -1; dn3 <= 1; dn3 += 2) tree(p6.x + p6.rx * dn3 * (p6.half + 3.5), p6.z + p6.rz * dn3 * (p6.half + 3.5), 0.9 + (i5 % 3) * 0.15, false); }
+  // ---------- 한강 시설 · 서초구 남쪽 자연(소유자 설계) ----------
+  // 반포대교·한남대교가 한강을 건너 올림픽대로에 붙으면서 생긴 자리에
+  // 세빛섬·반포한강공원(북쪽) 과 우면산·양재시민의숲(남쪽)을 놓는다.
+  // 지형 높이(hBase)는 손대지 않는다 — 봉우리를 넣으면 그 아래 도로가 함께 들려 파묻힌다(v0.9.2 교훈).
+  var scenery = [];
+  (function () {
+    function farFromRoad(x, z, need) { var q = nearest(x, z, true); return !q || q.dist > q.p.half + need; }
+    // ① 세빛섬: 반포대교 동쪽 물 위 세 개의 원형 구조물(꽃봉오리). 수면 -1.3 위로 올라온다.
+    var isles = [[204, -102, 12.5, 10.5], [228, -90, 9.5, 8.0], [186, -118, 7.5, 6.2]];
+    isles.forEach(function (I, k) {
+      var x = I[0], z = I[1], r = I[2], hh = I[3];
+      if (!farFromRoad(x, z, 16)) return;
+      props.cylinder(x, -1.6, z, r, r * 1.05, 1.5, 20, 0xb9bec4, true);                  // 부유 기초
+      props.cylinder(x, -0.1, z, r * 0.86, r * 0.62, hh * 0.55, 20, 0xe9e4d6, true);      // 아래 꽃잎
+      props.cylinder(x, -0.1 + hh * 0.55, z, r * 0.66, r * 0.34, hh * 0.45, 20, 0xf2eee2, true);   // 위 꽃잎
+      props.cylinder(x, -0.1 + hh, z, r * 0.2, r * 0.1, 1.6, 12, 0xd7d3c8, true);
+      for (var g2 = 0; g2 < 3; g2++) props.cylinder(x, -0.1 + hh * 0.2 + g2 * hh * 0.28, z, r * (0.88 - g2 * 0.2), r * (0.86 - g2 * 0.2), 0.28, 20, 0x6fa8d6, true);   // 유리 띠
+      scenery.push({ kind: 'sebit', x: x, z: z, r: r, name: k === 0 ? '세빛섬' : null });
+    });
+    // 세빛섬 보행 연결교(반포대교 동쪽 보도에서 첫 섬으로)
+    var bz = riverZ(178);
+    props.box(190, -0.6, bz + 6, 26, 0.35, 2.6, 0xd9d3c4, { rotY: 0.42 });
+    for (var pb = 0; pb < 4; pb++) props.cylinder(180 + pb * 7, -5.5, bz + 6 + pb * 3.1, 0.5, 0.5, 5.2, 8, 0x8f959c);
+
+    // ② 반포한강공원: 강 남안 둔치(평지)에 잔디·산책로·자전거도로·나무. 다리와 링을 피해서 깐다.
+    for (var px = -40; px <= 380; px += 10) {
+      var zb = riverZ(px) + 60;                                  // 둔치 안쪽(도시 쪽)
+      if (!farFromRoad(px, zb, 9)) continue;
+      props.box(px, 0.06, zb, 10, 0.12, 26, 0x6f9a4c, {});        // 잔디밭
+      props.box(px, 0.14, zb - 9, 10, 0.14, 3.2, 0xcfc7b4, {});   // 산책로
+      props.box(px, 0.14, zb + 7, 10, 0.14, 2.6, 0xa9553a, {});   // 자전거도로(적색 포장)
+      if (((px / 10) | 0) % 3 === 0) { tree(px + 3, zb - 12.5, 1.0, false); tree(px - 3, zb + 12, 0.9, false); }
+      if (((px / 10) | 0) % 6 === 0) { props.box(px, 0.5, zb + 1.5, 1.8, 0.1, 0.5, 0x8a6a4a, {}); props.box(px, 0.25, zb + 1.5, 1.7, 0.5, 0.08, 0x8a6a4a, {}); }   // 벤치
+    }
+    scenery.push({ kind: 'park', x: 120, z: riverZ(120) + 60, name: '반포한강공원' });
+
+    // ③ 우면산: 지형이 아니라 **초록 언덕 구조물** + 나무로 만든다(도로가 들리지 않는다).
+    var UM = { x: 60, z: 462, r: 74, h: 58 };
+    if (farFromRoad(UM.x, UM.z, 40)) {
+      var y0 = groundAt(UM.x, UM.z);
+      // GeoBuilder.cylinder 의 반경은 (아래, 위) 순서다 — 뒤집어 넣으면 사발처럼 위가 벌어진다.
+      props.cylinder(UM.x, y0, UM.z, UM.r, UM.r * 0.72, UM.h * 0.42, 26, 0x6f8f52, true);
+      props.cylinder(UM.x + 6, y0 + UM.h * 0.42, UM.z - 4, UM.r * 0.72, UM.r * 0.40, UM.h * 0.36, 24, 0x5f8348, true);
+      props.cylinder(UM.x + 10, y0 + UM.h * 0.78, UM.z - 7, UM.r * 0.40, UM.r * 0.10, UM.h * 0.24, 20, 0x54783f, true);
+      // 산의 숲. **경사면 높이를 원뿔 식으로 정확히 구해 그 위에 세운다** — 대충 놓으면 나무가 산 속에 파묻힌다.
+      function slopeY(ur) {                                         // 아래 원뿔: 바닥 반경 r → 위 0.72r, 높이 h*0.42
+        if (ur >= UM.r) return y0;
+        if (ur >= UM.r * 0.72) return y0 + (UM.r - ur) / (UM.r * 0.28) * UM.h * 0.42;
+        if (ur >= UM.r * 0.40) return y0 + UM.h * 0.42 + (UM.r * 0.72 - ur) / (UM.r * 0.32) * UM.h * 0.36;
+        return y0 + UM.h * 0.78;
+      }
+      for (var ut = 0; ut < 54; ut++) {
+        var ua = ut * 2.399, ur = UM.r * (0.42 + 0.56 * ((ut % 8) / 8));
+        var ux = UM.x + Math.cos(ua) * ur, uz = UM.z + Math.sin(ua) * ur;
+        var uy = slopeY(ur) + 0.2;
+        props.cylinder(ux, uy, uz, 0.34, 0.34, 2.0, 6, 0x6b5340, true);
+        props.cylinder(ux, uy + 2.0, uz, 2.4, 0.5, 6.0, 8, ut % 3 ? 0x2f6b3a : 0x35753f, true);
+      }
+      for (var ub = 0; ub < 26; ub++) {                             // 산 아래 자락(평지)에는 일반 나무
+        var ba2 = ub * 2.399 + 0.7, br2 = UM.r * (1.03 + 0.24 * ((ub % 5) / 5));
+        tree(UM.x + Math.cos(ba2) * br2, UM.z + Math.sin(ba2) * br2, 1.1 + (ub % 3) * 0.2, true);
+      }
+      scenery.push({ kind: 'mount', x: UM.x, z: UM.z, r: UM.r, name: '우면산' });
+    }
+
+    // ④ 양재시민의숲: 경부고속도로 동쪽 숲(잔디·산책로·나무 무리 + 매헌 기념관 형태의 작은 전시동)
+    var YJ = { x0: 206, z0: 396, x1: 322, z1: 486 };
+    if (farFromRoad((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2, 26)) {
+      var gy = groundAt((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2);
+      props.box((YJ.x0 + YJ.x1) / 2, gy + 0.06, (YJ.z0 + YJ.z1) / 2, YJ.x1 - YJ.x0, 0.12, YJ.z1 - YJ.z0, 0x6f9a4c, {});
+      for (var wk = 0; wk < 3; wk++) props.box((YJ.x0 + YJ.x1) / 2, gy + 0.14, YJ.z0 + 18 + wk * 26, YJ.x1 - YJ.x0 - 12, 0.14, 3.0, 0xcfc7b4, {});
+      props.box((YJ.x0 + YJ.x1) / 2, gy + 0.14, (YJ.x0 + YJ.x1) / 2 * 0 + (YJ.z0 + YJ.z1) / 2, 3.0, 0.14, YJ.z1 - YJ.z0 - 10, 0xcfc7b4, {});
+      for (var yt = 0; yt < 54; yt++) {
+        var yx = YJ.x0 + 8 + ((yt * 37) % (YJ.x1 - YJ.x0 - 16)), yz = YJ.z0 + 8 + ((yt * 61) % (YJ.z1 - YJ.z0 - 16));
+        if (Math.abs(((yz - YJ.z0 - 18) % 26)) < 4) continue;      // 산책로는 비운다
+        tree(yx, yz, 1.05 + (yt % 4) * 0.14, yt % 4 === 0);
+      }
+      var mx2 = YJ.x0 + 22, mz2 = YJ.z1 - 22;
+      props.box(mx2, gy + 3.0, mz2, 18, 6.0, 12, 0xe6e0d2, {});     // 기념관 본관
+      props.box(mx2, gy + 6.4, mz2, 19, 0.8, 13, 0x8b6f4a, { noBottom: true });
+      props.box(mx2, gy + 0.9, mz2 - 7.4, 6.0, 1.8, 1.0, 0xd7d3c8, {});
+      props.cylinder(mx2 + 11, gy, mz2 - 9, 0.13, 0.11, 9, 6, 0x8f959c); props.box(mx2 + 11.8, gy + 8.1, mz2 - 9, 1.6, 1.0, 0.05, 0xffffff, {});
+      scenery.push({ kind: 'park', x: (YJ.x0 + YJ.x1) / 2, z: (YJ.z0 + YJ.z1) / 2, name: '양재시민의숲' });
+    }
+
+    // ⑤ 다리 교각: 물 위 상판 아래에 기둥을 세운다(반포대교·한남대교·동작대교·순환도로 강 구간)
+    [conns[1], conns[4], conns[5], ring].forEach(function (L) {
+      if (!L) return;
+      for (var i = 0; i < L.N; i++) {
+        var p = L.P(i); if (!p.bridge || i % 5 !== 0) continue;
+        var deck = Math.max(0.4, p.y);
+        for (var sg = -1; sg <= 1; sg += 2) {
+          var qx = p.x + p.rx * sg * (p.half * 0.55), qz = p.z + p.rz * sg * (p.half * 0.55);
+          props.cylinder(qx, -6.4, qz, 1.35, 1.6, deck + 6.4, 10, 0x9aa0a8, false);
+        }
+        props.box(p.x, deck - 0.55, p.z, p.half * 1.5, 0.5, 2.2, 0xa9afb6, { rotY: Math.atan2(p.tx, p.tz) });   // 가로보
+      }
+    });
+  })();
+
   mesh(trees.build(), lambertVC, true, false);
   mesh(props.build(), lambertVC, true, false);
   var farm = new G(), frng = TG.makeRNG(55);
@@ -695,7 +797,7 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   return {
     links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
-    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

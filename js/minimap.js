@@ -26,7 +26,7 @@ TG.Minimap = function (canvas, city, terrain) {
     // 강·바다 힌트
     g.strokeStyle = 'rgba(80,150,220,0.7)'; g.lineWidth = 2 * K; g.beginPath();
     g.lineWidth = 5 * K; g.strokeStyle = 'rgba(80,150,220,0.75)';
-    for (var x = X0; x <= X1; x += 20) { var rz = -212 + 18 * Math.sin(x / 230 + 0.6); if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
+    for (var x = X0; x <= X1; x += 20) { var rz = terrain.riverZ ? terrain.riverZ(x) : -112; if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
     g.stroke();
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2'; g.textAlign = 'center';
     g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('경부고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
@@ -44,6 +44,10 @@ TG.Minimap = function (canvas, city, terrain) {
     g.fillText('예술의전당', mx(200), mz(282)); g.fillText('법원·검찰', mx(280), mz(200));
     g.fillText('구청', mx(280), mz(282)); g.fillText('고속터미널', mx(200), mz(40));
     g.fillText('서리풀공원', mx(120), mz(282)); g.fillText('향나무', mx(193), mz(190));
+    // 한강 시설·남쪽 자연(terrain.scenery 와 같은 자리)
+    g.fillStyle = '#bfe3ff';
+    (terrain.scenery || []).forEach(function (S) { if (S.name) g.fillText(S.name, mx(S.x), mz(S.z)); });
+    g.fillStyle = '#e6f0ff'; g.fillText('반포대교', mx(160) + 30, mz(-70)); g.fillText('한남대교', mx(320) - 26, mz(-70));
     g.fillStyle = '#cfe0ff'; g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillText('서초대로', mx(60), mz(172)); g.fillText('남부순환로', mx(60), mz(312)); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('반포대로', 0, 0); g.restore(); g.save(); g.translate(mx(320) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
   })();
   // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.
