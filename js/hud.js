@@ -62,6 +62,7 @@ TG.hud = (function () {
       '<div class="row"><span>보행자 계도</span><b>' + (stats.warned || 0) + '건</b></div>' +
       '<div class="row"><span>안전 주행 감점</span><b>' + stats.penalty + '</b></div>' +
       '<div class="row"><span>목격한 위반</span><b>' + stats.witnessed + '건</b></div>' +
+      ((stats.videos || stats.radios || stats.handedOver) ? '<div class="row"><span>📹 영상 단속 · 📡 무전</span><b>' + (stats.videos || 0) + '건 · ' + (stats.radios || 0) + '회' + (stats.handedOver ? ' (인계 ' + stats.handedOver + ')' : '') + '</b></div>' : '') +
       '<div class="lesson">오늘 배운 것: ' + stats.lesson + '</div>' + (stats.reason ? '<div class="reason">' + stats.reason + '</div>' : '');
     show('end', true);
   }

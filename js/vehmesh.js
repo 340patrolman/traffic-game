@@ -252,7 +252,31 @@ TG.vehmesh = (function () {
   // 이륜차(오토바이)·자전거: 바퀴 2개 + 프레임 + 탑승자(헬멧·상체·팔·다리). 로프트를 쓰지 않는다. 원점 = 바닥 중심, +z 앞, +x 왼쪽.
   TYPES.moto = { w: 0.78, l: 2.15, belt: 0.85, wheelR: 0.31, two: 'moto', pts: [[0.5, 0.3], [-0.5, 0.3]] };
   TYPES.bike = { w: 0.55, l: 1.80, belt: 0.95, wheelR: 0.34, two: 'bike', pts: [[0.5, 0.3], [-0.5, 0.3]] };
-  function twoWheeler(gb, T, color) {
+  TYPES.pm = { w: 0.50, l: 1.15, belt: 1.00, wheelR: 0.14, two: 'pm', pts: [[0.5, 0.3], [-0.5, 0.3]] };   // 개인형 이동장치(전동킥보드)
+  function twoWheeler(gb, T, color, opts) {
+    opts = opts || {};
+    // 개인형 이동장치(전동킥보드): 발판·T자 핸들 + 서서 타는 사람. 헬멧 미착용·2인 탑승은 위반 소재
+    if (T.two === 'pm') {
+      var pl = T.l, pr = T.wheelR, SK = 0xe0b596, JN = 0x2b3a55, TP = color || 0x3b6fd1, HM = 0xf2f2f2;
+      gb.wheel(0, pr, pl * 0.40, pr, 0.06, 12, DARK); gb.wheel(0, pr, -pl * 0.40, pr, 0.06, 12, DARK);
+      gb.box(0, pr + 0.06, 0, 0.22, 0.05, pl * 0.82, 0x2a2e33, {});                    // 발판(데크)
+      gb.box(0, pr + 0.06, -pl * 0.40, 0.10, 0.10, 0.12, 0x15171a, {});                // 뒤 펜더·브레이크
+      gb.box(0, pr + 0.52, pl * 0.38, 0.05, 0.95, 0.05, 0x8e9aa6, {});                 // 스템(기둥)
+      gb.box(0, pr + 1.00, pl * 0.38, 0.50, 0.04, 0.04, 0x2a2e33, {});                 // T자 핸들
+      gb.box(0, pr + 0.92, pl * 0.42, 0.10, 0.07, 0.05, LIGHT, { sidesOnly: true });    // 전조등
+      if (opts.noRider) return;
+      var riders = opts.two ? 2 : 1;
+      for (var ri = 0; ri < riders; ri++) {
+        var rz = ri === 0 ? pl * 0.02 : -pl * 0.30, top = ri === 0 ? TP : 0xd9d34f, base = pr + 0.09;
+        for (var q2 = -1; q2 <= 1; q2 += 2) { gb.box(q2 * 0.09, base + 0.36, rz, 0.11, 0.72, 0.13, JN, {}); gb.box(q2 * 0.09, base + 0.02, rz + 0.03, 0.11, 0.06, 0.22, 0x1a1c20, {}); }   // 선 다리·신발
+        gb.box(0, base + 1.02, rz, 0.36, 0.60, 0.22, top, {});                          // 상체(똑바로 서 있음)
+        if (ri === 0) for (var a2 = -1; a2 <= 1; a2 += 2) gb.box(a2 * 0.20, base + 1.16, rz + 0.20, 0.09, 0.09, pl * 0.34, top, {});   // 팔 → 핸들
+        gb.box(0, base + 1.44, rz, 0.19, 0.19, 0.19, SK, {});                           // 머리
+        if (opts.helmet) gb.box(0, base + 1.52, rz, 0.23, 0.15, 0.24, HM, {});          // 헬멧(착용한 사람만)
+        else gb.box(0, base + 1.50, rz - 0.02, 0.20, 0.08, 0.21, 0x2a1c14, {});         // 미착용: 머리카락
+      }
+      return;
+    }
     var moto = T.two === 'moto', l = T.l, r = T.wheelR, FR = moto ? color : 0x2f8f5a, SKIN = 0xe0b596, JEANS = 0x2b3a55, TOP = moto ? 0x1f2429 : (color || 0xc94d43), HELMET = moto ? 0xf2f2f2 : 0xf3c418;
     gb.wheel(0, r, l * 0.36, r, moto ? 0.14 : 0.05, 14, DARK); gb.wheel(0, r, -l * 0.36, r, moto ? 0.16 : 0.05, 14, DARK);
     gb.wheel(0, r, l * 0.36, r * 0.55, moto ? 0.10 : 0.03, 8, RIM); gb.wheel(0, r, -l * 0.36, r * 0.55, moto ? 0.12 : 0.03, 8, RIM);
@@ -273,7 +297,8 @@ TG.vehmesh = (function () {
       gb.box(0, r + 0.62, l * 0.30, 0.50, 0.03, 0.03, 0x2a2e33, {});             // 핸들
       gb.box(0, r + 0.02, l * 0.0, 0.28, 0.02, 0.02, 0x2a2e33, {});              // 페달 축
     }
-    // 탑승자: 다리·몸통·팔·머리·헬멧
+    if (opts.noRider) return;   // 탑승자는 traffic.js 가 사람 리그(TG.Character)로 붙인다
+    // 탑승자: 다리·몸통·팔·머리·헬멧(옛 방식 — 홍보·테스트용으로 남긴다)
     var seatY = r + (moto ? 0.47 : 0.65), seatZ = moto ? -0.2 : -l * 0.24;
     for (var q = -1; q <= 1; q += 2) { gb.box(q * (moto ? 0.2 : 0.14), seatY - 0.16, seatZ + 0.10, 0.12, 0.32, 0.14, JEANS, {}); gb.box(q * (moto ? 0.2 : 0.14), seatY - 0.36, seatZ + 0.22, 0.10, 0.10, 0.22, 0x1a1c20, {}); }
     gb.box(0, seatY + 0.28, seatZ + 0.02, 0.38, 0.52, 0.24, TOP, {});          // 상체(앞으로 살짝 숙임)
@@ -282,11 +307,11 @@ TG.vehmesh = (function () {
     gb.box(0, seatY + 0.68, seatZ + 0.02, 0.22, 0.15, 0.24, HELMET, {});        // 헬멧
     if (moto) gb.box(0, seatY + 0.60, seatZ + 0.15, 0.2, 0.08, 0.02, 0x0b0e12, { sidesOnly: true });   // 바이저
   }
-  function build(type, color, bodyOnly) {
-    var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0);
+  function build(type, color, bodyOnly, opts) {
+    var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0) + (opts ? ':' + (opts.helmet ? 1 : 0) + (opts.two ? 1 : 0) : '');
     if (cache[key]) return cache[key];
     var T = TYPES[type], gb = new TG.GeoBuilder();
-    if (T.two) { twoWheeler(gb, T, color); return (cache[key] = gb.build()); }
+    if (T.two) { twoWheeler(gb, T, color, opts); return (cache[key] = gb.build()); }
     body(gb, T, color, {});
     if (!bodyOnly) wheels(gb, T);
     return (cache[key] = gb.build());

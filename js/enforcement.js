@@ -48,13 +48,15 @@ TG.Enforcement = function (game) {
   var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
                 phone: '운전 중 휴대전화 사용', litter: '차 밖으로 물건(꽁초) 던지기', animal: '동물을 안고 운전', nosignal: '방향지시등 없이 차로 변경', solidline: '실선 구간 차로 변경',
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
-                drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)', none: '위반 없음' };
+                drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
+                pm: '개인형 이동장치 보도 통행', pmHelmet: 'PM 인명보호장구 미착용', pmTwo: 'PM 2인 이상 탑승', wanted: '수배차량(중대 사건)', none: '위반 없음' };
   this.nameOf = function (id) { return NAMES[id] || id; };
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
     var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'nosignal'];
     if (car.isMoto) ids = ['motorcycle', 'signal', 'pedestrian', 'unsafe'];
     if (car.isBike) ids = ['bicycle', 'signal', 'pedestrian', 'unsafe'];
+    if (car.isPM) ids = ['pm', 'pmHelmet', 'pmTwo', 'signal'];
     // 이 차량에 기록된 위반이 기본 보기에 없으면(휴대전화·꽁초·동물·실선 등) 하나를 바꿔 넣는다 — 정답이 항상 보기 안에 있게
     var v = car.violation && car.violation.type;
     if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
@@ -97,7 +99,11 @@ TG.Enforcement = function (game) {
       game.addScore(delta, null);
       game.hud.ticketResult(lines, kind, function () {
         ticket = null; game.hud.hideTicket(); game.setPaused(false, 'ticket'); self.state = 'idle';
-        if (act) { if (sel.kind === 'car') startPullover(e); else warnPed(e); }
+        if (act) {
+          if (sel.kind !== 'car') warnPed(e);
+          else if (game.response && game.response.tierOf(e) === 'C') game.response.blackbox(e);   // 이륜차·자전거·PM 단순 위반: 추격·정차 유도 없이 영상 단속
+          else startPullover(e);
+        }
       });
     }
     ticket.onChoice = choose;

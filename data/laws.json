@@ -246,6 +246,39 @@
       "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
       "verified": false,
       "teach": "화물은 덮개·포장·고정 조치를 하고 운행한다. 뒤따르는 차는 트럭과 거리를 더 둔다."
+    },
+    {
+      "id": "pm",
+      "name": "개인형 이동장치 보도 통행",
+      "short": "PM 보도 통행",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": "제13조의2", "verified": false, "candidate_source": "개인형 이동장치는 자전거등에 준해 통행 — 조문 번호 확인 필요" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "도로교통법 시행규칙 별표28" },
+      "verified": false,
+      "teach": "전동킥보드는 차도 우측 가장자리 또는 자전거도로로. 보도는 사람이 걷는 길이다. 추격하지 않고 영상·무전으로 처리한다."
+    },
+    {
+      "id": "pmHelmet",
+      "name": "개인형 이동장치 인명보호장구 미착용",
+      "short": "PM 헬멧 미착용",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": "제50조 제9항", "verified": false, "candidate_source": "조문 항 번호 확인 필요" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "벌점 없음 여부 확인 필요" },
+      "verified": false,
+      "teach": "전동킥보드도 인명보호장구(헬멧)를 써야 한다. 머리를 다치면 되돌릴 수 없다."
+    },
+    {
+      "id": "pmTwo",
+      "name": "개인형 이동장치 2인 이상 탑승",
+      "short": "PM 2인 탑승",
+      "enabled": true,
+      "law": { "act": "도로교통법", "article": "제50조 제10항", "verified": false, "candidate_source": "조문 항 번호 확인 필요" },
+      "fine": { "승용": null, "승합": null, "이륜": null, "자전거": null, "verified": false, "source": "도로교통법 시행령 별표8" },
+      "points": { "value": null, "verified": false, "source": "벌점 없음 여부 확인 필요" },
+      "verified": false,
+      "teach": "정원을 넘겨 태우면 균형을 잃는다. 한 대에 한 사람."
     }
   ],
   "study12": {

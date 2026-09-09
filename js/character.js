@@ -74,6 +74,10 @@ TG.Character = (function () {
     } else if (kid) {   // 노란 안전 모자
       hb.cylinder(0, HY + HR * 0.45, 0, HR * 1.1, HR * 1.0, 0.09, 16, C.KID_CAP, true);
       hb.box(0, HY + HR * 0.45 + 0.005, HR * 1.0, HR * 1.6, 0.018, HR * 0.8, C.KID_CAP, {});
+    } else if (opts.helmet) {   // 이륜차·자전거·킥보드 탑승자 헬멧: 둥근 껍데기 + 바이저 + 턱끈
+      hb.sphere(0, HY + 0.02, 0, HR * 1.16, 16, 10, opts.helmet === true ? 0xf2f2f2 : opts.helmet, 0.92);
+      hb.box(0, HY + 0.01, HR * 1.02, HR * 1.5, HR * 0.7, 0.02, 0x121418, {});
+      hb.box(0, HY - HR * 0.75, 0, HR * 1.1, 0.02, HR * 1.6, 0x2a2e33, {});
     } else if (opts.hat) { hb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); }
     var head = mesh(hb); neck.add(head); R.parts.head = head;
     // 눈·입은 따로(깜빡임·말할 때 움직임). 눈: 흰자 + 눈동자, 입: 살구색 선(웃으면 넓어진다)
@@ -205,5 +209,24 @@ TG.Character = (function () {
     g.add(legL); g.add(legR); g.add(armL); g.add(armR);
     return { group: g, limbs: [legL, legR, armL, armR] };
   }
-  return { build: build, animate: animate, lite: lite, actor: actor, COLORS: C };
+  // ---- 정지 자세(탑승자): 'ride' = 이륜차·자전거 착석(허벅지 앞·정강이 아래·상체 숙임·팔 핸들로), 'stand' = 킥보드 직립(무릎 살짝) ----
+  function pose(rig, kind) {
+    var J = rig.joints;
+    if (kind === 'ride') {
+      J.hpL.rotation.x = -1.00; J.hpR.rotation.x = -1.00; J.knL.rotation.x = 1.55; J.knR.rotation.x = 1.55;
+      J.hpL.rotation.z = 0.42; J.hpR.rotation.z = -0.42;   // 탱크·프레임을 다리로 감싸도록 벌린다
+      // 몸통 메시의 원점은 발끝(y=0)이라 rotation.x 를 크게 주면 상체가 꺾인다 — 상체는 세워 두고 목만 살짝 숙인다
+      J.shL.rotation.x = -1.05; J.shR.rotation.x = -1.05; J.shL.rotation.z = 0.30; J.shR.rotation.z = -0.30;
+      J.elL.rotation.x = -0.28; J.elR.rotation.x = -0.28;
+      J.neck.rotation.x = 0.12;
+    } else {
+      J.hpL.rotation.x = -0.10; J.hpR.rotation.x = 0.06; J.knL.rotation.x = 0.16; J.knR.rotation.x = 0.12;
+      J.shL.rotation.x = -1.15; J.shR.rotation.x = -1.15; J.shL.rotation.z = 0.24; J.shR.rotation.z = -0.24;
+      J.elL.rotation.x = -0.22; J.elR.rotation.x = -0.22;
+      J.neck.rotation.x = 0.06;
+    }
+    rig.frozen = true;
+    return rig;
+  }
+  return { build: build, animate: animate, lite: lite, actor: actor, pose: pose, COLORS: C };
 })();

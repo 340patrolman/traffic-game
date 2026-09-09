@@ -344,7 +344,7 @@
     row(116, '위반 의심 차량', (I.suspects || 0) + '대', I.suspects ? '#ff8a5c' : '#e8edf2');
     row(144, '대상 상태', I.target || '대기', I.target ? '#5ad37a' : '#e8edf2');
     g.fillStyle = '#1c2a44'; g.fillRect(12, 160, W - 24, 22);
-    g.fillStyle = '#cfe0ff'; g.font = '13px sans-serif'; g.textAlign = 'left'; g.fillText(I.hint || '차량·보행자를 터치하면 위반 확인', 18, 171);
+    g.fillStyle = I.advice ? '#ffd86b' : '#cfe0ff'; g.font = (I.advice ? 'bold ' : '') + '13px sans-serif'; g.textAlign = 'left'; g.fillText(I.advice || I.hint || '차량·보행자를 터치하면 위반 확인', 18, 171);
     this.mdtTex.needsUpdate = true;
   };
   // 운전석 눈 위치(월드). 차체의 헤딩·피치·롤을 그대로 따른다.

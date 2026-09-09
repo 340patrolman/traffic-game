@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.7.8">
+<link rel="stylesheet" href="css/style.css?v=0.7.9">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -52,6 +52,8 @@
     <div class="tbtn siren" id="btnSiren" title="경광등"><svg viewBox="0 0 40 24" width="34" height="20"><rect x="2" y="4" width="16" height="14" rx="3" fill="#ff3b30"/><rect x="22" y="4" width="16" height="14" rx="3" fill="#2a60ff"/><rect x="0" y="18" width="40" height="4" rx="2" fill="#dde3ea"/></svg><span>경광등</span></div>
     <div class="tbtn enf" id="btnEnforce" title="단속: 화면의 차량·보행자를 터치하면 위반 객관식이 뜹니다. 버튼은 앞쪽 위반 의심 대상을 자동으로 고릅니다"><span class="ico">🚨</span><span>단속</span></div>
     <div class="tbtn pa" id="btnPA" title="앰프(확성기) 안내"><span class="ico">📢</span><span>앰프</span></div>
+    <div class="tbtn cam" id="btnCam" title="블랙박스 영상 단속(B): 이륜차·자전거·킥보드의 단순 위반은 추격하지 않고 영상으로 기록해 통고처분을 의뢰합니다"><span class="ico">📹</span><span>블랙박스</span></div>
+    <div class="tbtn radio" id="btnRadio" title="무전 상황 전파(T): 상황실·인접 순찰차에 알립니다. 번호판 조회도 함께"><span class="ico">📡</span><span>무전</span></div>
   </div>
   <div class="tbtn small" id="btnPause">❚❚</div>
   <div class="tbtn small view" id="btnView" title="시점 전환">시점</div>
@@ -101,7 +103,12 @@
       <div class="help-col"><h3>🕹 조이스틱 · 키보드</h3>
         <div><b>왼쪽 원형 스틱</b> 좌우 조향 · 위 가속 · 아래 브레이크 &nbsp; <b>오른쪽 버튼</b> 경광등 · 단속 · 앰프</div>
         <div><b>← →</b> 조향 <b>↑</b> 가속 <b>↓/Space</b> 브레이크 <b>R</b> 후진 <b>, .</b> 방향지시등</div>
-        <div><b>F</b> 단속 <b>M</b> 앰프 <b>L</b> 경광등 <b>C</b> 시점 <b>N</b> 주행 모드 <b>Q/E</b> 둘러보기 <b>+/−</b> 지도 확대 <b>Esc</b> 일시정지</div>
+        <div><b>F</b> 단속 <b>M</b> 앰프 <b>B</b> 블랙박스 <b>T</b> 무전 <b>L</b> 경광등 <b>C</b> 시점 <b>N</b> 주행 모드 <b>Q/E</b> 둘러보기 <b>+/−</b> 지도 확대 <b>Esc</b> 일시정지</div>
+        <h3>🚔 대응 원칙 — 추격은 최후의 수단</h3>
+        <div><b>이륜차 · 자전거 · 킥보드(PM)</b> 의 단순 교통위반은 <b>추격하지 않습니다</b>. 📹 블랙박스로 영상을 남기고 📡 무전으로 전파하면 다른 순찰차가 안전한 곳에서 처리합니다.</div>
+        <div><b>일반 차량 위반</b> 은 경광등을 켜고 우측에 정차시켜 현장 단속합니다.</div>
+        <div><b>음주 의심 · 무면허 · 수배차량</b> 은 중대 위반입니다. 📡 무전으로 먼저 전파해 지원을 받고, 부수적 피해를 줄이며 정차시킵니다.</div>
+        <div class="dim">추격 자체가 목적이 아닙니다. 도로교통법의 목적은 위험과 장해(障害)를 막는 것이고, 추격은 그 위험을 키울 수 있습니다.</div>
         <h3>🚶 보행자 모드</h3>
         <div><b>스틱 · 십자키 · 방향키</b> 걷기(카메라 기준) &nbsp; <b>스틱 끝까지 · Shift · A/×</b> 달리기</div>
         <div><b>단속</b> 가까운 무단횡단 보행자 계도 &nbsp; <b>앰프</b> 대상별 방송 &nbsp; <b>시점</b> 1인칭/3인칭</div>
@@ -202,32 +209,33 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.7.8"></script>
-<script src="js/config.js?v=0.7.8"></script>
-<script src="js/rng.js?v=0.7.8"></script>
-<script src="js/save.js?v=0.7.8"></script>
-<script src="js/perf.js?v=0.7.8"></script>
-<script src="js/textures.js?v=0.7.8"></script>
-<script src="js/audio.js?v=0.7.8"></script>
-<script src="js/city.js?v=0.7.8"></script>
-<script src="js/world.js?v=0.7.8"></script>
-<script src="js/terrain.js?v=0.7.8"></script>
-<script src="js/weather.js?v=0.7.8"></script>
-<script src="js/signals.js?v=0.7.8"></script>
-<script src="js/vehmesh.js?v=0.7.8"></script>
-<script src="js/vehicle.js?v=0.7.8"></script>
-<script src="js/traffic.js?v=0.7.8"></script>
-<script src="js/peds.js?v=0.7.8"></script>
-<script src="js/character.js?v=0.7.8"></script>
-<script src="js/vfx.js?v=0.7.8"></script>
-<script src="js/walker.js?v=0.7.8"></script>
-<script src="js/rail.js?v=0.7.8"></script>
-<script src="js/enforcement.js?v=0.7.8"></script>
-<script src="js/study.js?v=0.7.8"></script>
-<script src="js/hud.js?v=0.7.8"></script>
-<script src="js/minimap.js?v=0.7.8"></script>
-<script src="js/input.js?v=0.7.8"></script>
-<script src="js/main.js?v=0.7.8"></script>
+<script src="lib/three.min.js?v=0.7.9"></script>
+<script src="js/config.js?v=0.7.9"></script>
+<script src="js/rng.js?v=0.7.9"></script>
+<script src="js/save.js?v=0.7.9"></script>
+<script src="js/perf.js?v=0.7.9"></script>
+<script src="js/textures.js?v=0.7.9"></script>
+<script src="js/audio.js?v=0.7.9"></script>
+<script src="js/city.js?v=0.7.9"></script>
+<script src="js/world.js?v=0.7.9"></script>
+<script src="js/terrain.js?v=0.7.9"></script>
+<script src="js/weather.js?v=0.7.9"></script>
+<script src="js/signals.js?v=0.7.9"></script>
+<script src="js/vehmesh.js?v=0.7.9"></script>
+<script src="js/vehicle.js?v=0.7.9"></script>
+<script src="js/traffic.js?v=0.7.9"></script>
+<script src="js/peds.js?v=0.7.9"></script>
+<script src="js/character.js?v=0.7.9"></script>
+<script src="js/vfx.js?v=0.7.9"></script>
+<script src="js/response.js?v=0.7.9"></script>
+<script src="js/walker.js?v=0.7.9"></script>
+<script src="js/rail.js?v=0.7.9"></script>
+<script src="js/enforcement.js?v=0.7.9"></script>
+<script src="js/study.js?v=0.7.9"></script>
+<script src="js/hud.js?v=0.7.9"></script>
+<script src="js/minimap.js?v=0.7.9"></script>
+<script src="js/input.js?v=0.7.9"></script>
+<script src="js/main.js?v=0.7.9"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

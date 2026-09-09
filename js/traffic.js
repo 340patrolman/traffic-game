@@ -9,12 +9,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   this.time = 0;
   this.stats = { violations: 0, witnessed: 0 };
 
-  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'bus', 'moto', 'moto', 'bike'];
+  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'bus', 'moto', 'moto', 'bike', 'pm', 'pm'];
   var HW_TYPES = ['sedan', 'sedan', 'sedan', 'suv', 'suv', 'hatch', 'van', 'truck', 'truck', 'bus', 'bus'];
   var COLORS = { sedan: [0xc94d43, 0x3e6bb0, 0x9aa3ad, 0x2f3438, 0xe6e2d8, 0x6b8f5a, 0xb08a3e, 0x7d5a96],
                  hatch: [0xd77a3a, 0x5c8bd6, 0xbfb8aa, 0x7d5a96, 0xd9d34f, 0x2f3438],
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
-                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f] };
+                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8] };
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
@@ -61,7 +61,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car && car.straight && city.nodeFrom(N, d)) return 'S';
     if (car && car.wantsExit && exit) return 'X';
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
-    if (exit && !car.isBus && !car.isMoto && !car.isBike) opts.push(['X', 0.5]);   // 이륜차·자전거는 고속도로로 나가지 않는다
+    if (exit && !car.isBus && !car.isMoto && !car.isBike && !car.isPM) opts.push(['X', 0.5]);   // 이륜차·자전거·PM 은 고속도로로 나가지 않는다
     if (city.nodeFrom(N, (d + 3) % 4) && (!car || car.laneIdx === 1 || city.lanesOf(city.roadOf(N, d).axis, city.roadOf(N, d).idx) === 1)) opts.push(['R', 0.28]);  // 4차로에서는 바깥 차로만 우회전
     if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', opts.length ? 0.0 : 1]);
     if (!opts.length) {   // 모퉁이(직진 불가)에서 안쪽 차로 차량: 우회전·좌회전 허용(차로 바꿔 돈다)
@@ -145,10 +145,35 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
     // 이륜차·자전거: 바깥 차로, 자전거는 느리게. 일부는 보도로 올라가 달린다(edgeRider → 이륜차 '보도 통행', 자전거 '보도 주행' 위반 소재)
-    car.isMoto = type === 'moto'; car.isBike = type === 'bike';
-    if (car.isMoto || car.isBike) { car.laneIdx = 1; car.trait = null; car.noSignalViolator = false; car.edgeRider = rng() < (car.isBike ? 0.45 : 0.3); car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5; if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; } else if (car.violator) car.pedViolator = false; }
-    var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false), bodyMat); mesh.castShadow = true;
+    car.isMoto = type === 'moto'; car.isBike = type === 'bike'; car.isPM = type === 'pm';
+    if (car.isMoto || car.isBike || car.isPM) {
+      car.laneIdx = 1; car.trait = null; car.noSignalViolator = false;
+      car.edgeRider = rng() < (car.isPM ? 0.5 : car.isBike ? 0.45 : 0.3); car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5;
+      if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; }
+      else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = rng() < 0.35; car.pmTwo = rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
+      else if (car.violator) car.pedViolator = false;
+    }
+    // 수배차량(절도·강도 등 중대 사건): 아주 드물게. 겉으로는 표시가 없고 무전 조회(📡)로만 드러난다 → 등급 A(적극 대응)
+    car.wanted = opts.wanted !== undefined ? !!opts.wanted : (!car.isMoto && !car.isBike && !car.isPM && !car.isBus && rng() < 0.02);
+    var twoW = car.isMoto || car.isBike || car.isPM;
+    var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false, twoW ? { noRider: true, helmet: car.pmHelmet, two: car.pmTwo } : null), bodyMat); mesh.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
+    // 이륜차·자전거·킥보드 탑승자: 사람 리그(얼굴·머리카락·헬멧)를 태운다. 정지 자세라 매 프레임 계산이 없다.
+    if (twoW && TG.Character && TG.Character.pose) {
+      var SHIRTS2 = [0xd94f4f, 0x3b6fd1, 0x2fa36b, 0xe0b84a, 0x8b5cc7, 0x2b2f38, 0xf08a5d], PANTS2 = [0x2b3140, 0x4a4a4a, 0x1f2e4a, 0x6b5a48];
+      var rideY = car.isPM ? T.wheelR + 0.09 : car.isMoto ? -0.22 : 0.02, rideZ = car.isPM ? 0.02 : car.isMoto ? -0.34 : -0.50;
+      var hel = car.isPM ? (car.pmHelmet ? 0xf2f2f2 : 0) : car.isMoto ? 0xf2f2f2 : (rng() < 0.5 ? 0xf3c418 : 0);
+      var riders = 1 + (car.isPM && car.pmTwo ? 1 : 0);
+      car.riders = [];
+      for (var rr = 0; rr < riders; rr++) {
+        var rg = TG.Character.build('civilian', { shirt: TG.pick(rng, SHIRTS2), pants: TG.pick(rng, PANTS2), helmet: hel || undefined });
+        TG.Character.pose(rg, car.isPM ? 'stand' : 'ride');
+        rg.group.position.set(0, rideY, rideZ - rr * 0.42);
+        rg.group.scale.setScalar(car.isPM ? 0.95 : 1.0);
+        if (rr > 0) { rg.joints.shL.rotation.x = -0.2; rg.joints.shR.rotation.x = -0.2; }   // 뒷사람은 팔을 내린다(2인 탑승)
+        g.add(rg.group); car.riders.push(rg);
+      }
+    }
     var bl = new THREE.Mesh(new THREE.BoxGeometry(T.w * 0.8, 0.14, 0.06), brakeMat); bl.position.set(0, T.pts[1][1] * 0.82 + 0.08, -T.l / 2 - 0.03); bl.visible = false; g.add(bl); car.brakeLamp = bl;
     var sp = new THREE.Sprite(markerMat); sp.scale.set(1.6, 1.6, 1); sp.position.set(0, (T.bus ? 4.2 : 3.2), 0); sp.visible = false; g.add(sp); car.marker = sp;
     // 방향지시등(앞뒤 모서리, 주황) — +x 가 차 왼쪽
@@ -316,7 +341,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     // 보도 주행 차량(sidewalk 습관): 30초마다 7초 동안 보도로 올라갔다 내려온다. 이륜차·자전거는 계속(edgeRider).
     if (car.trait === 'sidewalk' && !onLink && car.mode === 'drive' && !car.isMoto && !car.isBike) { car.swT += dt; var swOn = (car.swT % 30) < 7 && !(ap && distStop < 26 && distStop > -2); if (swOn && !car.edgeRider) { car.edgeRider = true; car.edgeT = 3; car.laneIdx = 1; } if (!swOn && car.edgeRider) car.edgeRider = false; car.edgeOff = 6.0; }
-    if (car.edgeRider && !onLink && car.mode === 'drive') { var et = car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : 'sidewalk'; car.edgeT += dt; if (car.edgeT > (et === 'sidewalk' ? 4 : 6) && self.witness(car) && (!car.violation || car.violation.type !== et)) { self.stats.violations++; flag(car, et, null, true); car.edgeT = -30; } }
+    if (car.edgeRider && !onLink && car.mode === 'drive') { var et = car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : car.isPM ? 'pm' : 'sidewalk'; car.edgeT += dt; if (car.edgeT > (et === 'sidewalk' ? 4 : 6) && self.witness(car) && (!car.violation || car.violation.type !== et)) { self.stats.violations++; flag(car, et, null, true); car.edgeT = -30; } }
+    // 개인형 이동장치: 인명보호장구(헬멧) 미착용 · 2인 이상 탑승 — 목격 3초면 기록(보도 통행과 별개)
+    if (car.isPM && car.mode === 'drive' && car.v > 1.5 && self.witness(car)) {
+      car.pmT += dt;
+      if (car.pmT > 3) { car.pmT = -20; var pv = !car.pmHelmet ? 'pmHelmet' : (car.pmTwo ? 'pmTwo' : null); if (pv && !car.violation) { self.stats.violations++; flag(car, pv, null, true); } }   // 보도 통행이 이미 기록됐으면 덮지 않는다
+    }
     // 음주 의심: 차로 안에서 좌우로 비틀거리고 속도가 들쭉날쭉. 목격 5초면 「음주운전 의심」 기록
     if (car.trait === 'drunk' && car.mode === 'drive') { car.weaveT += dt; car.weave = Math.sin(car.weaveT * 1.1) * 1.25 + Math.sin(car.weaveT * 2.7) * 0.35; target *= 0.82 + 0.28 * Math.sin(car.weaveT * 0.8); if (self.witness(car)) { car.drunkSeen = (car.drunkSeen || 0) + dt; if (car.drunkSeen > 5 && (!car.violation || car.violation.type !== 'drunk')) { self.stats.violations++; flag(car, 'drunk', null, true); car.drunkSeen = -40; } } }
     // 버스 문 열고 주행(승객이 문가에 서 있음): 달리는 것을 3초 목격하면 「승객 추락방지 위반」

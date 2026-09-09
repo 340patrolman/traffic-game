@@ -255,3 +255,9 @@ h1{background-size:200% 200%;animation:shimmer 6s ease-in-out infinite}
 .tbtn.runbtn.on{background:rgba(90,211,122,.35);border-color:rgba(90,211,122,.9)}
 body.onfoot .tbtn.runbtn{display:flex}
 body.portrait .tbtn.runbtn{bottom:calc(290px + var(--sa-b))}
+/* 📹 블랙박스 · 📡 무전 — 추격 대신 쓰는 두 버튼 */
+.tbtn.cam{width:60px;height:60px;background:rgba(120,220,255,.16);border-color:rgba(120,220,255,.75);margin-bottom:8px}
+.tbtn.radio{width:60px;height:60px;background:rgba(180,150,255,.16);border-color:rgba(180,150,255,.75);margin-bottom:8px}
+.tbtn.cam .ico,.tbtn.radio .ico{font-size:20px}
+body.portrait .tbtn.cam,body.portrait .tbtn.radio{width:54px;height:54px}
+body.onfoot .tbtn.cam{display:none}
