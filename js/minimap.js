@@ -63,6 +63,7 @@ TG.Minimap = function (canvas, city, terrain) {
 
     if (zm > 1 && player) { ctx.translate(W / 2, H / 2); ctx.scale(zm, zm); ctx.translate(-mx(player.pos.x), -mz(player.pos.z)); }
     ctx.drawImage(base, 0, 0);
+    if (self.layers) self.layers.drawMini(ctx, mx, mz, K / Math.sqrt(zm));   // 지도 레이어(사고다발지·위험도·단속 장비)
     for (var i = 0; i < cars.length; i++) {
       var c = cars[i]; if (!c.violation && c !== target) continue;
       ctx.fillStyle = c === target ? '#ff3b30' : '#ff9f0a';

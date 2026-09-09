@@ -393,3 +393,5 @@ body.portrait .skip.full{right:calc(112px + var(--sa-r))}
 .pl-foot{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:10px}
 body.portrait .pl-wrap{flex-direction:column}
 body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
+/* 지도 레이어 목록의 색 점 */
+.lay-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.5)}

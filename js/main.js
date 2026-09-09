@@ -15,6 +15,7 @@
   var vfx = null, vfxT = 0, flares = null, response = null;   // 차량 감각 입자·플레어(js/vfx.js) · 대응 원칙(js/response.js)
   var cine = null;   // 인트로 연출(js/intro.js)
   var facil = null;   // 교통시설 관리(js/facil.js): 교차로 녹색 시간 · 무인 단속 장비
+  var layers = null;  // 지도 레이어(js/layers.js): 사고 자료를 도로 위에 쌓아 본다
   var DIRN_KO = ['남행', '동행', '북행', '서행'];   // 방위 0..3
   var junction = null, duty = null, chase = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
@@ -70,11 +71,13 @@
     G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
     facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
+    layers = new TG.Layers(G, city, C, scene); G.layers = layers;       // 지도 레이어(TAAS 사고 자료 · 어린이보호구역 · 단속 장비 · 시뮬레이션 위험도)
 
     hud.init(settings);
     hud.showTouch(true);   // 원형 조작판·경광등 버튼은 PC(마우스)에서도 항상 보인다
     document.body.classList.toggle('desktop', !input.isTouch);
     minimap = new TG.Minimap(document.getElementById('minimap'), city, terrain); G.minimap = minimap;
+    minimap.layers = layers;   // 미니맵에도 레이어를 겹쳐 그린다
     TG.audio.setMuted(!settings.sound);
     TG.perf.onChange(function (scale, shadows) { world.sun.castShadow = shadows; });
     if (isStress) { C.TRAFFIC_MAX = 40; C.PED_MAX = 40; log('stress 모드: 교통 최대 40, 행인 40'); }
@@ -1210,13 +1213,14 @@
       var inner = document.createElement('div'); inner.className = 'card wide plan-card';
       inner.innerHTML = '<div class="badge">🏗 교통시설 관리 — 신호 주기 · 무인 단속 장비</div><h2>교통시설</h2>' +
         '<div class="dim small">교차로마다 신호 녹색 시간을 정하고, 접근로에 무인 교통단속 장비를 세웁니다. 설정은 기기에 저장됩니다(localStorage tg_facil).</div>' +
-        '<div id="planHost"></div>';
+        '<div id="planHost"></div><div id="layerHost"></div>';
       var bx = document.createElement('button'); bx.className = 'primary'; bx.textContent = '닫기';
       bx.addEventListener('click', closePlan); inner.appendChild(bx);
       planEl.appendChild(inner); document.body.appendChild(planEl);
     }
     planEl.style.display = 'flex';
     facil.openPanel(planEl.querySelector('#planHost'));
+    if (layers) layers.openPanel(planEl.querySelector('#layerHost'));
     setPaused(true, 'plan');
   }
   function closePlan() { if (planEl) planEl.style.display = 'none'; setPaused(false, 'plan'); }
@@ -1229,6 +1233,7 @@
       TG.audio.bad(); hud.flash();
       return;
     }
+    if (layers) layers.mark(e.node, e.kind === 'speed' ? 'brake' : 'red');
     G.stats.camCaught = (G.stats.camCaught || 0) + 1;
     addScore(10, null);
     hud.notice('📷 무인 단속 — ' + e.name + ' ' + DIRN_KO[e.dir] + ' · ' + e.why, 'info', 2600);
@@ -1330,12 +1335,23 @@
         var dist = (node.x - player.pos.x) * f[0] + (node.z - player.pos.z) * f[1] - city.stopDist(node, d);
         if (rules.prevNode === node && rules.prevDist > 0 && dist <= 0 && player.vF > 1.5) {
           var st = signals.state(node, (d === 0 || d === 2) ? 'v' : 'h');
-          if (st.s === 'red' && st.elapsed > 0.6 && !exempt) penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다');
+          if (st.s === 'red' && st.elapsed > 0.6 && !exempt) { penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red'); }
           else if (st.s === 'red' && exempt) hud.hint('긴급 출동: 교차로는 서행하며 좌우를 확인한다');
         }
         rules.prevNode = node; rules.prevDist = dist;
       } else rules.prevNode = null;
     } else rules.prevNode = null;
+    // 1-2) 사고다발지(TAAS 레이어): 자료가 있고 레이어를 켰을 때만 알려 준다
+    if (layers) {
+      var hot = layers.hotAt(player.pos.x, player.pos.z);
+      if (hot && rules.hotCd <= 0) {
+        rules.hotCd = 14;
+        var ht = hot.it;
+        hud.hint((ht.example ? '⚠ (예시) ' : '⚠ ') + hot.layer.name + ' — ' + (ht.name || '') +
+          (ht.total != null ? ' · ' + ht.total + '건' : ' · 건수 확인 중') + (ht.verified ? '' : ' (확인 중)') + ' · 감속');
+      }
+      rules.hotCd = Math.max(0, (rules.hotCd || 0) - dt);
+    }
     // 2) 과속(구간 제한속도)
     if (frame.kind !== 'off' && kmh > frame.limit + C.SPEED_TOLERANCE_KMH && !exempt) {
       rules.speedT += dt;
