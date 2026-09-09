@@ -14,6 +14,8 @@
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
   var vfx = null, vfxT = 0, flares = null, response = null;   // 차량 감각 입자·플레어(js/vfx.js) · 대응 원칙(js/response.js)
   var cine = null;   // 인트로 연출(js/intro.js)
+  var facil = null;   // 교통시설 관리(js/facil.js): 교차로 녹색 시간 · 무인 단속 장비
+  var DIRN_KO = ['남행', '동행', '북행', '서행'];   // 방위 0..3
   var junction = null, duty = null, chase = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
@@ -67,6 +69,7 @@
     traffic.vfx = vfx;   // 도주 차량의 먼지(급가속·급감속) — 먼지만 따라가도 쫓을 수 있다
     G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
+    facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
 
     hud.init(settings);
     hud.showTouch(true);   // 원형 조작판·경광등 버튼은 PC(마우스)에서도 항상 보인다
@@ -256,7 +259,15 @@
     if ($('optWeather')) $('optWeather').addEventListener('change', function () { applyWeather($('optWeather').value); });
     applyWeather(settings.weather);
     // 모드: 순찰 근무 / 자유 주행 / 연습 서킷 / 학습(12항목 카드 → 체험)
-    function applyMode(name) { if (name === 'study') { if (TG.study) TG.study.open(G); return; } if (settings.mode !== name) TG.audio.whoosh(); settings.mode = MODES[name] ? name : 'patrol'; TG.save.set('settings', settings); document.querySelectorAll('.mpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-mode') === settings.mode); }); }
+    function applyMode(name) {
+      if (name === 'study') { if (TG.study) TG.study.open(G); return; }
+      // 교통시설 관리는 모드가 아니라 설정 화면이다 — 열고 바로 돌아간다
+      if (name === 'plan') { openPlan(); return; }
+      if (settings.mode !== name) TG.audio.whoosh();
+      settings.mode = MODES[name] ? name : 'patrol';
+      TG.save.set('settings', settings);
+      document.querySelectorAll('.mpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-mode') === settings.mode); });
+    }
     document.querySelectorAll('.mpick').forEach(function (b) { input.bindTap(b, function () { applyMode(b.getAttribute('data-mode')); }); });
     applyMode(settings.mode || 'patrol');
     // 조작 배치: 조이스틱(원형 스틱 + 버튼) / 게임패드(십자키 + △○×□ + L1·R1). 타이틀 버튼 · 일시정지 선택 · 설명 창에서 고른다
@@ -1085,6 +1096,7 @@
     signals.update(dt); if (rail) rail.update(dt);
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX)); traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
+    if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     if (G.mode === 'duty') dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else walkRules(dt);
     if (G.mode === 'kid') kidZipWatch(dt);
     if (G.state !== 'play') return;
@@ -1190,6 +1202,38 @@
     else if (id === 'cargo') { player.teleport(xs[2] + 2, zs[3] + 34, Math.PI); var tk = traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 62, d: 2, node: city.nodes[2][3] }, v: 8, cruise: 9, straight: true, violator: false, laneIdx: 0, type: 'truck', trait: 'cargo' }); if (tk) tk.cargoT = 2; hud.notice('체험 · 적재물 추락방지: 앞 트럭 짐칸 상자가 떨어진다 — 낙하물은 도로 위 장애물(§39④). 거리를 둔다', 'info', 6000); }
     camInit = false;
   };
+  // 교통시설 관리 화면(심시티 요소): 교차로 신호 녹색 시간 · 무인 단속 장비 설치
+  var planEl = null;
+  function openPlan() {
+    if (!planEl) {
+      planEl = document.createElement('div'); planEl.id = 'plan'; planEl.className = 'overlay plan';
+      var inner = document.createElement('div'); inner.className = 'card wide plan-card';
+      inner.innerHTML = '<div class="badge">🏗 교통시설 관리 — 신호 주기 · 무인 단속 장비</div><h2>교통시설</h2>' +
+        '<div class="dim small">교차로마다 신호 녹색 시간을 정하고, 접근로에 무인 교통단속 장비를 세웁니다. 설정은 기기에 저장됩니다(localStorage tg_facil).</div>' +
+        '<div id="planHost"></div>';
+      var bx = document.createElement('button'); bx.className = 'primary'; bx.textContent = '닫기';
+      bx.addEventListener('click', closePlan); inner.appendChild(bx);
+      planEl.appendChild(inner); document.body.appendChild(planEl);
+    }
+    planEl.style.display = 'flex';
+    facil.openPanel(planEl.querySelector('#planHost'));
+    setPaused(true, 'plan');
+  }
+  function closePlan() { if (planEl) planEl.style.display = 'none'; setPaused(false, 'plan'); }
+  G.openPlan = openPlan; G.closePlan = closePlan;
+  // 무인 단속 장비가 잡았을 때. 순찰차가 걸리면 경찰이 먼저 지켜야 하므로 감점이다.
+  function onCamCatch(e) {
+    if (e.player) {
+      // 감점 키는 config.SCORE 에 있는 이름이어야 한다(없는 키를 주면 점수가 NaN 이 된다)
+      penalize(e.kind === 'speed' ? 'speeding' : 'redLight', '📷 무인 단속에 걸렸습니다 — ' + e.name + ' ' + e.why, '경찰이 먼저 지킨다');
+      TG.audio.bad(); hud.flash();
+      return;
+    }
+    G.stats.camCaught = (G.stats.camCaught || 0) + 1;
+    addScore(10, null);
+    hud.notice('📷 무인 단속 — ' + e.name + ' ' + DIRN_KO[e.dir] + ' · ' + e.why, 'info', 2600);
+    hud.flash();
+  }
   function setPaused(on, reason) {
     G.pauseReasons[reason] = on;
     var any = false; for (var k in G.pauseReasons) if (G.pauseReasons[k]) any = true;
@@ -1199,6 +1243,7 @@
   }
   G.setPaused = setPaused;
   function addScore(delta, reason) {
+    if (!isFinite(delta)) return;   // 없는 감점 키를 주면 점수가 NaN 이 되어 HUD·결과 카드가 통째로 깨진다
     G.score += delta; hud.setScore(G.score); hud.setStops(G.stats.stops);
     if (delta) { hud.pop((delta > 0 ? '+' : '') + delta, delta > 0 ? 'good' : 'bad'); if (delta > 0) TG.audio.pop(); }
     if (delta < 0 && reason) { penaltyTotal += delta; penaltyCount[reason] = (penaltyCount[reason] || 0) + 1; }
@@ -1520,6 +1565,7 @@
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX));
     traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
+    if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
     enforcement.update(dt); if (response) response.update(dt);

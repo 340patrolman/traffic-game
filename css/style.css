@@ -359,3 +359,37 @@ body.chasing #section{border-color:rgba(255,90,90,.8)}
 /* 인트로 전체화면 단추(건너뛰기 왼쪽) */
 .skip.full{right:calc(126px + var(--sa-r))}
 body.portrait .skip.full{right:calc(112px + var(--sa-r))}
+
+/* 교통시설 관리(심시티 요소): 왼쪽 교차로 목록 · 오른쪽 설정판 */
+#plan{display:none}
+.plan-card{max-width:min(96vw,1040px)}
+.pl-wrap{display:flex;gap:10px;align-items:flex-start;margin-top:8px}
+.pl-list{flex:0 0 40%;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px}
+.pl-head{font-size:12px;color:var(--dim);padding:2px 2px 4px}
+.pl-item{pointer-events:auto;text-align:left;display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:9px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.05);color:#fff;font-family:inherit;cursor:pointer}
+.pl-item b{font-size:13px;font-weight:800}
+.pl-item span{font-size:11px;color:var(--dim)}
+.pl-item.on{background:rgba(255,207,63,.18);border-color:var(--accent)}
+.pl-body{flex:1 1 auto;min-width:0;max-height:46vh;overflow-y:auto}
+.pl-body h3{margin:0 0 2px;font-size:17px}
+.pl-body h4{margin:12px 0 4px;font-size:13px;color:#cfe0ff}
+.pl-sub{font-size:12px;color:var(--dim);margin-bottom:8px}
+.pl-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0;padding:6px 8px;border-radius:9px;background:rgba(255,255,255,.05)}
+.pl-lbl{font-size:12px;font-weight:700;flex:1 1 100%}   /* 이름은 한 줄 차지 — 좁은 화면에서 −/값/+ 가 흩어지지 않는다 */
+.pl-val{font-size:16px;min-width:52px;text-align:center}
+.pl-btn{pointer-events:auto;padding:7px 11px;border-radius:9px;border:1px solid var(--edge);background:rgba(255,255,255,.09);
+  color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.pl-btn.wide{padding:9px 14px}
+.pl-min{font-size:11px;color:var(--dim);flex:1 1 100%}
+.pl-note{font-size:11.5px;color:#ffd86b;margin:6px 0 2px;word-break:keep-all}
+.pl-cams{display:flex;flex-direction:column;gap:5px}
+.pl-cam{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.05)}
+.pl-cam.dim{opacity:.45}
+.pl-cam span{font-size:12px;min-width:104px}
+.pl-tog{pointer-events:auto;padding:6px 10px;border-radius:8px;border:1px solid var(--edge);background:rgba(255,255,255,.07);
+  color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.pl-tog.on{background:rgba(90,211,122,.24);border-color:rgba(90,211,122,.9)}
+.pl-foot{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:10px}
+body.portrait .pl-wrap{flex-direction:column}
+body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}

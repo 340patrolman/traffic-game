@@ -7,26 +7,46 @@ TG.Signals = function (city, world, cfg) {
   var ctrl = {};
   city.xs.forEach(function (_, i) { city.zs.forEach(function (__, j) {
     var key = i + ',' + j;
-    ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12 };
+    ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12, gv: G, gh: G };   // gv·gh = 남북·동서 녹색 시간(교차로마다 다르게 설정할 수 있다)
   }); });
   function keyOf(node) { return node.i + ',' + node.j; }
+  function greenFor(node, axis) { var c = ctrl[keyOf(node)]; return axis === 'v' ? c.gv : c.gh; }
+  function cycleOf(node) { var c = ctrl[keyOf(node)]; return c.gv + c.gh + 2 * (Y + R); }
+  // 녹색 시간 하한: 그 방향의 최소 녹색과, 직각 횡단보도의 보행 시간 + 2초. **보행 시간은 줄일 수 없다**(소유자 강조).
+  function greenMin(node, axis) {
+    var c = ctrl[keyOf(node)], crossAx = axis === 'v' ? 'h' : 'v';
+    var len = 2 * city.sideOff(crossAx, crossAx === 'v' ? node.i : node.j);
+    return Math.max(c.minGreen, Math.ceil(Math.max(cfg.PED_WALK, 5 + len / 1.15)) + 2);
+  }
+  function setGreen(node, axis, sec) {
+    var c = ctrl[keyOf(node)], lo = greenMin(node, axis), hi = 60;
+    var v = Math.round(TG.clamp(sec, lo, hi));
+    if (axis === 'v') c.gv = v; else c.gh = v;
+    return { sec: v, min: lo, max: hi, clamped: v !== Math.round(sec) };
+  }
+  function greenInfo(node) {
+    var c = ctrl[keyOf(node)];
+    return { gv: c.gv, gh: c.gh, minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
+             pedV: Math.round(pedTime(node, 'v')), pedH: Math.round(pedTime(node, 'h')), minGreen: c.minGreen };
+  }
   // 보행 시간 = 진입 5초 + 횡단 거리 ÷ 1.15m/s(어린이 걸음). 차량 녹색보다 2초 짧게 묶는다.
   // crossAxis 는 **건너는 도로**의 축이다(그 도로의 보도선 사이가 횡단 거리).
   function pedTime(node, crossAxis) {
     var idx = crossAxis === 'v' ? node.i : node.j;
     var len = 2 * city.sideOff(crossAxis, idx);
-    return Math.max(cfg.PED_WALK, Math.min(G - 2, 5 + len / 1.15));
+    var gAx = crossAxis === 'v' ? 'h' : 'v';   // 이 횡단보도는 직각 축 차량 녹색 동안 켜진다
+    return Math.max(cfg.PED_WALK, Math.min(greenFor(node, gAx) - 2, 5 + len / 1.15));
   }
   // 지금 녹색인 축과 경과·지속 시간(전환 중이면 null)
-  function greenNow(t) {
-    var p = phase(t);
-    if (p.ns.s === 'green') return { axis: 'v', elapsed: p.ns.elapsed, dur: G, at: 0 };
-    if (p.ew.s === 'green') return { axis: 'h', elapsed: p.ew.elapsed, dur: G, at: HALF };
+  function greenNow(node) {
+    var c = ctrl[keyOf(node)], p = phase(c.t, c.gv, c.gh);
+    if (p.ns.s === 'green') return { axis: 'v', elapsed: p.ns.elapsed, dur: c.gv, at: 0 };
+    if (p.ew.s === 'green') return { axis: 'h', elapsed: p.ew.elapsed, dur: c.gh, at: c.gv + Y + R };
     return null;
   }
   // 수동 전환에 필요한 남은 시간: 최소 녹색·보행 최소를 채우고 + 황색 + 전적색
   function waitFor(node, axis) {
-    var c = ctrl[keyOf(node)], g = greenNow(c.t);
+    var c = ctrl[keyOf(node)], g = greenNow(node);
     if (!g) return { wait: 1.5, why: '전환 중' };
     if (g.axis === axis) return { wait: 0, why: '이미 녹색' };
     var needMin = Math.max(c.minGreen, pedTime(node, g.axis === 'v' ? 'h' : 'v') + 2);   // 보행 신호를 줄일 수 없다 → 그 횡단보도의 보행 시간 + 여유
@@ -45,7 +65,7 @@ TG.Signals = function (city, world, cfg) {
     return { ok: true, wait: w.wait, why: w.why };
   }
   function manualInfo(node) {
-    var c = ctrl[keyOf(node)], g = greenNow(c.t);
+    var c = ctrl[keyOf(node)], g = greenNow(node);
     return { manual: c.manual, req: c.req, minGreen: c.minGreen, axis: g ? g.axis : null, elapsed: g ? g.elapsed : 0,
              holding: !!(c.manual && g && g.elapsed >= g.dur - 0.05 && !c.req), pedMin: g ? Math.round(pedTime(node, g.axis === 'v' ? 'h' : 'v')) : cfg.PED_WALK };
   }
@@ -60,43 +80,47 @@ TG.Signals = function (city, world, cfg) {
   function pedMat(remain) { var n = Math.max(1, Math.ceil(remain)), k = 'w' + n; if (!pedMats[k]) pedMats[k] = new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(true, n) }); return pedMats[k]; }
 
   // 축별 상태. axis 'v' = 남북 도로(x 고정) 위를 달리는 차량, 'h' = 동서.
-  function phase(t) {
-    t = ((t % CYCLE) + CYCLE) % CYCLE;
+  // 교차로마다 남북 녹색 gv · 동서 녹색 gh 가 다르다. 한 주기 = gv + Y + R + gh + Y + R.
+  function phase(t, gv, gh) {
+    gv = gv || G; gh = gh || G;
+    var Hv = gv + Y + R, Hh = gh + Y + R, C = Hv + Hh;
+    t = ((t % C) + C) % C;
     var ns, ew;
-    if (t < G) { ns = { s: 'green', remain: G - t, elapsed: t }; ew = { s: 'red', remain: HALF - t, elapsed: t + HALF }; }
-    else if (t < G + Y) { ns = { s: 'yellow', remain: G + Y - t, elapsed: t - G }; ew = { s: 'red', remain: HALF - t, elapsed: t + HALF }; }
-    else if (t < HALF) { ns = { s: 'red', remain: CYCLE - t, elapsed: t - G - Y }; ew = { s: 'red', remain: HALF - t, elapsed: t + HALF }; }
-    else if (t < HALF + G) { ns = { s: 'red', remain: CYCLE - t, elapsed: t - G - Y }; ew = { s: 'green', remain: HALF + G - t, elapsed: t - HALF }; }
-    else if (t < HALF + G + Y) { ns = { s: 'red', remain: CYCLE - t, elapsed: t - G - Y }; ew = { s: 'yellow', remain: HALF + G + Y - t, elapsed: t - HALF - G }; }
-    else { ns = { s: 'red', remain: CYCLE - t, elapsed: t - G - Y }; ew = { s: 'red', remain: CYCLE - t + HALF, elapsed: t - HALF - G - Y }; }
-    return { ns: ns, ew: ew, t: t };
+    if (t < gv) { ns = { s: 'green', remain: gv - t, elapsed: t }; ew = { s: 'red', remain: Hv - t, elapsed: t + Hh }; }
+    else if (t < gv + Y) { ns = { s: 'yellow', remain: gv + Y - t, elapsed: t - gv }; ew = { s: 'red', remain: Hv - t, elapsed: t + Hh }; }
+    else if (t < Hv) { ns = { s: 'red', remain: C - t, elapsed: t - gv - Y }; ew = { s: 'red', remain: Hv - t, elapsed: t + Hh }; }
+    else if (t < Hv + gh) { ns = { s: 'red', remain: C - t, elapsed: t - gv - Y }; ew = { s: 'green', remain: Hv + gh - t, elapsed: t - Hv }; }
+    else if (t < Hv + gh + Y) { ns = { s: 'red', remain: C - t, elapsed: t - gv - Y }; ew = { s: 'yellow', remain: Hv + gh + Y - t, elapsed: t - Hv - gh }; }
+    else { ns = { s: 'red', remain: C - t, elapsed: t - gv - Y }; ew = { s: 'red', remain: C - t + Hv, elapsed: t - Hv - gh }; }
+    return { ns: ns, ew: ew, t: t, cycle: C };
   }
+  function ph(node) { var c = ctrl[keyOf(node)]; return phase(c.t, c.gv, c.gh); }
   function state(node, axis) {
-    var p = phase(ctrl[node.i + ',' + node.j].t);
+    var p = ph(node);
     return axis === 'v' ? p.ns : p.ew;
   }
   // crossAxis: 건너는 도로의 축. 'v' 도로를 건넌다 = x 방향으로 걷는다 = 동서 차량 녹색 초반
   function pedWalk(node, crossAxis) {
-    var p = phase(ctrl[node.i + ',' + node.j].t);
+    var p = ph(node);
     var W = pedTime(node, crossAxis);
     if (crossAxis === 'v') return p.ew.s === 'green' && p.ew.elapsed < W;
     return p.ns.s === 'green' && p.ns.elapsed < W;
   }
   // 보행 신호 잔여 시간: 녹색이면 남은 보행 시간, 적색이면 다음 보행 신호까지 남은 시간(초)
   function pedRemain(node, crossAxis) {
-    var p = phase(ctrl[node.i + ',' + node.j].t), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? HALF : 0;
+    var c = ctrl[keyOf(node)], p = ph(node), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? (c.gv + Y + R) : 0;
     var W = pedTime(node, crossAxis);
     if (s.s === 'green' && s.elapsed < W) return W - s.elapsed;
-    var until = start - p.t; while (until <= 0) until += CYCLE;
+    var until = start - p.t; while (until <= 0) until += p.cycle;
     return until;
   }
   var blinkT = 0;
   function update(dt) {
     for (var k in ctrl) {
-      var c = ctrl[k];
+      var c = ctrl[k], kn = k.split(','), nd = city.nodes[+kn[0]][+kn[1]];
       if (!c.manual) { c.t += dt; continue; }
       // 수동: 현재 녹색 끝에서 멈춰 유지(요청 없으면 계속 녹색). 요청이 있으면 최소 시간을 채운 뒤 황색·전적색을 거쳐 다음 녹색으로.
-      var g = greenNow(c.t);
+      var g = greenNow(nd);
       if (g) {
         var needMin = Math.max(c.minGreen, cfg.PED_WALK + 2);
         var canLeave = c.req && c.req !== g.axis && g.elapsed >= needMin;
@@ -105,7 +129,7 @@ TG.Signals = function (city, world, cfg) {
         c.t += dt;
       } else {
         c.t += dt;   // 황색·전적색은 그대로 흐른다
-        var g2 = greenNow(c.t);
+        var g2 = greenNow(nd);
         if (g2 && c.req === g2.axis) c.req = null;   // 요청 방향이 녹색이 되면 요청 해제
       }
     }
@@ -126,11 +150,12 @@ TG.Signals = function (city, world, cfg) {
   function force(i, j, t) { ctrl[i + ',' + j].t = t; }
   // 테스트·디버그: 어떤 노드의 축 axis 를 지금 즉시 상태 s 로 만든다
   function set(node, axis, s) {
-    var t;
-    if (axis === 'v') t = s === 'green' ? 0.5 : s === 'yellow' ? G + 0.5 : HALF + 0.5;
-    else t = s === 'green' ? HALF + 0.5 : s === 'yellow' ? HALF + G + 0.5 : 0.5;
+    var c = ctrl[keyOf(node)], Hv = c.gv + Y + R, t;
+    if (axis === 'v') t = s === 'green' ? 0.5 : s === 'yellow' ? c.gv + 0.5 : Hv + 0.5;
+    else t = s === 'green' ? Hv + 0.5 : s === 'yellow' ? Hv + c.gh + 0.5 : 0.5;
     ctrl[node.i + ',' + node.j].t = t;
   }
-  return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, update: update, force: force, set: set, CYCLE: CYCLE, phase: function (node) { return phase(ctrl[node.i + ',' + node.j].t); },
-           setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; } };
+  return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
+           setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
+           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf };
 };

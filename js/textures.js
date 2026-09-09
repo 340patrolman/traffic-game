@@ -614,6 +614,20 @@ TG.tex = (function () {
     return (cache[key] = toTexture(c));
   }
 
+  // 무인 교통단속 예고 표지: 흰 바탕 + 색 테두리 + 「무인 ○○ 단속」
+  function camSign(text, color) {
+    var key = 'cs:' + text + (color || '');
+    if (cache[key]) return cache[key];
+    var W = 384, H = 132, c = canvas(W, H), g = c.getContext('2d');
+    g.fillStyle = '#f7f8fa'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = color || '#1f4fa8'; g.lineWidth = 10; g.strokeRect(5, 5, W - 10, H - 10);
+    g.fillStyle = color || '#1f4fa8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    var size = 54; g.font = 'bold ' + size + 'px ' + FONT;
+    while (size > 20 && g.measureText(text).width > W - 40) { size -= 2; g.font = 'bold ' + size + 'px ' + FONT; }
+    g.fillText(text, W / 2, H / 2 + 2);
+    return (cache[key] = toTexture(c));
+  }
+
   // 아스팔트: 회색 노이즈 + 미세한 균열. 8m 마다 반복.
   function asphalt() {
     if (cache.asphalt) return cache.asphalt;
@@ -703,6 +717,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
+  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, camSign: camSign, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();
