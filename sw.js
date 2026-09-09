@@ -1,11 +1,11 @@
 // SEOUL PATROL 서비스워커: 앱 파일을 미리 저장해 두고(설치형·오프라인), 새 버전이 올라오면 다음 실행 때 바꿔 끼운다.
 // 네트워크 요청은 같은 폴더의 자기 파일뿐이다. 서버·외부 통신 없음.
-var CACHE = 'tg-v0.8.7';
+var CACHE = 'tg-v0.9.1';
 var FILES = [
-  './', './index.html', './manifest.json', './css/style.css?v=0.8.7', './data/laws.json', './lib/three.min.js?v=0.8.7',
-  './js/config.js?v=0.8.7', './js/rng.js?v=0.8.7', './js/save.js?v=0.8.7', './js/perf.js?v=0.8.7', './js/textures.js?v=0.8.7', './js/audio.js?v=0.8.7', './js/city.js?v=0.8.7', './js/world.js?v=0.8.7',
-  './js/terrain.js?v=0.8.7', './js/weather.js?v=0.8.7', './js/signals.js?v=0.8.7', './js/vehmesh.js?v=0.8.7', './js/vehicle.js?v=0.8.7', './js/traffic.js?v=0.8.7', './js/peds.js?v=0.8.7', './js/character.js?v=0.8.7', './js/vfx.js?v=0.8.7', './js/response.js?v=0.8.7', './js/junction.js?v=0.8.7', './js/chase.js?v=0.8.7', './js/walker.js?v=0.8.7', './js/qr.js?v=0.8.7', './promo.html?v=0.8.7', './js/promo.js?v=0.8.7', './js/rail.js?v=0.8.7', './js/enforcement.js?v=0.8.7', './js/study.js?v=0.8.7',
-  './js/hud.js?v=0.8.7', './js/minimap.js?v=0.8.7', './js/input.js?v=0.8.7', './js/main.js?v=0.8.7', './icon-192.png', './icon-512.png'
+  './', './index.html', './manifest.json', './css/style.css?v=0.9.1', './data/laws.json', './lib/three.min.js?v=0.9.1',
+  './js/config.js?v=0.9.1', './js/rng.js?v=0.9.1', './js/save.js?v=0.9.1', './js/perf.js?v=0.9.1', './js/textures.js?v=0.9.1', './js/audio.js?v=0.9.1', './js/city.js?v=0.9.1', './js/world.js?v=0.9.1',
+  './js/terrain.js?v=0.9.1', './js/weather.js?v=0.9.1', './js/signals.js?v=0.9.1', './js/vehmesh.js?v=0.9.1', './js/vehicle.js?v=0.9.1', './js/traffic.js?v=0.9.1', './js/peds.js?v=0.9.1', './js/character.js?v=0.9.1', './js/vfx.js?v=0.9.1', './js/response.js?v=0.9.1', './js/junction.js?v=0.9.1', './js/chase.js?v=0.9.1', './js/intro.js?v=0.9.1', './js/walker.js?v=0.9.1', './js/qr.js?v=0.9.1', './promo.html?v=0.9.1', './js/promo.js?v=0.9.1', './js/rail.js?v=0.9.1', './js/enforcement.js?v=0.9.1', './js/study.js?v=0.9.1',
+  './js/hud.js?v=0.9.1', './js/minimap.js?v=0.9.1', './js/input.js?v=0.9.1', './js/main.js?v=0.9.1', './icon-192.png', './icon-512.png'
 ];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

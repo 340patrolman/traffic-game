@@ -45,7 +45,14 @@ TG.Response = function (game) {
       if (d < bd) { bd = d; near = c; }
     });
     if (near !== inc.car) { inc.car = near; inc.t = 0; if (near) { inc.notice = 0; } }
-    if (!near) return;
+    if (!near) { if (pl.setSign && inc.signOn) { pl.setSign(false); inc.signOn = false; } return; }
+    // 승강식 전광판: 현장 뒤에 서면 올려서 뒤차에 알린다(사고 처리 중 + 비켜갈 방향 화살표)
+    if (pl.setSign && !inc.signOn && Math.hypot(near.pos.x - pl.pos.x, near.pos.z - pl.pos.z) < 30) {
+      var side = (near.incident && near.incident.side) || 'left';
+      pl.setSign(true, near.incident.kind === 'crash' ? '사고 처리 중' : '고장차량 서행', side === 'right' ? 'right' : 'left');
+      inc.signOn = true;
+      game.hud.hint('전광판을 올렸다 — 뒤차가 글자와 화살표를 보고 미리 차로를 옮긴다');
+    }
     var kindTxt = near.incident.kind === 'crash' ? '교통사고' : '고장차량';
     inc.notice -= dt;
     var behind = false, pf2 = pl.forward(), dx2 = near.pos.x - pl.pos.x, dz2 = near.pos.z - pl.pos.z, along = dx2 * pf2[0] + dz2 * pf2[1];
@@ -59,6 +66,7 @@ TG.Response = function (game) {
     inc.t = ok ? inc.t + dt : 0;
     if (inc.t > 2) {
       near.incident.handled = true; inc.car = null; inc.t = 0;
+      if (pl.setSign) { pl.setSign(false); inc.signOn = false; }
       game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1;
       game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
       game.hud.pop('✅ +' + S.incident, 'good'); TG.audio.jingle(3);
@@ -102,6 +110,7 @@ TG.Response = function (game) {
   // ---------- 📡 무전 상황 전파 ----------
   // 상황실·인접 순찰차에 알린다. 등급 C 는 몇 초 뒤 다른 순찰차가 안전한 곳에서 처리하고, 등급 A 는 이때부터 추격이 정당해진다.
   this.radio = function () {
+    if (TG.audio.squelch) TG.audio.squelch();   // 무전 스퀄치 — 앰프(📢)와 소리로 구분된다
     if (game.state !== 'play' || game.paused) return false;
     var car = target(120);
     if (!car) {

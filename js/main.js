@@ -13,6 +13,7 @@
   function el(id) { return document.getElementById(id); }
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
   var vfx = null, vfxT = 0, flares = null, response = null;   // 차량 감각 입자·플레어(js/vfx.js) · 대응 원칙(js/response.js)
+  var cine = null;   // 인트로 연출(js/intro.js)
   var junction = null, duty = null, chase = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
@@ -62,7 +63,7 @@
     peds = new TG.Peds(scene, city, signals, C, rng);
     traffic.peds = peds; peds.traffic = traffic;
     traffic.onEvent = onTrafficEvent; peds.onEvent = onPedEvent;
-    G.scene = scene;
+    G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
 
     hud.init(settings);
@@ -151,7 +152,18 @@
   }
 
   // ---------- 인트로 ----------
+  // 연출은 js/intro.js(TG.Intro) 가 맡는다 — 샷 표·배우·자막·타이틀 등장. 여기서는 상태만 잇는다.
   function startIntro() {
+    if (TG.Intro) {
+      G.state = 'intro'; intro.t = 0; intro.done = false;
+      hud.hideTitle(); hud.hideEnd(); hud.showHud(false); hud.showTouch(false);   // 타이틀에서 「다시 보기」로 들어올 수도 있다. 인트로 동안 조작판을 숨긴다
+      cine = new TG.Intro(G); G.cine = cine; cine.start();
+      TG.audio.setSiren(false);
+      return;
+    }
+    startIntroLegacy();
+  }
+  function startIntroLegacy() {
     G.state = 'intro'; intro.t = 0; intro.idx = -1; intro.done = false; intro.theme = false;
     var purpose = (G.laws && G.laws.act && G.laws.act.purpose) ? G.laws.act.purpose : FALLBACK_PURPOSE;
     var cite = (G.laws && G.laws.act) ? (G.laws.act.name + ' ' + G.laws.act.purposeArticle + '(목적)') : '도로교통법 제1조(목적) · 확인 중';
@@ -169,7 +181,7 @@
     hud.showIntro(true);
     TG.audio.setSiren(false);
   }
-  function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); hud.showIntro(false); showTitle(); }
+  function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); if (cine) { cine.dispose(); cine = null; G.cine = null; } hud.showIntro(false); hud.showTouch(true); showTitle(); }
   function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null)); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
@@ -280,7 +292,7 @@
       else if (tgt && tgt.sub === 'moto') line = '이륜차, 정지하세요. 우측 가장자리에 정차하십시오';
       else if (tgt && tgt.kind === 'car') line = (tgt.car.isBus ? '앞 버스' : tgt.car.type === 'truck' ? '앞 화물차' : '앞 차량') + ', 우측 가장자리에 정차하십시오';
       else { line = PA_LINES[paIdx % PA_LINES.length]; paIdx++; }
-      TG.audio.pa(line); hud.notice('📢 ' + line, 'info', 2400);
+      TG.audio.alert(); TG.audio.pa(line); hud.notice('📢 앰프 — ' + line, 'info', 2600);
       if (tgt) selectTarget(tgt);
     }
     input.bindTap($('btnPA'), pa);
@@ -359,6 +371,12 @@
     input.bindTap($('dutyEW'), function () { if (duty) dutyRequest('h'); });
     input.bindTap($('dutyLane'), function () { if (duty) dutyLane(); });
     input.bindTap($('dutyHand'), function () { if (duty) dutyHand(); });
+    // 승강식 전광판(V): 사고·고장 현장에서 뒤차에 알린다. 현장 근처에서는 자동으로 올라간다.
+    input.onKey('KeyV', function () {
+      if (G.state !== 'play' || !player || !player.setSign) return;
+      var on = player.setSign(!player.sign.on);
+      hud.notice(on ? '🔺 전광판 올림 — 「' + player.sign.text + '」' : '전광판 내림', on ? 'alert' : 'info', 2400); TG.audio.ui();
+    });
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro(); });
@@ -410,12 +428,12 @@
       if (!selW) { var pfW = walker.forward(), bdW = 45; traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - walker.pos.x, dz = c.pos.z - walker.pos.z, d = Math.hypot(dx, dz); if (d < bdW && dx * pfW[0] + dz * pfW[1] > -2 && (c.mode === 'drive' || c.mode === 'release')) { bdW = d; selW = { kind: 'car', car: c }; } }); }
       if (selW) {
         var vNameW = selW.car.violation ? enforcement.nameOf(selW.car.violation.type) : null;
-        if (vNameW) { hud.notice('🚨 위반 확인: ' + vNameW + ' — 수신호 정차', 'alert', 2600); TG.audio.resume(); TG.audio.pa('앞 차량, ' + vNameW + '. 정지하세요'); }
+        if (vNameW) { hud.notice('🚨 위반 확인: ' + vNameW + ' — 수신호 정차', 'alert', 2600); paSay(addressOf(sel) + ', 정지하세요'); }
         selectTarget(selW); if (enforcement.quiz(selW)) selectTarget(null);
         return;
       }
       var wp2 = peds.tryWarn(walker);
-      if (wp2) { addScore(8, null); G.stats.warned++; hud.setStops(G.stats.warned); hud.notice('무단횡단 보행자 계도 (+8)', 'good', 2600); TG.audio.resume(); TG.audio.pa('보행자, 횡단보도로 건너 주세요'); }
+      if (wp2) { addScore(8, null); G.stats.warned++; hud.setStops(G.stats.warned); hud.notice('무단횡단 보행자 계도 (+8)', 'good', 2600); paSay('보행자, 횡단보도로 건너 주세요'); }
       else hud.notice('대상이 없습니다 — 위반 차량(45m 안)이나 무단횡단 보행자(9m 안)를 찾으세요', 'warn', 2400);
       return;
     }
@@ -429,7 +447,7 @@
     }
     // 단속 버튼: 먼저 위반 사실을 알리고(화면·앰프) 단속 절차(객관식)로 들어간다
     var vName = sel.kind === 'car' ? (sel.car.violation ? (enforcement.nameOf ? enforcement.nameOf(sel.car.violation.type) : sel.car.violation.type) : null) : (sel.ped && (sel.ped.jayLive || sel.ped.jayDone) ? '무단횡단' : null);
-    if (vName) { hud.notice('🚨 위반 확인: ' + vName + ' — 단속합니다', 'alert', 2600); TG.audio.resume(); TG.audio.pa((sel.kind === 'car' ? '앞 차량, ' : '보행자, ') + vName + '. 정지하세요'); }
+    if (vName) { hud.notice('🚨 위반 확인: ' + vName + ' — 단속합니다', 'alert', 2600); paSay(addressOf(sel) + ', 정지하세요'); }
     if (enforcement.quiz(sel)) selectTarget(null);
   }
   function toggleSiren() {
@@ -569,6 +587,7 @@
     if (!duty) return false;
     if (on && junction.nearBox(walker.pos.x, walker.pos.z) > 3.2) { hud.notice('제어함에서 멉니다 — 함체 3m 안으로 걸어가세요', 'warn', 2200); return false; }
     duty.open = !!on; document.body.classList.toggle('dutyopen', duty.open);
+    if (junction.setPanel) junction.setPanel(duty.open, signals.isManual(duty.node), false);   // 실물 조작문이 위로 젖혀 열린다
     if (on) { TG.audio.ui(); hud.hint('자동 → 수동으로 바꾸면 방향별 녹색을 요청할 수 있다'); dutyPanelDraw(); }
     else if (why) hud.notice(why, 'info', 2000);
     return duty.open;
@@ -631,7 +650,8 @@
   function dutyRules(dt) {
     var node = duty.node;
     junction.update(dt);
-    duty.uiT -= dt; if (duty.uiT <= 0) { duty.uiT = 0.25; dutyPanelDraw(); }
+    duty.uiT -= dt; if (duty.uiT <= 0) { duty.uiT = 0.25; dutyPanelDraw(); if (junction.setPanel) junction.setPanel(duty.open, signals.isManual(node), !!signals.manualInfo(node).req); }
+    if (junction.boxAnim) junction.boxAnim(dt);
     duty.hintCd -= dt;
     // 통행량이 몰리는 상황을 주기적으로 만든다(병원·터미널 방향 신호 대기 행렬)
     duty.burstT -= dt;
@@ -675,7 +695,7 @@
     red: ['빨간불이에요! 멈춰요. 초록불을 기다려요', '앗, 빨간불! 여기서 멈추자'],
     green: ['초록불! 손을 들고 좌우를 보면서 건너요', '초록불이에요. 손 들고, 살피고, 건너요'],
     road: ['차도는 위험해요! 횡단보도로 가요', '거긴 차가 다니는 길이에요. 횡단보도로 돌아가요'],
-    good3: ['참 잘했어요! 별 세 개', '완벽해요! 멈추고, 손 들고, 초록불에 건넜어요'],
+    good3: ['참 잘했어요. 별 세 개예요', '멈추고, 보고, 손 들고, 걸었어요. 잘했어요'],   // 소유자: 없는 말을 만들지 않는다 — 실제 쓰는 말투만
     good2: ['잘했어요! 다음엔 한 가지만 더 챙겨요'],
     good1: ['건넜어요. 다음엔 멈추고 손을 들어요'],
     kidOk: ['네!', '알겠어요!', '손 들었어요!', '초록불이다!'],
@@ -685,7 +705,24 @@
   function pickLine(key) { var arr = LINES[key] || [key], i = Math.floor(Math.random() * arr.length); if (arr.length > 1 && i === lastLine[key]) i = (i + 1) % arr.length; lastLine[key] = i; return arr[i]; }
   function kidVoice(text, force) { if (!walk) return; if (!force && walk.voiceCd > 0) return; walk.voiceCd = 3.5; TG.audio.resume(); TG.audio.say(pickLine(text), { kind: 'narrator', queue: !force }); }
   function kidSay(key) { if (!walk || !walker || !walker.kid) return; TG.audio.say(pickLine(key), { kind: 'kid', queue: true }); }
-  function officerSay(text) { TG.audio.resume(); TG.audio.say(text, { kind: 'officer', queue: true }); }
+  // 말은 세 가지로 구분한다(소유자: 「속으로 말하는 것인지 앰프로 말하는 것인지 구분이 필요해」).
+  //   💭 속말 = 근무자 혼잣말·판단(자기만 듣는다)   📢 앰프 = 확성기로 밖에 알린다   📡 무전 = 상황실·인접 순찰차
+  // 확성기 호칭: 실제 방송에서 쓰는 말만 쓴다(없는 말을 만들지 않는다)
+  function addressOf(sel) {
+    if (!sel) return '앞 차량';
+    if (sel.kind === 'ped') return '보행자';
+    var c = sel.car;
+    if (!c) return '앞 차량';
+    if (c.isPM) return '킥보드';
+    if (c.isBike) return '자전거';
+    if (c.isMoto) return '이륜차';
+    if (c.isBus) return '앞 버스';
+    if (c.type === 'truck') return '앞 화물차';
+    return '앞 차량';
+  }
+  function officerSay(text) { TG.audio.resume(); TG.audio.say(text, { kind: 'officer', queue: true }); hud.hint('💭 ' + text); }
+  function paSay(text) { TG.audio.resume(); TG.audio.alert(); TG.audio.pa(text); hud.notice('📢 앰프 — ' + text, 'info', 2600); }
+  G.officerSay = officerSay; G.paSay = paSay;
   // 어린이 교실 단계 표시: 0 멈춰요 · 1 손 들어요 · 2 초록불 기다려요 · 3 건너요 · -1 보도로 걸어요
   // 어린이 횡단 4단계(소유자 지시): 🛑 멈춘다 → 👀 본다 → ✋ 손을 든다 → 🚶 걷는다.
   // 자전거·PM 은 이 4단계가 아니다 — 내려서 끌고 걸어야 보행자가 된다(제13조의2 제6항, traffic.js).
@@ -1257,22 +1294,29 @@
 
   function loop(now) {
     requestAnimationFrame(loop);
+    if (G.testFreeze) { lastT = now; return; }   // 검증용 정지(스크린샷을 한 프레임에 고정한다)
     var raw = now - lastT; lastT = now;
     var dt = Math.min(0.05, raw / 1000);
     if (G.state === 'play') {
       if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); update(dt); }
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
     } else if (G.state === 'intro') {
-      intro.t += dt;
-      if (!intro.theme && TG.audio.running) intro.theme = TG.audio.introTheme(intro.t);   // 브라우저가 소리를 풀어 주는 순간(첫 터치)부터 테마를 이어서 연주
       var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = TG.audio.running ? 'none' : 'block';
-      var idx = -1; for (var i = 0; i < intro.lines.length; i++) if (intro.t >= intro.lines[i].at) idx = i;
-      if (idx !== intro.idx) { intro.idx = idx; hud.introLines(intro.lines, idx); }
-      introCamera(intro.t);
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;
-      traffic.update(dt, 14); traffic.separate(); peds.update(dt, 10);
-      player.update(0.0001);
-      if (intro.t > 15) endIntro();
+      traffic.update(dt, 16); traffic.separate(); peds.update(dt, 12);
+      if (cine) {
+        var alive = cine.update(dt); intro.t = cine.t;
+        player.update(0.0001);
+        if (!alive) endIntro();
+      } else {
+        intro.t += dt;
+        if (!intro.theme && TG.audio.running) intro.theme = TG.audio.introTheme(intro.t);
+        var idx = -1; for (var i = 0; i < intro.lines.length; i++) if (intro.t >= intro.lines[i].at) idx = i;
+        if (idx !== intro.idx) { intro.idx = idx; hud.introLines(intro.lines, idx); }
+        introCamera(intro.t);
+        player.update(0.0001);
+        if (intro.t > 15) endIntro();
+      }
     } else if (G.state === 'title' || G.state === 'end') {
       var t = now / 1000 * 0.25;
       if (G.state === 'title') {   // 타이틀이 무음이면 게임이 꺼진 것처럼 보인다 — 소리가 풀리면 조용한 테마를 돌린다
@@ -1338,8 +1382,10 @@
         return G.state;
       },
       render: function () { renderFrame(); return true; },
+      freeze: function (on) { G.testFreeze = !!on; return !!on; },
       info: function () { var r = renderer.info.render; return { calls: r.calls, triangles: r.triangles, frameMs: TG.perf.frameMs }; },
-      intro: startIntro, endIntro: endIntro, introCamera: function (t) { introCamera(t); renderer.render(scene, camera); },
+      intro: startIntro, endIntro: endIntro, introCamera: function (t) { if (cine) { cine.jump(t); cine.update(0.0001); } else introCamera(t); renderer.render(scene, camera); },
+      introJump: function (t) { if (cine) cine.jump(t); }, cine: function () { return cine; },
       camAt: function (x, y, z, lx, ly, lz) { camera.position.set(x, y, z); camera.lookAt(lx, ly, lz); renderer.render(scene, camera); },
       hintText: function () { return document.getElementById('hint').textContent; },
       noticeText: function () { return document.getElementById('notice').textContent; },

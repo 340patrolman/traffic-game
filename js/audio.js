@@ -215,6 +215,15 @@ TG.audio = (function () {
     src.connect(f); f.connect(g); g.connect(master); src.start();
     blip(60, 0.25, 'sine', 0.5 * Math.min(1, strength));
   }
+  // 무전 스퀄치: 짧은 노이즈 버스트 + 클릭 — 무전(📡)과 앰프(📢)를 소리로도 구분한다
+  function squelch() {
+    if (!ensure()) return;
+    var now = ctx.currentTime, src = ctx.createBufferSource(); src.buffer = noiseBuffer(0.22);
+    var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1750; bp.Q.value = 1.6;
+    var g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, now); g2.gain.exponentialRampToValueAtTime(0.16, now + 0.012); g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    src.connect(bp); bp.connect(g2); g2.connect(master); src.start(now); src.stop(now + 0.2);
+    blip(1320, 0.05, 'square', 0.05);
+  }
   function ui() { blip(880, 0.06, 'square', 0.08); }
   function bell() { blip(1480, 0.12, 'triangle', 0.09); }   // 철길건널목 경보종
   function good() { blip(660, 0.12, 'triangle', 0.2); setTimeout(function () { blip(990, 0.18, 'triangle', 0.2); }, 110); }
@@ -384,7 +393,7 @@ TG.audio = (function () {
   }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, bell: bell, say: say, good: good,
+  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
            footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

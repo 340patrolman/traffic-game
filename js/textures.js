@@ -220,60 +220,122 @@ TG.tex = (function () {
     }
     g.restore();
   }
-  function drawEmblem(g, cx, cy, r) {
-    var GOLD = '#c9962a', GOLD2 = '#e8bf55', GOLD3 = '#a87a1c';
-    g.save(); g.translate(cx, cy); g.scale(r / 128, r / 128); g.translate(-128, -128);
-    // 바탕·테두리
-    g.fillStyle = '#fdfcf7'; g.beginPath(); g.arc(128, 128, 124, 0, Math.PI * 2); g.fill();
-    g.lineWidth = 7; g.strokeStyle = GOLD; g.beginPath(); g.arc(128, 128, 121, 0, Math.PI * 2); g.stroke();
-    g.lineWidth = 3; g.beginPath(); g.arc(128, 128, 111, 0, Math.PI * 2); g.stroke();
-    g.lineWidth = 2.4; g.setLineDash([2.5, 6]); g.beginPath(); g.arc(128, 128, 88, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
-    // 둘레 글씨: 위 「경 찰 청」(아치), 아래 영문(왼→오른쪽으로 읽히도록 각을 줄여 간다)
-    arcText(g, '경  찰  청', 128, 128, 100, -Math.PI * 0.74, -Math.PI * 0.26, 27, GOLD3);
-    arcText(g, 'KOREAN NATIONAL POLICE AGENCY', 128, 128, 101, Math.PI * 0.88, Math.PI * 0.12, 12, GOLD3, true);
-    // 참수리: 각진 깃(1차깃) 을 부채처럼 펼친 날개 + 저울 막대 + 몸통 + 왼쪽을 보는 갈고리 부리
-    g.strokeStyle = GOLD3; g.lineWidth = 3.4; g.beginPath(); g.moveTo(46, 120); g.lineTo(210, 120); g.stroke();   // 저울(천칭) 막대
-    function wing(sx) {
-      g.save(); g.translate(128, 0); g.scale(sx, 1);
-      for (var k = 0; k < 5; k++) {                                   // 깃 5장: 안쪽은 짧고 위, 바깥은 길고 아래
-        var t = k / 4, len = 34 + t * 52, y0 = 108 + t * 5, dr = 7 + t * 9;
-        g.fillStyle = k % 2 ? GOLD2 : GOLD;
-        g.beginPath(); g.moveTo(12, y0);
-        g.lineTo(12 + len, y0 + dr * 0.35);
-        g.lineTo(12 + len - 6, y0 + dr);
-        g.lineTo(12, y0 + 11);
-        g.closePath(); g.fill();
-        g.strokeStyle = GOLD3; g.lineWidth = 1.2; g.stroke();
-      }
-      g.fillStyle = GOLD2; g.beginPath(); g.moveTo(12, 100); g.lineTo(52, 104); g.lineTo(46, 114); g.lineTo(12, 112); g.closePath(); g.fill(); g.stroke();   // 어깨깃
-      g.restore();
-    }
-    wing(1); wing(-1);
-    g.lineWidth = 1.8;   // 저울 접시 두 개
-    [64, 192].forEach(function (px) { g.strokeStyle = GOLD3; g.beginPath(); g.moveTo(px, 120); g.lineTo(px, 131); g.stroke(); g.fillStyle = GOLD; g.beginPath(); g.moveTo(px - 8, 131); g.lineTo(px + 8, 131); g.lineTo(px + 4.5, 138); g.lineTo(px - 4.5, 138); g.closePath(); g.fill(); g.stroke(); });
-    g.fillStyle = GOLD2; g.strokeStyle = GOLD3; g.lineWidth = 1.6;                      // 몸통(가슴 → 꼬리)
-    g.beginPath(); g.moveTo(128, 88); g.bezierCurveTo(139, 100, 140, 130, 134, 156); g.lineTo(122, 156); g.bezierCurveTo(116, 130, 117, 100, 128, 88); g.closePath(); g.fill(); g.stroke();
-    g.beginPath(); g.moveTo(122, 154); g.lineTo(134, 154); g.lineTo(139, 184); g.lineTo(128, 177); g.lineTo(117, 184); g.closePath(); g.fill(); g.stroke();   // 꼬리깃
-    g.fillStyle = GOLD2; g.beginPath(); g.ellipse(127, 80, 13, 11, -0.15, 0, Math.PI * 2); g.fill(); g.stroke();   // 머리
-    g.fillStyle = GOLD; g.beginPath(); g.moveTo(133, 68); g.lineTo(142, 62); g.lineTo(136, 74); g.closePath(); g.fill();   // 뒤 깃(볏)
-    g.fillStyle = GOLD3; g.beginPath(); g.moveTo(115, 76); g.lineTo(99, 81); g.lineTo(106, 85); g.lineTo(115, 86); g.closePath(); g.fill();   // 갈고리 부리(왼쪽)
-    g.fillStyle = '#2e2109'; g.beginPath(); g.arc(122, 78, 2.8, 0, Math.PI * 2); g.fill();   // 눈
-    // 무궁화 5장 + 태극(가슴 가운데)
-    g.save(); g.translate(128, 132);
+  // ---------- 경찰 마크(소유자 제공 실물 이미지 기준) ----------
+  // 두 가지 형태를 쓴다.
+  //   ① 방패형 「경찰 POLICE」 — 순찰차 도어·HUD·타이틀에 붙는 것(소유자: 「순찰차에 붙이는 이미지야」)
+  //   ② 참수리 표장 — 경찰청 로고 형태(참수리 + 무궁화 + 태극). 신호제어기·정모에 붙는다.
+  // 외부 이미지 파일은 쓰지 않는다(에셋 0 규칙) — 캔버스로 그린다.
+  var GOLD = '#e8b923', GOLD_D = '#a8781a', GOLD_L = '#ffdf6b', BLUE = '#1b3f94', BLUE_D = '#122c6b', WHITE = '#ffffff';
+  // 태극: 붉은 위·푸른 아래를 S 로 나눈 원. 실물처럼 좌상이 붉다(−45° 회전).
+  function taegeuk(g, r) {
+    g.save(); g.rotate(-Math.PI / 4);
+    g.fillStyle = '#cd2e3a';
+    g.beginPath(); g.arc(0, 0, r, Math.PI, 0); g.arc(r / 2, 0, r / 2, 0, Math.PI, true); g.arc(-r / 2, 0, r / 2, 0, Math.PI); g.closePath(); g.fill();
+    g.fillStyle = '#0047a0';
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI); g.arc(-r / 2, 0, r / 2, Math.PI, 0, true); g.arc(r / 2, 0, r / 2, Math.PI, 0); g.closePath(); g.fill();
+    g.restore();
+  }
+  // 무궁화 다섯 장(금색) — 참수리 가슴 뒤에 깔린다
+  function mugunghwa(g, r) {
     for (var p = 0; p < 5; p++) {
-      var a = -Math.PI / 2 + p * Math.PI * 2 / 5;
-      g.save(); g.rotate(a);
-      g.fillStyle = GOLD2; g.strokeStyle = GOLD3; g.lineWidth = 1.3;
-      g.beginPath(); g.moveTo(0, -4); g.bezierCurveTo(13, -21, 26, -10, 19, 2); g.bezierCurveTo(12, 10, 2, 7, 0, -4); g.closePath(); g.fill(); g.stroke();
+      g.save(); g.rotate(-Math.PI / 2 + p * Math.PI * 2 / 5);
+      g.fillStyle = GOLD; g.strokeStyle = GOLD_D; g.lineWidth = r * 0.055;
+      g.beginPath();
+      g.moveTo(0, -r * 0.18);
+      g.bezierCurveTo(r * 0.62, -r * 1.02, r * 1.28, -r * 0.42, r * 0.92, r * 0.12);
+      g.bezierCurveTo(r * 0.56, r * 0.52, r * 0.08, r * 0.34, 0, -r * 0.18);
+      g.closePath(); g.fill(); g.stroke();
       g.restore();
     }
-    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(0, 0, 12, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#cd2e3a'; g.beginPath(); g.arc(0, 0, 11, Math.PI, 0); g.arc(5.5, 0, 5.5, 0, Math.PI, true); g.arc(-5.5, 0, 5.5, 0, Math.PI); g.closePath(); g.fill();
-    g.fillStyle = '#0047a0'; g.beginPath(); g.arc(0, 0, 11, 0, Math.PI); g.arc(-5.5, 0, 5.5, Math.PI, 0, true); g.arc(5.5, 0, 5.5, Math.PI, 0); g.closePath(); g.fill();
-    g.strokeStyle = GOLD3; g.lineWidth = 1.6; g.beginPath(); g.arc(0, 0, 11.6, 0, Math.PI * 2); g.stroke();
+  }
+  // 참수리: 좌우로 활짝 펼친 금색 날개 + 가운데 몸통·머리 + 꼬리. 원점은 가슴 중앙, span = 한쪽 날개 길이.
+  function eagle(g, span) {
+    var FE = 6;
+    for (var side = -1; side <= 1; side += 2) {
+      g.save(); g.scale(side, 1);
+      for (var k = 0; k < FE; k++) {                       // 깃: 안쪽은 짧고 위로, 바깥은 길고 살짝 아래로 처진다
+        var t = k / (FE - 1), len = span * (0.44 + t * 0.56), ang = -0.42 + t * 0.30, thick = span * (0.115 - t * 0.035);
+        g.save(); g.translate(span * 0.11, -span * 0.06); g.rotate(ang);
+        g.fillStyle = k % 2 ? GOLD_L : GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.014;
+        g.beginPath();
+        g.moveTo(0, -thick * 0.5);
+        g.lineTo(len * 0.86, -thick * 0.86);
+        g.quadraticCurveTo(len, -thick * 0.2, len * 0.9, thick * 0.5);
+        g.lineTo(0, thick * 0.62);
+        g.closePath(); g.fill(); g.stroke();
+        g.restore();
+      }
+      g.restore();
+    }
+    // 몸통·꼬리
+    g.fillStyle = GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.016;
+    g.beginPath();
+    g.moveTo(0, -span * 0.30);
+    g.bezierCurveTo(span * 0.17, -span * 0.12, span * 0.16, span * 0.30, span * 0.09, span * 0.46);
+    g.lineTo(-span * 0.09, span * 0.46);
+    g.bezierCurveTo(-span * 0.16, span * 0.30, -span * 0.17, -span * 0.12, 0, -span * 0.30);
+    g.closePath(); g.fill(); g.stroke();
+    g.beginPath();                                          // 꼬리깃 3장
+    g.moveTo(-span * 0.10, span * 0.44); g.lineTo(span * 0.10, span * 0.44);
+    g.lineTo(span * 0.15, span * 0.80); g.lineTo(0, span * 0.68); g.lineTo(-span * 0.15, span * 0.80);
+    g.closePath(); g.fill(); g.stroke();
+    // 머리(정면) + 갈고리 부리 + 볏
+    g.fillStyle = GOLD_L; g.beginPath(); g.ellipse(0, -span * 0.40, span * 0.115, span * 0.105, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = GOLD; g.beginPath();
+    g.moveTo(-span * 0.035, -span * 0.34); g.lineTo(span * 0.035, -span * 0.34); g.lineTo(0, -span * 0.25); g.closePath(); g.fill(); g.stroke();   // 부리
+    g.fillStyle = GOLD; g.beginPath();
+    g.moveTo(-span * 0.05, -span * 0.50); g.lineTo(0, -span * 0.60); g.lineTo(span * 0.05, -span * 0.50); g.closePath(); g.fill(); g.stroke();     // 볏
+    g.fillStyle = '#2e2109';
+    g.beginPath(); g.arc(-span * 0.048, -span * 0.42, span * 0.021, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(span * 0.048, -span * 0.42, span * 0.021, 0, Math.PI * 2); g.fill();
+  }
+  // ① 방패형 경찰 마크 — 순찰차 도어에 붙는 것
+  function drawShield(g, cx, cy, r) {
+    g.save(); g.translate(cx, cy); g.scale(r / 128, r / 128);
+    // 방패 외곽: 위는 평평(가운데 살짝 솟음), 옆은 안으로 휘고, 아래는 둥근 점으로 모인다
+    function shieldPath(k) {
+      var W = 104 * k, T = -116 * k, B = 120 * k;
+      g.beginPath();
+      g.moveTo(-W, T + 10 * k);
+      g.quadraticCurveTo(-W, T, -W + 16 * k, T);
+      g.lineTo(-22 * k, T); g.quadraticCurveTo(0, T - 10 * k, 22 * k, T); g.lineTo(W - 16 * k, T);
+      g.quadraticCurveTo(W, T, W, T + 10 * k);
+      g.bezierCurveTo(W, 30 * k, W * 0.86, 78 * k, 0, B);
+      g.bezierCurveTo(-W * 0.86, 78 * k, -W, 30 * k, -W, T + 10 * k);
+      g.closePath();
+    }
+    g.fillStyle = GOLD_D; shieldPath(1.0); g.fill();                      // 금색 테두리
+    g.fillStyle = GOLD; shieldPath(0.965); g.fill();
+    g.fillStyle = BLUE; shieldPath(0.90); g.fill();                       // 청색 바탕
+    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 2.5; shieldPath(0.86); g.stroke();
+    // 참수리(위쪽) + 태극(가슴) + 「경」「찰」 + POLICE
+    g.save(); g.translate(0, -30); eagle(g, 92); g.restore();
+    g.save(); g.translate(0, -18);
+    g.fillStyle = GOLD; g.beginPath(); g.arc(0, 0, 25, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = GOLD_D; g.lineWidth = 2.2; g.beginPath(); g.arc(0, 0, 25, 0, Math.PI * 2); g.stroke();
+    taegeuk(g, 20);
+    g.restore();
+    g.fillStyle = WHITE; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 40px ' + FONT;
+    g.fillText('경', -56, -14); g.fillText('찰', 56, -14);
+    g.font = 'bold 30px ' + FONT; g.letterSpacing = '2px';
+    g.fillText('POLICE', 0, 42);
+    g.letterSpacing = '0px';
+    g.restore();
+  }
+  // ② 참수리 표장(경찰청 로고 형태) — 신호제어기·정모·홍보물
+  function drawEagleMark(g, cx, cy, r) {
+    g.save(); g.translate(cx, cy); g.scale(r / 128, r / 128);
+    g.save(); g.translate(0, 26); mugunghwa(g, 46); g.restore();
+    g.save(); g.translate(0, -6); eagle(g, 116); g.restore();
+    g.save(); g.translate(0, 26);
+    g.fillStyle = GOLD_L; g.beginPath(); g.arc(0, 0, 26, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = GOLD_D; g.lineWidth = 2.4; g.beginPath(); g.arc(0, 0, 26, 0, Math.PI * 2); g.stroke();
+    taegeuk(g, 21);
     g.restore();
     g.restore();
   }
+  function drawEmblem(g, cx, cy, r) { drawShield(g, cx, cy, r); }
   function liverySide(flip) {
     var key = 'lvs:' + (flip ? 1 : 0);
     if (cache[key]) return cache[key];
@@ -293,6 +355,63 @@ TG.tex = (function () {
     drawEmblem(g, X(0.70), 0.30 * H, 44);
     g.fillStyle = '#1f4fa8'; g.font = 'bold 54px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('경찰', X(0.27), 0.30 * H); g.fillText('POLICE', X(0.47), 0.30 * H);
+    return (cache[key] = toTexture(c));
+  }
+  // 순찰차 뒷면(소유자: 「뒷모습 매우 중요해」): 후부 반사판 — 형광 연두·적색 사선 + 청색 「POLICE」.
+  // 실물 사진을 보고 캔버스로 그린다(외부 이미지 0개). 사선 방향은 가운데에서 바깥으로 벌어진다.
+  function liveryRear() {
+    if (cache.lvr) return cache.lvr;
+    var W = 1024, H = 256, c = canvas(W, H), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    // 아래 2/3 = 사선 반사판
+    var y0 = H * 0.34, hh = H - y0, step = 58;
+    g.save(); g.beginPath(); g.rect(0, y0, W, hh); g.clip();
+    g.fillStyle = '#f2f6f8'; g.fillRect(0, y0, W, hh);
+    for (var side = 0; side < 2; side++) {
+      var x0 = side ? W / 2 : 0, x1 = side ? W : W / 2, dir = side ? 1 : -1, k = 0;
+      for (var x = side ? W / 2 : W / 2; side ? x < W + hh : x > -hh; x += dir * step, k++) {
+        g.fillStyle = (k % 2) ? '#e02a1e' : '#d8f43c';
+        g.beginPath();
+        g.moveTo(x, y0); g.lineTo(x + dir * step * 0.5, y0); g.lineTo(x + dir * (step * 0.5 - hh * 0.75), H); g.lineTo(x - dir * hh * 0.75, H);
+        g.closePath(); g.fill();
+      }
+    }
+    g.restore();
+    g.strokeStyle = '#c9ced2'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0); g.stroke();
+    // 위 1/3 = 흰 바탕 + 청색 POLICE + 좌우 작은 태극/112
+    g.fillStyle = '#f7f9fb'; g.fillRect(0, 0, W, y0 - 2);
+    g.fillStyle = '#1b3f8f'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 74px ' + FONT; g.letterSpacing = '10px';
+    g.fillText('POLICE', W * 0.5, y0 * 0.52);
+    g.letterSpacing = '0px';
+    g.font = 'bold 40px ' + FONT; g.fillText('112', W * 0.13, y0 * 0.54); g.fillText('112', W * 0.87, y0 * 0.54);
+    return (cache.lvr = toTexture(c));
+  }
+  // 승강식 전광판(사고·고장 현장에서 올린다): 검정 판에 호박색 점자식 글씨 + 화살표.
+  // arrow: 'left' | 'right' | 'both' | null
+  function ledBoard(text, arrow) {
+    var key = 'led:' + text + '|' + (arrow || '');
+    if (cache[key]) return cache[key];
+    var W = 1024, H = 256, c = canvas(W, H), g = c.getContext('2d');
+    g.fillStyle = '#07090c'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#2b3138'; g.lineWidth = 10; g.strokeRect(5, 5, W - 10, H - 10);
+    var AM = '#ffb020';
+    // 글씨(점자식 느낌: 글자를 그린 뒤 격자 구멍을 덮어 씌운다)
+    g.fillStyle = AM; g.textAlign = 'center'; g.textBaseline = 'middle';
+    var size = 118; g.font = 'bold ' + size + 'px ' + FONT;
+    while (size > 40 && g.measureText(text).width > W * (arrow ? 0.62 : 0.9)) { size -= 4; g.font = 'bold ' + size + 'px ' + FONT; }
+    g.fillText(text, arrow ? W * 0.40 : W * 0.5, H * 0.5);
+    if (arrow) {   // 화살표(차로 변경 유도)
+      var ax = W * 0.84, ay = H * 0.5, s = H * 0.30;
+      function tri(dir) { g.beginPath(); g.moveTo(ax + dir * s, ay); g.lineTo(ax - dir * s * 0.35, ay - s * 0.86); g.lineTo(ax - dir * s * 0.35, ay + s * 0.86); g.closePath(); g.fill(); }
+      g.fillStyle = AM;
+      if (arrow === 'both') { ax = W * 0.76; tri(-1); ax = W * 0.93; tri(1); }
+      else tri(arrow === 'right' ? 1 : -1);
+    }
+    // 점자 격자
+    g.fillStyle = 'rgba(7,9,12,0.55)';
+    for (var y = 0; y < H; y += 8) g.fillRect(0, y, W, 3);
+    for (var x = 0; x < W; x += 8) g.fillRect(x, 0, 3, H);
     return (cache[key] = toTexture(c));
   }
   function liveryHood() {
@@ -317,6 +436,20 @@ TG.tex = (function () {
     drawEmblem(g, 256, 256, 250);
     return (cache.emblem = toTexture(c));
   }
+  // 화면(DOM)용 표장: 같은 캔버스를 PNG data URL 로 한 번만 뽑는다(외부 이미지 파일 0개 규칙 유지)
+  function emblemPNG() {
+    if (cache.emblemPNG) return cache.emblemPNG;
+    var c = canvas(512, 512), g = c.getContext('2d');
+    g.clearRect(0, 0, 512, 512); drawEmblem(g, 256, 256, 250);
+    return (cache.emblemPNG = c.toDataURL('image/png'));
+  }
+  // 참수리 표장 텍스처(신호제어기·정모·홍보물)
+  function emblemEagle() {
+    if (cache.emblemEagle) return cache.emblemEagle;
+    var c = canvas(512, 512), g = c.getContext('2d');
+    g.clearRect(0, 0, 512, 512); drawEagleMark(g, 256, 262, 236);
+    return (cache.emblemEagle = toTexture(c));
+  }
   function emblemOld() {
     var c = canvas(256, 256), g = c.getContext('2d');
     g.clearRect(0, 0, 256, 256);
@@ -329,6 +462,35 @@ TG.tex = (function () {
     g.beginPath(); g.arc(128, 78, 14, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#c9a227'; g.font = 'bold 30px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('POLICE', 128, 200);
     return toTexture(c);
+  }
+  // 교통경찰 조끼 등판 라벨: 청색 판에 「교통경찰」 + 「POLICE」 두 줄(실물 반사 조끼 등판 표기).
+  // 소유자 참고 사진(교통경찰 근무 사진·일러스트)을 보고 캔버스로 그린다 — 외부 이미지 파일은 쓰지 않는다.
+  // 신호제어기 명판: 흰 판 + 검정 테두리 + 「경찰청 표준 교통신호제어기」(소유자 제공 실물 사진 그대로).
+  function ctrlPlate(text) {
+    var key = 'cp:' + text;
+    if (cache[key]) return cache[key];
+    var W = 512, H = 96, c = canvas(W, H), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = '#f2f3f0'; g.fillRect(4, 4, W - 8, H - 8);
+    g.strokeStyle = '#1b1f24'; g.lineWidth = 5; g.strokeRect(7, 7, W - 14, H - 14);
+    g.fillStyle = '#14181d'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    var size = 52; g.font = 'bold ' + size + 'px ' + FONT;
+    while (size > 20 && g.measureText(text).width > W - 40) { size -= 2; g.font = 'bold ' + size + 'px ' + FONT; }
+    g.fillText(text, W / 2, H / 2 + 2);
+    return (cache[key] = toTexture(c));
+  }
+  function vestLabel(top, bottom) {
+    var key = 'vest:' + top + '|' + bottom;
+    if (cache[key]) return cache[key];
+    var W = 512, H = 256, c = canvas(W, H), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    // 청색 판 + 흰 테두리
+    g.fillStyle = "#1b3f8f"; g.fillRect(8, 8, W - 16, H - 16);
+    g.strokeStyle = "#ffffff"; g.lineWidth = 7; g.strokeRect(11, 11, W - 22, H - 22);
+    g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 96px ' + FONT; g.fillText(top, W / 2, 88);
+    g.font = 'bold 62px ' + FONT; g.letterSpacing = '6px'; g.fillText(bottom, W / 2, 178);
+    return (cache[key] = toTexture(c));
   }
   function label(text, color) {
     var key = 'lb:' + text + (color || '');
@@ -432,6 +594,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, liverySide: liverySide, liveryHood: liveryHood,
+  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

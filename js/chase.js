@@ -37,7 +37,7 @@ TG.Chase = function (game) {
       self.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '' };
       game.hud.notice('📡 상황실 — ' + self.kind.name + ' 발견. 경광등 켜고 뒤에 붙되 안전거리를 지키세요', 'alert', 5200);
       game.hud.hint('📡 무전으로 먼저 전파한다. 무전 없는 추격은 정당화되지 않는다');
-      TG.audio.alert(); TG.audio.pa(self.kind.radio);
+      if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
       return car;
     }
     return null;
@@ -59,7 +59,7 @@ TG.Chase = function (game) {
       self.order = true;
       game.hud.notice('📡 상황실 — 부수적 피해가 발생했습니다. 추격을 중단하고 무전·영상으로 처리하세요', 'alert', 5600);
       game.hud.hint('경광등을 끄고 속도를 줄이면 추격 중단으로 처리됩니다');
-      TG.audio.pa('추격 중단. 무전과 영상으로 처리하세요');
+      if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa('추격 중단. 무전과 영상으로 처리하세요');
     }
   };
   // 추격 중단(정답인 경우가 있다): 어린이보호구역 도주 · 상황실 지시 · 보행자 밀집

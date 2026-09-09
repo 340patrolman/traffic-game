@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.8.7">
+<link rel="stylesheet" href="css/style.css?v=0.9.1">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -141,7 +141,18 @@
 
 <!-- 인트로: 도로교통법의 목적 → 그것을 실현하는 경찰 → 타이틀 -->
 <div id="intro" class="overlay intro">
+  <div class="cine-bar top"></div><div class="cine-bar bot"></div>
   <div id="introLines" class="intro-lines"></div>
+  <!-- 몽타주 자막(하단 3분할): 번호·제목·한 줄 -->
+  <div id="introShot" class="intro-shot"><span class="kick"></span><b class="ttl"></b><span class="sub"></span></div>
+  <!-- 타이틀 등장(테마 대타격에 맞춤) -->
+  <div id="introTitle" class="intro-title">
+    <img id="introEmblem" class="em" alt="">
+    <div class="logo">SEOUL PATROL</div>
+    <div class="sub2">서울교통 순찰근무</div>
+    <div class="tag">근무 연습 · 스트레스 해소 · 교통안전 홍보</div>
+  </div>
+  <div id="introFlash"></div>
   <div id="introSound" class="intro-sound">🔊 화면을 한 번 터치하면 소리가 납니다</div>
   <button id="introSkip" class="skip">건너뛰기 ▸</button>
 </div>
@@ -229,35 +240,36 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.8.7"></script>
-<script src="js/config.js?v=0.8.7"></script>
-<script src="js/rng.js?v=0.8.7"></script>
-<script src="js/save.js?v=0.8.7"></script>
-<script src="js/perf.js?v=0.8.7"></script>
-<script src="js/textures.js?v=0.8.7"></script>
-<script src="js/audio.js?v=0.8.7"></script>
-<script src="js/city.js?v=0.8.7"></script>
-<script src="js/world.js?v=0.8.7"></script>
-<script src="js/terrain.js?v=0.8.7"></script>
-<script src="js/weather.js?v=0.8.7"></script>
-<script src="js/signals.js?v=0.8.7"></script>
-<script src="js/vehmesh.js?v=0.8.7"></script>
-<script src="js/vehicle.js?v=0.8.7"></script>
-<script src="js/traffic.js?v=0.8.7"></script>
-<script src="js/peds.js?v=0.8.7"></script>
-<script src="js/character.js?v=0.8.7"></script>
-<script src="js/vfx.js?v=0.8.7"></script>
-<script src="js/response.js?v=0.8.7"></script>
-<script src="js/junction.js?v=0.8.7"></script>
-<script src="js/chase.js?v=0.8.7"></script>
-<script src="js/walker.js?v=0.8.7"></script>
-<script src="js/rail.js?v=0.8.7"></script>
-<script src="js/enforcement.js?v=0.8.7"></script>
-<script src="js/study.js?v=0.8.7"></script>
-<script src="js/hud.js?v=0.8.7"></script>
-<script src="js/minimap.js?v=0.8.7"></script>
-<script src="js/input.js?v=0.8.7"></script>
-<script src="js/main.js?v=0.8.7"></script>
+<script src="lib/three.min.js?v=0.9.1"></script>
+<script src="js/config.js?v=0.9.1"></script>
+<script src="js/rng.js?v=0.9.1"></script>
+<script src="js/save.js?v=0.9.1"></script>
+<script src="js/perf.js?v=0.9.1"></script>
+<script src="js/textures.js?v=0.9.1"></script>
+<script src="js/audio.js?v=0.9.1"></script>
+<script src="js/city.js?v=0.9.1"></script>
+<script src="js/world.js?v=0.9.1"></script>
+<script src="js/terrain.js?v=0.9.1"></script>
+<script src="js/weather.js?v=0.9.1"></script>
+<script src="js/signals.js?v=0.9.1"></script>
+<script src="js/vehmesh.js?v=0.9.1"></script>
+<script src="js/vehicle.js?v=0.9.1"></script>
+<script src="js/traffic.js?v=0.9.1"></script>
+<script src="js/peds.js?v=0.9.1"></script>
+<script src="js/character.js?v=0.9.1"></script>
+<script src="js/vfx.js?v=0.9.1"></script>
+<script src="js/response.js?v=0.9.1"></script>
+<script src="js/junction.js?v=0.9.1"></script>
+<script src="js/chase.js?v=0.9.1"></script>
+<script src="js/intro.js?v=0.9.1"></script>
+<script src="js/walker.js?v=0.9.1"></script>
+<script src="js/rail.js?v=0.9.1"></script>
+<script src="js/enforcement.js?v=0.9.1"></script>
+<script src="js/study.js?v=0.9.1"></script>
+<script src="js/hud.js?v=0.9.1"></script>
+<script src="js/minimap.js?v=0.9.1"></script>
+<script src="js/input.js?v=0.9.1"></script>
+<script src="js/main.js?v=0.9.1"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

@@ -123,8 +123,8 @@ TG.Enforcement = function (game) {
     if (!onFoot() && !pl.siren) { pl.setSiren(true); TG.audio.setSiren(true); game.hud.setSiren(true); }
     self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0;
     game.traffic.setYield(car, true);
-    if (onFoot()) { game.hud.notice('수신호 정차 — 차량이 우측에 섭니다. 운전석 옆(3m 안)으로 걸어가면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하세요. 수신호입니다'); }
-    else { game.hud.notice('정차 유도 — 대상이 우측으로 정차합니다. 그 뒤 갓길에 안전하게 정차하면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오'); }
+    if (onFoot()) { game.hud.notice('수신호 정차 — 차량이 우측에 섭니다. 운전석 옆(3m 안)으로 걸어가면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하세요. 수신호입니다'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하세요. 수신호입니다', 'info', 2600); }
+    else { game.hud.notice('정차 유도 — 대상이 우측으로 정차합니다. 그 뒤 갓길에 안전하게 정차하면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하십시오', 'info', 2600); }
     game.hud.setTarget('정차 유도 중');
   }
   // 고지 완료: 플레이어가 대상 뒤 갓길에 안전하게 섰을 때(도보: 운전석 옆에 섰을 때). MDT 면허 조회 — 무면허가 드러나면 추가 조치(+15, 「무면허 운전」 조문)

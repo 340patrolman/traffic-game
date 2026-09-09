@@ -132,27 +132,92 @@ TG.Junction = function (game) {
     return (mi.manual ? '🔧 수동' : '🤖 자동') + ' · ' + (mi.axis === 'v' ? '남북 녹색' : mi.axis === 'h' ? '동서 녹색' : '전환 중') +
            ' ' + Math.round(mi.elapsed) + '초 · 대기[' + (parts.join(' ') || '없음') + ']' + (st.grid ? ' · ⚠ 꼬리물기 ' + st.grid : '');
   };
-  // ---------- 신호제어기(제어함) ----------
-  // 실제 교차로 모퉁이에 서 있는 회색 강철 함체. 문을 열면 자동/수동 전환 스위치가 있다.
+  // ---------- 신호제어기(제어함) — 소유자 제공 실물 사진 그대로 ----------
+  // 회색 강철 함체 + 남색 상단 캡 + 참수리 표장 + 「경찰청 표준 교통신호제어기」 명판 +
+  // 가운데 작은 조작문(위로 젖혀 열린다) 안에 자동/수동·점멸·소등 토글 스위치와 붉은 누름버튼 2개 + 원형 시건장치.
   // 게임에서는 함체 3.2m 안으로 걸어가야 조작판이 열린다(순찰차에서 조작할 수 없다 — 하차 근무다).
   this.placeBox = function (node, sx, sz) {
     // 보도 위, 교차로 모퉁이에서 9m 떨어진 곳(횡단보도 끝·보행 신호등 기둥과 겹치지 않는 자리)
-    var x = node.x + sx * city.sideOff('v', node.i), z = node.z + sz * (city.halfH[node.j] + 9), gb = new TG.GeoBuilder();
-    gb.box(0, 0.06, 0, 1.05, 0.12, 0.8, 0x9aa0a6, {});                       // 기초 콘크리트
-    gb.box(0, 0.80, 0, 0.78, 1.36, 0.52, 0x8d949c, {});                      // 함체
-    gb.box(0, 0.80, 0.27, 0.70, 1.24, 0.03, 0x7d848c, {});                   // 문
-    gb.box(0.28, 0.80, 0.30, 0.05, 0.20, 0.04, 0x2a2e33, {});                // 손잡이·시건장치
-    gb.box(0, 1.28, 0.29, 0.46, 0.14, 0.02, 0xe8edf2, {});                   // 명판(교통신호제어기)
-    for (var v = 0; v < 4; v++) gb.box(0, 0.36 + v * 0.09, 0.29, 0.50, 0.03, 0.02, 0x5e666e, {});   // 통풍 루버
-    gb.box(0, 1.50, 0, 0.86, 0.08, 0.60, 0x767d85, {});                      // 상단 처마
+    var x = node.x + sx * city.sideOff('v', node.i), z = node.z + sz * (city.halfH[node.j] + 9);
+    var GRAY = 0x8d9490, GRAY2 = 0x7c837f, NAVY = 0x2b3450, DARK = 0x23272b, STEEL = 0xb9c0c4;
+    var W = 0.66, H = 1.30, D = 0.46, gb = new TG.GeoBuilder();
+    gb.box(0, 0.06, 0, W + 0.34, 0.12, D + 0.30, 0x9aa0a6, {});                    // 기초 콘크리트
+    gb.box(0, 0.10 + H / 2, 0, W, H, D, GRAY, {});                                  // 함체
+    gb.box(0, 0.10 + H + 0.035, 0, W + 0.08, 0.07, D + 0.06, NAVY, {});             // 남색 상단 캡
+    gb.box(0, 0.10 + H + 0.075, 0, W + 0.02, 0.02, D + 0.02, GRAY2, {});
+    gb.box(-W / 2 - 0.005, 0.10 + H / 2, 0, 0.012, H - 0.06, D - 0.05, GRAY2, {});  // 측면 음영 판
+    gb.box(W / 2 + 0.005, 0.10 + H / 2, 0, 0.012, H - 0.06, D - 0.05, GRAY2, {});
+    gb.box(W * 0.34, 0.10 + H * 0.62, D / 2 + 0.004, 0.10, 0.30, 0.012, DARK, {});  // 우측 통풍·계량 창
+    for (var v = 0; v < 5; v++) gb.box(W * 0.34, 0.10 + H * 0.50 + v * 0.035, D / 2 + 0.008, 0.085, 0.012, 0.008, GRAY2, {});
+    gb.cylinder(-W * 0.30, 0.10 + H * 0.44, D / 2 + 0.004, 0.032, 0.032, 0.016, 10, STEEL, true);   // 원형 시건장치(키)
+    gb.cylinder(-W * 0.30, 0.10 + H * 0.44, D / 2 + 0.020, 0.010, 0.010, 0.008, 8, DARK, true);
+    gb.box(0, 0.10 + H * 0.30, D / 2 + 0.003, W - 0.10, H * 0.34, 0.008, GRAY2, {});                // 아래 큰 문(닫힌 채)
+    gb.cylinder(W * 0.24, 0.10 + H * 0.30, D / 2 + 0.010, 0.022, 0.022, 0.014, 10, STEEL, true);    // 큰 문 손잡이
     var m = new THREE.Mesh(gb.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
     m.position.set(x, game.terrain ? game.terrain.heightAt(x, z) : 0, z);
-    m.rotation.y = Math.atan2(-sx, 0);                                       // 문이 차도 쪽(근무자가 서는 쪽)을 본다
+    m.rotation.y = Math.atan2(-sx, 0);                                              // 문이 차도 쪽(근무자가 서는 쪽)을 본다
     game.scene.add(m);
-    var lamp = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), new THREE.MeshBasicMaterial({ color: 0x39d353 }));
-    lamp.position.set(0.28, 1.44, 0.20); m.add(lamp);
-    self.box = { mesh: m, lamp: lamp, x: x, z: z };
+    // 참수리 표장 + 명판(캔버스 텍스처 — 외부 이미지 파일 0개)
+    var emY = 0.10 + H * 0.92, plY = 0.10 + H * 0.80;
+    var em = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.17), new THREE.MeshBasicMaterial({ map: TG.tex.emblemEagle ? TG.tex.emblemEagle() : TG.tex.emblem(), transparent: true }));
+    em.position.set(0, emY, D / 2 + 0.006); m.add(em);
+    if (TG.tex.ctrlPlate) {
+      var pl = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.14, 0.12), new THREE.MeshBasicMaterial({ map: TG.tex.ctrlPlate('경찰청 표준 교통신호제어기'), transparent: true }));
+      pl.position.set(0, plY, D / 2 + 0.006); m.add(pl);
+    }
+    // 가운데 조작문: 위쪽 경첩으로 젖혀 열린다. 안에 스위치·버튼이 있다.
+    var panY = 0.10 + H * 0.585, panW = W - 0.16, panH = 0.24;
+    var recess = new TG.GeoBuilder();
+    recess.box(0, 0, 0, panW, panH, 0.02, 0x4d5257, {});                            // 함 안쪽 벽
+    recess.box(0, -panH * 0.34, 0.012, panW - 0.04, 0.05, 0.012, 0x6a7075, {});     // 스위치 받침대
+    var rec = new THREE.Mesh(recess.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    rec.position.set(0, panY, D / 2 - 0.012); m.add(rec);
+    // 토글 스위치 4개(자동/수동 · 점멸 · 소등 · 정상) + 붉은 누름버튼 2개
+    var swMat = new THREE.MeshLambertMaterial({ color: 0xd8dde0 }), knobMat = new THREE.MeshLambertMaterial({ color: 0x2a2e33 });
+    var switches = [];
+    for (var si = 0; si < 4; si++) {
+      var sxp = -panW * 0.36 + si * (panW * 0.17);
+      var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.010, 0.055, 6), swMat);
+      var pivot = new THREE.Object3D();
+      pivot.position.set(sxp, panY - panH * 0.30, D / 2 - 0.004);
+      stem.position.y = 0.026; pivot.add(stem);
+      var tip = new THREE.Mesh(new THREE.SphereGeometry(0.011, 6, 5), knobMat); tip.position.y = 0.056; pivot.add(tip);
+      pivot.rotation.x = 0.42;                                                      // 자동(위로 젖혀진 상태)
+      m.add(pivot); switches.push(pivot);
+    }
+    var btns = [];
+    for (var bi = 0; bi < 2; bi++) {
+      var bmat = new THREE.MeshBasicMaterial({ color: 0x7c1f18 });
+      var btn = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.014, 12), bmat);
+      btn.rotation.x = Math.PI / 2;
+      btn.position.set(panW * (bi ? 0.36 : 0.20), panY - panH * 0.10, D / 2 - 0.002);
+      m.add(btn); btns.push(btn);
+    }
+    // 조작문(경첩은 위쪽) — 열면 위로 들린다
+    var doorPivot = new THREE.Object3D();
+    doorPivot.position.set(0, panY + panH / 2, D / 2 + 0.002); m.add(doorPivot);
+    var dgb = new TG.GeoBuilder();
+    dgb.box(0, -panH / 2, 0, panW + 0.03, panH, 0.014, GRAY, {});
+    dgb.box(0, -panH + 0.012, 0.012, panW * 0.5, 0.018, 0.020, GRAY2, {});          // 손잡이 립
+    var door = new THREE.Mesh(dgb.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    doorPivot.add(door);
+    var lamp = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshBasicMaterial({ color: 0x39d353 }));
+    lamp.position.set(W * 0.30, 0.10 + H + 0.02, D / 2 - 0.02); m.add(lamp);
+    self.box = { mesh: m, lamp: lamp, x: x, z: z, door: doorPivot, doorK: 0, switches: switches, btns: btns };
     return self.box;
+  };
+  // 조작문 여닫기(사진처럼 위로 젖혀진다) + 수동 전환 시 첫 스위치를 내리고 버튼에 불을 넣는다
+  this.setPanel = function (open, manual, req) {
+    var b = self.box; if (!b) return;
+    b.doorOpen = !!open;
+    if (b.switches[0]) b.switches[0].rotation.x = manual ? -0.42 : 0.42;
+    for (var i = 0; i < b.btns.length; i++) b.btns[i].material.color.setHex(manual ? (req ? 0xff3b2f : 0xd8342a) : 0x7c1f18);
+  };
+  this.boxAnim = function (dt) {
+    var b = self.box; if (!b || !b.door) return;
+    var want = b.doorOpen ? 1 : 0;
+    if (Math.abs(b.doorK - want) < 0.002) { b.doorK = want; } else b.doorK += (want - b.doorK) * Math.min(1, dt * 6);
+    b.door.rotation.x = b.doorK * 1.9;                                              // 위로 젖혀 열린다
   };
   this.setBoxLamp = function (manual) { if (self.box) self.box.lamp.material.color.setHex(manual ? 0xffb020 : 0x39d353); };
   this.nearBox = function (x, z) { return self.box ? Math.hypot(x - self.box.x, z - self.box.z) : 999; };

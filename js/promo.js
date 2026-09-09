@@ -75,10 +75,11 @@
         moto = traffic.spawn({ at: { x: CX + C.LANE2_OFF, z: CZ + 70, d: 2, node: city.nodes[1][3] }, v: 6, cruise: 6, straight: true, violator: false, laneIdx: 1, type: 'moto' }); if (moto) { moto.edgeRider = true; moto.edgeOff = 6.0; moto.edgeT = 0; } },
       cam: function () { return null; } },
     { at: 6, step: '🛵 보도로 달리는 이륜차', sub: '오토바이가 보도로 올라와 달려요 — 사람들이 위험해요', say: '보도로 올라온 오토바이. 걷는 사람들이 위험해요', on: function () { actors.officer.face(0); actors.kid.face(0); actors.officer.lookScan = false; }, cam: function () { return null; } },
-    { at: 11, step: '✋ 정지!', sub: '교통경찰관이 수신호로 세워요', say: '정지! 교통경찰관이 손을 들어 세웁니다', kid: '와, 멈췄다!',
+    { at: 11, step: '✋ 정지!', sub: '교통경찰관이 수신호로 세워요', say: '정지! 교통경찰관이 손을 들어 세웁니다',   // 이륜차·킥보드는 단속 대상이다 — 어린이 칭찬 말투를 쓰지 않는다
       on: function () { actors.officer.gesture = 'stop'; if (moto) { moto.edgeRider = false; moto.cruise = 0; moto.speedK = 0; moto.violation = { type: 'motorcycle', t: traffic.time, node: null, seen: true }; } }, cam: function () { return null; } },
-    { at: 17, step: '이륜차는 차도 우측으로', sub: '이륜차 보도 통행은 위반이에요 — 차도 가장자리로 다녀요 (도로교통법 제13조)', say: '이륜차 보도 통행은 위반이에요. 차도 우측 가장자리로 다니세요', on: function () { actors.officer.gesture = 'go'; }, cam: function () { return null; } },
-    { at: 24, step: '', sub: '', say: null, card: true, on: function () { $('card').style.display = 'flex'; actors.officer.gesture = null; if (moto) { traffic.setYield(moto, false); moto.cruise = 6; moto.speedK = 1; } }, cam: function () { return null; } },
+    { at: 17, step: '이륜차는 차도 우측으로', sub: '이륜차 보도 통행은 위반입니다 — 차도 우측 가장자리로 (도로교통법 제13조)', say: '이륜차 보도 통행은 위반입니다. 차도 우측 가장자리로 통행하십시오', on: function () { actors.officer.gesture = 'go'; }, cam: function () { return null; } },
+    { at: 21, step: '자전거·킥보드는 내려서 끕니다', sub: '횡단보도에서는 내려서 끌거나 들고 걸어야 보행자입니다 (도로교통법 제13조의2 제6항)', say: '자전거와 킥보드는 횡단보도에서 내려서 끌고 걸어야 보행자가 됩니다', on: function () {}, cam: function () { return null; } },
+    { at: 26, step: '', sub: '', say: null, card: true, on: function () { $('card').style.display = 'flex'; actors.officer.gesture = null; if (moto) { traffic.setYield(moto, false); moto.cruise = 6; moto.speedK = 1; } }, cam: function () { return null; } },
   ];
   var SCENE = /[?&]scene=moto/.test(location.search) ? 'moto' : 'cross', LOOP_AT = 50;
   function motoCam(u) {
@@ -138,7 +139,7 @@
     camLook.x += (L[0] - camLook.x) * kc * 1.3; camLook.y += (L[1] - camLook.y) * kc * 1.3; camLook.z += (L[2] - camLook.z) * kc * 1.3;
     var gy = terrain.heightAt(camPos.x, camPos.z) + 0.6; if (camPos.y < gy) camPos.y = gy;
     camera.position.copy(camPos); camera.lookAt(camLook);
-    if (t >= (SCENE === 'moto' ? 30 : LOOP_AT)) { SCENE = SCENE === 'moto' ? 'cross' : 'moto'; restart(); }   // 두 장면을 번갈아
+    if (t >= (SCENE === 'moto' ? 32 : LOOP_AT)) { SCENE = SCENE === 'moto' ? 'cross' : 'moto'; restart(); }   // 두 장면을 번갈아
   }
   function loop(now) {
     requestAnimationFrame(loop);

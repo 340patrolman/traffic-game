@@ -149,10 +149,61 @@
     g.add(decL); g.add(decR); g.add(decH);
     var l112 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.2), new THREE.MeshBasicMaterial({ map: TG.tex.label('112', '#1f4fa8'), transparent: true }));
     var trunkZ = -l * 0.42; l112.position.set(0, TG.vehmesh.hoodAt(T, trunkZ) + 0.012, trunkZ); l112.rotation.x = -Math.PI / 2; g.add(l112);
+    // ---- 뒷모습(소유자: 「뒷모습 매우 중요해」) ----
+    // 후부 반사판: 형광 연두·적색 사선 + 청색 POLICE. 뒤차가 순찰차를 바로 알아보고 감속하게 만드는 부분이다.
+    if (TG.tex.liveryRear) {
+      var rw = w * 0.82, rearZ = -l * 0.478;
+      var rear = new THREE.Mesh(new THREE.PlaneGeometry(rw, rw * 0.25), new THREE.MeshBasicMaterial({ map: TG.tex.liveryRear(), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+      rear.position.set(0, 0.72, rearZ); rear.rotation.y = Math.PI; g.add(rear); this.rearDecal = rear;
+    }
+    // ---- 승강식 전광판: 경광등 뒤에서 올라와 글자와 화살표를 보여 준다(사고·고장 현장) ----
+    var roofY = TG.vehmesh.roofY(T), sg = new THREE.Group();
+    sg.position.set(0, roofY + 0.06, -l * 0.10);
+    var armMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ab });
+    var arms = new THREE.Group();
+    for (var ai = -1; ai <= 1; ai += 2) {
+      for (var aj = -1; aj <= 1; aj += 2) {
+        var arm = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.62, 0.035), armMat);
+        arm.position.set(ai * 0.30, 0.31, 0); arm.rotation.z = aj * 0.28; arms.add(arm);
+      }
+    }
+    sg.add(arms);
+    var bw = Math.min(1.34, w * 1.02), board = new THREE.Group();
+    board.position.set(0, 0.66, 0);
+    var shell = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.34, 0.07), new THREE.MeshLambertMaterial({ color: 0x14171b }));
+    board.add(shell);
+    var face = new THREE.Mesh(new THREE.PlaneGeometry(bw * 0.94, 0.27), new THREE.MeshBasicMaterial({ map: TG.tex.ledBoard('사고 처리 중', 'left') }));
+    face.position.set(0, 0, -0.037); face.rotation.y = Math.PI; board.add(face);              // 뒤차가 보는 면
+    var faceF = new THREE.Mesh(new THREE.PlaneGeometry(bw * 0.94, 0.27), new THREE.MeshBasicMaterial({ map: TG.tex.ledBoard('서행', 'both') }));
+    faceF.position.set(0, 0, 0.037); board.add(faceF);
+    sg.add(board);
+    sg.visible = false; g.add(sg);
+    this.sign = { group: sg, board: board, arms: arms, face: face, k: 0, on: false, text: '사고 처리 중', arrow: 'left' };
     this.mesh = g; scene.add(g); this.syncMesh();
+
   };
 
+  // 전광판 올리기·내리기. text 를 바꾸면 뒤 판의 글씨가 바뀐다(사고 처리 중 / 서행 / 우측 차로 이용 …)
+  P.setSign = function (on, text, arrow) {
+    if (!this.sign) return false;
+    var S = this.sign;
+    if (text && (text !== S.text || arrow !== S.arrow)) {
+      S.text = text; S.arrow = arrow === undefined ? S.arrow : arrow;
+      S.face.material.map = TG.tex.ledBoard(S.text, S.arrow); S.face.material.needsUpdate = true;
+    }
+    S.on = !!on; if (S.on) S.group.visible = true;
+    return S.on;
+  };
+  P.signUpdate = function (dt) {
+    var S = this.sign; if (!S) return;
+    var want = S.on ? 1 : 0;
+    if (Math.abs(S.k - want) < 0.001) { S.k = want; if (!S.on) S.group.visible = false; return; }
+    S.k += (want - S.k) * Math.min(1, dt * 3.2);
+    S.group.visible = S.k > 0.01;
+    S.arms.scale.y = 0.18 + S.k * 0.82; S.board.position.y = 0.12 + S.k * 0.54;
+  };
   P.forward = function () { return [Math.sin(this.heading), Math.cos(this.heading)]; };
+
   P.speedKmh = function () { return Math.abs(this.vF) * 3.6; };
 
   // 차선 유지 보조: 조향을 놓고 있으면 가장 가까운 차로 중앙·도로 방향으로 부드럽게 돌아간다.
@@ -278,6 +329,7 @@
       this.barR.material.color.setHex(redOn ? 0xff2a1a : 0x7a1010); this.barB.material.color.setHex(blueOn ? 0x3a78ff : 0x102270);
     } else if (this.sirenPhase !== 0) { this.sirenPhase = 0; this.barR.material.color.setHex(0x7a1010); this.barB.material.color.setHex(0x102270); }
     this.steer3d.rotation.z = -this.steer * 1.4;   // 핸들 회전(좌회전 +steer → 반시계)
+    this.signUpdate(dt);                           // 승강식 전광판
     this.syncMesh();
   };
   P.syncMesh = function () { this.mesh.position.set(this.pos.x, this.y, this.pos.z); this.mesh.rotation.set(this.pitch, this.heading, this.roll); };
