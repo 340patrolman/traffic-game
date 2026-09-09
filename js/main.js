@@ -169,7 +169,7 @@
     hud.showIntro(true);
     TG.audio.setSiren(false);
   }
-  function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(); hud.showIntro(false); showTitle(); }
+  function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); hud.showIntro(false); showTitle(); }
   function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null)); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
@@ -466,6 +466,7 @@
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
     G.pauseReasons = {}; G.paused = false; G.lastCrash = null; G.lead = null; camInit = false;
+    TG.audio.stopTitleTheme(0.5);   // 출동 — 타이틀 테마를 끈다
     hud.hideTitle(); hud.hideEnd(); hud.showHud(true); hud.setScore(0); hud.setStops(0); hud.setTimer(G.timeLeft); hud.setSiren(false); hud.setTarget(null); hud.setGear('D');
     G.state = 'play'; TG.perf.reset();
     if (G.mode === 'duty') hud.setSiren(true);   // 하차 근무: 순찰차 경광등을 켜 둔 채로 내린다
@@ -911,7 +912,7 @@
   }
   function endShift(reason) {
     if (G.state !== 'play') return;
-    G.state = 'end'; player.setSiren(false); TG.audio.setSiren(false);
+    G.state = 'end'; player.setSiren(false); TG.audio.setSiren(false); TG.audio.stopTitleTheme(0.4);
     var lessons = { redLight: '신호는 경찰이 먼저 지킨다', speeding: '제한속도 준수 — 정지거리는 속도의 제곱', centerline: '중앙선은 넘지 않는다', crash: '앞차와 2초 이상 — 1초 미만이면 급제동 시 추돌',
                     cornerFail: '코너 진입 전에 속도를 줄인다', pedestrian: onFoot() ? '차도에서는 사람이 진다 — 보행 신호와 횡단보도가 지켜 준다' : '횡단보도 앞에서는 언제나 멈출 준비', water: '도로를 벗어나지 않는다',
                     jaywalk: '차도는 횡단보도로만 건넌다(제10조)', walkRed: '보행 신호(녹색)를 기다렸다가 건넌다(제5조)', junctionJam: '꼬리물기는 진입을 끊어 공간을 먼저 확보한다' };
@@ -1231,6 +1232,10 @@
       if (intro.t > 15) endIntro();
     } else if (G.state === 'title' || G.state === 'end') {
       var t = now / 1000 * 0.25;
+      if (G.state === 'title') {   // 타이틀이 무음이면 게임이 꺼진 것처럼 보인다 — 소리가 풀리면 조용한 테마를 돌린다
+        if (settings.sound && TG.audio.running) TG.audio.titleTheme();
+        var isnd2 = document.getElementById('introSound'); if (isnd2) isnd2.style.display = TG.audio.running ? 'none' : 'block';
+      }
       if (G.state === 'title') { var tb = Math.sin(t * 1.7) * 0.6; camera.position.set(player.pos.x + Math.cos(t) * (8.5 + tb), player.y + 2.4 + Math.sin(t * 0.8) * 0.7, player.pos.z + Math.sin(t) * (8.5 + tb)); camera.lookAt(player.pos.x, player.y + 0.9, player.pos.z); player.update(0.0001); if (flares) for (var fl3 = 0; fl3 < flares.length; fl3++) flares[fl3].visible = !!weather.dark; if (vfx) vfx.update(dt); }
       else if (walker && onFoot()) walkCamera(dt);
       else if (player) updateCamera(dt);
