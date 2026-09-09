@@ -124,6 +124,7 @@ TG.Intro = function (game) {
   }
   this.start = function () {
     self.t = 0; self.done = false; self.shot = -1; self.theme = false; self.stackIdx = -1; self.view = null;
+    self.titleOn = false; self.titleOut = false;   // 타이틀·흰 섬광은 self.shot 과 따로 센다(아래 주석)
     el.shot = $('introShot'); el.title = $('introTitle'); el.flash = $('introFlash'); el.lines = $('introLines');
     self.lines = stackLines();
     game.hud.introLines(self.lines, -1);
@@ -215,15 +216,20 @@ TG.Intro = function (game) {
     cam.position.set(c.p[0] + hh, c.p[1] + hh * 0.5, c.p[2] - hh);
     cam.lookAt(c.l[0], c.l[1], c.l[2]);
     caption(i, t);
-    // 타이틀 등장: 테마의 대타격과 같은 순간
-    if (t >= 12.6 && self.shot !== 'title' && el.title) {
+    // 타이틀 등장: 테마의 대타격과 같은 순간. 표시는 **자체 플래그**로 센다 —
+    // 아래에서 self.shot 을 샷 번호로 덮으므로, 그 변수를 같이 쓰면 다음 프레임에 조건이 또 참이 되어
+    // 흰 섬광이 매 프레임 다시 터진다. 그러면 타이틀 이후 인트로 끝까지 화면이 하얗게 덮인다(소유자 지적).
+    if (t >= 12.6 && !self.titleOn && el.title) {
       el.title.classList.add('on');
       if (el.flash) { el.flash.classList.remove('on'); void el.flash.offsetWidth; el.flash.classList.add('on'); }
       document.body.classList.add('cine-out');                        // 레터박스가 열린다
-      self.shot = 'title';
+      self.titleOn = true;
     }
+    // 섬광은 0.9초면 끝난다. 애니메이션이 멈춘 환경(탭이 숨거나 프레임이 밀릴 때)에서도
+    // 흰 막이 남지 않도록 인트로 시간으로 직접 걷어낸다.
+    if (self.titleOn && el.flash && t >= 13.5) el.flash.classList.remove('on');
     if (t >= 13.6 && el.title) el.title.classList.add('tagon');
-    if (t >= 14.3 && el.title && self.shot === 'title') { el.title.classList.remove('on'); self.shot = 'titleOut'; }   // 뒤 샷을 덮지 않게 물러난다
+    if (t >= 14.3 && el.title && self.titleOn && !self.titleOut) { el.title.classList.remove('on'); self.titleOut = true; }   // 뒤 샷을 덮지 않게 물러난다
     if (SHOTS[i].ttl) self.shot = i;
     if (game.weather) game.weather.update(dt, cam.position);   // 석양 색·안개·조명이 실제로 적용되게(인트로 루프는 play 가 아니다)
     if (self.fogSave && game.scene.fog) { game.scene.fog.near = self.fogSave.near * 2.4; game.scene.fog.far = self.fogSave.far * 2.0; }   // weather 가 되돌린 안개를 다시 물린다
