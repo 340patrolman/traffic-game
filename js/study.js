@@ -17,12 +17,12 @@ TG.study = (function () {
         (it.scene ? '<button class="ghost small" data-scene="' + esc(it.scene) + '">🚓 게임에서 체험하기</button>' : '') + '</div></div>';
     });
     html += '</div>';
-    // ② 자전거·킥보드 안전 — 학년별로 묶어서
-    var R = G.laws && G.laws.rideSafe;
+    // ② 어린이보호구역 · ③ 자전거·킥보드 — 학년별로 묶어서. 항목에 scene 이 있으면 「게임에서 시연」 버튼이 붙는다.
+    [G.laws && G.laws.schoolZone, G.laws && G.laws.rideSafe].forEach(function (R) {
     if (R && R.items && R.items.length) {
       html += '<h2 style="margin-top:22px">' + esc(R.title) + '</h2>';
       html += '<div class="dim small">' + esc(R.source) + '</div>';
-      var groups = [['초등', '🧒 초등학생'], ['중고등', '🎒 중·고등학생'], ['공통', '🚲 자전거·킥보드 공통']];
+      var groups = [['초등', '🧒 초등학생'], ['중고등', '🎒 중·고등학생'], ['공통', '🚸 공통']];
       groups.forEach(function (g) {
         var list = R.items.filter(function (it) { return it.age === g[0]; });
         if (!list.length) return;
@@ -30,11 +30,14 @@ TG.study = (function () {
         list.forEach(function (it, k) {
           html += '<div class="sitem"><div class="num">' + (k + 1) + '</div><div class="body"><b>' + esc(it.name) + '</b>' +
             '<div class="law">' + esc(it.law) + (it.verified ? '' : ' <span class="chk">확인 중</span>') + '</div>' +
-            '<div class="sit">' + esc(it.situation) + '</div><div class="tip">' + esc(it.tip) + '</div></div></div>';
+            '<div class="sit">' + esc(it.situation) + '</div><div class="tip">' + esc(it.tip) + '</div>' +
+            (it.scene ? '<button class="ghost small" data-scene="' + esc(it.scene) + '">🚓 게임에서 시연</button>' : '') +
+            '</div></div>';
         });
         html += '</div>';
       });
     }
+    });
     html += '<div class="dim small">이 게임은 법령의 정본이 아닙니다. 범칙금·벌점·조문은 T-Book 과 법령 원문으로 확인하세요.</div><button id="btnStudyClose" class="primary">닫기</button></div>';
     el.innerHTML = html;
     el.querySelectorAll('[data-scene]').forEach(function (b) { b.addEventListener('click', function () { close(); if (G.startScenario) G.startScenario(b.getAttribute('data-scene')); }); });

@@ -1141,6 +1141,49 @@
     else if (id === 'drunk') { player.teleport(xs[2] + 2, zs[3] + 30, Math.PI); traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 60, d: 2, node: city.nodes[2][3] }, v: 8, cruise: 8, straight: true, violator: false, laneIdx: 0, trait: 'drunk' }); hud.notice('체험 · 음주운전 의심: 앞차가 차로 안에서 비틀거리고 속도가 들쭉날쭉 — 5초 관찰 후 「음주운전 의심」 정차·측정', 'info', 6000); }
     else if (id === 'sidewalk') { player.teleport(xs[2] + 2, zs[3] + 30, Math.PI); var sw = traffic.spawn({ at: { x: xs[2] + 5.5, z: zs[2] + 60, d: 2, node: city.nodes[2][3] }, v: 7, cruise: 7, straight: true, violator: false, laneIdx: 1, trait: 'sidewalk' }); if (sw) sw.swT = 0; hud.notice('체험 · 보도 침범: 앞차가 보도로 올라가 달린다 — 보행자 사고 위험(§13①)', 'info', 6000); }
     else if (id === 'passenger') { player.teleport(xs[2] + 2, zs[3] + 30, Math.PI); traffic.spawn({ at: { x: xs[2] + 5.5, z: zs[2] + 62, d: 2, node: city.nodes[2][3] }, v: 7, cruise: 8, straight: true, violator: false, laneIdx: 1, type: 'bus', trait: 'door' }); hud.notice('체험 · 승객 추락방지: 앞 버스가 문을 연 채 달린다(문가에 승객) — 3초 목격이면 위반 기록(§39③)', 'info', 6000); }
+    // 어린이보호구역 시연(소유자: 「말로만 하지 말고 게임 움직임으로 자연스럽게 시연해 줘」):
+    // 학교 블록(1,2) 앞 보호구역 진입로에 세우고, 횡단보도에 어린이 셋을 보낸다. 제한 30 이 HUD 에 뜨고 차들이 선다.
+    else if (id === 'schoolzone') {
+      var szN = city.nodes[city.schoolBlock.i][city.schoolBlock.j + 1], szD = 0, szF = TG.DIR_VEC[szD], szR = [-szF[1], szF[0]];   // 방배로를 남행 — 학교 블록 옆 보호구역 안
+      var szRd = city.roadOf(szN, szD), szLo = city.laneOff(szRd.axis, szRd.idx, 0);
+      var szBack = city.stopDist(szN, szD) + 40;   // 보호구역 안에서 출발해야 HUD 가 제한 30 으로 보인다
+      player.teleport(szN.x - szF[0] * szBack + szR[0] * szLo, szN.z - szF[1] * szBack + szR[1] * szLo, TG.DIR_HEADING[szD]);
+      player.vx = szF[0] * 11; player.vz = szF[1] * 11; player.resync();
+      signals.set(szN, szRd.axis === 'v' ? 'h' : 'v', 'green');   // 보행 녹색이 되도록 직각 방향 차량 녹색
+      var szSide = city.sideOff(szRd.axis, szRd.idx);
+      for (var sk = 0; sk < 3; sk++) {                            // 어린이 셋이 횡단보도로 걸어 나온다
+        var sp = peds.spawn({ at: { x: szN.x + szR[0] * szSide, z: szN.z - szF[1] * (city.crossFar(szN, szD) + 2 + sk * 2.2) + szR[1] * szSide,
+                                    axis: szRd.axis, idx: szRd.idx, coord: szRd.axis === 'v' ? city.xs[szRd.idx] : city.zs[szRd.idx], side: 1, d: (szD + 1) % 4 }, jaywalker: false });
+        if (sp) { sp.speed = 1.05; sp.scale = 0.72; if (sp.mesh) sp.mesh.scale.set(0.72, 0.72, 0.72); }
+      }
+      traffic.spawn({ at: { x: szN.x - szF[0] * (szBack - 22) + szR[0] * szLo, z: szN.z - szF[1] * (szBack - 22) + szR[1] * szLo, d: szD, node: szN }, v: 8, cruise: 9, straight: true, violator: false, laneIdx: 0 });
+      hud.notice('체험 · 어린이보호구역: 제한 30 — 순찰차도 특례가 없습니다(§30 1호에 §12 가 없다). 횡단보도 앞에서 멈추고 어린이가 다 건널 때까지 기다린다', 'info', 7000);
+    }
+    // 자전거·킥보드 횡단보도 시연: 한 사람은 내려서 끌고(정상), 한 사람은 타고 건넌다(위반) — 나란히 보여 준다
+    else if (id === 'bikecross') {
+      var bkN = city.nodes[2][2], bkD = 2, bkF = TG.DIR_VEC[bkD], bkR = [-bkF[1], bkF[0]];
+      var bkRd = city.roadOf(bkN, bkD), bkLo = city.laneOff(bkRd.axis, bkRd.idx, 0);
+      player.teleport(bkN.x - bkF[0] * 46 + bkR[0] * bkLo, bkN.z - bkF[1] * 46 + bkR[1] * bkLo, TG.DIR_HEADING[bkD]);
+      signals.set(bkN, bkRd.axis === 'v' ? 'h' : 'v', 'green');
+      var bkSide = city.sideOff(bkRd.axis, bkRd.idx), bkAt = city.crossFar(bkN, bkD) + 6;
+      // 시연 장면이므로 주변의 다른 이륜차·자전거·킥보드와 교차로 근처 차량을 먼저 치운다.
+      // 그래야 「끌고 건너는 사람」과 「타고 건너는 사람」 둘만 나란히 보인다(소유자 지시).
+      for (var bq = traffic.cars.length - 1; bq >= 0; bq--) {
+        var bcq = traffic.cars[bq];
+        if (bcq.isBike || bcq.isPM || bcq.isMoto || Math.hypot(bcq.pos.x - bkN.x, bcq.pos.z - bkN.z) < 34) traffic.remove(bcq);
+      }
+      // 두 사람을 **양쪽 보도**에서 같은 횡단보도로 보낸다(스폰 최소 간격 12m 때문에 나란히는 못 놓는다).
+      // bi=0 자전거는 내려서 끌고 건너고(정상), bi=1 킥보드는 타고 건넌다(위반) — 나란히 비교된다.
+      for (var bi = 0; bi < 2; bi++) {
+        var bSd = bi ? -1 : 1;
+        var bx = bkN.x - bkF[0] * bkAt + bkR[0] * bSd * bkSide, bz = bkN.z - bkF[1] * bkAt + bkR[1] * bSd * bkSide;
+        var bc = traffic.spawn({ at: { x: bx, z: bz, d: bi ? (bkD + 3) % 4 : (bkD + 1) % 4, node: bkN }, v: 2.4, cruise: 3.2, straight: true, violator: false, laneIdx: 0, type: bi ? 'pm' : 'bike' });
+        // edgeRider 가 켜져 있어야 traffic.js 의 「횡단보도 앞에서 내려 끈다」 규칙이 돈다.
+        // edgeT 를 음수로 밀어 두면 시연 중에 보도 주행 위반이 먼저 뜨지 않는다 — 배울 것은 횡단보도 승차 통행 하나다.
+        if (bc) { bc.crossRider = bi === 1; bc.edgeRider = true; bc.edgeT = -30; bc.zip = false; bc.pmHelmet = true; bc.demoRider = true; }
+      }
+      hud.notice('체험 · 횡단보도: 자전거·킥보드는 내려서 끌고 건너야 보행자다(§13조의2⑥). 타고 건너는 쪽을 터치해 단속 — 추격은 금지, 영상·무전으로', 'info', 7000);
+    }
     else if (id === 'cargo') { player.teleport(xs[2] + 2, zs[3] + 34, Math.PI); var tk = traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 62, d: 2, node: city.nodes[2][3] }, v: 8, cruise: 9, straight: true, violator: false, laneIdx: 0, type: 'truck', trait: 'cargo' }); if (tk) tk.cargoT = 2; hud.notice('체험 · 적재물 추락방지: 앞 트럭 짐칸 상자가 떨어진다 — 낙하물은 도로 위 장애물(§39④). 거리를 둔다', 'info', 6000); }
     camInit = false;
   };

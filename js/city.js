@@ -119,11 +119,11 @@ TG.buildCity = function (cfg) {
   }
   // ---- 가로등: 보도 바깥선(반폭 + 2.4), 24m 간격 ----
   for (var i2 = 0; i2 < xs.length; i2++) for (var z = zs[0] + 20; z < zs[zs.length - 1]; z += 24) {
-    if (Math.abs(z - zs[nearestIdx(zs, z)]) < 14 + 4) continue;
+    if (Math.abs(z - zs[nearestIdx(zs, z)]) < 18) continue;
     lamps.push({ x: xs[i2] + halfV[i2] + 2.4, z: z, rot: -Math.PI / 2 }); lamps.push({ x: xs[i2] - halfV[i2] - 2.4, z: z, rot: Math.PI / 2 });
   }
   for (var j2 = 0; j2 < zs.length; j2++) for (var x = xs[0] + 32; x < xs[xs.length - 1]; x += 24) {
-    if (Math.abs(x - xs[nearestIdx(xs, x)]) < 14 + 4) continue;
+    if (Math.abs(x - xs[nearestIdx(xs, x)]) < 18) continue;
     lamps.push({ x: x, z: zs[j2] + halfH[j2] + 2.4, rot: Math.PI }); lamps.push({ x: x, z: zs[j2] - halfH[j2] - 2.4, rot: 0 });
   }
 

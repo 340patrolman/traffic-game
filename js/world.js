@@ -300,33 +300,42 @@
         var f2 = TG.DIR_VEC[hd], r2 = [-f2[1], f2[0]], rd2 = city.roadOf(nd, hd), halfA = city.halfOf(rd2.axis, rd2.idx), lanes = city.lanesOf(rd2.axis, rd2.idx);
         // 차량 신호등 기둥은 **보행 신호등과 같은 자리**(보도 바깥선)에 세운다 — 전에는 차도 가장자리에서 1.6m,
         // 즉 보도 한가운데라 걸어가는 사람 앞을 막았다(소유자: 「신호등 시설물 위치를 보행자 신호등 있는 곳에 같이」). 암은 그만큼 길어진다.
-        var farA = city.crossHalf(nd, hd) + 1.6, sideA = city.sideOff(rd2.axis, rd2.idx) + 1.0;
-        var px2 = nd.x + f2[0] * farA + r2[0] * sideA, pz2 = nd.z + f2[1] * farA + r2[1] * sideA;
-        sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.2, 6, 0x4a4f55);
+        // 기둥은 **이 접근로의 정지선 바로 옆**(진행 방향 오른쪽 보도)에 선다(소유자 지시).
+        // 여기 달린 차량 신호등 머리는 반대편(-f2 로 오는) 운전자가 읽는다 — 그래야 정지선 옆에 두고도 보인다.
+        var stopA = city.stopDist(nd, hd) + 0.9, sideA = city.sideOff(rd2.axis, rd2.idx) + 1.0;
+        var px2 = nd.x - f2[0] * stopA + r2[0] * sideA, pz2 = nd.z - f2[1] * stopA + r2[1] * sideA;
+        sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.4, 6, 0x4a4f55);   // 가로등은 달지 않는다(소유자 지시) - 가로등은 별도 기둥
         var headOff = cfg.LANE_OFF + cfg.LANE_W * (lanes - 1) / 2, armLen = sideA - headOff + 0.6;
         sigProps.box(px2 - r2[0] * armLen / 2, 6.1, pz2 - r2[1] * armLen / 2, 0.14, 0.14, armLen, 0x4a4f55, { rotY: TG.DIR_HEADING[hd] + Math.PI / 2 });
-        var hx = nd.x + f2[0] * farA + r2[0] * headOff, hz = nd.z + f2[1] * farA + r2[1] * headOff;
-        sigProps.box(hx + f2[0] * 0.18, 5.6, hz + f2[1] * 0.18, 2.1, 0.66, 0.3, 0x1d2126, { rotY: TG.DIR_HEADING[hd] });
-        var head = new THREE.Mesh(headGeo, headHold); head.position.set(hx, 5.6, hz); head.rotation.y = TG.DIR_HEADING[hd] + Math.PI; head.matrixAutoUpdate = false; head.updateMatrix(); scene.add(head);
+        var hx = nd.x - f2[0] * stopA + r2[0] * headOff, hz = nd.z - f2[1] * stopA + r2[1] * headOff;
+        sigProps.box(hx - f2[0] * 0.18, 5.6, hz - f2[1] * 0.18, 2.1, 0.66, 0.3, 0x1d2126, { rotY: TG.DIR_HEADING[hd] });
+        var head = new THREE.Mesh(headGeo, headHold); head.position.set(hx, 5.6, hz); head.rotation.y = TG.DIR_HEADING[hd]; head.matrixAutoUpdate = false; head.updateMatrix(); scene.add(head);
         heads.push({ node: nd, d: hd, mesh: head, kind: 'veh', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // 보행 신호등: 횡단보도 양쪽 끝 연석에 하나씩, 길 건너편을 향한다(건너려는 사람이 맞은편 신호를 본다). 기둥 3m + 머리(잔여시간 표시) + 보행자 작동 버튼함
-        // 보행 신호등은 **횡단 방향 오른쪽 한 곳**에만 세운다(소유자: 「어린이가 건너려고 서 있는 방향에서 오른쪽에」).
-        // 양쪽에 세우면 교차로 한 곳에 기둥이 12개가 되어 화면을 가린다 — 8개로 줄였다.
-        // 맞은편에서 건너는 사람은 길 건너 이 머리를 본다(머리는 건너편을 향한다).
-        var alongC = city.crossFar(nd, hd) + 0.9;   // 횡단보도 띠 바로 옆(블록 쪽) — 건너려고 선 사람 앞을 막지 않는다
-        for (var ps = 1; ps <= 1; ps += 2) {
-          var rdP = city.roadOf(nd, hd), sideP = city.sideOff(rdP.axis, rdP.idx) + 1.0;   // 보행선보다 바깥(보도 뒤쪽) — 건너려는 사람의 진행 방향을 막지 않는다
-          var qx = nd.x - f2[0] * alongC + r2[0] * ps * sideP, qz = nd.z - f2[1] * alongC + r2[1] * ps * sideP;
-          sigProps.cylinder(qx, 0.2, qz, 0.07, 0.06, 3.0, 6, 0x4a4f55);
-          sigProps.box(qx - r2[0] * ps * 0.02, 2.75, qz - r2[1] * ps * 0.02, 0.56, 1.08, 0.16, 0x1d2126, { rotY: Math.atan2(-ps * r2[0], -ps * r2[1]) });   // 함체
-          sigProps.box(qx - r2[0] * ps * 0.08, 3.32, qz - r2[1] * ps * 0.08, 0.6, 0.06, 0.28, 0x1d2126, { rotY: Math.atan2(-ps * r2[0], -ps * r2[1]) });   // 차양
-          sigProps.box(qx, 1.15, qz, 0.12, 0.16, 0.08, 0xf3c418, { rotY: Math.atan2(-ps * r2[0], -ps * r2[1]) });                                              // 작동 버튼함
-          var ph = new THREE.Mesh(pedGeo, headHold); ph.position.set(qx - r2[0] * ps * 0.11, 2.75, qz - r2[1] * ps * 0.11); ph.rotation.y = Math.atan2(-ps * r2[0], -ps * r2[1]); ph.matrixAutoUpdate = false; ph.updateMatrix(); scene.add(ph);
-          heads.push({ node: nd, d: hd, mesh: ph, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
-        }
+        // 보행 신호등을 **차량 신호등과 같은 기둥**에 붙인다(소유자: 「보행신호폴과 차량신호폴을 하나로 합치고」).
+        // 이 기둥은 반대편 접근로의 **정지선 옆 모퉁이**에 서 있다 — 즉 「횡단보도 전 정지선쯤」이고,
+        // 건너려는 사람의 오른쪽이다. 기둥이 교차로당 8개 → **4개**로 줄어 횡단보도 앞에 선 사람이 잘 보인다.
+        var yawP = Math.atan2(-r2[0], -r2[1]);                        // 머리는 길 건너편을 향한다(맞은편 사람이 읽는다)
+        sigProps.box(px2 - r2[0] * 0.02, 2.75, pz2 - r2[1] * 0.02, 0.56, 1.08, 0.16, 0x1d2126, { rotY: yawP });   // 보행등 함체
+        sigProps.box(px2 - r2[0] * 0.08, 3.32, pz2 - r2[1] * 0.08, 0.6, 0.06, 0.28, 0x1d2126, { rotY: yawP });    // 차양
+        sigProps.box(px2, 1.15, pz2, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });                                 // 보행자 작동 버튼함
+        var ph = new THREE.Mesh(pedGeo, headHold);
+        ph.position.set(px2 - r2[0] * 0.11, 2.75, pz2 - r2[1] * 0.11); ph.rotation.y = yawP;
+        ph.matrixAutoUpdate = false; ph.updateMatrix(); scene.add(ph);
+        heads.push({ node: nd, d: (hd + 2) % 4, mesh: ph, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
+        // 같은 기둥에 90° 돌려 하나 더 — 이 모퉁이에서 만나는 **직각 방향 횡단보도**의 보행등이다.
+        // 기둥을 늘리지 않고 보행등 수를 늘린다(소유자: 「기둥 하나에 90도로 2곳에 신호를 보여줄 수 있고」).
+        var yawQ = Math.atan2(-f2[0], -f2[1]);
+        sigProps.box(px2 - f2[0] * 0.02, 2.75, pz2 - f2[1] * 0.02, 0.56, 1.08, 0.16, 0x1d2126, { rotY: yawQ });
+        sigProps.box(px2 - f2[0] * 0.08, 3.32, pz2 - f2[1] * 0.08, 0.6, 0.06, 0.28, 0x1d2126, { rotY: yawQ });
+        var ph2 = new THREE.Mesh(pedGeo, headHold);
+        ph2.position.set(px2 - f2[0] * 0.11, 2.75, pz2 - f2[1] * 0.11); ph2.rotation.y = yawQ;
+        ph2.matrixAutoUpdate = false; ph2.updateMatrix(); scene.add(ph2);
+        heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
       }
     }
     addMesh(sigProps.build(), lambertVC, true, false);
+
 
     var hemi = new THREE.HemisphereLight(0xd6e6ff, 0x7f7256, 0.75); scene.add(hemi);
     var sun = new THREE.DirectionalLight(0xfff0d2, 1.15);
