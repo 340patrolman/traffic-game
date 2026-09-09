@@ -22,7 +22,7 @@ TG.Enforcement = function (game) {
   function fmtFine(law, cls) {
     cls = cls || '승용';
     if (!law || !law.fine) return '확인 중';
-    if (law.fine.verified && law.fine[cls] !== null && law.fine[cls] !== undefined) return law.fine[cls].toLocaleString('ko-KR') + '원(' + cls + ')';
+    if (law.fine.verified && law.fine[cls] !== null && law.fine[cls] !== undefined) return law.fine[cls].toLocaleString('ko-KR') + '원' + (cls === '보행자' ? '' : '(' + cls + ')');
     if (law.fine.candidate && law.fine.candidate[cls]) return '확인 중 · ' + (law.fine.candidate_source || '참고') + ' 값 ' + law.fine.candidate[cls].toLocaleString('ko-KR') + '원';
     return '확인 중';
   }
@@ -40,9 +40,12 @@ TG.Enforcement = function (game) {
   function lawLines(id, cls) {
     var law = lawById(id), out = [];
     out.push(fmtArticle(law));
-    if (id === 'jaywalk' || id === 'jaywalk-red') out.push('범칙금(보행자) ' + fmtFine(law, '보행자') + ' · 벌점 없음');
+    if (law && law.penalty) out.push('처벌 ' + law.penalty);   // 형사처벌 사안(무면허·음주)은 범칙금 대신 처벌을 보여 준다
+    else if (id === 'jaywalk' || id === 'jaywalk-red') out.push('범칙금(보행자) ' + fmtFine(law, '보행자') + ' · 벌점 없음');
     else out.push('범칙금 ' + fmtFine(law, cls) + ' · 벌점 ' + fmtPoints(law));
     if (law && law.teach) out.push(law.teach);
+    if (law && law.field) out.push('현장 — ' + law.field);                                        // 티북의 현장 요령
+    if (law && law.precedent && law.precedent.indexOf('대법원') === 0) out.push('판례 — ' + law.precedent);
     return out;
   }
   var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
