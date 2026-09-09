@@ -873,6 +873,7 @@
     good1: ['건넜어요. 다음엔 멈추고 손을 들어요'],
     kidOk: ['네!', '알겠어요!', '손 들었어요!', '초록불이다!'],
     norun: ['뛰지 말고 걸어요', '횡단보도에서는 걷는 거예요', '천천히 걸어도 돼요. 뛰지 않아요'],
+    blink: ['초록불이 깜빡여요. 지금은 건너지 않아요', '깜빡이면 기다려요. 다음 초록불에 건너요', '급해도 뛰어가지 않아요. 다음 신호를 기다려요'],
   };
   var lastLine = {};
   function pickLine(key) { var arr = LINES[key] || [key], i = Math.floor(Math.random() * arr.length); if (arr.length > 1 && i === lastLine[key]) i = (i + 1) % arr.length; lastLine[key] = i; return arr[i]; }
@@ -925,8 +926,15 @@
     if (p.where === 'crosswalk') {
       if (!walk.cross || walk.cross.node !== p.node || walk.cross.d !== p.d) {
         walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 0.8, hand: walker.hand > 0 };
-        if (kid) { if (!p.walk) { kidVoice('red', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); } else kidVoice('green', true); }
+        var blinkIn = p.walk && p.remain < 3.2;                       // 녹색 점멸에 들어섰다
+        walk.cross.blink = blinkIn;
+        if (kid) {
+          if (!p.walk) { kidVoice('red', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); }
+          else if (blinkIn) { kidVoice('blink', true); hud.notice('🟡 초록불이 깜빡여요! 지금 들어가면 위험해요 — 다음 초록불을 기다려요', 'warn', 3400); TG.audio.bad(); }
+          else { kidVoice('green', true); if (walk.blinkWaited) { walk.blinkWaited = false; addScore(10, null); hud.notice('👏 깜빡일 때 기다렸다가 건넜어요 — 아주 잘했어요 (+10)', 'good', 3000); TG.audio.jingle(2); } }
+        }
         else if (!p.walk) penalize('walkRed', '신호위반 보행 — 적색 보행 신호에 횡단보도 진입', '보행 신호(녹색 걷는 사람)를 기다린다 · ' + lawLine('jaywalk-red', '도로교통법 제5조'));
+        else if (blinkIn) penalize('walkBlink', '녹색 점멸에 횡단 시작', '녹색 점멸에는 횡단을 시작할 수 없다 — 다음 신호를 기다린다(시행규칙 별표2)');
         else hud.hint('보행 신호 — 좌우를 살피고 횡단보도 안으로 건넌다 (남은 ' + Math.ceil(p.remain) + '초)');
       }
       walk.jay = false; walk.stopT = 0;
@@ -945,7 +953,9 @@
         if (moved > half * 1.2 && walk.cross.legal) {
           if (kid) {
             // 별 3개 = 멈춤 + 초록불 + 걷기(뛰지 않음). 손 들기는 **꼭 해야 하는 것이 아니다**(소유자 지시) — 하면 칭찬과 작은 점수만.
-            var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1), 1, 3);   // 초록불(이 분기 자체) + 멈춤 + 걷기 walk.stars += st; walk.crossings++; addScore(st * 10, null);
+            // 별 = 초록불(이 분기 자체) + 멈춤 + 걷기. 깜빡일 때 들어섰으면 하나 뺀다.
+            var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) - (walk.cross.blink ? 1 : 0), 1, 3);
+            walk.stars += st; walk.crossings++; addScore(st * 10, null);
             if (walk.cross.hand) { walk.handCross = (walk.handCross || 0) + 1; addScore(5, null); }
             hud.burst('⭐', st * 4); TG.audio.jingle(st); walk.smileT = 4; walk.waveT = 3.5;
             hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춘다 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 본다 ✓ · 손을 든다 ' + (walk.cross.hand ? '✓' : '✗') + ' · 걷는다 ' + (walk.cross.ran ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
@@ -967,18 +977,23 @@
       // 「멈추고 손 들고」는 어린이 보행 교육이다. 자전거·PM 은 손을 드는 것이 아니라 내려서 끌고 걸어야 보행자가 된다.
       if (kid) {
         var nearX = best !== null && bd < 4.5;
+        var crossAxK = nearX ? city.roadOf(node, best).axis : 'v';
+        var wk = nearX && signals.pedWalk(node, crossAxK), rem = nearX ? signals.pedRemain(node, crossAxK) : 99;
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
         if (!nearX) kidStep(-1);
         else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
         else if (walk.stopT < 1.6) {   // 👀 본다: 멈춰 선 채로 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
           kidStep(1); if (walk.voiceCd <= 0) kidVoice('look');
-          var crossAx = city.roadOf(node, best).axis;
-          if ((walk.zipCd || 0) <= 0 && !signals.pedWalk(node, crossAx)) { walk.zipCd = 30; kidZip(node, best); }   // 차량 녹색(보행 적색) 때만 — 적색에 스폰하면 정지선에 서 버린다
+          if ((walk.zipCd || 0) <= 0 && !wk) { walk.zipCd = 30; kidZip(node, best); }   // 차량 녹색(보행 적색) 때만 — 적색에 스폰하면 정지선에 서 버린다
           if ((walk.compCd || 0) <= 0) { walk.compCd = 30; kidCompanions(node, best); }
         }
         else if (walker.hand <= 0) { kidStep(2); if (walk.voiceCd <= 0) kidVoice('hand'); }   // ✋ 손을 든다: 운전자가 나를 보게 한다
+        else if (wk && rem < 3.2) {                                  // 🟡 깜빡이는 초록불 — 지금은 건너지 않는다
+          walk.blinkWaited = true; kidStep(2, '🟡 깜빡여요 — 기다린다');
+          if (walk.voiceCd <= 0) kidVoice('blink');
+          if (walk.hintCd <= 0) { hud.hintNow('초록불이 깜빡이면 건너지 않아요. 다음 초록불을 기다려요'); walk.hintCd = 4; }
+        }
         else {
-          var wk = signals.pedWalk(node, city.roadOf(node, best).axis);
           kidStep(wk ? 3 : 2, wk ? null : '🔴 손 들고 초록불을 기다린다');
           if (walk.voiceCd <= 0) kidVoice(wk ? 'go' : 'wait');
           if (wk && walk.step !== 3) kidSay('kidOk');
