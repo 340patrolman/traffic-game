@@ -12,7 +12,7 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;display:none}
 .panel{background:var(--bg);border:1px solid var(--edge);border-radius:10px;backdrop-filter:blur(3px)}
-#speedbox{position:fixed;top:calc(10px + var(--sa-t));left:calc(10px + var(--sa-l));padding:8px 12px;min-width:160px}
+#speedbox{position:fixed;top:calc(10px + var(--sa-t));left:calc(10px + var(--sa-l));padding:8px 12px;min-width:160px;max-width:min(42vw,340px)}
 .speedrow{display:flex;align-items:baseline;gap:6px}
 #speed{font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 #speed.over{color:var(--bad)}
@@ -230,6 +230,14 @@ body.kidmode .notice{font-size:16px}
 body.kidmode #hint{font-size:14px}
 body.portrait #kidSteps{top:calc(150px + var(--sa-t))}
 body.portrait .tbtn.hand{bottom:calc(230px + var(--sa-b))}
+/* 폰 가로(낮은 화면)에서 인트로 글씨가 위로 잘렸다 — 글자 크기는 그대로 두고 줄 간격과 아래 여백만 줄인다 */
+@media (orientation:landscape) and (max-height:480px){
+  .overlay.intro{padding-bottom:10px}
+  .intro-lines .il{margin:5px 0;line-height:1.3}
+  .intro-lines .il.big{margin-top:8px}
+}
+/* 낮은 가로 화면(폰 가로)에서는 ✋ 단추가 미니맵과 겹친다 — 미니맵 왼쪽 옆으로 옮긴다 */
+@media (orientation:landscape) and (max-height:480px){ .tbtn.hand,body.kidmode .tbtn.hand{right:calc(252px + var(--sa-r));bottom:calc(28px + var(--sa-b))} }
 /* ---------- 게임 감각: 점수 팝 · 위반 포착 플래시 · 별 터짐 ---------- */
 #pops{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .pop{position:absolute;left:50%;top:38%;transform:translate(-50%,0);font-size:34px;font-weight:900;color:var(--ok);text-shadow:0 2px 8px rgba(0,0,0,.6);animation:popUp 1.3s ease-out forwards;white-space:nowrap}

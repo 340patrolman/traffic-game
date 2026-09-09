@@ -7,7 +7,7 @@ TG.study = (function () {
   function render(G) {
     if (!el) { el = document.createElement('div'); el.id = 'study'; el.className = 'overlay study'; document.body.appendChild(el); }
     var S = G.laws && G.laws.study12;
-    var html = '<div class="card wide"><div class="badge">학습 · 도로교통법 상황 12 + 자전거·킥보드 안전</div><h2>' + esc(S ? S.title : '교통사고 12대 중과실') + '</h2>';
+    var html = '<div class="card wide"><div class="badge">학습 · 12대 중과실 · 어린이보호구역 · 자전거·킥보드</div><h2>' + esc(S ? S.title : '교통사고 12대 중과실') + '</h2>';
     html += '<div class="dim small">' + esc(S ? S.source : '법령 데이터(laws.json)를 읽지 못했습니다 — 파일로 열면 브라우저가 fetch 를 막습니다. 정적 서버나 GitHub Pages 로 여세요.') + '</div>';
     html += '<div class="cards">';
     (S ? S.items : []).forEach(function (it, i) {

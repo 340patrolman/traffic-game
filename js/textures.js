@@ -27,7 +27,7 @@ TG.tex = (function () {
     g.fillStyle = color || '#f4f4f0';
     g.font = 'bold 108px ' + FONT;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (var i = 0; i < n; i++) g.fillText(text[i], 64, 128 * (n - 1 - i) + 66);
+    for (var i = 0; i < n; i++) g.fillText(text[i], 64, 128 * i + 66);   // 첫 글자를 캔버스 위쪽에 — 운전석에서 위에서부터 읽힌다
     return (cache[key] = toTexture(c));
   }
 

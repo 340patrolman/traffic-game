@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.16">
+<link rel="stylesheet" href="css/style.css?v=0.9.17">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -27,7 +27,7 @@
   </div>
   <div id="scorebox" class="panel">
     <div><span class="lbl">점수</span> <b id="score">0</b></div>
-    <div><span class="lbl">남은 시간</span> <b id="timer">6:00</b></div>
+    <div><span class="lbl" id="timerLbl">남은 시간</span> <b id="timer">6:00</b></div>
     <div><span class="lbl">단속</span> <b id="stops">0</b>건 <span id="sirenState"></span></div>
   </div>
   <canvas id="minimap" width="360" height="354"></canvas>
@@ -165,7 +165,7 @@
     <h1>SEOUL PATROL</h1>
     <div class="sub">서울교통 순찰근무</div>
     <div class="views modes"><span class="lbl">모드</span>
-      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="chase">🚨 추격전</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="kid">🧒 어린이 보행 교실</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
+      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="chase">🚨 추격전</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="kid">🧒 어린이 보행 교실</button><button class="mpick" data-mode="study">📖 학습·교통안전교실</button>
     </div>
     <button id="btnStart" class="primary">출동</button>
     <div class="titlelinks"><a id="lnkPromo" href="promo.html" target="_blank" rel="noopener">📣 교통안전 홍보 영상</a><a id="lnkIntroAgain" href="#">▶ 인트로 다시 보기</a><a id="lnkFull" href="#">⛶ 전체화면</a></div>
@@ -245,37 +245,37 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.16"></script>
-<script src="js/config.js?v=0.9.16"></script>
-<script src="js/rng.js?v=0.9.16"></script>
-<script src="js/save.js?v=0.9.16"></script>
-<script src="js/perf.js?v=0.9.16"></script>
-<script src="js/emblem.js?v=0.9.16"></script>
-<script src="js/textures.js?v=0.9.16"></script>
-<script src="js/audio.js?v=0.9.16"></script>
-<script src="js/city.js?v=0.9.16"></script>
-<script src="js/world.js?v=0.9.16"></script>
-<script src="js/terrain.js?v=0.9.16"></script>
-<script src="js/weather.js?v=0.9.16"></script>
-<script src="js/signals.js?v=0.9.16"></script>
-<script src="js/vehmesh.js?v=0.9.16"></script>
-<script src="js/vehicle.js?v=0.9.16"></script>
-<script src="js/traffic.js?v=0.9.16"></script>
-<script src="js/peds.js?v=0.9.16"></script>
-<script src="js/character.js?v=0.9.16"></script>
-<script src="js/vfx.js?v=0.9.16"></script>
-<script src="js/response.js?v=0.9.16"></script>
-<script src="js/junction.js?v=0.9.16"></script>
-<script src="js/chase.js?v=0.9.16"></script>
-<script src="js/intro.js?v=0.9.16"></script>
-<script src="js/walker.js?v=0.9.16"></script>
-<script src="js/rail.js?v=0.9.16"></script>
-<script src="js/enforcement.js?v=0.9.16"></script>
-<script src="js/study.js?v=0.9.16"></script>
-<script src="js/hud.js?v=0.9.16"></script>
-<script src="js/minimap.js?v=0.9.16"></script>
-<script src="js/input.js?v=0.9.16"></script>
-<script src="js/main.js?v=0.9.16"></script>
+<script src="lib/three.min.js?v=0.9.17"></script>
+<script src="js/config.js?v=0.9.17"></script>
+<script src="js/rng.js?v=0.9.17"></script>
+<script src="js/save.js?v=0.9.17"></script>
+<script src="js/perf.js?v=0.9.17"></script>
+<script src="js/emblem.js?v=0.9.17"></script>
+<script src="js/textures.js?v=0.9.17"></script>
+<script src="js/audio.js?v=0.9.17"></script>
+<script src="js/city.js?v=0.9.17"></script>
+<script src="js/world.js?v=0.9.17"></script>
+<script src="js/terrain.js?v=0.9.17"></script>
+<script src="js/weather.js?v=0.9.17"></script>
+<script src="js/signals.js?v=0.9.17"></script>
+<script src="js/vehmesh.js?v=0.9.17"></script>
+<script src="js/vehicle.js?v=0.9.17"></script>
+<script src="js/traffic.js?v=0.9.17"></script>
+<script src="js/peds.js?v=0.9.17"></script>
+<script src="js/character.js?v=0.9.17"></script>
+<script src="js/vfx.js?v=0.9.17"></script>
+<script src="js/response.js?v=0.9.17"></script>
+<script src="js/junction.js?v=0.9.17"></script>
+<script src="js/chase.js?v=0.9.17"></script>
+<script src="js/intro.js?v=0.9.17"></script>
+<script src="js/walker.js?v=0.9.17"></script>
+<script src="js/rail.js?v=0.9.17"></script>
+<script src="js/enforcement.js?v=0.9.17"></script>
+<script src="js/study.js?v=0.9.17"></script>
+<script src="js/hud.js?v=0.9.17"></script>
+<script src="js/minimap.js?v=0.9.17"></script>
+<script src="js/input.js?v=0.9.17"></script>
+<script src="js/main.js?v=0.9.17"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

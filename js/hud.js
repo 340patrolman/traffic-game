@@ -24,7 +24,7 @@ TG.hud = (function () {
     el.gap.style.opacity = 1; el.gap.textContent = '앞차 ' + sec.toFixed(1) + '초';
     el.gap.className = sec < 1 ? 'gap danger' : sec < 2 ? 'gap warn' : 'gap';
   }
-  function setSection(name, limit) { var t = name + ' · 제한 ' + limit; if (el._sec !== t) { el._sec = t; el.section.textContent = t; } }
+  function setSection(name, limit) { var t = name + ' · 제한 ' + ((limit === '—' || limit >= 999) ? '없음' : limit); if (el._sec !== t) { el._sec = t; el.section.textContent = t; } }
   function setGear(g) { if (el._gear !== g) { el._gear = g; el.gear.textContent = g === 'R' ? 'R 후진' : ''; el.gear.style.display = g === 'R' ? '' : 'none'; } }
   function setScore(n) { el.score.textContent = n; }
   function setTimer(sec) { var m = Math.floor(sec / 60), s = Math.floor(sec % 60); el.timer.textContent = m + ':' + (s < 10 ? '0' : '') + s; }

@@ -540,6 +540,9 @@
     G.state = 'play'; TG.perf.reset();
     if (G.mode === 'duty' || G.mode === 'chase') hud.setSiren(true);   // 하차 근무는 경광등을 켜 둔 채로 내리고, 추격전은 경광등부터 켠다
     if (G.mode === 'free' || G.mode === 'circuit') hud.setTimerText(G.mode === 'circuit' ? '출발선을 지나면 랩 시작' : '∞ 자유 주행');
+    var dmEl = document.getElementById('driveMode'); if (dmEl) dmEl.style.display = onFoot() ? 'none' : '';   // 도보 근무에는 기어가 없다
+    var tlEl = document.getElementById('timerLbl');
+    if (tlEl) tlEl.textContent = G.mode === 'circuit' ? '랩 타임' : (G.mode === 'free' ? '주행' : '남은 시간');   // 서킷·자유 주행은 남은 시간이 없다
     if (onFoot()) { document.getElementById('stopbarWrap').style.display = 'none'; hud.setTimer(G.timeLeft); walkGuide(); }
     else { document.getElementById('stopbarWrap').style.display = settings.stopbar ? '' : 'none'; document.getElementById('section').className = 'section'; }
     document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('dutymode', G.mode === 'duty');

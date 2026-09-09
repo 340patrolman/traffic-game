@@ -524,7 +524,10 @@ TG.buildTerrain = function (scene, city, cfg) {
           // 차로 경계: 편도 4차로면 3곳. 1차로 경계는 버스전용차로가 있는 도로(경부고속도로)만 청색 실선, 나머지는 흰 점선
           for (var hk = 1; hk < nHW; hk++) {
             var hb = 0.25 + cfg.LANE_W * hk;
-            if (hk === 1 && L.busLane) ribbon(mark, p, q, side * (hb - 0.1), side * (hb + 0.1), LIFT, BLU);
+            if (hk === 1 && L.busLane) {   // 청색 복선: 1차로(버스전용차로)를 확보한다
+              ribbon(mark, p, q, side * (hb - 0.42), side * (hb - 0.22), LIFT, BLU);
+              ribbon(mark, p, q, side * (hb + 0.08), side * (hb + 0.28), LIFT, BLU);
+            }
             else if (dash) ribbon(mark, p, q, side * (hb - 0.07), side * (hb + 0.07), LIFT, WHT);
           }
           ribbon(mark, p, q, side * (0.25 + cfg.LANE_W * nHW - 0.07), side * (0.25 + cfg.LANE_W * nHW + 0.07), LIFT, WHT);
@@ -609,7 +612,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(mark.build(), new THREE.MeshBasicMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), false, false);
   Object.keys(signFaces).forEach(function (k) {
     var tex = k.indexOf('hw:') === 0 ? TG.tex.hwSign(k.slice(3)) : TG.tex.sign(k);
-    mesh(signFaces[k].build(), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide }), false, false);
+    mesh(signFaces[k].build(), new THREE.MeshBasicMaterial({ map: tex, transparent: true }), false, false);   // 뒷면에 글씨가 거울로 비치지 않게 단면
   });
 
   // 나무·농가

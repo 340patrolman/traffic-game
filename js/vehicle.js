@@ -139,7 +139,11 @@
     this.wheels = [];
     var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
     var pairs = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
-    for (var i = 0; i < 4; i++) { var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.07), T.wheelR, pairs[i][1] * l * 0.31); g.add(wh); this.wheels.push(wh); }
+    for (var i = 0; i < 4; i++) {
+      var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.07), T.wheelR, pairs[i][1] * l * 0.31);
+      wh.rotation.order = 'YXZ';   // 조향(Y)을 먼저, 구름(X)을 나중에 — XYZ 이면 조향이 구름축에 끌려가 바퀴가 비틀린다
+      g.add(wh); this.wheels.push(wh);
+    }
     // 도색 데칼(참고 사진 순찰차): 옆면 청색 스우시 띠 + 황색 테두리 + 앞문 엠블럼 + 뒷문 「경찰 POLICE」, 후드 청색 쐐기 + 엠블럼, 트렁크 「112」
     // +x 는 차 왼쪽(운전석). 왼쪽 데칼은 u 가 뒤→앞으로 가며 +z 로 진행, 오른쪽은 글자가 거꾸로 보이지 않게 flip 텍스처.
     var decalOpts = { transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
@@ -271,7 +275,7 @@
       if (vF < -0.2) vF += s.brake * dt;
       else vF += c.throttle * s.accel * SP * (1 - Math.max(0, vF) / s.maxSpeed) * surface * dt;
     } else this.stopT = 0;
-    vF -= vF * (onRoad ? 0.025 : 0.9) * dt;
+    vF -= vF * (onRoad ? 0.025 : (vF < 0 ? 0.30 : 0.9)) * dt;   // 도로 밖 저항. 후진일 때는 약하게 — 어디서든 뒤로 빠져나올 수 있어야 한다
     if (Math.abs(vF) < 0.4 * dt + 0.02 && c.throttle === 0 && !wantRev) vF = 0; else vF -= Math.sign(vF) * 0.35 * dt;
     vF = TG.clamp(vF, -s.revMax, s.maxSpeed);
     this.gear = vF < -0.05 ? 'R' : 'D';
