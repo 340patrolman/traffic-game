@@ -149,5 +149,19 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     }
     return null;
   };
+  // 이 접근로(node, d)의 횡단보도 위에 사람이 있는가 — 차량은 다 건널 때까지 정지선 앞에 선다(제27조).
+  // 소유자: 「어린이가 다 건널 때까지 차량들은 모두 정지해야 해」
+  this.onCrossing = function (node, d) {
+    var axis = city.axisOfDir(d), half = city.halfOf(axis, axis === 'v' ? node.i : node.j);
+    var near = city.crossNear(node, d), far = city.crossFar(node, d);
+    var f = TG.DIR_VEC[d], r = [-f[1], f[0]];
+    var list = self.walker ? peds.concat([self.walker]) : peds;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i], dx = p.pos.x - node.x, dz = p.pos.z - node.z;
+      var alo = dx * f[0] + dz * f[1], lat = dx * r[0] + dz * r[1];
+      if (alo > -far - 2.5 && alo < -near + 2.5 && Math.abs(lat) < half + 0.3) return true;   // 차도 안에 있을 때만 — 연석에 서 있는 사람까지 세우면 통행이 멈춰 버린다
+    }
+    return false;
+  };
   this.spawn = spawn; this.remove = remove;
 };

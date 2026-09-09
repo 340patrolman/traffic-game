@@ -10,14 +10,25 @@ TG.Rail = function (scene, terrain, link, idx, cfg) {
   function hAt(x, z) { return terrain.heightAt(x, z); }
   // ---- 레일·침목·자갈 ----
   var gb = new TG.GeoBuilder(), yawR = Math.atan2(r[0], r[1]);   // 레일 방향(도로에 직각)의 헤딩
-  for (var d = -90; d <= 90; d += 0.75) {
-    var onRoad = Math.abs(d) < half + 0.6, x = P.x + r[0] * d, z = P.z + r[1] * d, y = onRoad ? P.y : hAt(x, z);
-    if (!onRoad && (d % 1.5 === 0 || Math.abs(d % 1.5) < 0.01)) gb.box(x, y + 0.06, z, 2.6, 0.12, 0.24, 0x5a4634, { rotY: yawR });   // 침목
+  // 선로: 자갈 도상 + 침목 + 레일 2줄. 도로를 지나는 구간은 건널목 판을 깔고 **레일을 끊지 않는다**.
+  // 전에는 ±90m 에서 뚝 끊기고 도로 위에서 레일이 사라져 「그리다 만」 것처럼 보였다(소유자 지적).
+  var REACH = 220, GAUGE = 0.72, ONW = half + 1.2;               // 궤간 1.435m 의 반값
+  for (var d2 = -REACH; d2 < REACH; d2 += 3) {
+    var cx = P.x + r[0] * (d2 + 1.5), cz = P.z + r[1] * (d2 + 1.5);
+    var onR = Math.abs(d2 + 1.5) < ONW, y = onR ? P.y : hAt(cx, cz);
+    if (!onR) {
+      gb.box(cx, y - 0.10, cz, 5.8, 0.36, 3.05, 0x9a978c, { rotY: yawR });   // 자갈 도상(둑)
+      gb.box(cx, y + 0.05, cz, 3.0, 0.14, 3.05, 0x8b8a84, { rotY: yawR });   // 도상 윗면
+    } else {
+      gb.box(cx, y + 0.03, cz, 3.6, 0.07, 3.05, 0xb9b6ad, { rotY: yawR });   // 건널목 판(도로와 같은 높이)
+    }
+    for (var s2 = -1; s2 <= 1; s2 += 2)                                       // 레일 2줄 — 도로 위에서도 이어진다
+      gb.box(cx + t[0] * s2 * GAUGE, y + (onR ? 0.06 : 0.15), cz + t[1] * s2 * GAUGE, 0.10, 0.13, 3.05, 0x4a4d52, { rotY: yawR });
   }
-  for (var d2 = -90; d2 < 90; d2 += 3) {
-    var xa = P.x + r[0] * (d2 + 1.5), za = P.z + r[1] * (d2 + 1.5), onR = Math.abs(d2 + 1.5) < half + 0.6, ya = onR ? P.y : hAt(xa, za);
-    if (!onR) gb.box(xa, ya - 0.05, za, 4.2, 0.16, 3.05, 0x8b8a84, { rotY: yawR });   // 자갈 도상
-    for (var s = -1; s <= 1; s += 2) gb.box(xa + t[0] * s * 0.72, ya + 0.16, za + t[1] * s * 0.72, 0.09, 0.12, 3.05, 0x3a3d42, { rotY: yawR });   // 레일 2줄(궤간 1.44)
+  for (var d = -REACH; d <= REACH; d += 1.5) {                                // 침목(도로 구간은 건널목 판이 대신한다)
+    if (Math.abs(d) < ONW) continue;
+    var sx2 = P.x + r[0] * d, sz2 = P.z + r[1] * d;
+    gb.box(sx2, hAt(sx2, sz2) + 0.08, sz2, 2.7, 0.13, 0.26, 0x5a4634, { rotY: yawR });
   }
   // 정지선(양 방향, 건널목 7m 앞) + 「정지」 노면 표시 대신 굵은 흰 선
   for (var sd = -1; sd <= 1; sd += 2) { var sx = P.x - t[0] * sd * 7, sz = P.z - t[1] * sd * 7; gb.box(sx + r[0] * sd * half * 0.5, P.y + 0.05, sz + r[1] * sd * half * 0.5, 0.35, 0.02, half, 0xf2f2ee, { rotY: Math.atan2(t[0], t[1]) + Math.PI / 2 }); }

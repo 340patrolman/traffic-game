@@ -310,8 +310,11 @@
         var head = new THREE.Mesh(headGeo, headHold); head.position.set(hx, 5.6, hz); head.rotation.y = TG.DIR_HEADING[hd] + Math.PI; head.matrixAutoUpdate = false; head.updateMatrix(); scene.add(head);
         heads.push({ node: nd, d: hd, mesh: head, kind: 'veh', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // 보행 신호등: 횡단보도 양쪽 끝 연석에 하나씩, 길 건너편을 향한다(건너려는 사람이 맞은편 신호를 본다). 기둥 3m + 머리(잔여시간 표시) + 보행자 작동 버튼함
+        // 보행 신호등은 **횡단 방향 오른쪽 한 곳**에만 세운다(소유자: 「어린이가 건너려고 서 있는 방향에서 오른쪽에」).
+        // 양쪽에 세우면 교차로 한 곳에 기둥이 12개가 되어 화면을 가린다 — 8개로 줄였다.
+        // 맞은편에서 건너는 사람은 길 건너 이 머리를 본다(머리는 건너편을 향한다).
         var alongC = city.crossFar(nd, hd) + 0.9;   // 횡단보도 띠 바로 옆(블록 쪽) — 건너려고 선 사람 앞을 막지 않는다
-        for (var ps = -1; ps <= 1; ps += 2) {
+        for (var ps = 1; ps <= 1; ps += 2) {
           var rdP = city.roadOf(nd, hd), sideP = city.sideOff(rdP.axis, rdP.idx) + 1.0;   // 보행선보다 바깥(보도 뒤쪽) — 건너려는 사람의 진행 방향을 막지 않는다
           var qx = nd.x - f2[0] * alongC + r2[0] * ps * sideP, qz = nd.z - f2[1] * alongC + r2[1] * ps * sideP;
           sigProps.cylinder(qx, 0.2, qz, 0.07, 0.06, 3.0, 6, 0x4a4f55);

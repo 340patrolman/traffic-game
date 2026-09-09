@@ -513,6 +513,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         self.stats.violations++; flag(car, 'litter', null, self.witness(car));
       }
     }
+    // 앞 횡단보도에 사람이 있으면 **다 건널 때까지** 정지선 앞에 선다(제27조 보행자 보호).
+    // 앞만 보는 판정(nearestAhead)으로는 옆 차로로 건너오는 사람을 놓친다.
+    if (!onLink && ap && ap.node && self.peds && self.peds.onCrossing && distStop > -1.5 && distStop < 70 && self.peds.onCrossing(ap.node, ap.d)) {
+      target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+    }
     if (self.peds && !onLink) {
       var pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, pedIgnore ? 6 : 18, pedIgnore ? 2.2 : 6.5);
       if (pd !== null) { target = Math.min(target, stopProfile(pd - 2.5, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 6) { emergency = true; if (car.v > 4 && !car.pedHorn && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적

@@ -454,10 +454,43 @@ TG.tex = (function () {
   // 경찰 엠블럼(양식화): 금색 월계 고리 + 청색 원 + 흰 참수리 실루엣 + 'POLICE'. 실제 휘장을 복제하지 않는다.
   // 참수리 표장(경찰 로고). 차 문·후드·순찰차 데칼이 같은 그림을 쓴다.
   // 소유자가 준 실물 이미지가 있으면 **그대로** 쓴다(js/emblem.js 의 데이터 URI). 없으면 캔버스로 그린다.
-  function urlTexture(url) {
-    var im = new Image(); var t = new THREE.Texture(im);
-    t.colorSpace = THREE.SRGBColorSpace || t.colorSpace; t.anisotropy = 4;
-    im.onload = function () { t.needsUpdate = true; };
+  // 원본 이미지에서 **가장자리와 이어진 흰 바탕만** 지우고, 남은 그림의 경계로 잘라 정사각 텍스처로 만든다.
+  // 안쪽의 흰 글씨(방패의 「POLICE」)는 가장자리와 이어져 있지 않으므로 그대로 남는다.
+  // 이 처리를 코드에서 하는 이유: 이 PC 에 이미지 도구가 없고, 원본 바이트를 그대로 심어 두는 편이 정확하기 때문이다.
+  function cutWhite(im) {
+    var W = im.width, H = im.height, w = canvas(W, H), wg = w.getContext('2d');
+    wg.drawImage(im, 0, 0);
+    var d = wg.getImageData(0, 0, W, H), p = d.data;
+    var seen = new Uint8Array(W * H), st = [], i, x, y;
+    function push(k) { if (seen[k]) return; var o = k * 4; if (p[o] > 232 && p[o + 1] > 232 && p[o + 2] > 232) { seen[k] = 1; st.push(k); } }
+    for (x = 0; x < W; x++) { push(x); push((H - 1) * W + x); }
+    for (y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); }
+    while (st.length) {
+      i = st.pop(); p[i * 4 + 3] = 0; x = i % W; y = (i - x) / W;
+      if (x > 0) push(i - 1); if (x < W - 1) push(i + 1); if (y > 0) push(i - W); if (y < H - 1) push(i + W);
+    }
+    wg.putImageData(d, 0, 0);
+    var x0 = W, y0 = H, x1 = -1, y1 = -1;                       // 남은 그림의 경계
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (p[(y * W + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < x0) { x0 = 0; y0 = 0; x1 = W - 1; y1 = H - 1; }
+    var cw = x1 - x0 + 1, ch = y1 - y0 + 1, S = Math.max(cw, ch);
+    var oc = canvas(S, S), og = oc.getContext('2d');
+    og.clearRect(0, 0, S, S);
+    og.drawImage(w, x0, y0, cw, ch, (S - cw) / 2, (S - ch) / 2, cw, ch);   // 정사각형 가운데 정렬
+    return oc;
+  }
+  // 소유자가 준 실물 이미지가 있으면 **그대로** 쓴다(js/emblem.js 의 데이터 URI). 없으면 캔버스로 그린다.
+  function urlTexture(url, done) {
+    var c = canvas(8, 8), t = new THREE.CanvasTexture(c);
+    t.anisotropy = 4;
+    var im = new Image();
+    im.onload = function () {
+      var oc = cutWhite(im);
+      c.width = oc.width; c.height = oc.height;
+      c.getContext('2d').drawImage(oc, 0, 0);
+      t.needsUpdate = true;
+      if (done) done(oc);
+    };
     im.src = url; return t;
   }
   function emblem() {
@@ -469,9 +502,17 @@ TG.tex = (function () {
     return (cache.emblem = toTexture(c));
   }
   // 화면(DOM)용 표장: 같은 캔버스를 PNG data URL 로 한 번만 뽑는다(외부 이미지 파일 0개 규칙 유지)
-  function emblemPNG() {
+  // cb 를 주면 흰 바탕을 지운 PNG 를 넘겨준다(이미지 해독이 비동기라 그렇다). 반환값은 즉시 쓸 수 있는 값이다.
+  function emblemPNG(cb) {
+    if (cache.emblemCut && cb) { cb(cache.emblemCut); return cache.emblemCut; }
+    if (TG.EMBLEM && TG.EMBLEM.shield) {
+      if (cb && !cache.emblemCutPending) {
+        cache.emblemCutPending = 1;
+        urlTexture(TG.EMBLEM.shield, function (oc) { cache.emblemCut = oc.toDataURL('image/png'); cb(cache.emblemCut); });
+      }
+      return (cache.emblemPNG = TG.EMBLEM.shield);
+    }
     if (cache.emblemPNG) return cache.emblemPNG;
-    if (TG.EMBLEM && TG.EMBLEM.shield) return (cache.emblemPNG = TG.EMBLEM.shield);
     var c = canvas(512, 512), g = c.getContext('2d');
     g.clearRect(0, 0, 512, 512); drawEmblem(g, 256, 256, 250);
     return (cache.emblemPNG = c.toDataURL('image/png'));

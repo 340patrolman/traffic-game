@@ -932,7 +932,7 @@
       walk.jay = false; walk.stopT = 0;
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
       if (kid) { kidStep(3);
-        if (walk.cross && walk.cross.hand) walker.hand = Math.max(walker.hand, 1.2);   // 손을 들고 들어섰으면 다 건널 때까지 든 채로
+        walker.hand = Math.max(walker.hand, 1.2);   // 어린이는 횡단보도 위에서 **끝까지** 손을 든 채로 건넌다(소유자 지시)
         if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
       if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
     } else if (p.where === 'road' || p.where === 'box') {
@@ -1309,7 +1309,13 @@
     rules.pitT = pit ? (rules.pitT || 0) + dt : 0;
     var B = city.bounds, outside = player.pos.x < B.x0 || player.pos.x > B.x1 || player.pos.z < B.z0 || player.pos.z > B.z1;
     if (rules.stuckT > 3 || rules.pitT > 2.5 || outside) { rules.stuckT = 0; rules.pitT = 0; recoverToRoad(outside ? '지도 밖 — 마지막 도로 위치로 복귀' : '도로 밖에 빠졌습니다 — 마지막 도로 위치로 복귀'); }
-    if (terrain.isWater(player.pos.x, player.pos.z) && !frame.onRoad) {
+    // 물 빠짐 복귀는 **어느 도로 포장 위도 아닐 때만**. frame.onRoad 만 보면 다리 위에서 차로를 살짝 벗어나도
+    // 물로 판정해 뒤로 순간이동시키고, 다시 달리면 또 되돌리는 무한 반복이 된다(한강을 넓히자 드러났다).
+    // 다리 상판 위(또는 가장자리 3m 안)에서는 물 복귀를 하지 않는다 — 한강을 넓히자 다리가 길어져,
+    // 차로를 살짝 벗어난 순간마다 뒤로 순간이동시키고 다시 달리면 또 되돌리는 반복이 생겼다.
+    var qDeck = terrain.nearest(player.pos.x, player.pos.z, true);
+    var onDeck = !!(qDeck && qDeck.p.bridge && qDeck.dist <= qDeck.p.half + 3);
+    if (terrain.isWater(player.pos.x, player.pos.z) && !frame.onRoad && !city.onRoadAny(player.pos.x, player.pos.z) && !onDeck) {
       addScore(-5, 'water'); hud.notice('도로 이탈(물) — 마지막 도로 위치로 복귀 (-5)', 'bad', 3000); TG.audio.bad();
       player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); camInit = false;
     }

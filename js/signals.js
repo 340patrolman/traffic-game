@@ -10,6 +10,13 @@ TG.Signals = function (city, world, cfg) {
     ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12 };
   }); });
   function keyOf(node) { return node.i + ',' + node.j; }
+  // 보행 시간 = 진입 5초 + 횡단 거리 ÷ 1.15m/s(어린이 걸음). 차량 녹색보다 2초 짧게 묶는다.
+  // crossAxis 는 **건너는 도로**의 축이다(그 도로의 보도선 사이가 횡단 거리).
+  function pedTime(node, crossAxis) {
+    var idx = crossAxis === 'v' ? node.i : node.j;
+    var len = 2 * city.sideOff(crossAxis, idx);
+    return Math.max(cfg.PED_WALK, Math.min(G - 2, 5 + len / 1.15));
+  }
   // 지금 녹색인 축과 경과·지속 시간(전환 중이면 null)
   function greenNow(t) {
     var p = phase(t);
@@ -22,7 +29,7 @@ TG.Signals = function (city, world, cfg) {
     var c = ctrl[keyOf(node)], g = greenNow(c.t);
     if (!g) return { wait: 1.5, why: '전환 중' };
     if (g.axis === axis) return { wait: 0, why: '이미 녹색' };
-    var needMin = Math.max(c.minGreen, cfg.PED_WALK + 2);   // 보행 신호를 줄일 수 없다 → 보행 최소 + 여유
+    var needMin = Math.max(c.minGreen, pedTime(node, g.axis === 'v' ? 'h' : 'v') + 2);   // 보행 신호를 줄일 수 없다 → 그 횡단보도의 보행 시간 + 여유
     var left = Math.max(0, needMin - g.elapsed);
     return { wait: left + Y + R, why: left > 0 ? (pedWalk(node, g.axis === 'v' ? 'h' : 'v') ? '보행 신호 최소 시간' : '최소 녹색 시간') : '황색·전적색 통과' };
   }
@@ -40,7 +47,7 @@ TG.Signals = function (city, world, cfg) {
   function manualInfo(node) {
     var c = ctrl[keyOf(node)], g = greenNow(c.t);
     return { manual: c.manual, req: c.req, minGreen: c.minGreen, axis: g ? g.axis : null, elapsed: g ? g.elapsed : 0,
-             holding: !!(c.manual && g && g.elapsed >= g.dur - 0.05 && !c.req), pedMin: cfg.PED_WALK };
+             holding: !!(c.manual && g && g.elapsed >= g.dur - 0.05 && !c.req), pedMin: g ? Math.round(pedTime(node, g.axis === 'v' ? 'h' : 'v')) : cfg.PED_WALK };
   }
 
   var mats = {
@@ -71,13 +78,15 @@ TG.Signals = function (city, world, cfg) {
   // crossAxis: 건너는 도로의 축. 'v' 도로를 건넌다 = x 방향으로 걷는다 = 동서 차량 녹색 초반
   function pedWalk(node, crossAxis) {
     var p = phase(ctrl[node.i + ',' + node.j].t);
-    if (crossAxis === 'v') return p.ew.s === 'green' && p.ew.elapsed < cfg.PED_WALK;
-    return p.ns.s === 'green' && p.ns.elapsed < cfg.PED_WALK;
+    var W = pedTime(node, crossAxis);
+    if (crossAxis === 'v') return p.ew.s === 'green' && p.ew.elapsed < W;
+    return p.ns.s === 'green' && p.ns.elapsed < W;
   }
   // 보행 신호 잔여 시간: 녹색이면 남은 보행 시간, 적색이면 다음 보행 신호까지 남은 시간(초)
   function pedRemain(node, crossAxis) {
     var p = phase(ctrl[node.i + ',' + node.j].t), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? HALF : 0;
-    if (s.s === 'green' && s.elapsed < cfg.PED_WALK) return cfg.PED_WALK - s.elapsed;
+    var W = pedTime(node, crossAxis);
+    if (s.s === 'green' && s.elapsed < W) return W - s.elapsed;
     var until = start - p.t; while (until <= 0) until += CYCLE;
     return until;
   }
