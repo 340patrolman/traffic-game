@@ -1,6 +1,6 @@
 // SEOUL PATROL 서비스워커: 앱 파일을 미리 저장해 두고(설치형·오프라인), 새 버전이 올라오면 다음 실행 때 바꿔 끼운다.
 // 네트워크 요청은 같은 폴더의 자기 파일뿐이다. 서버·외부 통신 없음.
-var CACHE = 'tg-v0.9.8';
+var CACHE = 'tg-v0.9.9';
 var FILES = [
   './', './index.html', './manifest.json', './css/style.css?v=0.9.7', './data/laws.json', './lib/three.min.js?v=0.9.7',
   './js/config.js?v=0.9.7', './js/rng.js?v=0.9.7', './js/save.js?v=0.9.7', './js/perf.js?v=0.9.7', './js/textures.js?v=0.9.7', './js/audio.js?v=0.9.7', './js/city.js?v=0.9.7', './js/world.js?v=0.9.7',

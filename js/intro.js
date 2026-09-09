@@ -42,7 +42,8 @@ TG.Intro = function (game) {
     // ① 도시 — 높은 곳에서 내려온다. 조문이 깔린다.
     { at: 0, dur: 3.6, fov: 66, cam: function (u) {
         var e = sm(u);
-        return { p: mix([252, 214, 470], [104, 62, 236], e), l: mix([120, 20, 240], [16, 8, 122], e) };
+        // 남쪽 IC(경부고속도로가 순환 본선으로 붙는 곳)를 내려다보며 시작해 도시로 들어온다 — 「길이 이어져 있다」를 먼저 보여 준다
+        return { p: mix([258, 196, 646], [104, 62, 236], e), l: mix([158, 12, 498], [16, 8, 122], e) };
       } },
     // ② 출동 — 경광등을 켠 순찰차를 옆에서 따라간다.
     { at: 3.6, dur: 2.9, fov: 42, cam: function (u, t) {
@@ -80,6 +81,33 @@ TG.Intro = function (game) {
   var TOTAL = 17.2;
   this.total = TOTAL;
 
+  // 인트로용 교통·행인 미리 배치 — 항공 샷에서 도시가 텅 비어 있으면 현실감이 없다.
+  // 평소 스폰은 플레이어 주변(SPAWN_MIN~MAX)에서만 일어나므로 인트로에서는 직접 깐다.
+  function seedCity() {
+    var made = 0, pm = 0;
+    for (var i = 0; i < city.xs.length; i++) for (var j = 0; j < city.zs.length; j++) {
+      if (made >= 30) break;
+      var node = city.nodes[i][j];
+      for (var d = 0; d < 4; d++) {
+        if (made >= 30) break;
+        if (((i + j + d) % 3) !== 0) continue;                         // 너무 빽빽하지 않게 걸러 낸다
+        var up = city.nodeFrom(node, (d + 2) % 4); if (!up) continue;
+        var rd = city.roadOf(node, d), lanes = city.lanesOf(rd.axis, rd.idx);
+        var lane = made % Math.max(1, lanes), f = TG.DIR_VEC[d], r = [-f[1], f[0]];
+        var back = 26 + (made % 5) * 15, lo = city.laneOff(rd.axis, rd.idx, lane);
+        var x = node.x - f[0] * back + r[0] * lo, z = node.z - f[1] * back + r[1] * lo;
+        if (game.traffic.spawn({ at: { x: x, z: z, d: d, node: up }, v: 8, cruise: 11, violator: false, laneIdx: lane })) made++;
+      }
+    }
+    for (var q = 0; q < 16; q++) {                                     // 보도의 행인
+      var ni = q % city.xs.length, nj = (q * 3) % city.zs.length, nd2 = city.nodes[ni][nj];
+      var side = (q % 2) ? 1 : -1, ax = (q % 2) ? 'v' : 'h', idx = (q % 2) ? ni : nj;
+      var so = city.sideOff(ax, idx), along = 16 + (q % 4) * 13;
+      var px = ax === 'v' ? nd2.x + side * so : nd2.x + along, pz = ax === 'v' ? nd2.z + along : nd2.z + side * so;
+      if (game.peds.spawn({ at: { x: px, z: pz, axis: ax, idx: idx, coord: ax === 'v' ? city.xs[idx] : city.zs[idx], side: side, d: ax === 'v' ? 2 : 3 }, jaywalker: false })) pm++;
+    }
+    return [made, pm];
+  }
   this.start = function () {
     self.t = 0; self.done = false; self.shot = -1; self.theme = false; self.stackIdx = -1;
     el.shot = $('introShot'); el.title = $('introTitle'); el.flash = $('introFlash'); el.lines = $('introLines');
@@ -104,6 +132,7 @@ TG.Intro = function (game) {
     if (game.weather) game.weather.set('sunset');                     // 인트로는 석양 고정 — 근무 시작 때 다시 뽑는다
     if (junc.setPanel) junc.setPanel(true, true, false);              // 조작문을 열고 수동으로 넣은 상태(인트로의 핵심 동작)
     if (junc.setBoxLamp) junc.setBoxLamp(true);
+    self.seeded = seedCity();                                         // 도시가 비어 보이지 않게 미리 깔아 둔다
     self.actors = { officer: officer, kid: kid, guard: guard, box: BOX };   // 검증·디버그용
     return true;
   };
