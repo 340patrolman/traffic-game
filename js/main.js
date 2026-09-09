@@ -689,7 +689,7 @@
   //  2단계 그래도 꼬리물기가 풀리지 않으면 진입이 많은 방향의 바깥 1개 차로를 임시 차단하고,
   //         꼬리 끊기 수신호로 진입을 끊어 교차로 안 공간을 확보한다(경찰관의 수신호는 신호기보다 우선한다 · 제5조).
   function startDuty() {
-    var node = city.nodes[2][2];   // 서울성모병원 사거리(반포대로 × 서초대로)
+    var node = city.nodes[2][1];   // 서울성모병원 사거리(반포대로 × 사평대로) — 실제 병원이 이 구간 반포대로변에 있다
     junction = new TG.Junction(G); junction.node = node; G.junction = junction;
     var box = junction.placeBox(node, 1, 1);   // 남동쪽 모퉁이 보도
     // 순찰차: 교차로 남쪽 갓길에 경광등을 켜고 정차한다 — 하차 근무의 보호 장비다

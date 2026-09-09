@@ -6,7 +6,7 @@
 // 배우(경찰관·어린이)와 신호제어기는 실제 게임 오브젝트다 — 인트로용 별도 모델을 만들지 않는다(에셋 0).
 TG.Intro = function (game) {
   var self = this, city = game.city, terrain = game.terrain, cfg = game.cfg;
-  var NODE = city.nodes[2][2];                       // 서울성모병원 사거리(반포대로 × 서초대로 · 하차 근무 무대)
+  var NODE = city.nodes[2][2];                       // 서초역 사거리(반포대로 × 서초대로) — 인트로 교차로 근무 컷 무대
   var BOX = null, junc = null, officer = null, kid = null, guard = null, fovBase = 74;
   this.t = 0; this.done = false; this.shot = -1; this.theme = false; this.stackIdx = -1;
   var el = { shot: null, title: null, flash: null, lines: null };

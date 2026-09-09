@@ -36,26 +36,30 @@ TG.buildCity = function (cfg) {
 
   // ---- 블록 채우기 ----
   var buildings = [], trees = [], lamps = [], signs = [], roadTexts = [], parks = [], blocks = [], landmarks = [];
-  var schoolBlock = { i: 1, j: 2 }, parkBlock = { i: 2, j: 1 };
+  var schoolBlock = { i: 1, j: 2 }, parkBlock = { i: 1, j: 3 };   // 학교=방배역 옆, 공원=서리풀공원(방배로~반포대로 · 효령로 남쪽)
   // 서울 서초구를 본뜬 배치(축약).
   // 반포대로×서초대로 = 서울성모병원 사거리(교차로 근무 무대). 강남대로는 동쪽 구 경계다.
   // 서초구 축약 지도. 남북은 서 → 동, 동서는 북 → 남 순서로 실제 배열과 같게 놓았다.
   var roadNamesV = ['동작대로', '방배로', '반포대로', '서초중앙로', '강남대로'], roadNamesH = ['신반포로', '사평대로', '서초대로', '효령로', '남부순환로'];
+  // 실제 서초구 배치에 맞췄다. 2호선 서초대로는 서 → 동으로 방배역 · 서초역 · 교대역 · 강남역 순이고,
+  // 서울성모병원·국립중앙도서관은 반포대로 사평대로~서초대로 구간(반포동), 고속터미널역은 신반포로에 있다.
   var NODE_NAMES = {
-    '0,2': '이수 교차로', '0,4': '사당역 사거리',
+    '0,0': '동작대교 남단', '0,2': '이수역 교차로', '0,4': '사당역 사거리',
     '1,2': '방배역 사거리', '1,4': '방배 사거리',
-    '2,0': '반포 사거리', '2,1': '고속터미널 사거리', '2,2': '서울성모병원 사거리', '2,3': '서초3동 사거리', '2,4': '예술의전당 사거리',
-    '3,2': '서초역 사거리', '3,3': '서초구청 사거리', '3,4': '남부터미널 사거리',
-    '4,1': '신논현역 사거리', '4,2': '강남역 사거리', '4,4': '양재역 사거리'
+    '2,0': '고속터미널 사거리', '2,1': '서울성모병원 사거리', '2,2': '서초역 사거리', '2,3': '서초3동 사거리', '2,4': '예술의전당 사거리',
+    '3,0': '잠원역 사거리', '3,1': '반포역 사거리', '3,2': '교대역 사거리', '3,3': '서초구청 사거리', '3,4': '남부터미널역 사거리',
+    '4,0': '한남대교 남단', '4,1': '신논현역 사거리', '4,2': '강남역 사거리', '4,4': '양재역 사거리'
   };
   // 서초구 랜드마크(실존 상호·로고는 쓰지 않는다. 형태만 빌린다)
   var LANDMARK_BLOCKS = {
     '0,0': 'twin',      // 이수·방배 아파트 타워
-    '1,0': 'stadium',   // 반포종합운동장(한강 쪽)
-    '2,0': 'terminal',  // 서울고속버스터미널(반포동 · 신반포로~사평대로)
+    '1,0': 'stadium',   // 반포종합운동장(한강 쪽 · 신반포로)
+    '2,0': 'terminal',  // 서울고속버스터미널·센트럴시티(반포동 · 신반포로)
+    '1,1': 'library',   // 국립중앙도서관(반포대로 서쪽 · 반포동)
+    '2,1': 'hospital',  // 서울성모병원(반포대로 동쪽 · 반포대로 222) — 교차로 근무 무대 옆
     '3,1': 'trade',     // 강남대로변 업무 타워(서초동)
-    '3,2': 'court',     // 서울중앙지방법원·검찰청(서초동 법원단지)
-    '2,3': 'arts',      // 예술의전당(남부순환로변)
+    '3,2': 'court',     // 서울중앙지방법원·대검찰청(서초동 법원단지 · 교대역 옆)
+    '2,3': 'arts',      // 예술의전당(반포대로 남단 · 남부순환로변)
     '3,3': 'gu'         // 서초구청
   };
   // 지도가 서초구 안에서 끝나므로 가로 2번은 전 구간 서초대로다(테헤란로는 강남대로 동쪽 = 지도 밖).
@@ -117,6 +121,38 @@ TG.buildCity = function (cfg) {
     roadTexts.push({ x: mxR + 6, z: zs[rj2] + lo2, text: hName(rj2, mxR), rot: TG.DIR_HEADING[1] });     // 동행 차로(우측 = +z)
     roadTexts.push({ x: mxR - 6, z: zs[rj2] - lo2, text: hName(rj2, mxR), rot: TG.DIR_HEADING[3] });     // 서행 차로(우측 = -z)
   }
+  // ---- 지하철역 출입구(서초구 실제 역) ----
+  // 노선 색은 서울교통공사 노선색. 실존 로고·상표는 쓰지 않고 노선 번호와 역 이름만 적는다.
+  // 「아 여기구나」가 되도록 실제 위치에 둔다 — 2호선 서초대로는 서 → 동으로 방배역·서초역·교대역·강남역.
+  var LINE_COLOR = { '2': '#00a84d', '3': '#ef7c1c', '4': '#00a4e3', '7': '#747f00', '9': '#bb8336', '신': '#d4003b' };
+  var SUBWAY_SPOTS = [
+    { i: 2, j: 0, name: '고속터미널역', lines: ['3', '7', '9'], side: 1 },
+    { i: 3, j: 0, name: '잠원역', lines: ['3'], side: 1 },
+    { i: 3, j: 1, name: '반포역', lines: ['7'], side: -1 },
+    { i: 4, j: 1, name: '신논현역', lines: ['9', '신'], side: -1 },
+    { i: 1, j: 2, name: '방배역', lines: ['2'], side: 1 },
+    { i: 2, j: 2, name: '서초역', lines: ['2'], side: 1 },
+    { i: 3, j: 2, name: '교대역', lines: ['2', '3'], side: -1 },
+    { i: 4, j: 2, name: '강남역', lines: ['2', '신'], side: -1 },
+    { i: 0, j: 2, name: '이수역', lines: ['7'], side: 1 },
+    { i: 3, j: 4, name: '남부터미널역', lines: ['3'], side: 1 },
+    { i: 4, j: 4, name: '양재역', lines: ['3', '신'], side: -1 },
+    { i: 0, j: 4, name: '사당역', lines: ['2', '4'], side: 1 }
+  ];
+  var subways = [];
+  SUBWAY_SPOTS.forEach(function (S) {
+    var nd = nodes[S.i][S.j], sx = S.side;                       // side +1 = 도로 동쪽 보도, -1 = 서쪽 보도
+    var x = nd.x + sx * (halfV[S.i] + SW * 0.5), z = nd.z + halfH[S.j] + 13;
+    subways.push({ x: x, z: z, rot: TG.DIR_HEADING[sx > 0 ? 3 : 1], name: S.name, lines: S.lines,
+                   colors: S.lines.map(function (L) { return LINE_COLOR[L] || '#888'; }) });
+  });
+  // 내방역(7호선)은 교차로가 아니라 서초대로 중간(동작대로~방배로)에 있다
+  subways.push({ x: (xs[0] + xs[1]) / 2, z: zs[2] + halfH[2] + SW * 0.5, rot: TG.DIR_HEADING[2], name: '내방역', lines: ['7'], colors: [LINE_COLOR['7']] });
+
+  // ---- 점 랜드마크: 서초동 향나무(서울특별시 기념물) ----
+  // 실제로 서초역 옆 서초동에 수령 수백 년의 향나무가 담장 안에 서 있다. 서초구를 한눈에 알리는 표식이다.
+  var monuments = [{ kind: 'juniper', x: xs[2] + halfV[2] + SW + 13, z: zs[2] + halfH[2] + SW + 13, r: 9.5, label: '서초동 향나무' }];
+
   // ---- 가로등: 보도 바깥선(반폭 + 2.4), 24m 간격 ----
   for (var i2 = 0; i2 < xs.length; i2++) for (var z = zs[0] + 20; z < zs[zs.length - 1]; z += 24) {
     if (Math.abs(z - zs[nearestIdx(zs, z)]) < 18) continue;
@@ -196,6 +232,18 @@ TG.buildCity = function (cfg) {
   }
 
   var walls = [];
+  // 향나무 마당: 겹치는 건물·나무를 걷어내고 담장을 충돌선으로 등록한다(마당 안에 건물이 서 있으면 안 된다).
+  monuments.forEach(function (M) {
+    for (var mb = buildings.length - 1; mb >= 0; mb--) {
+      var B = buildings[mb];
+      if (B.x1 > M.x - M.r - 1 && B.x0 < M.x + M.r + 1 && B.z1 > M.z - M.r - 1 && B.z0 < M.z + M.r + 1) buildings.splice(mb, 1);
+    }
+    for (var mt = trees.length - 1; mt >= 0; mt--) if (Math.abs(trees[mt].x - M.x) < M.r + 1 && Math.abs(trees[mt].z - M.z) < M.r + 1) trees.splice(mt, 1);
+    walls.push({ x1: M.x - M.r, z1: M.z - M.r, x2: M.x + M.r, z2: M.z - M.r });
+    walls.push({ x1: M.x + M.r, z1: M.z - M.r, x2: M.x + M.r, z2: M.z + M.r });
+    walls.push({ x1: M.x + M.r, z1: M.z + M.r, x2: M.x - M.r, z2: M.z + M.r });
+    walls.push({ x1: M.x - M.r, z1: M.z + M.r, x2: M.x - M.r, z2: M.z - M.r });
+  });
   // 막다른 스텁은 없다(소유자: 「길이 곳곳에 막혀 있다」). 도시 밖으로 이어지는 스텁은 IC 연결로가 붙는 8곳뿐이고,
   // 나머지 도로는 바깥 간선(반포대로·선릉로·사평대로·남부순환로)에서 T 자로 끝난다. world.js 가 이 함수로 스텁을 그릴지 정한다.
   function hasStub(axis, idx, end) {   // end: 0 = 북/서 끝, 1 = 남/동 끝
@@ -260,13 +308,13 @@ TG.buildCity = function (cfg) {
     }
     return { kind: 'off', name: '도로 밖', lateral: 0, limit: 999, half: 0, shoulder: 0, shoulderMin: 0, onRoad: false, lanes: 0, y: terrain ? terrain.groundAt(x, z) : 0 };
   }
-  function onRoadAny(x, z) { if (onRoad(x, z)) return true; if (!terrain) return false; var q = terrain.nearest(x, z, true); return !!(q && q.dist <= q.p.half); }
+  function onRoadAny(x, z) { if (onRoad(x, z)) return true; if (!terrain) return false; return terrain.onDeck(x, z); }   // 노면 하나라도 폭 안이면 도로 위(터레인 onDeck)
   function heightAt(x, z, yHint) { return terrain ? terrain.heightAt(x, z, yHint) : 0; }
 
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
     schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
-    landmarks: landmarks, roadNamesV: roadNamesV, roadNamesH: roadNamesH, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
+    landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,

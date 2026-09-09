@@ -580,6 +580,40 @@ TG.tex = (function () {
     return (cache[key] = toTexture(c));
   }
 
+  // 지하철역 출입구 표지: 흰 바탕에 노선 색 원(번호) + 역 이름. 실존 로고·상표는 쓰지 않는다.
+  function subwaySign(name, lines, colors) {
+    var key = 'sw:' + name + '|' + lines.join(',');
+    if (cache[key]) return cache[key];
+    var W = 384, H = 128, c = canvas(W, H), g = c.getContext('2d');
+    g.fillStyle = '#f7f8fa'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#2c3340'; g.lineWidth = 6; g.strokeRect(3, 3, W - 6, H - 6);
+    var r = 26, x0 = 16 + r;
+    for (var i = 0; i < lines.length && i < 3; i++) {
+      g.beginPath(); g.arc(x0 + i * (r * 2 + 8), H / 2, r, 0, Math.PI * 2);
+      g.fillStyle = colors[i] || '#888'; g.fill();
+      g.fillStyle = '#fff'; g.font = 'bold 32px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(lines[i], x0 + i * (r * 2 + 8), H / 2 + 2);
+    }
+    var tx = x0 + Math.min(3, lines.length) * (r * 2 + 8) + 6, avail = W - tx - 16;
+    g.fillStyle = '#151a22'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    var size = 46; g.font = 'bold ' + size + 'px ' + FONT;
+    while (size > 20 && g.measureText(name).width > avail) { size -= 2; g.font = 'bold ' + size + 'px ' + FONT; }
+    g.fillText(name, tx, H / 2 + 2);
+    return (cache[key] = toTexture(c));
+  }
+  // 문화재 안내석(향나무 등): 짙은 갈색 판에 흰 글씨
+  function stoneLabel(text, sub) {
+    var key = 'st:' + text + '|' + (sub || '');
+    if (cache[key]) return cache[key];
+    var W = 256, H = 128, c = canvas(W, H), g = c.getContext('2d');
+    g.fillStyle = '#4a3b2c'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#d9c9a8'; g.lineWidth = 4; g.strokeRect(8, 8, W - 16, H - 16);
+    g.fillStyle = '#f4ecdd'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 38px ' + FONT; g.fillText(text, W / 2, sub ? 52 : 64);
+    if (sub) { g.font = '22px ' + FONT; g.fillStyle = '#d9c9a8'; g.fillText(sub, W / 2, 92); }
+    return (cache[key] = toTexture(c));
+  }
+
   // 아스팔트: 회색 노이즈 + 미세한 균열. 8m 마다 반복.
   function asphalt() {
     if (cache.asphalt) return cache.asphalt;
@@ -669,6 +703,6 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
+  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

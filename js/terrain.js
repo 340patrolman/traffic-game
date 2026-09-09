@@ -325,6 +325,14 @@ TG.buildTerrain = function (scene, city, cfg) {
     for (var k2 in by) out.push(by[k2]);
     return out;
   }
+  // 어느 노면이든 **하나라도** 그 폭 안이면 도로 위다. `nearest` 한 점만 보면 IC 합류부에서
+  // 폭 좁은 램프가 본선보다 가까워 본선 바깥 차로가 「도로 밖」으로 잡힌다(실측 73곳 — 그립이 0.72 로 떨어지고
+  // HUD 에 도로 밖으로 표시돼 소유자가 「길이 끊겼다」로 느낀 자리다).
+  function onDeck(x, z) {
+    var cs = roadCands(x, z);
+    for (var i = 0; i < cs.length; i++) if (cs[i].dist <= cs[i].half) return true;
+    return false;
+  }
   function groundAt(x, z) {
     var rv = river(x, z), h = hBase(x, z) + rv;
     var cs = roadCands(x, z);
@@ -687,7 +695,7 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   return {
     links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
-    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

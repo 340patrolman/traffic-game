@@ -225,6 +225,25 @@
         roofs.box(cx, 0.3, cz - dd * 0.4, w * 0.8, 0.25, dd * 0.14, 0xc9c5ba, {});                                // 광장
         for (var fp = -1; fp <= 1; fp++) { roofs.cylinder(cx + fp * 4, 0.3, cz - dd * 0.44, 0.12, 0.1, 10, 6, 0x8f959c); roofs.box(cx + fp * 4 + 0.7, 9.3, cz - dd * 0.44, 1.4, 0.9, 0.05, fp === 0 ? 0xffffff : 0x2f6fd6, {}); }   // 국기·구기
         roofs.box(cx, 5.6, cz - dd * 0.22 - dd * 0.1 - 0.3, w * 0.36, 1.2, 0.3, 0x1f4fa8, {});                    // 정문 간판 띠
+      } else if (L.kind === 'library') {   // 국립중앙도서관: 낮고 넓은 석재 본관 + 긴 가로 창띠 + 앞 광장
+        roofs.box(cx, 8.2, cz + dd * 0.08, w * 0.74, 16, dd * 0.44, 0xe3ded2, {});
+        for (var lb = 0; lb < 4; lb++) glass.box(cx, 3.0 + lb * 3.6, cz + dd * 0.08, w * 0.75, 1.5, dd * 0.44 + 0.2, 0x44607e, { sidesOnly: true });
+        roofs.box(cx, 16.6, cz + dd * 0.08, w * 0.78, 0.9, dd * 0.48, 0x8b8f96, { noBottom: true });
+        roofs.box(cx, 2.6, cz - dd * 0.26, w * 0.44, 5.2, dd * 0.16, 0xece7db, {});                          // 열람동(저층)
+        roofs.box(cx, 0.32, cz - dd * 0.42, w * 0.8, 0.28, dd * 0.16, 0xc9c5ba, {});                         // 앞 광장
+        for (var lt = -1; lt <= 1; lt += 2) roofs.box(cx + lt * w * 0.3, 1.4, cz - dd * 0.42, 1.6, 2.8, 1.6, 0xd7d3c8, {});   // 광장 조형물
+      } else if (L.kind === 'hospital') {   // 서울성모병원: 흰 병동 타워 + 저층 외래동 + 응급실 캐노피 + 옥상 헬리포트
+        var hx = cx, hz = cz + dd * 0.06;
+        walls.office.box(hx, 0.2 + 21, hz, w * 0.5, 42, dd * 0.36, 0xf2f4f6, { sidesOnly: true, uvScale: [3, 5] });
+        roofs.box(hx, 42.4, hz, w * 0.54, 0.8, dd * 0.4, 0xdfe3e8, { noBottom: true });
+        roofs.cylinder(hx, 43.0, hz, Math.min(w, dd) * 0.11, Math.min(w, dd) * 0.11, 0.3, 20, 0x6f7680, true);   // 헬리포트
+        roofs.cylinder(hx, 43.4, hz, Math.min(w, dd) * 0.075, Math.min(w, dd) * 0.075, 0.12, 20, 0xf4f6f8, true);
+        roofs.box(hx, 4.6, cz - dd * 0.28, w * 0.66, 9.2, dd * 0.2, 0xe9ecef, {});                            // 외래·응급동
+        roofs.box(hx, 9.6, cz - dd * 0.28, w * 0.68, 0.7, dd * 0.24, 0x9aa0a8, { noBottom: true });
+        roofs.box(hx, 3.2, cz - dd * 0.42, w * 0.3, 0.35, 5.5, 0xdfe3e8, {});                                 // 응급실 진입 캐노피
+        for (var hp = -1; hp <= 1; hp += 2) roofs.cylinder(hx + hp * w * 0.14, 0.3, cz - dd * 0.42, 0.16, 0.14, 3.1, 8, 0xb9bec4);
+        roofs.box(hx, 2.1, cz - dd * 0.42 - 2.6, 3.4, 1.1, 0.3, 0xd7262b, {});                                // 응급(적색 띠)
+        roofs.box(hx, 0.32, cz - dd * 0.5, w * 0.7, 0.28, dd * 0.1, 0xc9c5ba, {});
       } else if (L.kind === 'stadium') {
         var rs = Math.min(w, dd) * 0.42;
         roofs.cylinder(cx, 0.3, cz, rs, rs * 1.04, 14, 36, 0xd8d3ca, false);                                  // 관중석 외벽
@@ -281,6 +300,69 @@
       props.cylinder(sx + 2.6, 0.2, sz - 0.4, 0.05, 0.05, 2.8, 5, 0x8f959c); busSigns.vquad(sx + 2.6, 2.4, sz - 0.4, 0.5, 1.0, Math.PI, 0xffffff, null);
       props.cylinder(sx - 3.2, 0.2, sz, 0.28, 0.28, 0.8, 8, 0x3a3f45, true);
     }
+    // ---- 지하철역 출입구 + 역 이름 표지 ----
+    // 실제 서초구 역 위치에 세운다(2호선 서초대로: 방배 → 서초 → 교대 → 강남).
+    // 표지는 역마다 다른 텍스처라 노선별로 묶어 그린다.
+    var swFaces = {};
+    (city.subways || []).forEach(function (S) {
+      var f = [Math.sin(S.rot), Math.cos(S.rot)], r = [-f[1], f[0]];
+      function P(a, b) { return [S.x + f[0] * b + r[0] * a, S.z + f[1] * b + r[1] * a]; }
+      var c0 = P(0, 0);
+      props.box(c0[0], 0.55, c0[1], 3.6, 1.1, 2.6, 0xdfe3e8, {});                     // 계단 입구 옹벽
+      props.box(c0[0], 1.18, c0[1], 3.8, 0.16, 2.8, 0xb9bec4, { noBottom: true });     // 테두리
+      var mouth = P(0, 1.0);   // 계단 입구는 도로 쪽으로 열린다
+      props.box(mouth[0], 0.35, mouth[1], 3.0, 0.7, 0.6, 0x2a2e33, {});                // 어두운 계단 입구
+      for (var hr = -1; hr <= 1; hr += 2) {                                            // 난간
+        var a0 = P(hr * 1.7, -1.2), a1 = P(hr * 1.7, 1.2);
+        props.cylinder(a0[0], 1.1, a0[1], 0.05, 0.05, 1.0, 6, 0xa9b0b8);
+        props.cylinder(a1[0], 1.1, a1[1], 0.05, 0.05, 1.0, 6, 0xa9b0b8);
+        props.box((a0[0] + a1[0]) / 2, 2.0, (a0[1] + a1[1]) / 2, 0.07, 0.07, 2.4, 0xa9b0b8, { rotY: S.rot });
+      }
+      var pole = P(2.5, 0);
+      props.cylinder(pole[0], 0.2, pole[1], 0.09, 0.08, 3.0, 8, 0x6f7680);             // 표지 기둥
+      var key = 'sw:' + S.name;
+      (swFaces[key] = swFaces[key] || { S: S, gb: new GeoBuilder() });
+      swFaces[key].gb.vquad(pole[0], 2.55, pole[1], 2.3, 0.78, S.rot + Math.PI, 0xffffff, null);   // 앞면이 도로를 보게(그냥 S.rot 이면 글씨가 뒤집혀 보인다)
+    });
+    Object.keys(swFaces).forEach(function (k) {
+      var e = swFaces[k];
+      addMesh(e.gb.build(), new THREE.MeshBasicMaterial({ map: TG.tex.subwaySign(e.S.name, e.S.lines, e.S.colors), transparent: true, side: THREE.DoubleSide }), false, false);
+    });
+
+    // ---- 서초동 향나무(서울특별시 기념물) ----
+    // 담장을 두른 작은 마당 안에 굵고 낮은 향나무 한 그루 + 안내석. 서초구를 한눈에 알리는 표식이다.
+    var monFaces = new GeoBuilder();
+    (city.monuments || []).forEach(function (M) {
+      if (M.kind !== 'juniper') return;
+      var R = M.r;
+      props.box(M.x, 0.16, M.z, R * 2, 0.3, R * 2, 0xd9d3c4, {});                       // 마당(마사토)
+      for (var wq = 0; wq < 4; wq++) {                                                  // 낮은 담장 네 면
+        var hor = wq % 2 === 0, sgn = wq < 2 ? 1 : -1;
+        props.box(M.x + (hor ? 0 : sgn * R), 0.55, M.z + (hor ? sgn * R : 0), hor ? R * 2 : 0.35, 0.8, hor ? 0.35 : R * 2, 0xb9a98c, {});
+      }
+      props.box(M.x, 0.62, M.z - R + 0.2, 2.6, 0.9, 0.4, 0x8a7a63, {});                 // 출입구 문지방
+      // 향나무: 수백 년 묵은 나무라 **줄기가 굵고 낮으며 수관이 옆으로 넓게 퍼진다**(뾰족한 침엽수와 다르다).
+      props.cylinder(M.x, 0.3, M.z, 0.95, 0.72, 2.6, 12, 0x6b5340, true);              // 굵은 밑동
+      props.cylinder(M.x - 0.35, 2.9, M.z + 0.2, 0.56, 0.34, 1.8, 10, 0x6b5340, true);  // 살짝 기운 줄기
+      for (var br = 0; br < 7; br++) {
+        var ba = br / 7 * Math.PI * 2 + 0.35, bl = 4.2 + (br % 3) * 1.0, by = 2.9 + (br % 2) * 0.7;
+        props.box(M.x + Math.cos(ba) * bl * 0.5, by, M.z + Math.sin(ba) * bl * 0.5, bl, 0.3, 0.3, 0x6b5340, { rotY: -ba });   // 옆으로 뻗은 가지
+        props.cylinder(M.x + Math.cos(ba) * bl, by - 0.5, M.z + Math.sin(ba) * bl, 2.5, 1.5, 1.5, 10, 0x2f6b3a, true);        // 가지 끝 잎덩이
+      }
+      props.cylinder(M.x, 3.6, M.z, 5.4, 4.0, 1.9, 16, 0x35753f, true);                 // 넓게 퍼진 수관(아래층)
+      props.cylinder(M.x, 5.3, M.z, 3.9, 2.2, 1.5, 14, 0x2f6b3a, true);                 // 수관(위층)
+      props.cylinder(M.x, 6.6, M.z, 2.0, 0.7, 1.1, 12, 0x35753f, true);                 // 꼭대기(둥글게 마감)
+      for (var pr = 0; pr < 3; pr++) {                                                   // 가지를 받친 지주목(노거수 보호)
+        var pa = pr / 3 * Math.PI * 2 + 0.9;
+        props.cylinder(M.x + Math.cos(pa) * 4.0, 0.3, M.z + Math.sin(pa) * 4.0, 0.11, 0.09, 3.0, 6, 0x8a7250);
+      }
+      // 안내석
+      var sx2 = M.x + R - 2.4, sz2 = M.z - R + 2.4;
+      props.box(sx2, 0.55, sz2, 1.8, 1.1, 0.5, 0x4a3b2c, {});
+      monFaces.vquad(sx2, 1.05, sz2 - 0.28, 1.6, 0.8, 0, 0xffffff, null);
+    });
+    if (!monFaces.empty()) addMesh(monFaces.build(), new THREE.MeshBasicMaterial({ map: TG.tex.stoneLabel('서초동 향나무', '서울특별시 기념물'), transparent: true, side: THREE.DoubleSide }), false, false);
+
     addMesh(props.build(), lambertVC, true, false);
     addMesh(wires.build(), new THREE.MeshBasicMaterial({ vertexColors: true }), false, false);
     addMesh(shelters.build(), lambertVC, true, false);
