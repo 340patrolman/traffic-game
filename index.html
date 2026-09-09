@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.8.3">
+<link rel="stylesheet" href="css/style.css?v=0.8.4">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -120,6 +120,10 @@
         <div><b>일반 차량 위반</b> 은 경광등을 켜고 우측에 정차시켜 현장 단속합니다.</div>
         <div><b>음주 의심 · 무면허 · 수배차량</b> 은 중대 위반입니다. 📡 무전으로 먼저 전파해 지원을 받고, 부수적 피해를 줄이며 정차시킵니다.</div>
         <div class="dim">추격 자체가 목적이 아닙니다. 도로교통법의 목적은 위험과 장해(障害)를 막는 것이고, 추격은 그 위험을 키울 수 있습니다.</div>
+        <h3>🚨 추격전 — 이기는 방법은 난폭 운전이 아니다</h3>
+        <div>대상은 <b>수배·절도·음주 의심</b>(등급 A)뿐입니다. 📡 무전으로 먼저 전파하고, 경광등을 켜고 <b>10~40m 안전거리</b>로 20초를 따라가면 대상이 포기해 정차합니다.</div>
+        <div><b>8m 안으로 붙으면</b> 대상이 급제동할 때 추돌합니다(감점). 추격 중 차량 접촉이 2회면 상황실이 <b>추격 중단</b>을 지시합니다 — 경광등을 끄고 감속하면 중단으로 처리됩니다.</div>
+        <div><b>어린이보호구역으로 도주하면 추격을 끊는 것이 정답입니다(+45).</b> 번호판은 이미 전파됐고 블랙박스 영상이 남습니다 — 사람이 다치는 것보다 낫습니다.</div>
         <h3>🚦 교차로 근무 — 하차해서 신호를 잡는다</h3>
         <div><b>🔧 제어함(R)</b> 신호제어기 함체 3m 안에서 조작판이 열립니다. <b>자동 → 수동</b> 으로 바꾸고 막힌 방향에 녹색을 더 줍니다.</div>
         <div><b>버튼을 눌러도 즉시 바뀌지 않습니다.</b> 교차로마다 고유의 최소 녹색 시간이 있고 <b>보행 신호 시간은 줄일 수 없습니다</b>. 그 시간을 채운 뒤 황색·전적색을 거쳐 넘어갑니다 — 미리 눌러 두는 것이 요령입니다.</div>
@@ -148,7 +152,7 @@
     <h1>SEOUL PATROL</h1>
     <div class="sub">서울교통 순찰근무</div>
     <div class="views modes"><span class="lbl">모드</span>
-      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="kid">🧒 어린이 보행 교실</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
+      <button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="chase">🚨 추격전</button><button class="mpick" data-mode="walk">🚶 보행자 체험</button><button class="mpick" data-mode="kid">🧒 어린이 보행 교실</button><button class="mpick" data-mode="study">📖 학습 12항목</button>
     </div>
     <button id="btnStart" class="primary">출동</button>
     <div id="best" class="best"></div>
@@ -225,34 +229,35 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.8.3"></script>
-<script src="js/config.js?v=0.8.3"></script>
-<script src="js/rng.js?v=0.8.3"></script>
-<script src="js/save.js?v=0.8.3"></script>
-<script src="js/perf.js?v=0.8.3"></script>
-<script src="js/textures.js?v=0.8.3"></script>
-<script src="js/audio.js?v=0.8.3"></script>
-<script src="js/city.js?v=0.8.3"></script>
-<script src="js/world.js?v=0.8.3"></script>
-<script src="js/terrain.js?v=0.8.3"></script>
-<script src="js/weather.js?v=0.8.3"></script>
-<script src="js/signals.js?v=0.8.3"></script>
-<script src="js/vehmesh.js?v=0.8.3"></script>
-<script src="js/vehicle.js?v=0.8.3"></script>
-<script src="js/traffic.js?v=0.8.3"></script>
-<script src="js/peds.js?v=0.8.3"></script>
-<script src="js/character.js?v=0.8.3"></script>
-<script src="js/vfx.js?v=0.8.3"></script>
-<script src="js/response.js?v=0.8.3"></script>
-<script src="js/junction.js?v=0.8.3"></script>
-<script src="js/walker.js?v=0.8.3"></script>
-<script src="js/rail.js?v=0.8.3"></script>
-<script src="js/enforcement.js?v=0.8.3"></script>
-<script src="js/study.js?v=0.8.3"></script>
-<script src="js/hud.js?v=0.8.3"></script>
-<script src="js/minimap.js?v=0.8.3"></script>
-<script src="js/input.js?v=0.8.3"></script>
-<script src="js/main.js?v=0.8.3"></script>
+<script src="lib/three.min.js?v=0.8.4"></script>
+<script src="js/config.js?v=0.8.4"></script>
+<script src="js/rng.js?v=0.8.4"></script>
+<script src="js/save.js?v=0.8.4"></script>
+<script src="js/perf.js?v=0.8.4"></script>
+<script src="js/textures.js?v=0.8.4"></script>
+<script src="js/audio.js?v=0.8.4"></script>
+<script src="js/city.js?v=0.8.4"></script>
+<script src="js/world.js?v=0.8.4"></script>
+<script src="js/terrain.js?v=0.8.4"></script>
+<script src="js/weather.js?v=0.8.4"></script>
+<script src="js/signals.js?v=0.8.4"></script>
+<script src="js/vehmesh.js?v=0.8.4"></script>
+<script src="js/vehicle.js?v=0.8.4"></script>
+<script src="js/traffic.js?v=0.8.4"></script>
+<script src="js/peds.js?v=0.8.4"></script>
+<script src="js/character.js?v=0.8.4"></script>
+<script src="js/vfx.js?v=0.8.4"></script>
+<script src="js/response.js?v=0.8.4"></script>
+<script src="js/junction.js?v=0.8.4"></script>
+<script src="js/chase.js?v=0.8.4"></script>
+<script src="js/walker.js?v=0.8.4"></script>
+<script src="js/rail.js?v=0.8.4"></script>
+<script src="js/enforcement.js?v=0.8.4"></script>
+<script src="js/study.js?v=0.8.4"></script>
+<script src="js/hud.js?v=0.8.4"></script>
+<script src="js/minimap.js?v=0.8.4"></script>
+<script src="js/input.js?v=0.8.4"></script>
+<script src="js/main.js?v=0.8.4"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

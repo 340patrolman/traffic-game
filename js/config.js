@@ -85,7 +85,9 @@ TG.CONFIG = {
            video: 25, videoLow: 12, radio: 8, handover: 10, pursuitBan: -15, noRadio: -8,   // 대응 원칙: 영상 단속·무전 전파·인계 / 추격 금지 위반·무전 없이 추격
            crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5,
            jaywalk: -10, walkRed: -10, safeCross: 10, arrive: 20, railroad: -10, incident: 30,
-           junctionGood: 15, junctionJam: -6 },   // 교차로 근무: 10초마다 소통 양호 / 꼬리물기 지속   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
+           junctionGood: 15, junctionJam: -6,
+           chaseSafe: 15, chaseClose: -10, chaseReckless: -25, chaseBreak: 45, chaseCatch: 60 },   // 추격전: 안전거리·무전 유지 / 8m 안 근접 / 부수적 피해 / 중단 판단(정답) / 검거   // 교차로 근무: 10초마다 소통 양호 / 꼬리물기 지속   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
   WALK_SECONDS: 360, WALK_DESTS: 8,
   DUTY_SECONDS: 420,   // 교차로 근무(하차 근무) 한 판
+  CHASE_SECONDS: 300,  // 추격전 한 판
 };

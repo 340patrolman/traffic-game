@@ -332,6 +332,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.idx > 40) { path.splice(0, car.idx); car.idx = 0; }
     var cur = path[Math.min(car.idx, path.length - 1)], onLink = !!cur.lp;
     var target = onLink ? cruiseFor(car, cur.kind) : car.cruise, emergency = false;
+    if (car.flee) target *= 1.6;   // 도주 차량(추격전): 흐름보다 빠르다. 앞차·보행자 앞에서는 여전히 선다
+
     for (var t = car.idx; t < Math.min(path.length, car.idx + 12); t++) {
       var q = path[t]; if (q.vmax === undefined) continue;
       var dq = Math.hypot(q.x - car.pos.x, q.z - car.pos.z);
@@ -547,7 +549,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     var pl = self.player;
     if (pl) for (var k = cars.length - 1; k >= 0; k--) {
-      var c = cars[k]; if (c.mode !== 'drive' || c.violation || c.incident) continue;
+      var c = cars[k]; if (c.mode !== 'drive' || c.violation || c.incident || c.chase) continue;   // 추격 대상은 멀어도 지우지 않는다
       var far = city.frameAt(pl.pos.x, pl.pos.z, pl.heading).kind === 'link' ? cfg.DESPAWN * 1.7 : cfg.DESPAWN;
       var ddp = Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z), pfd = pl.forward(), inView = (c.pos.x - pl.pos.x) * pfd[0] + (c.pos.z - pl.pos.z) * pfd[1] > 0;
       if (ddp > far && (!inView || ddp > far * 1.8)) remove(c);   // 시야 앞의 차는 훨씬 멀어질 때까지 남긴다(눈앞에서 사라지지 않게)

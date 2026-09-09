@@ -13,7 +13,7 @@
   function el(id) { return document.getElementById(id); }
   var rules = {}, camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camInit = false;
   var vfx = null, vfxT = 0, flares = null, response = null;   // 차량 감각 입자·플레어(js/vfx.js) · 대응 원칙(js/response.js)
-  var junction = null, duty = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
+  var junction = null, duty = null, chase = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
   function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.mode === 'duty'; }
@@ -458,8 +458,10 @@
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (walker) { if (walk && walk.officer) walk.officer.dispose(); walker.dispose(); walker = null; walk = null; peds.walker = null; }
     if (junction) { junction.dispose(); junction = null; duty = null; G.junction = null; }
+    if (chase) { chase.dispose(); chase = null; G.chase = null; }
     document.body.classList.remove('dutyopen');
     if (G.mode === 'duty') startDuty(); else if (onFoot()) startWalk();
+    if (G.mode === 'chase') startChase();
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
@@ -469,16 +471,17 @@
     TG.audio.stopTitleTheme(0.5);   // 출동 — 타이틀 테마를 끈다
     hud.hideTitle(); hud.hideEnd(); hud.showHud(true); hud.setScore(0); hud.setStops(0); hud.setTimer(G.timeLeft); hud.setSiren(false); hud.setTarget(null); hud.setGear('D');
     G.state = 'play'; TG.perf.reset();
-    if (G.mode === 'duty') hud.setSiren(true);   // 하차 근무: 순찰차 경광등을 켜 둔 채로 내린다
-    if (G.mode !== 'patrol' && G.mode !== 'walk') hud.setTimerText(G.mode === 'circuit' ? '출발선을 지나면 랩 시작' : '∞ 자유 주행');
+    if (G.mode === 'duty' || G.mode === 'chase') hud.setSiren(true);   // 하차 근무는 경광등을 켜 둔 채로 내리고, 추격전은 경광등부터 켠다
+    if (G.mode === 'free' || G.mode === 'circuit') hud.setTimerText(G.mode === 'circuit' ? '출발선을 지나면 랩 시작' : '∞ 자유 주행');
     if (onFoot()) { document.getElementById('stopbarWrap').style.display = 'none'; hud.setTimer(G.timeLeft); walkGuide(); }
     else { document.getElementById('stopbarWrap').style.display = settings.stopbar ? '' : 'none'; document.getElementById('section').className = 'section'; }
     document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('dutymode', G.mode === 'duty');
-    hud.notice(G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 횡단보도 앞에서 멈추고 ✋ 손을 들고, 초록불에 건너요. 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 순환고속도로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    hud.notice(G.mode === 'chase' ? '추격전 — 📡 무전으로 먼저 전파하고, 경광등을 켜고 10~40m 안전거리로 20초를 따라가면 대상이 포기합니다. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 횡단보도 앞에서 멈추고 ✋ 손을 들고, 초록불에 건너요. 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 순환고속도로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
-  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', walk: '보행자 체험', kid: '어린이 보행 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
+  var SCORED = { patrol: 1, walk: 1, duty: 1, chase: 1 };   // 점수·감점이 있는 모드(자유 주행·서킷·어린이 교실은 사고 외 감점 없음)
+  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '보행자 체험', kid: '어린이 보행 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
   // ---------- 보행자 모드 ----------
   // 순찰차는 강남대로 갓길에 세워 두고, 경찰관이 내려 걷는다. 목적지(사거리 모퉁이) 8곳을 차례로. 차량·행인 AI 는 걷는 경찰관을 보행자로 본다.
   function startWalk() {
@@ -511,6 +514,27 @@
     }
     walk = { dests: dests, idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0 };
     walker.setMarker(dests[0]);
+  }
+  // ---------- 추격전 ----------
+  // 「추격은 최후의 수단」을 몸으로 익히는 모드. 빨리 달리는 재미는 있지만 이기는 방법은 난폭 운전이 아니다.
+  // 무전 전파 → 경광등 → 안전거리 10~40m 를 20초 지키면 대상이 포기한다. 어린이보호구역으로 도주하면 끊는 것이 정답이다.
+  function startChase() {
+    chase = new TG.Chase(G); G.chase = chase;
+    G.timeLeft = C.CHASE_SECONDS;
+    player.setSiren(true); TG.audio.setSiren(true); hud.setSiren(true);
+    chase.spawn();
+    if (!chase.car) { hud.notice('대상 차량을 배치할 수 없었습니다 — 잠시 주행하면 다시 시도합니다', 'warn', 3000); chase.retry = 3; }
+  }
+  function chaseUpdate(dt) {
+    if (!chase) return;
+    if (!chase.car && chase.retry > 0) { chase.retry -= dt; if (chase.retry <= 0) { chase.spawn(); chase.retry = chase.car ? 0 : 3; } }
+    chase.update(dt);
+    var line = chase.line();
+    if (line) { hud.setSectionText(line); var se = el('section'); if (se) se.className = 'section walk ' + (line.indexOf('⚠') >= 0 ? 'stop' : 'go'); }
+    if (chase.state === 'stopped' || chase.state === 'break' || chase.state === 'lost') {
+      chase.endT = (chase.endT || 0) + dt;
+      if (chase.endT > 4) endShift(chase.state === 'stopped' ? '대상 검거 — 원칙대로 따라갔습니다' : chase.state === 'break' ? '추격 중단 — 무전·영상으로 처리' : '대상 놓침 — 무전 전파로 인계');
+    }
   }
   // ---------- 교차로 근무(하차 근무) ----------
   // 서울성모병원 사거리(서초경찰서 관내). 병원·터미널 통행이 몰려 교통관리가 특히 중요한 곳이다.
@@ -889,7 +913,7 @@
   }
   G.addScore = addScore; G.selectTarget = function (s) { selectTarget(s); };
   function penalize(key, text, teach) {
-    if (G.mode !== 'patrol' && G.mode !== 'walk' && key !== 'crash' && key !== 'pedestrian') { if (teach) hud.hint(teach); return; }   // 자유 주행·서킷: 사고 외 감점 없음(안내만)
+    if (!SCORED[G.mode] && key !== 'crash' && key !== 'pedestrian') { if (teach) hud.hint(teach); return; }   // 자유 주행·서킷: 사고 외 감점 없음(안내만)
     addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad(); }
   G.penalize = penalize;
   function onTrafficEvent(kind, car) {
@@ -920,6 +944,10 @@
     var lesson = worst ? lessons[worst] : (onFoot() ? (walk && walk.crossings ? '보행 신호에 횡단보도로 — 오늘처럼' : '보행 신호를 기다려 횡단보도로 건넌다') : G.stats.stops ? '위반을 직접 목격한 차량만 세운다' : '경광등을 켜고 위반 차량 뒤에 붙으면 우측으로 정차한다');
     if (G.mode === 'kid' && walk) lesson = '⭐ 별 ' + walk.stars + '개 · 횡단보도 앞에서 멈추고 ✋ 손 들고 🟢 초록불에 건너요';
     if (onFoot() && walk) G.stats.stops = walk.arrived;
+    if (G.mode === 'chase' && chase) { G.stats.chase = chase.log;
+      lesson = chase.log.result === 'break' ? '사람이 다칠 위험이 크면 추격을 끊는다 — 무전과 영상이 남는다'
+        : chase.log.result === 'caught' ? '무전 전파 + 경광등 + 안전거리 — 이것이 추격의 정석'
+        : '무전으로 전파해 두면 놓쳐도 다른 순찰차가 처리한다'; }
     if (G.mode === 'duty' && junction) { G.stats.stops = junction.score.cleared; G.stats.junction = junction.score.cleared;
       lesson = worst ? lesson : '1단계 신호기 수동 조작 → 안 되면 2단계 바깥 차로 차단·꼬리 끊기'; }
     G.stats.score = G.score; G.stats.penalty = penaltyTotal; G.stats.lesson = lesson; G.stats.reason = reason || '';
@@ -939,6 +967,9 @@
       if ((st.incidents || 0) >= 1) badges.push({ text: '🛠 현장 안전조치', gold: (st.incidents || 0) >= 2 });
       if ((st.videos || 0) >= 2 && !penaltyCount.pursuitBan) badges.push({ text: '📹 원칙대로 대응', gold: true });
       if ((st.radios || 0) >= 3) badges.push({ text: '📡 상황 전파' });
+      if (st.chase && st.chase.result === 'break') badges.push({ text: '🛑 중단 판단', gold: true });
+      if (st.chase && st.chase.result === 'caught' && !penaltyCount.chaseReckless) badges.push({ text: '🚨 안전한 추격', gold: true });
+      if (st.chase && st.chase.safeAwards >= 2) badges.push({ text: '📏 안전거리 ' + st.chase.safeAwards + '회' });
       if ((st.junction || 0) >= 3) badges.push({ text: '🚦 소통 확보 ' + st.junction + '회', gold: (st.junction || 0) >= 5 });
       if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
       if (walk && walk.crossings >= 4) badges.push({ text: '🚶 모범 보행 ' + walk.crossings + '회' });
@@ -1112,7 +1143,7 @@
           if (closing > 2.5 && rules.crashCd <= 0) {
             rules.crashCd = 1.5; TG.audio.thump(closing / 10);
             var teach = (G.lead && G.lead.car === c && G.lead.sec < 1.2) ? '1초 미만 간격에서는 사람의 반응 시간(약 1초) 안에 못 멈춘다' : '차량 접촉 — 속도를 줄이고 간격을 둔다';
-            penalize('crash', '차량 접촉', teach); G.lastCrash = { car: c.id, closing: closing, t: performance.now() }; G.shake = Math.min(1.2, closing / 8);
+            penalize('crash', '차량 접촉', teach); if (chase) chase.onCollateral(); G.lastCrash = { car: c.id, closing: closing, t: performance.now() }; G.shake = Math.min(1.2, closing / 8);
           }
         }
       }
@@ -1193,7 +1224,7 @@
     peds.update(dt, TG.perf.budget(C.PED_MAX));
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (chase) chaseUpdate(dt);
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
     checkRules(dt, frame);
     updateCamera(dt);
@@ -1208,7 +1239,7 @@
     hud.setGear(player.gear);
     minimap.draw(player, traffic.cars, enforcement.target);
     TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid, player.speedKmh(), player.controls.brake > 0 || (player.controls.throttle === 0 && T.speed > 3));
-    if (G.mode === 'patrol') { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift('근무 시간 종료'); }
+    if (G.mode === 'patrol' || G.mode === 'chase') { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift(G.mode === 'chase' ? '추격전 시간 종료' : '근무 시간 종료'); }
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
