@@ -1365,7 +1365,7 @@
       if (c.isBus) { cc.push({ x: c.pos.x, z: c.pos.z }); }
       for (var a = 0; a < 2; a++) for (var b = 0; b < cc.length; b++) {
         var dx = cc[b].x - pc[a].x, dz = cc[b].z - pc[a].z, d2 = dx * dx + dz * dz;
-        if (d2 >= rr * rr || d2 < 1e-6) continue;
+        if (!(d2 < rr * rr) || !(d2 >= 1e-6)) continue;   // NaN 이면 두 조건 모두 거짓 → 건너뛴다(전에는 통과해 플레이어 좌표를 NaN 으로 만들었다)
         var d = Math.sqrt(d2), nx = dx / d, nz = dz / d, ov = rr - d;
         player.pos.x -= nx * ov * 0.6; player.pos.z -= nz * ov * 0.6; c.pos.x += nx * ov * 0.4; c.pos.z += nz * ov * 0.4;
         var cf = [Math.sin(c.heading), Math.cos(c.heading)], closing = (player.vx - cf[0] * c.v) * nx + (player.vz - cf[1] * c.v) * nz;

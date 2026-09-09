@@ -531,8 +531,13 @@ TG.buildTerrain = function (scene, city, cfg) {
           var w0 = Pt(p, side * (half - 0.4), 0), w1 = Pt(q, side * (half - 0.4), 0);
           if (barOk) walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2] });
         }
-        wallQuad(props, p, q, -0.35, 0, 0.85, 0xb9b6ad); wallQuad(props, p, q, 0.35, 0, 0.85, 0xb9b6ad); ribbon(props, p, q, -0.35, 0.35, 0.85, 0xc8c5bc);
-        var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2] });
+        var medNose = noseZone || (L.cityStart && p.s < 70);   // 도시 진입부 70m · 램프 분기부: 중앙분리대를 세우지 않는다
+        if (!medNose) {
+          wallQuad(props, p, q, -0.35, 0, 0.85, 0xb9b6ad); wallQuad(props, p, q, 0.35, 0, 0.85, 0xb9b6ad); ribbon(props, p, q, -0.35, 0.35, 0.85, 0xc8c5bc);
+          var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2] });
+        } else {                                               // 벽 대신 황색 복선(도시 도로와 같은 표시)
+          ribbon(mark, p, q, -0.40, -0.24, LIFT, YEL); ribbon(mark, p, q, 0.24, 0.40, LIFT, YEL);
+        }
         if (i % 10 === 0) {
           var pp = Pt(p, 0, 0), rot = Math.atan2(p.rx, p.rz);
           props.cylinder(pp[0], pp[1] + 0.8, pp[2], 0.14, 0.1, 11, 6, 0x8f959c);

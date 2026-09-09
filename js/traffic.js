@@ -157,7 +157,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.isMoto = type === 'moto'; car.isBike = type === 'bike'; car.isPM = type === 'pm';
     if (car.isMoto || car.isBike || car.isPM) {
       car.laneIdx = 1; car.trait = null; car.noSignalViolator = false;
-      car.edgeRider = rng() < (car.isPM ? 0.26 : car.isBike ? 0.24 : 0.14);   // 보도 통행은 드물게(대부분 차도 우측) car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5;
+      // 보도 통행은 드물게(대부분 차도 우측). 아래 두 줄이 주석에 먹혀 있어서 edgeOff·edgeT 가 undefined 였고,
+      // 그 값이 계산에 섞여 이륜차·자전거·PM 의 heading 과 좌표가 NaN 이 됐다(차가 사라지거나 화면이 검게 나오던 원인).
+      car.edgeRider = rng() < (car.isPM ? 0.26 : car.isBike ? 0.24 : 0.14);
+      car.edgeOff = car.edgeRider ? 5.4 : 0;
+      car.edgeT = rng() * 5;
       car.crossRider = (car.isBike || car.isPM) && rng() < 0.28;   // 일부만 타고 건넌다(위반) — 대부분은 내려서 끌고 걷는다(제13조의2 제6항)
       if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; }
       else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = rng() < 0.35; car.pmTwo = rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
@@ -621,10 +625,18 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       else if (!c.route && !c.lastNode) remove(c);
     }
   };
+  // 좌표가 NaN 이 된 차는 즉시 치운다 — 한 대만 있어도 접촉 판정을 타고 플레이어까지 번진다
+  this.sweepNaN = function () {
+    for (var i = cars.length - 1; i >= 0; i--) {
+      var c = cars[i];
+      if (!isFinite(c.pos.x) || !isFinite(c.pos.z) || !isFinite(c.v) || !isFinite(c.heading)) remove(c);
+    }
+  };
   this.separate = function () {
+    self.sweepNaN();
     for (var i = 0; i < cars.length; i++) for (var j = i + 1; j < cars.length; j++) {
       var a = cars[i], b = cars[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = a.radius + b.radius, d2 = dx * dx + dz * dz;
-      if (d2 >= rr * rr || d2 < 1e-6) continue;
+      if (!(d2 < rr * rr) || !(d2 >= 1e-6)) continue;   // NaN 방어(위와 같은 이유)
       var d = Math.sqrt(d2), ov = (rr - d) / 2;
       a.pos.x -= dx / d * ov; a.pos.z -= dz / d * ov; b.pos.x += dx / d * ov; b.pos.z += dz / d * ov; a.v *= 0.5; b.v *= 0.5;
     }
