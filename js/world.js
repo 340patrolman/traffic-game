@@ -298,7 +298,9 @@
       for (var hd = 0; hd < 4; hd++) {
         if (!city.nodeFrom(nd, (hd + 2) % 4) && !city.exitFor(nd, (hd + 2) % 4)) continue;
         var f2 = TG.DIR_VEC[hd], r2 = [-f2[1], f2[0]], rd2 = city.roadOf(nd, hd), halfA = city.halfOf(rd2.axis, rd2.idx), lanes = city.lanesOf(rd2.axis, rd2.idx);
-        var farA = city.crossHalf(nd, hd) + 1.6, sideA = halfA + 1.6;
+        // 차량 신호등 기둥은 **보행 신호등과 같은 자리**(보도 바깥선)에 세운다 — 전에는 차도 가장자리에서 1.6m,
+        // 즉 보도 한가운데라 걸어가는 사람 앞을 막았다(소유자: 「신호등 시설물 위치를 보행자 신호등 있는 곳에 같이」). 암은 그만큼 길어진다.
+        var farA = city.crossHalf(nd, hd) + 1.6, sideA = city.sideOff(rd2.axis, rd2.idx) + 1.0;
         var px2 = nd.x + f2[0] * farA + r2[0] * sideA, pz2 = nd.z + f2[1] * farA + r2[1] * sideA;
         sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.2, 6, 0x4a4f55);
         var headOff = cfg.LANE_OFF + cfg.LANE_W * (lanes - 1) / 2, armLen = sideA - headOff + 0.6;
@@ -310,7 +312,8 @@
         // 보행 신호등: 횡단보도 양쪽 끝 연석에 하나씩, 길 건너편을 향한다(건너려는 사람이 맞은편 신호를 본다). 기둥 3m + 머리(잔여시간 표시) + 보행자 작동 버튼함
         var alongC = city.crossFar(nd, hd) + 0.9;   // 횡단보도 띠 바로 옆(블록 쪽) — 건너려고 선 사람 앞을 막지 않는다
         for (var ps = -1; ps <= 1; ps += 2) {
-          var qx = nd.x - f2[0] * alongC + r2[0] * ps * (halfA + 0.9), qz = nd.z - f2[1] * alongC + r2[1] * ps * (halfA + 0.9);
+          var rdP = city.roadOf(nd, hd), sideP = city.sideOff(rdP.axis, rdP.idx) + 1.0;   // 보행선보다 바깥(보도 뒤쪽) — 건너려는 사람의 진행 방향을 막지 않는다
+          var qx = nd.x - f2[0] * alongC + r2[0] * ps * sideP, qz = nd.z - f2[1] * alongC + r2[1] * ps * sideP;
           sigProps.cylinder(qx, 0.2, qz, 0.07, 0.06, 3.0, 6, 0x4a4f55);
           sigProps.box(qx - r2[0] * ps * 0.02, 2.75, qz - r2[1] * ps * 0.02, 0.56, 1.08, 0.16, 0x1d2126, { rotY: Math.atan2(-ps * r2[0], -ps * r2[1]) });   // 함체
           sigProps.box(qx - r2[0] * ps * 0.08, 3.32, qz - r2[1] * ps * 0.08, 0.6, 0.06, 0.28, 0x1d2126, { rotY: Math.atan2(-ps * r2[0], -ps * r2[1]) });   // 차양

@@ -331,9 +331,11 @@ TG.buildTerrain = function (scene, city, cfg) {
     // 4m 이상 높은 것은 고가(위로 지나가는 길)이므로 지형을 끌어올리지 않는다 — 본선이 흙에 묻히던 원인(v0.9.2).
     var lo = 1e9, near = null, nd = 1e9, m2;
     for (m2 = 0; m2 < cs.length; m2++) { if (cs[m2].y < lo) lo = cs[m2].y; if (cs[m2].dist < nd) { nd = cs[m2].dist; near = cs[m2]; } }
-    var sw = 0, sy = 0, tmax = 0;
+    var sw = 0, sy = 0, tmax = 0, nearLow = null, nld = 1e9, deckCap = null;
     for (m2 = 0; m2 < cs.length; m2++) {
       var c = cs[m2]; if (c.y > lo + 4) continue;
+      if (c.dist < nld) { nld = c.dist; nearLow = c; }
+      if (c.dist <= c.half + 0.5 && (deckCap === null || c.y - 0.12 < deckCap)) deckCap = c.y - 0.12;   // 이 자리를 덮는 노면
       var t = 1 - sstep(c.half + 4, 36, c.dist); if (t <= 0) continue;
       // 거리 가중 평균: 나란히 가는 램프와 본선 사이에서 **절벽 대신 성토 사면**이 생긴다
       var w = t * t / Math.max(1.2, c.dist);
@@ -341,6 +343,10 @@ TG.buildTerrain = function (scene, city, cfg) {
     }
     if (sw <= 0) return h;
     var target = sy / sw;
+    // 내가 딛고 선 노면보다 지형이 높아지지 않게 눌러 둔다 — 이걸 빼면 경사로 옆에서 지형이 노면 위로 올라와
+    // 차가 흙벽에 걸려 전진도 후진도 못 한다(실측 노면보다 0.45m 위였다).
+    if (nearLow) target = Math.min(target, nearLow.y - 0.12);
+    if (deckCap !== null) target = Math.min(target, deckCap);   // 포장이 덮은 자리는 그 포장 밑으로
     if (rv > -1.0) return h * (1 - tmax) + target * tmax;
     // 강·하천 위: 다리 노면 아래로 꺼지지 않게 한다
     if (near && near.dist <= near.half + 0.6) return near.y - 0.12;
@@ -378,6 +384,15 @@ TG.buildTerrain = function (scene, city, cfg) {
   function nearStream(x, z) { return Math.abs(z - yjZ(x)) < 16 && x > -80 && x > -80 && x < 420; }
   function limitOf(kind) { return kind === 'highway' ? cfg.HW_LIMIT_KMH : kind === 'suburb' ? cfg.SUB_LIMIT_KMH : kind === 'circuit' ? 999 : 80; }
   function laneOffsets(p) { return p.f > 0.5 ? cfg.HW_LANES.slice() : [cfg.LANE_OFF]; }
+  // 시설물(표지 기둥·갠트리 다리)은 **다른 도로의 포장 안에 서면 안 된다**.
+  // 소유자: 「도로 한가운데 차들이 주행하는 곳에 도로표지판이 있어서 사고를 내려고 하고 있음」.
+  function clearSpot(x, z, L, ux, uz) {
+    for (var k = 0; k <= 6; k++) {
+      var sx = x + ux * 3 * k, sz = z + uz * 3 * k, q = nearest(sx, sz, true);
+      if (!q || q.link === L || q.dist > q.p.half + 0.9) return [sx, sz];
+    }
+    return null;
+  }
   function shoulderOf(p) { return p.f > 0.5 ? cfg.HW_SHOULDER : (p.link.oneWay ? 3.4 : cfg.SHOULDER_OFF); }
 
   // ---------- 메시 ----------
@@ -487,7 +502,9 @@ TG.buildTerrain = function (scene, city, cfg) {
       var LIFT = ramp ? 0.07 : 0.05;
       if (ramp) {
         var ru = (i + 0.5) / L.N, inMerge = L.mergeFrom > 0 ? ru > L.mergeFrom : ru < 0.42, dsh = (i % 2) === 0;
-        if (!p.inMain && (!inMerge || dsh)) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
+        // 넓어진 이음부(taperHalf 구간)에서는 램프 가장자리선을 긋지 않는다 —
+        // 선이 노면을 대각으로 가로질러 「V」 자로 보였다(소유자: 「차선이 대각으로 그려져 있는 부분 전부 없애고」).
+        if (!p.inMain && p.half < 6.4 && (!inMerge || dsh)) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
       }
       else if (L.kind === 'circuit') {   // 서킷: 흰 가장자리선, 코너 연석(적·백), 출발선(체크), 코너 앞 러버콘
         ribbon(mark, p, q, half - 0.5, half - 0.32, LIFT, WHT); ribbon(mark, p, q, -half + 0.32, -half + 0.5, LIFT, WHT);
@@ -541,7 +558,9 @@ TG.buildTerrain = function (scene, city, cfg) {
       // 제한속도 표지(200m 마다, 양방향; 램프 제외)
       if (!ramp && i % 50 === 25) for (var dn = -1; dn <= 1; dn += 2) {
         if (hw && dn === 0) continue;
-        var offS = dn * (half + 1.6), sx = p.x + p.rx * offS, sz = p.z + p.rz * offS, rotS = Math.atan2(p.tx * dn, p.tz * dn) + Math.PI;
+        var offS = dn * (half + 1.6), spotS = clearSpot(p.x + p.rx * offS, p.z + p.rz * offS, L, p.rx * dn, p.rz * dn);
+        if (!spotS) continue;
+        var sx = spotS[0], sz = spotS[1], rotS = Math.atan2(p.tx * dn, p.tz * dn) + Math.PI;
         props.cylinder(sx, p.y, sz, 0.06, 0.05, 2.9, 5, 0x8f959c);
         var lim = limitOf(p.kind); face(lim === 100 ? 'limit100' : lim === 80 ? 'limit80' : 'limit60', sx, p.y + 2.75, sz, rotS, 0.9, 0.9);
       }
@@ -553,7 +572,9 @@ TG.buildTerrain = function (scene, city, cfg) {
     var p5 = L.P(i);
     for (var dn2 = -1; dn2 <= 1; dn2 += 2) {
       var txt = dn2 > 0 ? text : (textB || text);
-      var offG = dn2 * (p5.half + 1.2), gx = p5.x + p5.rx * offG, gz = p5.z + p5.rz * offG;
+      var offG = dn2 * (p5.half + 1.2), spotG = clearSpot(p5.x + p5.rx * offG, p5.z + p5.rz * offG, L, p5.rx * dn2, p5.rz * dn2);
+      if (!spotG) continue;                                     // 다리를 세울 자리가 차로 안뿐이면 세우지 않는다
+      var gx = spotG[0], gz = spotG[1];
       props.cylinder(gx, p5.y, gz, 0.18, 0.15, 6.5, 6, 0x4a4f55);
       var rotG = Math.atan2(p5.tx * dn2, p5.tz * dn2) + Math.PI, cxg = p5.x + p5.rx * dn2 * (p5.half * 0.5), czg = p5.z + p5.rz * dn2 * (p5.half * 0.5);
       props.box((gx + cxg) / 2, p5.y + 6.6, (gz + czg) / 2, 0.2, 0.2, Math.hypot(gx - cxg, gz - czg), 0x4a4f55, { rotY: Math.atan2(p5.rx, p5.rz) });

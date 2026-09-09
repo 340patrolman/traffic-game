@@ -200,7 +200,7 @@ TG.Response = function (game) {
     if (car.incident && !car.incident.handled) return (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 현장 · 경광등 + 뒤 정차 + 📡 무전';
     var t = tierOf(car);
     if (t === 'A') return car.pursuitOk ? '중대 위반 · 정차 유도(무전 전파 완료)' : '중대 위반 · 📡 무전 전파 먼저';
-    if (t === 'C') return '단순 위반 · 추격 금지 → 📹 영상 · 📡 무전';
+    if (t === 'C') return '단순 위반 · 추격 금지 → 📹 영상 · 📡 무전 (위반이지만 안전이 우선)';
     return '일반 위반 · 정차 유도 단속';
   };
 };

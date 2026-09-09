@@ -88,7 +88,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (p.axis === 'v') p.d = p.side > 0 ? 3 : 1; else p.d = p.side > 0 ? 2 : 0;
       self.onEvent('jaywalk', p); return;
     }
-    if (dist <= SIDE + 0.05 && p.decided !== node) {
+    if (dist <= SIDE + 1.6 && p.decided !== node) {   // 연석보다 1.6m 뒤 = 보도 위에서 기다린다
       p.decided = node;
       if (city.nodeFrom(node, p.d) && rng() < 0.62) { p.state = 'wait'; p.waitT = 0; }   // 건널 사람은 연석에서 신호를 기다린다
       else turnCorner(p, node);

@@ -85,6 +85,7 @@
     // 인트로용 순찰차(타이틀 배경에서도 경광등을 켜고 서 있다)
     player = new TG.PlayerCar(scene, city, C, carSpec(settings.car)); player.setSiren(true); G.player = player;
     document.querySelectorAll('.carpick').forEach(function (b) { b.classList.toggle('sel', b.getAttribute('data-car') === settings.car); });
+    var vt = document.getElementById('verTag'); if (vt) vt.textContent = 'v' + TG.VERSION;
     log('준비 완료 v' + TG.VERSION + ' · 건물 ' + city.buildings.length + ' · 링크 ' + terrain.links.length + ' · 터치 ' + input.isTouch + ' · ' + location.protocol);
     if (isTest) installTestHooks();
     if (noIntro || isTest) showTitle(); else startIntro();
@@ -930,7 +931,9 @@
       }
       walk.jay = false; walk.stopT = 0;
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
-      if (kid) { kidStep(3); if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
+      if (kid) { kidStep(3);
+        if (walk.cross && walk.cross.hand) walker.hand = Math.max(walker.hand, 1.2);   // 손을 들고 들어섰으면 다 건널 때까지 든 채로
+        if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
       if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
     } else if (p.where === 'road' || p.where === 'box') {
       if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('road', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
