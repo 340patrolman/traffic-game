@@ -10,6 +10,7 @@
       "note": "첫 지도(베타). 5×5 축약 격자 + 순환도로(경부고속도로·올림픽대로) + 한강 3개 다리. 실제 도로 곡선·블록 크기까지는 담지 않는다.",
       "file": "data/maps/seocho.json",
       "taas": "data/taas.json",
+      "taasNodes": "data/taas-nodes-seocho.json",
       "region": { "siDo": "11", "guGun": "650" }
     }
   ],

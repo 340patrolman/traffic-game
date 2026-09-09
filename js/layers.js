@@ -11,6 +11,7 @@ TG.Layers = function (game, city, cfg, scene) {
   var meshes = {};           // id → THREE.Group
   var on = {};               // id → boolean
   var taas = null;           // data/taas.json
+  var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
   var risk = {};
@@ -36,11 +37,19 @@ TG.Layers = function (game, city, cfg, scene) {
     if (location.protocol.indexOf('http') !== 0) { defsBuild(); if (cb) cb('file:// — data/taas.json 을 읽을 수 없습니다'); return; }
     var tf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taas) || (TG.MAP && TG.MAP.taas) || 'data/taas.json';   // 지도마다 다른 사고 자료 파일
     fetch(tf).then(function (r) { return r.json(); }).then(function (j) {
-      taas = j; defsBuild();
-      if (saved && typeof saved === 'object') Object.keys(saved).forEach(function (k) { if (k in on) on[k] = !!saved[k]; });
-      apply();
-      if (self.refreshPanel) self.refreshPanel();   // 자료가 늦게 와도 패널이 비어 있지 않게
-      if (cb) cb(null, j);
+      taas = j;
+      // 교차로별 사고 집계(있으면). 개별 사고가 아니라 집계값이다 — 개인 속성은 애초에 담지 않았다.
+      var nf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasNodes) || (TG.MAP && TG.MAP.taasNodes) || null;
+      var after = function () {
+        defsBuild();
+        if (saved && typeof saved === 'object') Object.keys(saved).forEach(function (k) { if (k in on) on[k] = !!saved[k]; });
+        apply();
+        if (self.refreshPanel) self.refreshPanel();   // 자료가 늦게 와도 패널이 비어 있지 않게
+        if (cb) cb(null, j);
+      };
+      if (!nf) { after(); return; }
+      return fetch(nf).then(function (r2) { return r2.json(); }).then(function (n2) { nodes = n2; after(); })
+        .catch(function () { after(); });
     }).catch(function (e) { defsBuild(); if (self.refreshPanel) self.refreshPanel(); if (cb) cb(e.message); });
   }
   function defsBuild() {
@@ -48,6 +57,15 @@ TG.Layers = function (game, city, cfg, scene) {
     (taas && taas.layers ? taas.layers : []).forEach(function (L) {
       defs.push({ id: L.id, name: L.name, color: L.color || '#e5484d', kind: 'taas', src: L, desc: L.desc || '' });
     });
+    if (nodes && nodes.nodes && nodes.nodes.length) {
+      defs.push({ id: 'taasNode', name: '교차로별 사고 집계', color: '#ff7ab6', kind: 'taas',
+        src: { items: nodes.nodes.map(function (n) {
+          return { node: n.node, name: n.name, total: n.total, death: n.death, serious: n.serious,
+                   slight: n.slight, report: n.report, types: n.types, violations: n.violations,
+                   vehicles: n.vehicles, roadForms: n.roadForms, year: nodes.years, verified: true, approx: true };
+        }) },
+        desc: (nodes.years || '') + ' · 사고 ' + (nodes.collected || 0) + '건 중 교차로 반경 약 600m 안 ' + (nodes.assigned || 0) + '건' });
+    }
     defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
     defs.push({ id: 'risk', name: '시뮬레이션 위험도', color: '#d33bd3', kind: 'risk', desc: '이 기기에서 달린 결과 — 급제동·보행자 근접·신호위반을 교차로별로 쌓는다' });
@@ -78,6 +96,9 @@ TG.Layers = function (game, city, cfg, scene) {
     return real.length + '건' + (yl.length ? ' · ' + yl.join('·') + '년 공표' : '') +
       (ap ? ' · 위치 근사 ' + ap + '건' : '') + (un ? ' · 확인 중 ' + un + '건' : '');
   }
+  self.nodesNote = function () { return nodes ? { source: nodes.source, attribution: nodes.attribution, years: nodes.years,
+    collected: nodes.collected, assigned: nodes.assigned, outside: nodes.outside, byGrade: nodes.byGrade,
+    method: nodes.method, caution: nodes.caution, notice: nodes.notice, wholeGu: nodes.wholeGu } : null; };
   self.sourceNote = function () { return taas ? { source: taas.source, sourceUrl: taas.sourceUrl, attribution: taas.attribution,
     years: taas.years, howto: taas.howto, updated: taas.updated, region: taas.region, criteria: taas.criteria, mapping: taas.mapping } : null; };
 
@@ -118,6 +139,10 @@ TG.Layers = function (game, city, cfg, scene) {
   // 원 크기: 사고건수 + 사망·중상 가중. TAAS 다발지 기준은 반경 100m 라 최대도 그 안에 둔다.
   function radOf(it) {
     if (it.radius) return it.radius;
+    if (it.types) {   // 교차로별 집계(건수가 수백) — 제곱근으로 눌러 화면을 덮지 않게
+      var t = (it.total || 0) + (it.death || 0) * 20;
+      return Math.max(12, Math.min(38, 8 + Math.sqrt(t) * 2.0));
+    }
     var w = (it.total || 0) + (it.death || 0) * 6 + (it.serious || 0) * 0.6;
     return Math.max(14, Math.min(50, 12 + w * 0.9));
   }
@@ -226,6 +251,15 @@ TG.Layers = function (game, city, cfg, scene) {
       h += '<div class="pl-note">' + lesc(src.attribution || '출처: 도로교통공단 TAAS') + (src.years ? ' · ' + lesc(src.years) : '') + '</div>';
       h += '<div class="pl-min">' + lesc(src.source) + '</div>';
       if (src.criteria) h += '<div class="pl-min">선정 기준 · ' + lesc(src.criteria) + '</div>';
+      var nn = self.nodesNote();
+      if (nn) {
+        h += '<div class="pl-note">교차로별 집계 · ' + lesc(nn.years) + ' 서초구 ' + nn.collected + '건' +
+          (nn.byGrade ? ' (사망 ' + nn.byGrade['사망'] + ' · 중상 ' + nn.byGrade['중상'] + ' · 경상 ' + nn.byGrade['경상'] + ' · 부상신고 ' + nn.byGrade['부상신고'] + ')' : '') + '</div>';
+        if (nn.wholeGu && nn.wholeGu.violations) h += '<div class="pl-min">구 전체 법규위반 · ' +
+          nn.wholeGu.violations.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
+        h += '<div class="pl-min">' + lesc(nn.method) + '</div>';
+        h += '<div class="pl-min">개인정보 · ' + lesc(nn.notice) + '</div>';
+      }
       if (src.mapping) h += '<div class="pl-min">좌표 변환 · ' + lesc(src.mapping) + '</div>';
       h += '<div class="pl-min">넣는 방법 · ' + lesc(src.howto) + '</div>';
     } else {

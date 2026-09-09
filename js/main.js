@@ -1381,8 +1381,10 @@
         var det = (ht.total != null ? ht.total + '건' : '건수 확인 중');
         if (ht.death) det += ' · 사망 ' + ht.death;
         if (ht.serious) det += ' · 중상 ' + ht.serious;
+        // 교차로별 집계에는 사고경위(법규위반)가 있다 — 그것을 보여 주는 것이 홍보에 쓸모 있다
+        if (ht.violations && ht.violations.length) det += ' · ' + ht.violations.slice(0, 2).map(function (v) { return v[0] + ' ' + v[1]; }).join(' · ');
         hud.hint((ht.example ? '⚠ (예시) ' : '⚠ ') + hot.layer.name + ' — ' + (ht.name || '') +
-          (ht.year ? ' (' + ht.year + '년 공표)' : '') + ' · ' + det +
+          (ht.year ? ' (' + ht.year + ')' : '') + ' · ' + det +
           (ht.verified ? '' : ' (확인 중)') + (ht.approx ? ' · 위치 근사' : '') + ' · 감속');
       }
       rules.hotCd = Math.max(0, (rules.hotCd || 0) - dt);
