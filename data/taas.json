@@ -1,30 +1,31 @@
 {
-  "schema": "tg-taas/1",
-  "notice": "교통사고 데이터 레이어의 유일한 출처다. 코드에 사고 건수를 하드코딩하지 않는다. 아래 items 는 **비어 있다** — 소유자가 TAAS 자료를 넣어야 지도에 뜬다. example:true 항목은 입력 형식을 보이기 위한 견본이며 화면에 「예시」로 표시되고 통계에는 넣지 않는다. verified:false 는 「확인 중」으로 표시된다.",
-  "source": "도로교통공단 TAAS(교통사고분석시스템, taas.koroad.or.kr) 의 「사고다발지역」·「보행자 사고」 통계를 옮겨 적는 자리다. 지어낸 숫자는 넣지 않는다 — 1차 출처에서 확인한 값만 넣는다.",
+  "schema": "tg-taas/2",
+  "notice": "교통사고 데이터 레이어의 유일한 출처다. 코드에 사고 건수를 하드코딩하지 않는다. 아래 값은 도로교통공단 TAAS 공개 CSV 원본에서 서초구 행만 뽑아 옮긴 것이고, 지어낸 숫자는 없다. 다만 이 지도는 서초구 축약본이라 지점 위치는 근사다 — approx:true 인 항목은 화면에 「위치 근사」로 표시된다.",
+  "source": "도로교통공단 TAAS 교통사고분석시스템 · 교통사고정보 개방시스템(KOROAD OPEN API PORTAL, https://opendata.koroad.or.kr/api/). 각 레이어의 file 항목이 받은 원본 CSV 파일명이다. 자료를 활용할 때는 출처와 자료링크를 밝혀야 한다(TAAS 고지).",
+  "sourceUrl": "https://opendata.koroad.or.kr/api/",
+  "attribution": "출처: 도로교통공단 TAAS 교통사고분석시스템 (https://taas.koroad.or.kr)",
+  "fetched": "2026-09-09",
   "updated": "2026-09-09",
-  "years": "",
-  "howto": "① TAAS 에서 서초구 사고다발지역(연도·지점명·건수·사상자)을 받는다. ② 지점을 이 지도의 교차로에 맞춘다 — node 는 [i,j] 이고 i=0..4 는 서→동(동작대로·방배로·반포대로·서초중앙로·강남대로), j=0..4 는 북→남(신반포로·사평대로·서초대로·효령로·남부순환로) 이다. 교차로가 아닌 지점은 node 대신 xz:[x,z] 로 넣는다(x·z 는 게임 좌표, 교차로 간격 80m). ③ years 와 각 항목의 verified 를 채운다.",
+  "years": "2025~2026년 공표분",
+  "region": { "name": "서울특별시 서초구", "siDo": "11", "guGun": "650" },
+  "criteria": "다발지역 선정: 반경 100m 내 대상사고가 기준 건수 이상 발생한 지점(예: 보행자 = 최근 3년간 보행자 사망 또는 중상 사고 7건 이상). 항목의 year 는 TAAS 공표 기준연도다.",
+  "mapping": "실제 위경도(EPSG:4326) → 이 축약 지도 좌표. u=lon-127.01, w=lat-37.49 일 때 x = 6056.10u + 1401.41w + 183.17, z = 1426.88u - 11757.20w + 210.60. 사당역·고속터미널역·강남역·양재역 네 지점으로 최소제곱 맞춤했고 그 네 곳 오차는 5~26m 다. 지점명이 게임 교차로를 그대로 가리키는 항목은 좌표 대신 node:[i,j] 로 붙였다(추측이 아니라 지점명이 근거).",
+  "howto": "다른 지역으로 바꾸려면: ① https://opendata.koroad.or.kr/api/ 에서 원하는 다발지역 CSV 를 받는다(인증키 없이도 CSV 다운로드가 열려 있다. OpenAPI 를 쓰려면 회원가입 후 인증키를 발급받고 siDo·guGun 코드로 조회한다). ② 시도시군구명에 원하는 구·시가 든 행만 남긴다. ③ 각 행의 지점명·사고건수·사망자수·중상자수·경도·위도를 아래 형식으로 옮긴다. ④ mapping 식을 그 지역 기준으로 다시 맞춘다(또는 node:[i,j] 로 직접 지정한다). 게임은 네트워크 요청을 하지 않으므로 OpenAPI 를 실시간으로 부르지 않는다 — 파일로만 읽는다.",
   "layers": [
     {
-      "id": "taasHot",
-      "name": "사고다발지",
+      "id": "taasAll",
+      "name": "교통사고 다발지(전체)",
       "kind": "point",
       "color": "#e5484d",
-      "desc": "TAAS 사고다발지역. 원의 크기는 건수에 비례한다.",
+      "file": "17_25_lg.csv (지자체별 교통사고 다발지역)",
+      "desc": "지자체별 교통사고 다발지역 — 모든 사고 유형. 원의 크기는 사고건수에 비례한다.",
       "items": [
-        {
-          "example": true,
-          "node": [2, 2],
-          "name": "(예시) 서초역 사거리",
-          "total": 12,
-          "death": 0,
-          "serious": 2,
-          "injury": 15,
-          "radius": 26,
-          "note": "입력 형식 견본 — 실제 TAAS 값이 아니다",
-          "verified": false
-        }
+        { "name": "잠원동(반포사거리 부근)", "year": 2026, "node": [2, 0], "total": 48, "caslt": 64, "death": 0, "serious": 6, "slight": 56, "lo": 127.002279, "la": 37.505332, "verified": true },
+        { "name": "반포동(오딘약국 부근)", "year": 2026, "xz": [280.9, -16.1], "approx": true, "total": 46, "caslt": 60, "death": 0, "serious": 6, "slight": 53, "lo": 127.021357, "la": 37.510658, "verified": true },
+        { "name": "양재동(트럭터미널앞교차로 부근)", "year": 2026, "xz": [303.4, 592.2], "approx": true, "total": 50, "caslt": 74, "death": 0, "serious": 7, "slight": 64, "lo": 127.036613, "la": 37.460772, "verified": true },
+        { "name": "잠원동(고속터미널교차로 부근)", "year": 2025, "xz": [155.6, 17.2], "approx": true, "total": 46, "caslt": 67, "death": 0, "serious": 12, "slight": 55, "lo": 127.001876, "la": 37.505463, "verified": true },
+        { "name": "반포동(서울성모병원교차로 부근)", "year": 2025, "xz": [161.1, 59.6], "approx": true, "total": 44, "caslt": 67, "death": 0, "serious": 5, "slight": 62, "lo": 127.003558, "la": 37.502057, "verified": true },
+        { "name": "양재동(트럭터미널앞교차로 부근)", "year": 2025, "xz": [306.2, 586.8], "approx": true, "total": 54, "caslt": 93, "death": 0, "serious": 3, "slight": 83, "lo": 127.036964, "la": 37.461273, "verified": true }
       ]
     },
     {
@@ -32,16 +33,57 @@
       "name": "보행자 사고다발지",
       "kind": "point",
       "color": "#f5a524",
-      "desc": "보행자(어린이·고령자 포함) 사고다발지역.",
-      "items": []
+      "file": "19_25_pedstrians.csv (보행자 교통사고 다발지역)",
+      "desc": "최근 3년간 보행자 사망 또는 중상 사고가 반경 100m 내 7건 이상 발생한 지점.",
+      "items": [
+        { "name": "서초동(굿약국 부근)", "year": 2026, "xz": [298.0, 122.0], "approx": true, "total": 13, "caslt": 13, "death": 0, "serious": 13, "slight": 0, "lo": 127.026749, "la": 37.499567, "verified": true },
+        { "name": "양재동(엔스온누리약국 부근)", "year": 2026, "xz": [331.2, 335.6], "approx": true, "total": 8, "caslt": 8, "death": 1, "serious": 7, "slight": 0, "lo": 127.036166, "la": 37.482547, "verified": true },
+        { "name": "서초동(강남성지약국 부근)", "year": 2025, "xz": [296.8, 121.5], "approx": true, "total": 14, "caslt": 14, "death": 0, "serious": 14, "slight": 0, "lo": 127.026552, "la": 37.499589, "verified": true },
+        { "name": "양재동(엔스온누리약국 부근)", "year": 2025, "xz": [332.2, 334.3], "approx": true, "total": 10, "caslt": 10, "death": 1, "serious": 9, "slight": 0, "lo": 127.036311, "la": 37.482669, "verified": true },
+        { "name": "반포동(고속터미널역 9호선 부근)", "year": 2025, "node": [2, 0], "total": 8, "caslt": 9, "death": 0, "serious": 9, "slight": 0, "lo": 127.003748, "la": 37.506080, "verified": true },
+        { "name": "서초동(미유끼 부근)", "year": 2025, "xz": [173.4, 206.6], "approx": true, "total": 8, "caslt": 8, "death": 0, "serious": 8, "slight": 0, "lo": 127.008355, "la": 37.490141, "verified": true },
+        { "name": "방배동(사당역사거리 부근)", "year": 2025, "node": [0, 4], "total": 7, "caslt": 8, "death": 0, "serious": 8, "slight": 0, "lo": 126.982319, "la": 37.477468, "verified": true },
+        { "name": "서초동(강남드림약국 부근)", "year": 2025, "xz": [292.6, 101.7], "approx": true, "total": 7, "caslt": 7, "death": 0, "serious": 7, "slight": 0, "lo": 127.025493, "la": 37.501139, "verified": true }
+      ]
     },
     {
       "id": "taasChild",
-      "name": "어린이 사고다발지",
+      "name": "보행어린이 사고다발지",
       "kind": "point",
       "color": "#3aa0ff",
+      "file": "12_25_child.csv (보행어린이 교통사고 다발지역)",
       "desc": "어린이(13세 미만) 보행 사고다발지역. 어린이보호구역 지정·개선의 근거가 된다.",
-      "items": []
+      "items": [
+        { "name": "반포동(서초구립 하나푸르니반포어린이집 부근)", "year": 2026, "xz": [203.3, 65.2], "approx": true, "total": 3, "caslt": 4, "death": 0, "serious": 2, "slight": 2, "lo": 127.010446, "la": 37.502417, "verified": true },
+        { "name": "반포동(반포어린이집 부근)", "year": 2026, "xz": [112.3, 122.6], "approx": true, "total": 3, "caslt": 3, "death": 0, "serious": 0, "slight": 3, "lo": 126.996935, "la": 37.495902, "verified": true }
+      ]
+    },
+    {
+      "id": "taasMoto",
+      "name": "이륜차 사고다발지",
+      "kind": "point",
+      "color": "#a855f7",
+      "file": "17_25_motorcycle.csv (이륜차 교통사고 다발지역)",
+      "desc": "이륜차 사고다발지역.",
+      "items": [
+        { "name": "서초동(1748-33 부근)", "year": 2026, "xz": [203.2, 237.6], "approx": true, "total": 5, "caslt": 9, "death": 0, "serious": 5, "slight": 4, "lo": 127.013734, "la": 37.488157, "verified": true },
+        { "name": "양재동(말죽거리주유소 부근)", "year": 2026, "xz": [361.8, 317.9], "approx": true, "total": 4, "caslt": 6, "death": 0, "serious": 5, "slight": 1, "lo": 127.040738, "la": 37.484600, "verified": true },
+        { "name": "양재동(261-24 부근)", "year": 2026, "xz": [376.3, 395.1], "approx": true, "total": 4, "caslt": 4, "death": 0, "serious": 4, "slight": 0, "lo": 127.044555, "la": 37.478505, "verified": true },
+        { "name": "서초동(서울교대교차로 부근)", "year": 2025, "node": [3, 2], "total": 4, "caslt": 5, "death": 0, "serious": 5, "slight": 0, "lo": 127.013757, "la": 37.488135, "verified": true },
+        { "name": "서초동(아라약국 부근)", "year": 2025, "xz": [297.6, 138.2], "approx": true, "total": 4, "caslt": 4, "death": 0, "serious": 4, "slight": 0, "lo": 127.026991, "la": 37.498224, "verified": true },
+        { "name": "양재동(말죽거리공원사거리 부근)", "year": 2025, "xz": [343.2, 389.7], "approx": true, "total": 4, "caslt": 4, "death": 0, "serious": 4, "slight": 0, "lo": 127.039133, "la": 37.478304, "verified": true }
+      ]
+    },
+    {
+      "id": "taasBike",
+      "name": "자전거 사고다발지",
+      "kind": "point",
+      "color": "#22c55e",
+      "file": "12_25_bicycle.csv (자전거 교통사고 다발지역)",
+      "desc": "자전거 사고다발지역.",
+      "items": [
+        { "name": "서초동(1460-7 부근)", "year": 2026, "xz": [182.9, 285.9], "approx": true, "total": 4, "caslt": 4, "death": 0, "serious": 2, "slight": 2, "lo": 127.011399, "la": 37.483763, "verified": true }
+      ]
     }
   ]
 }

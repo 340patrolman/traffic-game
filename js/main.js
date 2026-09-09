@@ -1347,8 +1347,12 @@
       if (hot && rules.hotCd <= 0) {
         rules.hotCd = 14;
         var ht = hot.it;
+        var det = (ht.total != null ? ht.total + '건' : '건수 확인 중');
+        if (ht.death) det += ' · 사망 ' + ht.death;
+        if (ht.serious) det += ' · 중상 ' + ht.serious;
         hud.hint((ht.example ? '⚠ (예시) ' : '⚠ ') + hot.layer.name + ' — ' + (ht.name || '') +
-          (ht.total != null ? ' · ' + ht.total + '건' : ' · 건수 확인 중') + (ht.verified ? '' : ' (확인 중)') + ' · 감속');
+          (ht.year ? ' (' + ht.year + '년 공표)' : '') + ' · ' + det +
+          (ht.verified ? '' : ' (확인 중)') + (ht.approx ? ' · 위치 근사' : '') + ' · 감속');
       }
       rules.hotCd = Math.max(0, (rules.hotCd || 0) - dt);
     }

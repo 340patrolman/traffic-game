@@ -66,12 +66,18 @@ TG.Layers = function (game, city, cfg, scene) {
   }
   function noteOf(d) {
     if (d.kind !== 'taas') return '';
-    var all = d.src.items || [], real = realItems(all.length ? d : d);
+    var all = d.src.items || [], real = realItems(d);
     if (!all.length) return '데이터 없음 — TAAS 자료를 data/taas.json 에 넣으면 지도에 뜹니다';
     if (!real.length) return '예시만 있습니다 — 실제 TAAS 값으로 교체하세요';
-    return real.length + '건' + (real.some(function (it) { return !it.verified; }) ? ' · 일부 확인 중' : '');
+    var ys = {}; real.forEach(function (it) { if (it.year) ys[it.year] = 1; });
+    var yl = Object.keys(ys).sort();
+    var ap = real.filter(function (it) { return it.approx; }).length;
+    var un = real.filter(function (it) { return !it.verified; }).length;
+    return real.length + '건' + (yl.length ? ' · ' + yl.join('·') + '년 공표' : '') +
+      (ap ? ' · 위치 근사 ' + ap + '건' : '') + (un ? ' · 확인 중 ' + un + '건' : '');
   }
-  self.sourceNote = function () { return taas ? { source: taas.source, years: taas.years, howto: taas.howto, updated: taas.updated } : null; };
+  self.sourceNote = function () { return taas ? { source: taas.source, sourceUrl: taas.sourceUrl, attribution: taas.attribution,
+    years: taas.years, howto: taas.howto, updated: taas.updated, region: taas.region, criteria: taas.criteria, mapping: taas.mapping } : null; };
 
   self.toggle = function (id) {
     if (!(id in on)) return false;
@@ -107,6 +113,12 @@ TG.Layers = function (game, city, cfg, scene) {
     }
   }
   function hex(c) { return parseInt(String(c).replace('#', ''), 16) || 0xffffff; }
+  // 원 크기: 사고건수 + 사망·중상 가중. TAAS 다발지 기준은 반경 100m 라 최대도 그 안에 둔다.
+  function radOf(it) {
+    if (it.radius) return it.radius;
+    var w = (it.total || 0) + (it.death || 0) * 6 + (it.serious || 0) * 0.6;
+    return Math.max(14, Math.min(50, 12 + w * 0.9));
+  }
   function posOf(it) {
     if (it.node && city.nodes[it.node[0]] && city.nodes[it.node[0]][it.node[1]]) { var n = city.nodes[it.node[0]][it.node[1]]; return [n.x, n.z]; }
     if (it.xz) return [it.xz[0], it.xz[1]];
@@ -126,7 +138,7 @@ TG.Layers = function (game, city, cfg, scene) {
     if (d.kind === 'taas') {
       (d.src.items || []).forEach(function (it) {
         var p = posOf(it); if (!p) return;
-        var r = it.radius || (14 + Math.min(30, (it.total || 0) * 1.6));
+        var r = radOf(it);
         disc(gb, p[0], p[1], r, col, 0.09); ring(gb, p[0], p[1], r + 1.6, 1.2, col, 0.10);
         any = true;
       });
@@ -159,7 +171,7 @@ TG.Layers = function (game, city, cfg, scene) {
       var items = d.src.items || [];
       for (var k = 0; k < items.length; k++) {
         var it = items[k], p = posOf(it); if (!p) continue;
-        var r = it.radius || (14 + Math.min(30, (it.total || 0) * 1.6));
+        var r = radOf(it);
         if (Math.hypot(p[0] - x, p[1] - z) <= r) return { layer: d, it: it };
       }
     }
@@ -172,7 +184,7 @@ TG.Layers = function (game, city, cfg, scene) {
       if (d.kind === 'taas') {
         (d.src.items || []).forEach(function (it) {
           var p = posOf(it); if (!p) return;
-          var r = (it.radius || (14 + Math.min(30, (it.total || 0) * 1.6)));
+          var r = radOf(it);
           g.beginPath(); g.arc(mx(p[0]), mz(p[1]), Math.max(2.5, r * 0.09) * K, 0, Math.PI * 2);
           g.fillStyle = d.color + 'aa'; g.fill();
           g.strokeStyle = d.color; g.lineWidth = 1.1 * K; g.stroke();
@@ -209,7 +221,10 @@ TG.Layers = function (game, city, cfg, scene) {
     });
     h += '</div>';
     if (src) {
-      h += '<div class="pl-note">출처 · ' + lesc(src.source) + (src.years ? ' (' + lesc(src.years) + ')' : ' · 연도 미기재') + '</div>';
+      h += '<div class="pl-note">' + lesc(src.attribution || '출처: 도로교통공단 TAAS') + (src.years ? ' · ' + lesc(src.years) : '') + '</div>';
+      h += '<div class="pl-min">' + lesc(src.source) + '</div>';
+      if (src.criteria) h += '<div class="pl-min">선정 기준 · ' + lesc(src.criteria) + '</div>';
+      if (src.mapping) h += '<div class="pl-min">좌표 변환 · ' + lesc(src.mapping) + '</div>';
       h += '<div class="pl-min">넣는 방법 · ' + lesc(src.howto) + '</div>';
     } else {
       h += '<div class="pl-note">data/taas.json 을 읽지 못했습니다 — file:// 로 열면 브라우저가 막습니다. 정적 서버나 GitHub Pages 로 여세요.</div>';
