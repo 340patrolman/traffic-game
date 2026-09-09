@@ -416,6 +416,7 @@ TG.audio = (function () {
   // 긴장도 0~1: 대상과 가까울수록·속도가 높을수록 밝고 크게
   function chaseTension(v) {
     if (!chase) return;
+    if (!isFinite(v)) return;                      // NaN 은 Math.min/max 로 걸러지지 않는다 — 넘기면 Web Audio 가 예외를 던진다
     chase.tension = Math.max(0, Math.min(1, v));
     if (chase.lp) chase.lp.frequency.setTargetAtTime(380 + chase.tension * 900, ctx.currentTime, 0.2);
     chase.bus.gain.setTargetAtTime(0.5 + chase.tension * 0.35, ctx.currentTime, 0.3);

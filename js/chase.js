@@ -101,7 +101,7 @@ TG.Chase = function (game) {
     self.log.radioed = self.log.radioed || radioed;
     self.t.follow += dt;
     var kmh = pl.speedKmh();
-    if (TG.audio.chaseTension) TG.audio.chaseTension(Math.min(1, (kmh / 110) * 0.6 + (d < 60 ? (60 - d) / 60 * 0.5 : 0)));
+    if (TG.audio.chaseTension && isFinite(d) && isFinite(kmh)) TG.audio.chaseTension(Math.min(1, (kmh / 110) * 0.6 + (d < 60 ? (60 - d) / 60 * 0.5 : 0)));
     // 아슬아슬: 다른 차를 2m 안으로 스치며 지나갈 때. 점수는 없다 — 부수적 피해 직전이라는 긴장 신호다.
     self.t.miss = (self.t.miss || 0) - dt;
     if (kmh > 55 && self.t.miss <= 0) {

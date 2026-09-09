@@ -257,13 +257,13 @@ TG.buildTerrain = function (scene, city, cfg) {
     conns.push(conn);
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
-  // 도로명·제한속도(축약 서울): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 테헤란로 연장(60). 링 북쪽 호는 올림픽대로(80, frameAt).
+  // 도로명·제한속도(축약 서초구): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 서초대로 연장·테헤란로 방향(60). 링 북쪽 호는 올림픽대로(80, frameAt).
   // 서울 구간 왕복 8차로 + 1차로 버스전용(다인승). 올림픽대로·순환고속도로에는 버스전용차로가 없다
   conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[2].busLane = true;
-  conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80;
-  conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80;
-  conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장';
-  conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
+  conns[1].name = '반포대로 · 반포대교'; conns[1].limit = 80;
+  conns[5].name = '동작대로 · 동작대교'; conns[5].limit = 80;
+  conns[3].name = '서초대로 연장 · 사당 방향'; conns[0].name = '서초대로 연장 · 테헤란로 방향';
+  conns[4].name = '강남대로 · 신논현 방향'; conns[6].name = '강남대로 연장 · 도곡 방향'; conns[7].name = '동작대로 연장 · 남태령 방향';
   // 연습 서킷(도시 동쪽 해안 평지, 링 바깥): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   // 전에는 x 180~318 · z 400~536 에 있어서 **경부고속도로 연결로와 양재IC 램프를 22m 파고들었다** —
   // 고속도로 옆에 적·백 코너 연석과 서킷 노면이 겹쳐 보였고, frameAt 이 고속도로 위를 「연습 서킷(반폭 7.5m) 밖」으로
@@ -583,11 +583,11 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
   gantry(ring, (jE + 20) % ring.N, '경부고속도로 · 제한 100'); gantry(ring, (jN + 20) % ring.N, '올림픽대로 · 제한 80');   // 버스전용차로는 경부고속도로 남쪽 연결로(link.busLane)에만 있다
   // IC 안내표지(강남·서초 축약): 연결로 도시 쪽 「순환고속도로 → ○○IC」, 분기 54m 전 「↱ ○○IC 진입」, 링 위 출구 500m·직전 「↗ ○○IC 출구」. 시내 방향 면에는 「강남역·시내 방향」.
-  var IC_INFO = { E: ['삼성IC', '코엑스·잠실 방향'], N: ['한남IC', '한남대교·강북 방향'], S: ['경부고속도로 시점', '판교·부산 방향'], W: ['서초IC', '예술의전당·법원 방향'],
-                  NE: ['청담IC', '청담대교·영동대로 방향'], NW: ['반포IC', '고속터미널·반포대교 방향'], SE: ['수서IC', '수서·세곡 방향'], SW: ['양재IC', '양재천·양재역 방향'] };
+  var IC_INFO = { E: ['강남IC', '강남역·테헤란로 방향'], N: ['반포IC', '반포대교·용산 방향'], S: ['경부고속도로 시점', '양재·판교 방향'], W: ['사당IC', '사당·동작 방향'],
+                  NE: ['신논현IC', '논현·신사 방향'], NW: ['동작대교IC', '이촌·용산 방향'], SE: ['양재IC', '양재천·도곡 방향'], SW: ['방배IC', '방배·남태령 방향'] };
   conns.forEach(function (c) {
     var info = IC_INFO[c.ic] || [c.id, '']; c.icName = info[0]; c.icDest = info[1];
-    gantry(c, Math.min(6, c.N - 1), '경부고속도로 →|' + info[0] + ' · ' + info[1], '강남역 · 시내 방향|' + (c.name || '') );
+    gantry(c, Math.min(6, c.N - 1), '경부고속도로 →|' + info[0] + ' · ' + info[1], '서초 · 시내 방향|' + (c.name || '') );
     gantry(c, Math.max(2, c.N - 18), '↱ ' + info[0] + ' 진입|' + info[1] + ' · 우측 램프', '강남역 · 시내 방향|직진');
   });
   ring.exitsA.forEach(function (ex) {

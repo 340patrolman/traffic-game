@@ -242,84 +242,108 @@ TG.tex = (function () {
       g.fillStyle = GOLD; g.strokeStyle = GOLD_D; g.lineWidth = r * 0.055;
       g.beginPath();
       g.moveTo(0, -r * 0.18);
-      g.bezierCurveTo(r * 0.62, -r * 1.02, r * 1.28, -r * 0.42, r * 0.92, r * 0.12);
-      g.bezierCurveTo(r * 0.56, r * 0.52, r * 0.08, r * 0.34, 0, -r * 0.18);
+      g.bezierCurveTo(r * 0.70, -r * 1.10, r * 1.36, -r * 0.34, r * 0.94, r * 0.18);
+      g.bezierCurveTo(r * 0.58, r * 0.58, r * 0.08, r * 0.36, 0, -r * 0.18);
       g.closePath(); g.fill(); g.stroke();
       g.restore();
     }
   }
-  // 참수리: 좌우로 활짝 펼친 금색 날개 + 가운데 몸통·머리 + 꼬리. 원점은 가슴 중앙, span = 한쪽 날개 길이.
+  // 참수리(경찰 표장): 좌우로 활짝 편 금색 날개 — 안쪽은 거의 수평, 바깥으로 갈수록 길어지며 **끝이 위로 벌어진다**.
+  // 가운데에 작은 몸통, 그 위에 옆을 보는 머리와 갈고리 부리. 원점은 어깨 중앙, span = 한쪽 날개 길이.
+  // (소유자가 준 실물 사진의 형태를 그대로 따랐다. 외부 이미지 파일은 쓰지 않는다 — 캔버스로만 그린다.)
   function eagle(g, span) {
-    var FE = 6;
+    var FE = 7;
     for (var side = -1; side <= 1; side += 2) {
       g.save(); g.scale(side, 1);
-      for (var k = 0; k < FE; k++) {                       // 깃: 안쪽은 짧고 위로, 바깥은 길고 살짝 아래로 처진다
-        var t = k / (FE - 1), len = span * (0.44 + t * 0.56), ang = -0.42 + t * 0.30, thick = span * (0.115 - t * 0.035);
-        g.save(); g.translate(span * 0.11, -span * 0.06); g.rotate(ang);
-        g.fillStyle = k % 2 ? GOLD_L : GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.014;
+      for (var k = 0; k < FE; k++) {
+        var t = k / (FE - 1);
+        var len = span * (0.60 + t * 0.40);                 // 바깥으로 갈수록 길다
+        var ang = -0.06 - t * 0.22;                         // 바깥으로 갈수록 위로 들린다(완만하게)
+        var thick = span * (0.135 - t * 0.050);
+        g.save(); g.translate(span * 0.10, -span * 0.02); g.rotate(ang);
+        g.fillStyle = (k % 2) ? GOLD_L : GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.016;
         g.beginPath();
         g.moveTo(0, -thick * 0.5);
-        g.lineTo(len * 0.86, -thick * 0.86);
-        g.quadraticCurveTo(len, -thick * 0.2, len * 0.9, thick * 0.5);
-        g.lineTo(0, thick * 0.62);
+        g.quadraticCurveTo(len * 0.62, -thick * 1.05, len * 0.97, -thick * 0.55);
+        g.quadraticCurveTo(len * 1.02, 0, len * 0.90, thick * 0.48);
+        g.quadraticCurveTo(len * 0.50, thick * 0.72, 0, thick * 0.60);
         g.closePath(); g.fill(); g.stroke();
         g.restore();
       }
       g.restore();
     }
-    // 몸통·꼬리
-    g.fillStyle = GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.016;
+    // 저울: 어깨 아래 가로 막대와 좌우 접시 — 실물 표장에 있는 요소다
+    g.strokeStyle = GOLD_D; g.fillStyle = GOLD; g.lineWidth = span * 0.030;
+    g.beginPath(); g.moveTo(-span * 0.60, span * 0.12); g.lineTo(span * 0.60, span * 0.12); g.stroke();
+    for (var sc = -1; sc <= 1; sc += 2) {
+      g.lineWidth = span * 0.014;
+      g.beginPath(); g.moveTo(sc * span * 0.56, span * 0.12); g.lineTo(sc * span * 0.56, span * 0.20); g.stroke();
+      g.beginPath(); g.arc(sc * span * 0.56, span * 0.20, span * 0.115, 0, Math.PI); g.closePath(); g.fill(); g.stroke();
+    }
+    // 몸통(작고 둥글다) + 꼬리깃
+    g.fillStyle = GOLD; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.018;
     g.beginPath();
-    g.moveTo(0, -span * 0.30);
-    g.bezierCurveTo(span * 0.17, -span * 0.12, span * 0.16, span * 0.30, span * 0.09, span * 0.46);
-    g.lineTo(-span * 0.09, span * 0.46);
-    g.bezierCurveTo(-span * 0.16, span * 0.30, -span * 0.17, -span * 0.12, 0, -span * 0.30);
+    g.moveTo(0, -span * 0.17);
+    g.bezierCurveTo(span * 0.140, -span * 0.05, span * 0.120, span * 0.18, span * 0.075, span * 0.32);
+    g.lineTo(-span * 0.075, span * 0.32);
+    g.bezierCurveTo(-span * 0.120, span * 0.18, -span * 0.140, -span * 0.05, 0, -span * 0.17);
     g.closePath(); g.fill(); g.stroke();
-    g.beginPath();                                          // 꼬리깃 3장
-    g.moveTo(-span * 0.10, span * 0.44); g.lineTo(span * 0.10, span * 0.44);
-    g.lineTo(span * 0.15, span * 0.80); g.lineTo(0, span * 0.68); g.lineTo(-span * 0.15, span * 0.80);
+    g.beginPath();                                          // 꼬리깃
+    g.moveTo(-span * 0.075, span * 0.30); g.lineTo(span * 0.075, span * 0.30);
+    g.lineTo(span * 0.115, span * 0.62); g.lineTo(0, span * 0.50); g.lineTo(-span * 0.115, span * 0.62);
     g.closePath(); g.fill(); g.stroke();
-    // 머리(정면) + 갈고리 부리 + 볏
-    g.fillStyle = GOLD_L; g.beginPath(); g.ellipse(0, -span * 0.40, span * 0.115, span * 0.105, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = GOLD; g.beginPath();
-    g.moveTo(-span * 0.035, -span * 0.34); g.lineTo(span * 0.035, -span * 0.34); g.lineTo(0, -span * 0.25); g.closePath(); g.fill(); g.stroke();   // 부리
-    g.fillStyle = GOLD; g.beginPath();
-    g.moveTo(-span * 0.05, -span * 0.50); g.lineTo(0, -span * 0.60); g.lineTo(span * 0.05, -span * 0.50); g.closePath(); g.fill(); g.stroke();     // 볏
-    g.fillStyle = '#2e2109';
-    g.beginPath(); g.arc(-span * 0.048, -span * 0.42, span * 0.021, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.arc(span * 0.048, -span * 0.42, span * 0.021, 0, Math.PI * 2); g.fill();
+    // 머리: 어깨 바로 위에 얹힌다(목을 길게 뽑지 않는다 — 길면 오리처럼 보인다).
+    // 왼쪽을 보고, 이마에서 부리로 곧게 내려오다 끝이 아래로 꺾이는 짧은 갈고리 부리.
+    g.save(); g.translate(-span * 0.015, -span * 0.185);
+    var h = span * 0.20;                                     // 머리 크기(반지름 기준)
+    g.fillStyle = GOLD_L; g.strokeStyle = GOLD_D; g.lineWidth = span * 0.017;
+    g.beginPath();
+    g.moveTo(h * 0.62, h * 0.52);                            // 목덜미(오른쪽 아래)
+    g.bezierCurveTo(h * 0.95, h * 0.10, h * 0.80, -h * 0.78, h * 0.02, -h * 0.90);   // 뒤통수
+    g.bezierCurveTo(-h * 0.48, -h * 0.96, -h * 0.78, -h * 0.58, -h * 0.86, -h * 0.20);  // 이마
+    g.lineTo(-h * 1.52, h * 0.02);                           // 부리 위 능선 → 끝
+    g.quadraticCurveTo(-h * 1.34, h * 0.46, -h * 0.90, h * 0.30);   // 갈고리(끝이 아래로)
+    g.bezierCurveTo(-h * 0.40, h * 0.62, h * 0.20, h * 0.72, h * 0.62, h * 0.52);
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = GOLD; g.beginPath();                        // 부리 아래턱
+    g.moveTo(-h * 0.90, h * 0.30); g.lineTo(-h * 1.34, h * 0.10); g.lineTo(-h * 0.72, h * 0.36);
+    g.closePath(); g.fill();
+    g.fillStyle = '#2e2109';                                  // 눈
+    g.beginPath(); g.arc(-h * 0.30, -h * 0.30, h * 0.17, 0, Math.PI * 2); g.fill();
+    g.restore();
   }
-  // ① 방패형 경찰 마크 — 순찰차 도어에 붙는 것
+  // ① 방패형 경찰 마크(소유자 제공 실물 사진 그대로): 금색 테두리 방패 · 남색 바탕 ·
+  //    위에 참수리, 가운데 무궁화 + 태극, 그 좌우에 「경」「찰」, 아래에 「POLICE」.
+  //    전 판에는 **무궁화가 아예 없었다** — 그래서 실물과 달라 보였다.
   function drawShield(g, cx, cy, r) {
     g.save(); g.translate(cx, cy); g.scale(r / 128, r / 128);
-    // 방패 외곽: 위는 평평(가운데 살짝 솟음), 옆은 안으로 휘고, 아래는 둥근 점으로 모인다
+    // 방패 외곽: 윗변은 모서리를 크게 굴린 직선, 옆은 살짝 부풀었다가 아래에서 둥근 끝으로 모인다
     function shieldPath(k) {
-      var W = 104 * k, T = -116 * k, B = 120 * k;
+      var W = 108 * k, T = -118 * k, B = 126 * k, R = 30 * k;
       g.beginPath();
-      g.moveTo(-W, T + 10 * k);
-      g.quadraticCurveTo(-W, T, -W + 16 * k, T);
-      g.lineTo(-22 * k, T); g.quadraticCurveTo(0, T - 10 * k, 22 * k, T); g.lineTo(W - 16 * k, T);
-      g.quadraticCurveTo(W, T, W, T + 10 * k);
-      g.bezierCurveTo(W, 30 * k, W * 0.86, 78 * k, 0, B);
-      g.bezierCurveTo(-W * 0.86, 78 * k, -W, 30 * k, -W, T + 10 * k);
+      g.moveTo(-W + R, T);
+      g.lineTo(W - R, T);
+      g.quadraticCurveTo(W, T, W, T + R);
+      g.bezierCurveTo(W, 24 * k, W * 0.82, 84 * k, 0, B);
+      g.bezierCurveTo(-W * 0.82, 84 * k, -W, 24 * k, -W, T + R);
+      g.quadraticCurveTo(-W, T, -W + R, T);
       g.closePath();
     }
-    g.fillStyle = GOLD_D; shieldPath(1.0); g.fill();                      // 금색 테두리
-    g.fillStyle = GOLD; shieldPath(0.965); g.fill();
-    g.fillStyle = BLUE; shieldPath(0.90); g.fill();                       // 청색 바탕
-    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 2.5; shieldPath(0.86); g.stroke();
-    // 참수리(위쪽) + 태극(가슴) + 「경」「찰」 + POLICE
-    g.save(); g.translate(0, -30); eagle(g, 92); g.restore();
-    g.save(); g.translate(0, -18);
-    g.fillStyle = GOLD; g.beginPath(); g.arc(0, 0, 25, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = GOLD_D; g.lineWidth = 2.2; g.beginPath(); g.arc(0, 0, 25, 0, Math.PI * 2); g.stroke();
-    taegeuk(g, 20);
+    g.fillStyle = GOLD_D; shieldPath(1.00); g.fill();                     // 바깥 진한 금테
+    g.fillStyle = GOLD;   shieldPath(0.975); g.fill();                    // 금테
+    g.fillStyle = BLUE;   shieldPath(0.905); g.fill();                    // 남색 바탕
+    g.strokeStyle = 'rgba(255,255,255,0.20)'; g.lineWidth = 2.4; shieldPath(0.865); g.stroke();
+    g.save(); g.translate(0, -54); eagle(g, 92); g.restore();             // 참수리(위)
+    g.save(); g.translate(0, 18); mugunghwa(g, 40);                       // 무궁화(가운데)
+    g.fillStyle = GOLD_L; g.beginPath(); g.arc(0, 0, 21, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = GOLD_D; g.lineWidth = 2.2; g.beginPath(); g.arc(0, 0, 21, 0, Math.PI * 2); g.stroke();
+    taegeuk(g, 17);
     g.restore();
     g.fillStyle = WHITE; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = 'bold 40px ' + FONT;
-    g.fillText('경', -56, -14); g.fillText('찰', 56, -14);
-    g.font = 'bold 30px ' + FONT; g.letterSpacing = '2px';
-    g.fillText('POLICE', 0, 42);
+    g.font = 'bold 42px ' + FONT;
+    g.fillText('경', -70, 18); g.fillText('찰', 70, 18);                  // 무궁화 좌우
+    g.font = 'bold 32px ' + FONT; g.letterSpacing = '3px';
+    g.fillText('POLICE', 0, 76);
     g.letterSpacing = '0px';
     g.restore();
   }
@@ -429,8 +453,16 @@ TG.tex = (function () {
   }
   // 경찰 엠블럼(양식화): 금색 월계 고리 + 청색 원 + 흰 참수리 실루엣 + 'POLICE'. 실제 휘장을 복제하지 않는다.
   // 참수리 표장(경찰 로고). 차 문·후드·순찰차 데칼이 같은 그림을 쓴다.
+  // 소유자가 준 실물 이미지가 있으면 **그대로** 쓴다(js/emblem.js 의 데이터 URI). 없으면 캔버스로 그린다.
+  function urlTexture(url) {
+    var im = new Image(); var t = new THREE.Texture(im);
+    t.colorSpace = THREE.SRGBColorSpace || t.colorSpace; t.anisotropy = 4;
+    im.onload = function () { t.needsUpdate = true; };
+    im.src = url; return t;
+  }
   function emblem() {
     if (cache.emblem) return cache.emblem;
+    if (TG.EMBLEM && TG.EMBLEM.shield) return (cache.emblem = urlTexture(TG.EMBLEM.shield));
     var c = canvas(512, 512), g = c.getContext('2d');
     g.clearRect(0, 0, 512, 512);
     drawEmblem(g, 256, 256, 250);
@@ -439,6 +471,7 @@ TG.tex = (function () {
   // 화면(DOM)용 표장: 같은 캔버스를 PNG data URL 로 한 번만 뽑는다(외부 이미지 파일 0개 규칙 유지)
   function emblemPNG() {
     if (cache.emblemPNG) return cache.emblemPNG;
+    if (TG.EMBLEM && TG.EMBLEM.shield) return (cache.emblemPNG = TG.EMBLEM.shield);
     var c = canvas(512, 512), g = c.getContext('2d');
     g.clearRect(0, 0, 512, 512); drawEmblem(g, 256, 256, 250);
     return (cache.emblemPNG = c.toDataURL('image/png'));
@@ -446,6 +479,7 @@ TG.tex = (function () {
   // 참수리 표장 텍스처(신호제어기·정모·홍보물)
   function emblemEagle() {
     if (cache.emblemEagle) return cache.emblemEagle;
+    if (TG.EMBLEM && TG.EMBLEM.eagle) return (cache.emblemEagle = urlTexture(TG.EMBLEM.eagle));
     var c = canvas(512, 512), g = c.getContext('2d');
     g.clearRect(0, 0, 512, 512); drawEagleMark(g, 256, 262, 236);
     return (cache.emblemEagle = toTexture(c));

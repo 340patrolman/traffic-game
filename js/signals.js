@@ -3,7 +3,7 @@ TG.Signals = function (city, world, cfg) {
   var G = cfg.SIG_GREEN, Y = cfg.SIG_YELLOW, R = cfg.SIG_ALLRED, HALF = G + Y + R, CYCLE = HALF * 2;
   // 교차로마다 고유값(강제값): 최소 녹색 시간. 보행 신호 최소(cfg.PED_WALK)는 어느 교차로에서도 줄일 수 없다.
   // 수동 조작에서 버튼을 눌러도 최소 녹색·보행 최소를 채운 뒤 황색·전적색을 거쳐야 넘어간다 — 교차로 특성을 알아야 조작할 수 있다.
-  var NODE_MIN = { '0,1': 18, '0,2': 16, '1,2': 15, '2,2': 20, '3,2': 15, '0,0': 16 };   // 성모병원·서초역·교대역·강남역·역삼역·고속터미널
+  var NODE_MIN = { '2,2': 18, '3,2': 16, '4,2': 20, '2,1': 16, '3,4': 15, '2,4': 15 };   // 성모병원·서초역·강남역·고속터미널·남부터미널·예술의전당
   var ctrl = {};
   city.xs.forEach(function (_, i) { city.zs.forEach(function (__, j) {
     var key = i + ',' + j;

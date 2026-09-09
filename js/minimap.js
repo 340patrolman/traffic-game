@@ -32,8 +32,8 @@ TG.Minimap = function (canvas, city, terrain) {
     g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('경부고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
     g.save(); g.translate(mx(160) + 9, mz(470)); g.rotate(-Math.PI / 2); g.fillText('경부고속도로', 0, 0); g.restore();
     g.font = 'bold ' + Math.round(10.5 * K) + 'px sans-serif'; g.fillStyle = '#ffd86b';
-    g.fillText('서초구', mx(60), mz(300)); g.fillText('강남구', mx(260), mz(300)); g.fillText('강남역', mx(160), mz(152)); g.fillText('교대역', mx(80), mz(152)); g.fillText('서초역', mx(0) + 14, mz(152)); g.fillText('성모병원', mx(0) + 16, mz(72)); g.fillText('고속터미널', mx(0) + 22, mz(-8));
-    g.fillStyle = '#cfe0ff'; g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillText('테헤란로', mx(250), mz(172)); g.fillText('서초대로', mx(70), mz(172)); g.fillText('반포대로', mx(0), mz(60) - 4); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
+    g.fillText('서초구', mx(80), mz(300)); g.fillText('방배', mx(-40), mz(230)); g.fillText('강남역', mx(320), mz(152)); g.fillText('서초역', mx(240), mz(152)); g.fillText('성모병원', mx(160) + 6, mz(152)); g.fillText('고속터미널', mx(160) + 10, mz(72)); g.fillText('예술의전당', mx(150), mz(310));
+    g.fillStyle = '#cfe0ff'; g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillText('서초대로', mx(60), mz(172)); g.fillText('남부순환로', mx(60), mz(312)); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('반포대로', 0, 0); g.restore(); g.save(); g.translate(mx(320) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
   })();
   // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.
   this.zoom = 1; this.levels = [1, 2, 4];

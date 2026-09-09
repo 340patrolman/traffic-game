@@ -561,7 +561,7 @@
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
     if (kid) {
-      // 어린이 보행 교실: 학교 블록(논현로·역삼로 어린이보호구역) 둘레. 학교 정문 → 놀이터 → 문방구 → 우리 집
+      // 어린이 보행 교실: 학교 블록(방배로·효령로 어린이보호구역) 둘레. 학교 정문 → 놀이터 → 문방구 → 우리 집
       var SB = city.schoolBlock, nA = city.nodes[SB.i][SB.j], nB = city.nodes[SB.i + 1][SB.j], nC = city.nodes[SB.i][SB.j + 1], nD = city.nodes[SB.i + 1][SB.j + 1];
       function corner(n, sx, sz, name) { return { x: n.x + sx * (city.halfV[n.i] + 1.6), z: n.z + sz * (city.halfH[n.j] + 1.6), name: name }; }
       walker.teleport(xs[SB.i] + city.sideOff('v', SB.i), (nA.z + nC.z) / 2 + 10, Math.PI);
@@ -686,7 +686,7 @@
   //  2단계 그래도 꼬리물기가 풀리지 않으면 진입이 많은 방향의 바깥 1개 차로를 임시 차단하고,
   //         꼬리 끊기 수신호로 진입을 끊어 교차로 안 공간을 확보한다(경찰관의 수신호는 신호기보다 우선한다 · 제5조).
   function startDuty() {
-    var node = city.nodes[0][1];
+    var node = city.nodes[2][2];   // 서울성모병원 사거리(반포대로 × 서초대로)
     junction = new TG.Junction(G); junction.node = node; G.junction = junction;
     var box = junction.placeBox(node, 1, 1);   // 남동쪽 모퉁이 보도
     // 순찰차: 교차로 남쪽 갓길에 경광등을 켜고 정차한다 — 하차 근무의 보호 장비다

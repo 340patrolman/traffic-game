@@ -17,7 +17,7 @@
     var rng = TG.makeRNG(41);
     traffic = new TG.Traffic(scene, city, signals, C, rng); traffic.terrain = terrain;
     peds = new TG.Peds(scene, city, signals, C, rng); traffic.peds = peds; peds.traffic = traffic;
-    // 장면: 논현로(x = xs[1]) 를 건너는 횡단보도 — 학교 블록 위 노드(1,2)의 북쪽 접근로. 동쪽 보도 → 서쪽 보도
+    // 장면: 방배로(x = xs[1]) 를 건너는 횡단보도 — 학교 블록 위 노드(1,2)의 북쪽 접근로. 동쪽 보도 → 서쪽 보도
     N = city.nodes[1][2]; CX = N.x; CZ = N.z - city.crossNear(N, 0) - 1.75; EAST = CX + city.sideOff('v', 1); WEST = CX - city.sideOff('v', 1);
     actors.officer = actor('officer', EAST + 1.6, CZ - 1.7, -Math.PI / 2);   // 어린이 옆(북쪽), 카메라는 남쪽에서 본다
     actors.kid = actor('kid', EAST + 13, CZ, -Math.PI / 2);
