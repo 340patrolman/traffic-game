@@ -144,3 +144,15 @@
 * 미니맵 현재 위치: 맥동 고리 + 어두운 원 + 흰 테두리 화살표 + 왼쪽 아래 「▲ 현재 위치」 범례(확대 변환 밖). 도로 두께는 차로 수에 비례.
 * 고장차량·교통사고 현장: `traffic.spawnIncident('broken'|'crash', at)` — 갓길에 비상등만 켠 차(`mode 'incident'`) + 안전삼각대 + 라바콘 2개, 상황실 신고(`onEvent('incident')`). 처리 절차는 `response.incidentUpdate`: 경광등 ON + 현장 뒤 3~22m 정차 + 📡 무전(견인·구급 요청) → 2초 유지 → 안전조치 완료(+30), 6초 뒤 현장 정리. 순찰 근무에서 70~110초마다 하나. 결과 카드 줄·배지(🛠 현장 안전조치).
 * 경찰 표장(`textures.drawEmblem`): 금색 이중 테두리·점선 고리 + 아치 글씨(「경 찰 청」·KOREAN NATIONAL POLICE AGENCY) + 참수리(각진 깃 5장 날개·갈고리 부리) + 저울 막대·접시 + 무궁화 5장 + 태극. 캔버스 512로 키웠다. 외부 이미지 파일은 여전히 0개(에셋 0 규칙) — 첨부 사진은 참고용으로만 썼다.
+
+## v0.8.2(2026-09-09) — 교차로 근무(하차 근무): 신호기 수동 조작 1단계 · 차로 차단·꼬리 끊기 2단계
+
+* 모드 `duty`(🚦 교차로 근무). `startDuty()`: 서울성모병원 사거리(`city.nodes[0][1]`)에 순찰차를 갓길에 **경광등 켠 채** 세우고, `TG.Walker` 로 하차해 근무한다(`onFoot()` 에 duty 포함 — 보행 카메라·조작·발소리를 그대로 쓴다). 제한 시간 `DUTY_SECONDS 420`, `TRAFFIC_MAX + 26`.
+* `js/junction.js` `TG.Junction(game)` — 대기 행렬 `queueOf(node,d)`(정지선 뒤 80m, 2m/s 미만, 내 차로만), 꼬리물기 `gridlockOf(node)`(교차로 상자 안에 선 차), `stats(node)`, `dirsAvail(node)`(차가 들어오는 쪽이 있는 접근로만 — 지도 끝 노드는 3곳),
+  `burst(node,d,count)` = **흐름 주입**(상류 교차로 쪽에서 1.1초마다 한 대. 스폰 최소 간격이 12m 이므로 한꺼번에 놓으면 만들어지지 않는다 — 대열은 정지선에서 다져진다), `closeLane(node,d)`(바깥 차로에 라바콘 7개 + `traffic.control.closed`), `openLanes()`, `setHand(node,d,on)`(`traffic.control.hand`), `placeBox(node,sx,sz)`(보도 위 모퉁이에서 9m — 횡단보도·보행 신호등 기둥과 겹치지 않는 자리), `nearBox`, `setBoxLamp`, `dispose()`(수동을 자동으로 되돌린다).
+  채점: 10초마다 꼬리물기 0 + 최대 대기 8대 이하 → `junctionGood +15`, 꼬리물기가 이어지면 `junctionJam −6` + 6초 경고.
+* `js/signals.js` 수동 조작: 교차로 고유 최소 녹색 `NODE_MIN`(성모병원 18 · 서초역 16 · 교대역 15 · 강남역 20 · 역삼역 15 · 고속터미널 16, 기본 12), **보행 최소는 어디서도 줄일 수 없다**(`Math.max(minGreen, PED_WALK + 2)`).
+  `setManual/isManual/request(node,axis)/waitFor(node,axis)/manualInfo/minGreenOf`. `update` 는 수동일 때 녹색 끝에서 시계를 멈춰 **녹색을 연장**하고, 요청이 최소 시간을 채우면 황색·전적색을 거쳐 넘어간다 — 버튼을 눌러도 즉시 바뀌지 않는다.
+* `js/traffic.js` `this.control = { closed: [], hand: [] }`: 수신호가 있으면 **녹색이어도 정지선 앞에 선다**(제5조), 차단한 바깥 차로는 40m 앞에서 안쪽 차로로 옮긴다(라바콘 회피). 검증: 차단 뒤 정지선 부근 바깥 차로 0대.
+* UI `#dutyPanel`(제어함 3.2m 안에서만 열림, 멀어지면 닫힘): 자동/수동 스위치 · 방향별 대기 대수·꼬리물기 칸 · 「↕ 남북 녹색 N초」「↔ 동서 녹색 N초」 요청 버튼(대기 이유: 보행 신호 최소 시간 / 최소 녹색 시간 / 황색·전적색 통과) · 🚧 바깥 차로 차단 · ✋ 꼬리 끊기. 버튼 `#btnBox`(R) · ✋ 는 duty 에서 꼬리 끊기(G).
+* 결과 카드 배지 `🚦 소통 확보 N회`(3회 이상, 5회 금색). `_verify_tail.js` 5o 가 제어함 거리·자동에서의 거절·최소 녹색 26초·2초 뒤 미전환·30초 뒤 전환·녹색 연장·대열 8대·차로 차단(라바콘 7)·수신호·정리까지 확인한다.

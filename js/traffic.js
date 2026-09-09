@@ -21,6 +21,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var litterMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a }), litters = [];
   var cargoMat = new THREE.MeshLambertMaterial({ color: 0xb98a4a }), doorMat = new THREE.MeshLambertMaterial({ color: 0xdfe4ea }), pasMat = new THREE.MeshLambertMaterial({ color: 0x3b6fd1 });
   this.rail = null;   // TG.Rail(철길건널목) — main 이 붙인다
+  this.control = { closed: [], hand: [] };   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
   // ---------- 격자 경로 ----------
@@ -357,6 +358,23 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         } else if (car.running !== ap.node) {
           var canStop = distStop > car.v * car.v / (2 * cfg.AI_DECEL * 1.25) + 1.5;
           if (st.s === 'red' || (st.s === 'yellow' && canStop)) target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+        }
+        // 경찰관의 수신호(꼬리 끊기)는 신호기보다 우선한다(도로교통법 제5조) — 녹색이어도 정지선 앞에 선다
+        if (self.control && self.control.hand.length) {
+          for (var hh = 0; hh < self.control.hand.length; hh++) {
+            var H = self.control.hand[hh];
+            if (H.node === ap.node && H.d === ap.d) target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+          }
+        }
+        // 임시 차단한 바깥 차로: 40m 앞에서 안쪽 차로로 옮긴다(라바콘 구간을 피한다)
+        if (self.control && self.control.closed.length && distStop < 42 && distStop > 6 && car.mode === 'drive') {
+          for (var cc = 0; cc < self.control.closed.length; cc++) {
+            var Cl = self.control.closed[cc];
+            if (Cl.node !== ap.node || Cl.d !== ap.d || car.laneIdx < Cl.lane) continue;
+            var rdC = city.roadOf(ap.node, ap.d), tgtL = Math.max(0, Cl.lane - 1);
+            car.lcShift += city.laneOff(rdC.axis, rdC.idx, tgtL) - city.laneOff(rdC.axis, rdC.idx, car.laneIdx);
+            car.laneIdx = tgtL; car.signal = 'L'; car.signalT = 2;
+          }
         }
         // 보행자 보호 무시 성향: 횡단보도 앞 정지를 건너뛴다(정면 3m 급제동만)
         if (car.pedViolator && car.mode === 'drive' && distStop < 30 && car.cooldown <= 0) pedIgnore = true;

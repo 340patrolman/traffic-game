@@ -261,3 +261,32 @@ body.portrait .tbtn.runbtn{bottom:calc(290px + var(--sa-b))}
 .tbtn.cam .ico,.tbtn.radio .ico{font-size:20px}
 body.portrait .tbtn.cam,body.portrait .tbtn.radio{width:54px;height:54px}
 body.onfoot .tbtn.cam{display:none}
+/* ---------- 교차로 근무(하차 근무): 신호제어기 조작판 ---------- */
+.tbtn.boxbtn{display:none;position:fixed;left:calc(24px + var(--sa-l));bottom:calc(330px + var(--sa-b));width:64px;height:64px;background:rgba(255,176,32,.18);border-color:rgba(255,176,32,.85)}
+.tbtn.boxbtn .ico{font-size:24px}
+.tbtn.boxbtn.near{animation:pulse 1.6s ease-in-out infinite}
+.tbtn.boxbtn.off{opacity:.4}
+body.dutymode .tbtn.boxbtn{display:flex}
+body.dutymode .tbtn.hand{background:rgba(255,120,120,.22);border-color:rgba(255,120,120,.9)}
+body.portrait .tbtn.boxbtn{bottom:calc(370px + var(--sa-b))}
+#dutyPanel{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sa-b));width:min(96vw,430px);z-index:9;
+  background:rgba(10,14,22,.92);border:1px solid var(--edge);border-radius:14px;padding:10px 12px;pointer-events:auto;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+body.dutyopen #dutyPanel{display:block}
+#dutyPanel .dtitle{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px}
+#dutyPanel .dtag{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(90,211,122,.2);border:1px solid rgba(90,211,122,.7);color:#c8f5d6}
+#dutyPanel .dtag.man{background:rgba(255,176,32,.2);border-color:rgba(255,176,32,.8);color:#ffe1a8}
+#dutyPanel .dx{margin-left:auto;cursor:pointer;padding:2px 8px;color:var(--dim)}
+#dutyPanel button{font:inherit;font-size:13px;color:var(--fg);background:rgba(255,255,255,.07);border:1px solid var(--edge);border-radius:10px;padding:9px 6px;cursor:pointer;flex:1}
+#dutyPanel button:disabled{opacity:.38;cursor:default}
+#dutyPanel .dsw,#dutyPanel .dreq{display:flex;gap:8px;margin-bottom:8px}
+#dutyPanel .dsw button.on{background:rgba(255,176,32,.28);border-color:rgba(255,176,32,.9);font-weight:800}
+#dutyPanel .dreq button.on{background:rgba(255,90,90,.28);border-color:rgba(255,90,90,.9);font-weight:800}
+#dutyPanel .dq{display:flex;gap:6px;margin-bottom:8px}
+#dutyPanel .qcell{flex:1;text-align:center;font-size:11px;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:9px;padding:4px 2px}
+#dutyPanel .qcell b{display:block;font-size:16px;color:var(--fg)}
+#dutyPanel .qcell.warn{background:rgba(255,176,32,.16);border-color:rgba(255,176,32,.7)}
+#dutyPanel .qcell.bad{background:rgba(255,90,90,.18);border-color:rgba(255,90,90,.8)}
+#dutyPanel .qcell.bad b,#dutyPanel .qcell.warn b{color:#fff}
+#dutyPanel .dwhy{font-size:12px;color:var(--accent);min-height:16px;margin-bottom:8px}
+#dutyPanel .dnote{font-size:11px;color:var(--dim);line-height:1.45}
+body.portrait #dutyPanel{bottom:calc(150px + var(--sa-b))}
