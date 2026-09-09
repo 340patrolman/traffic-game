@@ -80,7 +80,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     for (var q4 = 0; q4 < N; q4++) {
       var p = pts[q4];
       p.y = Math.max(0, p.hb); p.bridge = river(p.x, p.z) < -1.2; p.kind = kind; p.f = isHW ? 1 : 0;
-      p.half = isHW ? cfg.HW_HALF : (kind === 'onramp' || kind === 'offramp') ? 4.6 : kind === 'circuit' ? 7.5 : cfg.ROAD_HALF;
+      p.half = isHW ? cfg.HW_HALF : (kind === 'onramp' || kind === 'offramp') ? 5.8 : kind === 'circuit' ? 7.5 : cfg.ROAD_HALF;
       var p0 = P(q4 - 2), p1 = P(q4 + 2);
       p.kappa = Math.abs(TG.wrapAngle(Math.atan2(p1.tx, p1.tz) - Math.atan2(p0.tx, p0.tz))) / (4 * STEP);
       p.link = null; p.i = q4;
@@ -111,28 +111,49 @@ TG.buildTerrain = function (scene, city, cfg) {
     link.total = link.pts[link.N - 1].s;
   }
   // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
-  function ramps(conn, j, tag) {
+  function ramps(conn, j, tag, split) {
     var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
     var LO = cfg.HW_LANES[cfg.HW_LANES.length - 1];
-    // 램프는 본선 바깥 차로선(LO)에, 합류 전 구간은 그보다 3.4m 더 바깥(가속차로 자리)에 놓는다.
-    // 예전에는 j+4 에서 곧바로 본선 차로선으로 붙어(약 15m) 진입이 꺾여 보였다 — 나란히 70m 를 달리다 서서히 붙는다.
+    var SP = split || 56;                                    // 연결로가 링에서 떨어져 있는 거리(분기점)
+    var tR = [J.tx, J.tz];                                   // 링 진행 방향(접선)
+    var Rf = Math.max(34, SP - LO);                           // 원호 반지름 — 방사 거리에서 차로선까지
     function L(k) { var p = ring.P(j + k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
-    function LX(k, extra) { var p = ring.P(j + k); return [p.x + p.rx * (LO + extra), p.z + p.rz * (LO + extra)]; }
-    var on = buildLink('on' + tag, [[J.x - tc[0] * 74 + rc[0] * 2, J.z - tc[1] * 74 + rc[1] * 2], [J.x - tc[0] * 50 + rc[0] * 2, J.z - tc[1] * 50 + rc[1] * 2],
-      [J.x - tc[0] * 26 + rc[0] * 4.2, J.z - tc[1] * 26 + rc[1] * 4.2], L(0), L(7), L(14), L(21), L(26)], 'onramp', false);
-    var off = buildLink('off' + tag, [L(-26), L(-21), L(-14), L(-7), L(0),
-      [J.x - tc[0] * 26 - rc[0] * 4.2, J.z - tc[1] * 26 - rc[1] * 4.2],
-      [J.x - tc[0] * 50 - rc[0] * 2, J.z - tc[1] * 50 - rc[1] * 2], [J.x - tc[0] * 74 - rc[0] * 2, J.z - tc[1] * 74 - rc[1] * 2]], 'offramp', false);
-    trimLink(on, [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2], L(21));   // 램프 시작 = 연결로 끝(42m)과 정확히 맞물린다
-    trimLink(off, L(-21), [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2]);
-    on.mergeFrom = 0.58; off.mergeFrom = -1;   // 안쪽 선을 점선으로 바꾸는 지점(합류 구간)
+    var sp = Math.hypot(ring.P(j + 1).x - J.x, ring.P(j + 1).z - J.z) || 3.5;
+    var dK = Math.max(6, Math.round(Rf / sp));               // 원호가 링을 따라 나아가는 샘플 수
+    // 원호: 시작점(연결로 쪽, 방향 tc) → 끝점(링 쪽, 방향 sgn·tR). 5점으로 샘플링해 스플라인에 넣는다.
+    function arc(sgn, side) {
+      var T = [J.x - tc[0] * SP + rc[0] * side * 2, J.z - tc[1] * SP + rc[1] * side * 2];
+      var C = [T[0] + tR[0] * sgn * Rf, T[1] + tR[1] * sgn * Rf], out = [];
+      for (var k = 0; k <= 4; k++) {
+        var th = (k / 4) * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
+        out.push([C[0] - tR[0] * sgn * Rf * cs + tc[0] * Rf * sn, C[1] - tR[1] * sgn * Rf * cs + tc[1] * Rf * sn]);
+      }
+      return out;
+    }
+    // 원호 끝을 「링 바깥 차로선 위의 실제 점」으로 바꿔 붙인다 — 링이 휘어 있어 계산값과 조금 어긋나면 그 자리에서 꺾인다.
+    function ringLane(k) { var p = ring.P(k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
+    // 진입 램프: 연결로 → 원호 → 링과 나란히(가속차로) → 합류
+    var aOn = arc(1, 1), Ton = aOn[0];
+    var jOn = ringIndexNear(aOn[4][0], aOn[4][1]); aOn[4] = ringLane(jOn);
+    var onCP = [[Ton[0] - tc[0] * 26, Ton[1] - tc[1] * 26]].concat(aOn)
+      .concat([ringLane(jOn + 6), ringLane(jOn + 14), ringLane(jOn + 22), ringLane(jOn + 28)]);
+    var on = buildLink('on' + tag, onCP, 'onramp', false);
+    trimLink(on, Ton, ringLane(jOn + 22));
+    // 진출 램프: 링(감속차로) → 원호 → 연결로
+    var aOff = arc(-1, -1), Toff = aOff[0];
+    var jOff = ringIndexNear(aOff[4][0], aOff[4][1]); aOff[4] = ringLane(jOff);
+    var aRev = aOff.slice().reverse();
+    var offCP = [ringLane(jOff - 28), ringLane(jOff - 22), ringLane(jOff - 14), ringLane(jOff - 6)]
+      .concat(aRev).concat([[Toff[0] - tc[0] * 26, Toff[1] - tc[1] * 26]]);
+    var off = buildLink('off' + tag, offCP, 'offramp', false);
+    trimLink(off, ringLane(jOff - 22), Toff);
+    on.mergeFrom = 0.55; off.mergeFrom = -1;                 // 안쪽 선을 점선으로 바꾸는 지점(합류·분기 구간)
     var connEndIdx = conn.N - 1;   // 연결로 끝 = 램프 분기점
     conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
-    on.nextA = { link: ring, index: (j + 21) % ring.N, merge: true };
-    ring.exitsA.push({ atIndex: ((j - 21) % ring.N + ring.N) % ring.N, decideIndex: ((j - 40) % ring.N + ring.N) % ring.N, link: off });
+    on.nextA = { link: ring, index: ((jOn + 22) % ring.N + ring.N) % ring.N, merge: true };
+    ring.exitsA.push({ atIndex: ((jOff - 22) % ring.N + ring.N) % ring.N, decideIndex: ((jOff - 46) % ring.N + ring.N) % ring.N, link: off });
     off.nextA = { link: conn, index: connEndIdx, dirA: false };
     // 분기점 너머는 램프·링 지형이 이어져(heightAt 이 링 높이로 올라감) 직진해도 빠지지 않는다 — 차단벽 없음
-    var E = conn.pts[conn.N - 1];
     return { on: on, off: off };
   }
   // IC 정의: 도시 노드 + 나가는 방향 + 링 각도(θ, x=cos·z=sin). 연결로 끝은 링 접속점 15m 안쪽에서 방사 방향으로 닿는다.
@@ -158,12 +179,12 @@ TG.buildTerrain = function (scene, city, cfg) {
     var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
     var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);
     trimLink(conn, start, end);
-    var Ept = conn.pts[conn.N - 1], split = [end[0] - Ept.tx * 42, end[1] - Ept.tz * 42];
+    var Ept = conn.pts[conn.N - 1], SPLIT = 56, split = [end[0] - Ept.tx * SPLIT, end[1] - Ept.tz * SPLIT];   // 90° 원호(반경 약 59m)가 들어갈 만큼 링에서 떨어뜨린다
     trimLink(conn, start, split);
     conn.cityStart = { node: node, dir: ic.dir };
     conn.cityEnd = { node: node, dir: (ic.dir + 2) % 4 };
     conn.ic = ic.tag;
-    ramps_[ic.tag] = ramps(conn, j, ic.tag);
+    ramps_[ic.tag] = ramps(conn, j, ic.tag, 56);
     conns.push(conn);
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;

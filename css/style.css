@@ -336,3 +336,7 @@ body.chasing::after{content:'';position:fixed;inset:0;pointer-events:none;z-inde
   animation:chasePulse 1.9s ease-in-out infinite}
 @keyframes chasePulse{0%,100%{opacity:.55}50%{opacity:1}}
 body.chasing #section{border-color:rgba(255,90,90,.8)}
+/* 타이틀 아래 링크: 홍보 영상 · 인트로 다시 보기 */
+.titlelinks{display:flex;gap:14px;justify-content:center;margin:10px 0 2px;flex-wrap:wrap}
+.titlelinks a{pointer-events:auto;font-size:12.5px;color:#cfe0ff;text-decoration:none;border-bottom:1px dotted rgba(207,224,255,.5);padding-bottom:1px}
+.titlelinks a:hover{color:#fff;border-bottom-color:#fff}

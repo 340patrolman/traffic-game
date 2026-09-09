@@ -229,6 +229,9 @@
       });
     });
     input.bindTap($('btnStart'), function () { start(settings.car); });
+    // 타이틀: 인트로 다시 보기(홍보용으로 인트로만 보여 줄 때 쓴다)
+    var lnkI = $('lnkIntroAgain');
+    if (lnkI) lnkI.addEventListener('click', function (e) { e.preventDefault(); if (G.state === 'title') startIntro(); });
     // 날씨·시간대: 타이틀 버튼 + 일시정지 메뉴 선택
     function applyWeather(name) { settings.weather = name; TG.save.set('settings', settings); weather.set(name === 'auto' || name === 'random' ? weather.pick(name) : name); document.querySelectorAll('.wpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-weather') === name); }); var ow = $('optWeather'); if (ow) ow.value = name; }
     document.querySelectorAll('.wpick').forEach(function (b) { input.bindTap(b, function () { applyWeather(b.getAttribute('data-weather')); }); });
