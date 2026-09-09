@@ -34,12 +34,14 @@ TG.Layers = function (game, city, cfg, scene) {
   function load(cb) {
     var saved = TG.save.get('layers', null);
     if (location.protocol.indexOf('http') !== 0) { defsBuild(); if (cb) cb('file:// — data/taas.json 을 읽을 수 없습니다'); return; }
-    fetch('data/taas.json').then(function (r) { return r.json(); }).then(function (j) {
+    var tf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taas) || (TG.MAP && TG.MAP.taas) || 'data/taas.json';   // 지도마다 다른 사고 자료 파일
+    fetch(tf).then(function (r) { return r.json(); }).then(function (j) {
       taas = j; defsBuild();
       if (saved && typeof saved === 'object') Object.keys(saved).forEach(function (k) { if (k in on) on[k] = !!saved[k]; });
       apply();
+      if (self.refreshPanel) self.refreshPanel();   // 자료가 늦게 와도 패널이 비어 있지 않게
       if (cb) cb(null, j);
-    }).catch(function (e) { defsBuild(); if (cb) cb(e.message); });
+    }).catch(function (e) { defsBuild(); if (self.refreshPanel) self.refreshPanel(); if (cb) cb(e.message); });
   }
   function defsBuild() {
     defs = [];

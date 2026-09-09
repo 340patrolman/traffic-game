@@ -91,7 +91,9 @@
     // 인트로용 순찰차(타이틀 배경에서도 경광등을 켜고 서 있다)
     player = new TG.PlayerCar(scene, city, C, carSpec(settings.car)); player.setSiren(true); G.player = player;
     document.querySelectorAll('.carpick').forEach(function (b) { b.classList.toggle('sel', b.getAttribute('data-car') === settings.car); });
-    var vt = document.getElementById('verTag'); if (vt) vt.textContent = 'v' + TG.VERSION;
+    // 판 번호 옆에 지금 지도 이름과 베타 표시 — 어느 지도를 보고 있는지 타이틀에서 바로 알 수 있다
+    var vt = document.getElementById('verTag');
+    if (vt) vt.textContent = 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
     log('준비 완료 v' + TG.VERSION + ' · 건물 ' + city.buildings.length + ' · 링크 ' + terrain.links.length + ' · 터치 ' + input.isTouch + ' · ' + location.protocol);
     if (isTest) installTestHooks();
     if (noIntro || isTest) showTitle(); else startIntro();
@@ -1213,15 +1215,44 @@
       var inner = document.createElement('div'); inner.className = 'card wide plan-card';
       inner.innerHTML = '<div class="badge">🏗 교통시설 관리 — 신호 주기 · 무인 단속 장비</div><h2>교통시설</h2>' +
         '<div class="dim small">교차로마다 신호 녹색 시간을 정하고, 접근로에 무인 교통단속 장비를 세웁니다. 설정은 기기에 저장됩니다(localStorage tg_facil).</div>' +
-        '<div id="planHost"></div><div id="layerHost"></div>';
+        '<div id="mapHost"></div><div id="planHost"></div><div id="layerHost"></div>';
       var bx = document.createElement('button'); bx.className = 'primary'; bx.textContent = '닫기';
       bx.addEventListener('click', closePlan); inner.appendChild(bx);
       planEl.appendChild(inner); document.body.appendChild(planEl);
     }
     planEl.style.display = 'flex';
+    renderMapPanel(planEl.querySelector('#mapHost'));
     facil.openPanel(planEl.querySelector('#planHost'));
     if (layers) layers.openPanel(planEl.querySelector('#layerHost'));
     setPaused(true, 'plan');
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+  // 지도 선택. 지도를 바꾸면 도로망·이름·랜드마크·사고 자료가 통째로 바뀌므로 다시 불러온다.
+  function renderMapPanel(el) {
+    if (!el) return;
+    var idx = TG.MAPS, cur = city.mapId;
+    var h = '<h4>🗺 지도 — ' + esc(city.mapName) + (city.mapBeta ? ' <span class="pl-beta">베타</span>' : '') + '</h4>';
+    if (!idx || !idx.maps) {
+      h += '<div class="pl-min">지도 목록(data/maps/index.json)을 읽지 못했습니다 — 코드 안 기본 지도로 돌고 있습니다.</div>';
+      el.innerHTML = h; return;
+    }
+    h += '<div class="pl-cams">';
+    idx.maps.forEach(function (m) {
+      h += '<div class="pl-cam"><span>' + esc(m.name) + (m.beta ? ' <span class="pl-beta">베타</span>' : '') + '</span>' +
+           '<button class="pl-tog' + (m.id === cur ? ' on' : '') + '" data-map="' + esc(m.id) + '"' + (m.id === cur ? ' disabled' : '') + '>' +
+           (m.id === cur ? '사용 중' : '이 지도로') + '</button>' +
+           '<span class="pl-min">' + esc(m.note || '') + '</span></div>';
+    });
+    h += '</div>';
+    h += '<div class="pl-min">새 지역을 넣는 방법 · ' + esc(idx.howtoAddMap || '') + '</div>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-map]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.disabled) return;
+        TG.save.set('map', b.getAttribute('data-map'));
+        location.search = '?map=' + encodeURIComponent(b.getAttribute('data-map'));
+      });
+    });
   }
   function closePlan() { if (planEl) planEl.style.display = 'none'; setPaused(false, 'plan'); }
   G.openPlan = openPlan; G.closePlan = closePlan;
@@ -1714,5 +1745,25 @@
     log('테스트 훅 설치: TG.test.*');
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  // 지도 선택: ?map=<id> · 저장된 설정 · 목록의 기본값 순. data/maps/<id>.json 을 **init 전에** 읽어 TG.MAP 에 담는다.
+  // 파일을 못 읽으면(file:// 등) 코드 안 기본값 = 첫 지도 「서울 서초구(베타)」 로 그대로 시작한다.
+  function bootMap(done) {
+    if (location.protocol.indexOf('http') !== 0) { log('file:// — 지도 파일을 읽지 않고 기본 지도(서초구)로 시작합니다'); done(); return; }
+    var want = new URLSearchParams(location.search).get('map') || TG.save.get('map', null);
+    fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
+      TG.MAPS = idx;
+      var pick = null;
+      (idx.maps || []).forEach(function (m) { if (m.id === want) pick = m; });
+      if (!pick) (idx.maps || []).forEach(function (m) { if (m.id === (idx['default'] || 'seocho')) pick = m; });
+      if (!pick) throw new Error('지도 목록이 비어 있습니다');
+      TG.MAP_ENTRY = pick;
+      return fetch(pick.file).then(function (r) { return r.json(); }).then(function (m) {
+        TG.MAP = m; log('지도: ' + m.name + (m.beta ? ' (베타)' : ''));
+      });
+    }).catch(function (e) { log('지도 파일 로딩 실패 — 기본 지도로 시작합니다: ' + e.message); }).then(done, done);
+  }
+  // 이름을 start 로 두면 **게임 시작 함수 start(carId, mode) 를 덮어쓴다** — 같은 스코프의 함수 선언은 뒤가 이긴다.
+  // 그러면 T.start('sedan') 이 부팅 함수를 부르게 되어 단속·조작이 통째로 죽는다(v0.9.24 에서 실제로 겪었다).
+  function bootInit() { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init(); }
+  bootMap(bootInit);
 })();

@@ -31,5 +31,14 @@
       done();
     } catch (e) { out('ERR', e.message + '\n' + e.stack); done(); }
   }
-  window.addEventListener('load', function () { setTimeout(run, 2500); });
+  // 지도 파일을 먼저 읽고 나서 init 이 도는다(v0.9.24) — 고정된 2.5초를 기다리면 초기화 전에 검사가 시작될 수 있다.
+  // 그래서 **준비될 때까지 기다린다**: TG.test 와 도시·신호기·단속이 다 생긴 뒤에 시작한다.
+  window.addEventListener('load', function () {
+    var waited = 0;
+    (function poll() {
+      var ok = window.TG && TG.test && TG.test.game && TG.test.game.city && TG.test.game.signals && TG.test.game.hud;
+      if (ok || waited > 15000) { setTimeout(run, 350); return; }
+      waited += 100; setTimeout(poll, 100);
+    })();
+  });
 })();
