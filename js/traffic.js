@@ -211,7 +211,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         if (L.kind === 'highway') lane = (opts.lane !== undefined) ? opts.lane : (isBus ? 0 : (rng() < cfg.BUSLANE_VIOLATOR_RATE && type !== 'truck' ? 0 : 1 + Math.floor(rng() * 2)));
         var offs = T.laneOffsets(p), off = offs[Math.min(lane, offs.length - 1)], x = p.x + p.rx * off * sgn, z = p.z + p.rz * off * sgn;
-        if (pl && !opts.atLink) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.SPAWN_MIN || dist > cfg.SPAWN_MAX * 1.6) continue; var pfl = pl.forward(), ahl = (x - pl.pos.x) * pfl[0] + (z - pl.pos.z) * pfl[1]; if (ahl > 0 && dist < 140 && Math.abs((x - pl.pos.x) * -pfl[1] + (z - pl.pos.z) * pfl[0]) < dist * 0.9) continue; }   // 플레이어 앞 시야(140m) 안에서 불쑥 나타나지 않게
+        if (pl && !opts.atLink) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.SPAWN_MIN || dist > cfg.SPAWN_MAX * 3.2) continue; var pfl = pl.forward(), ahl = (x - pl.pos.x) * pfl[0] + (z - pl.pos.z) * pfl[1]; if (ahl > 0 && dist < 140 && Math.abs((x - pl.pos.x) * -pfl[1] + (z - pl.pos.z) * pfl[0]) < dist * 0.9) continue; }   // 플레이어 앞 시야(140m) 안에서 불쑥 나타나지 않게
         if (tooClose(x, z)) continue;
         car = makeCar(type, x, z, heading, { violator: opts.violator, straight: opts.straight, cruise: opts.cruise, busLaneViolator: lane === 0 && !isBus, stayRing: opts.stayRing, trait: opts.trait, noLicense: opts.noLicense });
         car.route = { link: L, dirA: dirA, i: i, lane: lane, lanePrev: null };
@@ -589,7 +589,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var pl = self.player;
     if (pl) for (var k = cars.length - 1; k >= 0; k--) {
       var c = cars[k]; if (c.mode !== 'drive' || c.violation || c.incident || c.chase) continue;   // 추격 대상은 멀어도 지우지 않는다
-      var far = city.frameAt(pl.pos.x, pl.pos.z, pl.heading).kind === 'link' ? cfg.DESPAWN * 1.7 : cfg.DESPAWN;
+      var far = city.frameAt(pl.pos.x, pl.pos.z, pl.heading).kind === 'link' ? cfg.DESPAWN * 3.0 : cfg.DESPAWN;   // 링크(고속도로)에서는 멀리까지 남겨 둔다 — 달리다 차가 사라지지 않게
       var ddp = Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z), pfd = pl.forward(), inView = (c.pos.x - pl.pos.x) * pfd[0] + (c.pos.z - pl.pos.z) * pfd[1] > 0;
       if (ddp > far && (!inView || ddp > far * 1.8)) remove(c);   // 시야 앞의 차는 훨씬 멀어질 때까지 남긴다(눈앞에서 사라지지 않게)
       else if (!c.route && !c.lastNode) remove(c);

@@ -38,6 +38,8 @@ TG.Chase = function (game) {
       game.hud.notice('📡 상황실 — ' + self.kind.name + ' 발견. 경광등 켜고 뒤에 붙되 안전거리를 지키세요', 'alert', 5200);
       game.hud.hint('📡 무전으로 먼저 전파한다. 무전 없는 추격은 정당화되지 않는다');
       if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
+      if (TG.audio.chaseTheme) TG.audio.chaseTheme();   // 추격 음악 시작 — 대상과 가까울수록 밝고 크게(chaseTension)
+      document.body.classList.add('chasing');
       return car;
     }
     return null;
@@ -65,6 +67,8 @@ TG.Chase = function (game) {
   // 추격 중단(정답인 경우가 있다): 어린이보호구역 도주 · 상황실 지시 · 보행자 밀집
   function breakOff(why, bonus) {
     self.state = 'break'; self.log.result = 'break';
+    if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.4);
+    document.body.classList.remove('chasing');
     if (self.car) { self.car.flee = false; self.car.chase = false; self.car.cruise = 12; }
     game.player.setSiren(false); TG.audio.setSiren(false); game.hud.setSiren(false);
     game.addScore(bonus, null); game.stats.chaseBreak = (game.stats.chaseBreak || 0) + 1;
@@ -77,6 +81,9 @@ TG.Chase = function (game) {
   // 검거: 대상이 포기하고 우측에 정차한다
   function caught() {
     self.state = 'stopped'; self.log.result = 'caught';
+    if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.6);
+    document.body.classList.remove('chasing');
+    game.slowmo = 1.1; game.punch = 1.2;   // 검거 순간: 짧은 슬로모션 + 화각 펀치(재미)
     var c = self.car; if (c) { c.flee = false; c.chase = false; c.cruise = 0; c.violation = c.violation || { type: self.kind.id === 'drunk' ? 'drunk' : 'license', seen: true }; }
     game.addScore(S.chaseCatch, null); game.stats.chaseCatch = (game.stats.chaseCatch || 0) + 1;
     game.hud.notice('✅ 대상 정차 — 원칙대로 따라가 검거 (+' + S.chaseCatch + ')', 'good', 6000);
@@ -86,10 +93,25 @@ TG.Chase = function (game) {
   this.update = function (dt) {
     var pl = game.player, c = self.car;
     if (self.state !== 'follow' || !c) return;
-    if (traffic.cars.indexOf(c) < 0) { self.state = 'lost'; self.log.result = 'lost'; game.hud.notice('대상 차량을 놓쳤습니다 — 📡 무전 전파로 인접 순찰차에 인계됩니다', 'warn', 4200); return; }
+    if (traffic.cars.indexOf(c) < 0) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); document.body.classList.remove('chasing'); game.hud.notice('대상 차량을 놓쳤습니다 — 📡 무전 전파로 인접 순찰차에 인계됩니다', 'warn', 4200); return; }
     var d = dist(), bh = behind(), siren = pl.siren, radioed = !!(c.radioed || c.pursuitOk);
     self.log.radioed = self.log.radioed || radioed;
     self.t.follow += dt;
+    var kmh = pl.speedKmh();
+    if (TG.audio.chaseTension) TG.audio.chaseTension(Math.min(1, (kmh / 110) * 0.6 + (d < 60 ? (60 - d) / 60 * 0.5 : 0)));
+    // 아슬아슬: 다른 차를 2m 안으로 스치며 지나갈 때. 점수는 없다 — 부수적 피해 직전이라는 긴장 신호다.
+    self.t.miss = (self.t.miss || 0) - dt;
+    if (kmh > 55 && self.t.miss <= 0) {
+      for (var mi = 0; mi < traffic.cars.length; mi++) {
+        var o = traffic.cars[mi]; if (o === c) continue;
+        var mdx = o.pos.x - pl.pos.x, mdz = o.pos.z - pl.pos.z, md = Math.hypot(mdx, mdz);
+        if (md > 2.6) continue;
+        self.t.miss = 2.2; self.log.misses = (self.log.misses || 0) + 1;
+        game.hud.pop('⚠ 아슬아슬', 'bad'); game.hud.hint('💭 부수적 피해 직전이었다 — 간격을 두고 따라간다');
+        game.shake = Math.max(game.shake || 0, 0.5); TG.audio.whoosh();
+        break;
+      }
+    }
     // 어린이보호구역으로 도주 → 추격을 끊는 것이 정답
     if (city.inSchoolZone(c.pos.x, c.pos.z) && d < 90) { breakOff('어린이보호구역으로 도주 — 추격을 끊고 무전·영상으로', S.chaseBreak); return; }
     // 상황실 중단 지시를 따랐는가(경광등 끄고 감속)
@@ -116,7 +138,7 @@ TG.Chase = function (game) {
       }
       self.t.warn -= dt;
     }
-    if (d > 220) { self.t.lost += dt; if (self.t.lost > 12) { self.state = 'lost'; self.log.result = 'lost'; game.hud.notice('대상을 시야에서 놓쳤습니다 — 📡 전파된 수배로 인접 순찰차가 처리합니다', 'warn', 4600); } }
+    if (d > 220) { self.t.lost += dt; if (self.t.lost > 12) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); document.body.classList.remove('chasing'); game.hud.notice('대상을 시야에서 놓쳤습니다 — 📡 전파된 수배로 인접 순찰차가 처리합니다', 'warn', 4600); } }
   };
   // HUD 한 줄
   this.line = function () {
@@ -127,6 +149,8 @@ TG.Chase = function (game) {
            ' · 원칙 유지 ' + self.t.safe.toFixed(0) + '/20초';
   };
   this.dispose = function () {
+    if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(0.6);
+    document.body.classList.remove('chasing');
     if (self.car) { self.car.flee = false; self.car.chase = false; }
     self.car = null; self.state = 'idle';
   };

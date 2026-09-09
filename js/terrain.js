@@ -114,17 +114,22 @@ TG.buildTerrain = function (scene, city, cfg) {
   function ramps(conn, j, tag) {
     var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
     var LO = cfg.HW_LANES[cfg.HW_LANES.length - 1];
+    // 램프는 본선 바깥 차로선(LO)에, 합류 전 구간은 그보다 3.4m 더 바깥(가속차로 자리)에 놓는다.
+    // 예전에는 j+4 에서 곧바로 본선 차로선으로 붙어(약 15m) 진입이 꺾여 보였다 — 나란히 70m 를 달리다 서서히 붙는다.
     function L(k) { var p = ring.P(j + k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
-    var on = buildLink('on' + tag, [[J.x - tc[0] * 60 + rc[0] * 2, J.z - tc[1] * 60 + rc[1] * 2], [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2],
-      [J.x - tc[0] * 20 + rc[0] * 5, J.z - tc[1] * 20 + rc[1] * 5], L(4), L(9), L(12)], 'onramp', false);
-    var off = buildLink('off' + tag, [L(-12), L(-9), L(-4), [J.x - tc[0] * 20 - rc[0] * 5, J.z - tc[1] * 20 - rc[1] * 5],
-      [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2], [J.x - tc[0] * 60 - rc[0] * 2, J.z - tc[1] * 60 - rc[1] * 2]], 'offramp', false);
-    trimLink(on, [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2], L(9));
-    trimLink(off, L(-9), [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2]);
+    function LX(k, extra) { var p = ring.P(j + k); return [p.x + p.rx * (LO + extra), p.z + p.rz * (LO + extra)]; }
+    var on = buildLink('on' + tag, [[J.x - tc[0] * 74 + rc[0] * 2, J.z - tc[1] * 74 + rc[1] * 2], [J.x - tc[0] * 50 + rc[0] * 2, J.z - tc[1] * 50 + rc[1] * 2],
+      [J.x - tc[0] * 26 + rc[0] * 4.2, J.z - tc[1] * 26 + rc[1] * 4.2], L(0), L(7), L(14), L(21), L(26)], 'onramp', false);
+    var off = buildLink('off' + tag, [L(-26), L(-21), L(-14), L(-7), L(0),
+      [J.x - tc[0] * 26 - rc[0] * 4.2, J.z - tc[1] * 26 - rc[1] * 4.2],
+      [J.x - tc[0] * 50 - rc[0] * 2, J.z - tc[1] * 50 - rc[1] * 2], [J.x - tc[0] * 74 - rc[0] * 2, J.z - tc[1] * 74 - rc[1] * 2]], 'offramp', false);
+    trimLink(on, [J.x - tc[0] * 42 + rc[0] * 2, J.z - tc[1] * 42 + rc[1] * 2], L(21));   // 램프 시작 = 연결로 끝(42m)과 정확히 맞물린다
+    trimLink(off, L(-21), [J.x - tc[0] * 42 - rc[0] * 2, J.z - tc[1] * 42 - rc[1] * 2]);
+    on.mergeFrom = 0.58; off.mergeFrom = -1;   // 안쪽 선을 점선으로 바꾸는 지점(합류 구간)
     var connEndIdx = conn.N - 1;   // 연결로 끝 = 램프 분기점
     conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
-    on.nextA = { link: ring, index: (j + 9) % ring.N, merge: true };
-    ring.exitsA.push({ atIndex: ((j - 9) % ring.N + ring.N) % ring.N, decideIndex: ((j - 24) % ring.N + ring.N) % ring.N, link: off });
+    on.nextA = { link: ring, index: (j + 21) % ring.N, merge: true };
+    ring.exitsA.push({ atIndex: ((j - 21) % ring.N + ring.N) % ring.N, decideIndex: ((j - 40) % ring.N + ring.N) % ring.N, link: off });
     off.nextA = { link: conn, index: connEndIdx, dirA: false };
     // 분기점 너머는 램프·링 지형이 이어져(heightAt 이 링 높이로 올라감) 직진해도 빠지지 않는다 — 차단벽 없음
     var E = conn.pts[conn.N - 1];
@@ -171,16 +176,23 @@ TG.buildTerrain = function (scene, city, cfg) {
   var CELL = 24, grid = {};
   links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]); } });
   // 가장 가까운 링크 지점. 램프는 링·연결로보다 우선순위가 낮다(겹치는 곳에서 본선 기준).
-  function nearest(x, z, allowRamp) {
-    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), best = null, bd = 1e9;
+  // lowest: 지형을 깎을 때 쓰는 모드. 겹치는 도로가 있으면 **가장 낮은 노면**을 기준으로 삼는다.
+  // (고가 연결로가 순환고속도로 위를 지나가는 곳에서 지형이 고가 높이까지 올라와 본선을 파묻던 원인)
+  function nearest(x, z, allowRamp, lowest) {
+    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), best = null, bd = 1e9, low = null;
     for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
       var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
       for (var m = 0; m < list.length; m++) {
         var p = list[m], d2 = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
         if (!allowRamp && p.link.oneWay) d2 += 36;   // 램프는 6m 페널티
         if (d2 < bd) { bd = d2; best = p; }
+        if (lowest) {                                 // 노면 폭 안에 드는 후보 중 가장 낮은 것
+          var lat = (x - p.x) * p.rx + (z - p.z) * p.rz, alo = (x - p.x) * p.tx + (z - p.z) * p.tz;
+          if (Math.abs(lat) <= p.half + 4 && Math.abs(alo) <= 6 && (!low || p.y < low.y)) low = p;
+        }
       }
     }
+    if (lowest && low && best !== low && low.y < best.y - 0.05) best = low;   // 아래를 지나는 도로가 있으면 그것을 기준으로
     if (!best) return null;
     var L = best.link, i = best.i, br = null, brd = 1e9;
     for (var sgn = -1; sgn <= 0; sgn++) {
@@ -198,7 +210,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
   function heightAt(x, z) {
     var rv = river(x, z), h = hBase(x, z) + rv;
-    var q = nearest(x, z, true);
+    var q = nearest(x, z, true, true);   // 지형은 가장 낮은 노면에 맞춘다
     if (q && q.dist < 36) {
       var t = 1 - sstep(q.p.half + 4, 36, q.dist);
       if (rv > -1.0) h = h * (1 - t) + (q.y - 0.12) * t;
@@ -301,7 +313,12 @@ TG.buildTerrain = function (scene, city, cfg) {
       ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);
       wallQuad(props, p, q, -half, -4, 0.02, 0x6b6a5e); wallQuad(props, p, q, half, -4, 0.02, 0x6b6a5e);
       var LIFT = ramp ? 0.07 : 0.05;
-      if (ramp) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
+      if (ramp) {
+        var ru = (i + 0.5) / L.N, inMerge = L.mergeFrom > 0 ? ru > L.mergeFrom : ru < 0.42, dsh = (i % 2) === 0;
+        if (!inMerge || dsh) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
+        var noseNear = L.mergeFrom > 0 ? (i >= L.N - 7) : (i <= 6);
+        if (noseNear && dsh) ribbon(mark, p, q, -half + 0.5, half - 0.5, LIFT - 0.004, 0xe9edf0);   // 도류선(코 부분 노면 표시)
+      }
       else if (L.kind === 'circuit') {   // 서킷: 흰 가장자리선, 코너 연석(적·백), 출발선(체크), 코너 앞 러버콘
         ribbon(mark, p, q, half - 0.5, half - 0.32, LIFT, WHT); ribbon(mark, p, q, -half + 0.32, -half + 0.5, LIFT, WHT);
         if (p.kappa > 0.012) for (var cs = -1; cs <= 1; cs += 2) ribbon(mark, p, q, cs * (half - 0.3), cs * (half + 0.5), LIFT + 0.02, (i % 2) ? 0xe53935 : 0xffffff);

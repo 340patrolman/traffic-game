@@ -322,3 +322,17 @@ body.cine-out .cine-bar{height:0}
 @keyframes cineFlash{0%{opacity:.9}35%{opacity:.35}100%{opacity:0}}
 body.portrait .cine-bar{height:7vh}
 body.portrait .intro-shot{bottom:calc(7vh + 20px)}
+/* 하차·승차 버튼(순찰 근무 중) — 도보 상태에서는 「승차」로 바뀐다 */
+.tbtn.footbtn{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(286px + var(--sa-b));width:64px;height:64px;background:rgba(120,220,255,.16);border-color:rgba(120,220,255,.75)}
+.tbtn.footbtn .ico{font-size:24px}
+body.desktop .tbtn.footbtn,body.can-foot .tbtn.footbtn{display:flex}
+body.onfoot:not(.afoot) .tbtn.footbtn{display:none}
+body.afoot .tbtn.footbtn{background:rgba(255,207,63,.2);border-color:rgba(255,207,63,.85)}
+body.kidmode .tbtn.footbtn,body.dutymode .tbtn.footbtn{display:none}
+body.portrait .tbtn.footbtn{bottom:calc(320px + var(--sa-b))}
+/* 추격 중 화면: 붉은 비네트가 숨쉬듯 밝아진다(속도감·긴장). 음악은 audio.chaseTheme */
+body.chasing::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:6;
+  background:radial-gradient(ellipse at 50% 52%,rgba(0,0,0,0) 46%,rgba(120,10,10,.30) 100%);
+  animation:chasePulse 1.9s ease-in-out infinite}
+@keyframes chasePulse{0%,100%{opacity:.55}50%{opacity:1}}
+body.chasing #section{border-color:rgba(255,90,90,.8)}

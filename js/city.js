@@ -231,7 +231,8 @@ TG.buildCity = function (cfg) {
       if (q && q.dist > q.p.half) { var q2 = terrain.nearest(x, z, false); if (q2 && q2.dist <= q2.p.half) q = q2; }   // 램프 옆 본선 위(합류부)는 본선 프레임
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
-        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 6차로)' : '순환고속도로(왕복 6차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
+        var hwN = (cfg.HW_LANES ? cfg.HW_LANES.length : 3) * 2;   // 실제 차로 수로 표기한다(고정 「6차로」 였다)
+        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 ' + hwN + '차로)' : '순환고속도로(왕복 ' + hwN + '차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
         var lim2 = k === 'highway' ? (z < -120 ? 80 : terrain.limitOf(k)) : terrain.limitOf(k);
         if (q.link.name) name = q.link.name + (k === 'suburb' ? '(왕복 2차로)' : '');
         if (q.link.limit) lim2 = q.link.limit;

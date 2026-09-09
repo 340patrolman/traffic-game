@@ -351,6 +351,79 @@ TG.audio = (function () {
   }
   // 타이틀 화면 테마: 인트로 주제를 조용히 되짚는 16초 루프(드론 + 아르페지오 + 두 마디마다 팀파니 한 번).
   // 타이틀이 무음이면 게임이 꺼진 것처럼 보인다 — 출동을 누르면 멈춘다.
+  // ---------- 추격 음악(합성) ----------
+  // 소유자 「니드포 스피드 느낌 … 재미를 줄 때는 확실하게」. 추격 중에만 흐르고, 대상과의 거리로 긴장도가 바뀐다.
+  // 구성: 저음 펄스(4분) + 16분 하이햇(노이즈) + 두 화음 오스티나토 + 사이렌풍 스탭. 파일 0개.
+  var chase = null;
+  function chaseTheme() {
+    if (!ensure() || ctx.state !== 'running' || chase) return false;
+    var bus = ctx.createGain(); bus.gain.value = 0.0001;
+    var comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.18;
+    var send = ctx.createGain(); send.gain.value = 0.28;
+    bus.connect(comp); comp.connect(master); bus.connect(send); send.connect(reverb());
+    bus.gain.linearRampToValueAtTime(0.62, ctx.currentTime + 1.2);
+    chase = { bus: bus, nodes: [], timer: null, k: 0, tension: 0 };
+    var BPM = 132, beat = 60 / BPM, N = { D1: 36.71, A1: 55, Bb1: 58.27, D2: 73.42, F2: 87.31, A2: 110, Bb2: 116.54, D3: 146.83, F3: 174.61 };
+    // 저음 드론(계속) — 긴장도로 밝기가 바뀐다
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.9; lp.connect(bus);
+    [N.D1, N.D2].forEach(function (f, i) {
+      var o = ctx.createOscillator(); o.type = i ? 'sawtooth' : 'sine'; o.frequency.value = f;
+      var g = ctx.createGain(); g.gain.value = i ? 0.10 : 0.22; o.connect(g); g.connect(lp); o.start(); chase.nodes.push(o);
+    });
+    chase.lp = lp;
+    var base = ctx.currentTime + 0.05, step = 0;
+    var CHORD = [[N.D2, N.F2, N.A2], [N.Bb1, N.D2, N.F2]];
+    function tick() {
+      if (!chase) return;
+      var t = base + step * (beat / 4);                       // 16분음
+      if (t < ctx.currentTime) { base = ctx.currentTime; t = base; }
+      var s16 = step % 16, bar = Math.floor(step / 16) % 2;
+      // 하이햇(16분) — 긴장도가 높으면 더 또렷하게
+      var hs = ctx.createBufferSource(); hs.buffer = noiseBuffer(0.06);
+      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7200;
+      var hg = ctx.createGain(); var hv = (s16 % 4 === 0 ? 0.05 : 0.026) * (0.6 + chase.tension * 0.7);
+      hg.gain.setValueAtTime(hv, t); hg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      hs.connect(hp); hp.connect(hg); hg.connect(bus); hs.start(t); hs.stop(t + 0.07);
+      // 킥(1·3박) + 스네어(2·4박 뒤)
+      if (s16 % 8 === 0) {
+        var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(46, t + 0.12);
+        var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.42, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+        o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.3);
+      }
+      if (s16 === 4 || s16 === 12) {
+        var ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.12);
+        var nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = 1900; nb.Q.value = 0.8;
+        var ng = ctx.createGain(); ng.gain.setValueAtTime(0.16, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+        ns.connect(nb); nb.connect(ng); ng.connect(bus); ns.start(t); ns.stop(t + 0.16);
+      }
+      // 오스티나토: 8분마다 짧은 톱니 화음
+      if (s16 % 2 === 0) {
+        var ch = CHORD[bar], gg = ctx.createGain();
+        gg.gain.setValueAtTime(0.0001, t); gg.gain.linearRampToValueAtTime(0.05 + chase.tension * 0.05, t + 0.01); gg.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        var f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 900 + chase.tension * 2600; f2.Q.value = 1.1;
+        gg.connect(f2); f2.connect(bus);
+        for (var ci = 0; ci < ch.length; ci++) { var oc = ctx.createOscillator(); oc.type = 'sawtooth'; oc.frequency.value = ch[ci] * 2; oc.detune.value = ci * 4 - 4; oc.connect(gg); oc.start(t); oc.stop(t + 0.2); }
+      }
+      step++;
+      chase.timer = setTimeout(tick, (beat / 4) * 1000);
+    }
+    tick();
+    return true;
+  }
+  // 긴장도 0~1: 대상과 가까울수록·속도가 높을수록 밝고 크게
+  function chaseTension(v) {
+    if (!chase) return;
+    chase.tension = Math.max(0, Math.min(1, v));
+    if (chase.lp) chase.lp.frequency.setTargetAtTime(380 + chase.tension * 900, ctx.currentTime, 0.2);
+    chase.bus.gain.setTargetAtTime(0.5 + chase.tension * 0.35, ctx.currentTime, 0.3);
+  }
+  function stopChaseTheme(fade) {
+    if (!chase) return;
+    var th = chase; chase = null; var f = fade === undefined ? 1.2 : fade, now = ctx.currentTime;
+    if (th.timer) clearTimeout(th.timer);
+    th.bus.gain.setValueAtTime(th.bus.gain.value, now); th.bus.gain.linearRampToValueAtTime(0, now + f + 0.001);
+    setTimeout(function () { th.nodes.forEach(function (n) { try { n.stop(); } catch (e) { } }); try { th.bus.disconnect(); } catch (e) { } }, (f + 0.05) * 1000);
+  }
   var titleTh = null;
   function titleTheme() {
     if (!ensure() || ctx.state !== 'running' || titleTh || theme) return false;
@@ -394,6 +467,6 @@ TG.audio = (function () {
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
   return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
-           footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, get running() { return ready && ctx.state === 'running'; },
+           footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();
