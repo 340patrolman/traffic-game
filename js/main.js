@@ -195,7 +195,7 @@
       { at: 8.0, text: '그 목적을 매일 도로 위에서 실현하는 사람,' },
       { at: 9.8, text: '교통경찰.' },
       { at: 11.6, text: 'SEOUL PATROL', big: true },
-      { at: 12.6, text: '서울교통 순찰근무 · 강남 · 서초 · 순환고속도로', small: true },
+      { at: 12.6, text: '서울교통 순찰근무 · 강남 · 서초 · 경부고속도로', small: true },
     ];
     hud.introLines(intro.lines, -1);
     hud.showIntro(true);
@@ -544,7 +544,7 @@
     document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('dutymode', G.mode === 'duty');
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase');   // 하차 버튼
     footBtnLabel(false);
-    hud.notice(G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 순환고속도로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    hud.notice(G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
@@ -1027,7 +1027,7 @@
       if (!camInit) { camPos.set(tx, ty, tz); camLook.set(lx, ly, lz); camInit = true; }
       var k = 1 - Math.exp(-5 * dt); camPos.x += (tx - camPos.x) * k; camPos.y += (ty - camPos.y) * k; camPos.z += (tz - camPos.z) * k;
       camLook.x += (lx - camLook.x) * k * 1.4; camLook.y += (ly - camLook.y) * k; camLook.z += (lz - camLook.z) * k * 1.4;
-      var gy = terrain.heightAt(camPos.x, camPos.z) + 0.9; if (camPos.y < gy) camPos.y = gy;
+      var gy = terrain.heightAt(camPos.x, camPos.z, player.y) + 0.9; if (camPos.y < gy) camPos.y = gy;
     }
     camera.position.copy(camPos); camera.lookAt(camLook); camFx(dt);
     world.followSun(w.pos.x, w.pos.z);
@@ -1115,7 +1115,7 @@
     if (id === 'signal') { player.teleport(xs[2] + 2, zs[2] + 48, Math.PI); signals.set(N22, 'h', 'red'); traffic.spawn({ at: { x: xs[2] - 70, z: zs[2] - 2, d: 1, node: N22 }, v: 9, violator: true, straight: true }); hud.notice('체험 · 신호위반: 왼쪽에서 적색에 정지선을 넘는 차가 온다 — 터치해서 단속', 'info', 6000); }
     else if (id === 'pedestrian') { player.teleport(xs[2] + 2, zs[2] + 60, Math.PI); signals.set(N22, 'v', 'red'); for (var k = 0; k < 3; k++) peds.spawn({ at: { x: xs[2] - 9 + k * 2, z: zs[2] - 12, axis: 'h', coord: zs[2], side: -1, d: 1 }, jaywalker: false }); traffic.spawn({ at: { x: xs[2] - 2, z: zs[2] - 60, d: 0, node: N22 }, v: 10, violator: false, straight: true, pedViolator: true }); hud.notice('체험 · 보행자 보호: 횡단보도에 보행자가 있는데 통과하는 차를 터치해서 단속. 순찰차도 정지선 앞에서 멈춘다', 'info', 6000); }
     else if (id === 'centerline') { var cE = terrain.connE, p10 = cE.P(10); player.teleport(p10.x + p10.rx * 2, p10.z + p10.rz * 2, Math.atan2(p10.tx, p10.tz)); traffic.spawn({ atLink: { link: cE, i: 40, dirA: false }, lane: 0, v: 12, type: 'sedan', stayRing: true }); hud.notice('체험 · 중앙선: 왕복 2차로 교외 길, 황색 중앙선을 넘으면 감점 — 마주 오는 차에 주의', 'info', 6000); }
-    else if (id === 'speed') { var R = terrain.ring, rp = R.P(30); player.teleport(rp.x + rp.rx * 5.5, rp.z + rp.rz * 5.5, Math.atan2(rp.tx, rp.tz)); player.vx = rp.tx * 22; player.vz = rp.tz * 22; player.resync(); hud.notice('체험 · 과속: 순환고속도로 제한 100 — 120km/h 이상은 12대 중과실(20km/h 초과)', 'info', 6000); }
+    else if (id === 'speed') { var R = terrain.ring, rp = R.P(30); player.teleport(rp.x + rp.rx * 5.5, rp.z + rp.rz * 5.5, Math.atan2(rp.tx, rp.tz)); player.vx = rp.tx * 22; player.vz = rp.tz * 22; player.resync(); hud.notice('체험 · 과속: 경부고속도로 제한 100 — 120km/h 이상은 12대 중과실(20km/h 초과)', 'info', 6000); }
     else if (id === 'school') { player.teleport(xs[1] + 2, zs[3] + 40, Math.PI); hud.notice('체험 · 어린이보호구역: 앞 학교 블록 주변은 30km/h. 무신호 횡단보도 앞 일시정지', 'info', 6000); }
     else if (id === 'overtake') { player.teleport(xs[2] + 2, zs[3] + 20, Math.PI); var N23 = city.nodes[2][3]; traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 44, d: 2, node: N23 }, v: 4, cruise: 4, straight: true, violator: false, laneIdx: 0, trait: null }); var ot = traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 62, d: 2, node: N23 }, v: 10, cruise: 11, straight: true, violator: false, laneIdx: 0, trait: 'overtake' }); if (ot) ot.lcCd = 0; hud.notice('체험 · 앞지르기 위반: 앞의 빠른 차가 느린 차를 우측(바깥 차로)으로 추월한다 — 앞지르기는 좌측으로(§21)', 'info', 6000); }
     else if (id === 'railroad') { var LW = terrain.conns[3], p6 = LW.P(6); player.teleport(p6.x + p6.rx * 2, p6.z + p6.rz * 2, Math.atan2(p6.tx, p6.tz)); rail.forceClose(); var rc = traffic.spawn({ atLink: { link: LW, i: 11, dirA: true }, lane: 0, v: 11, type: 'sedan', violator: true, stayRing: true }); if (rc) rc.railRun = true; hud.notice('체험 · 철길건널목: 앞 건널목 차단기가 내려온다 — 정지선 앞에 선다. 앞차는 그대로 통과(위반)', 'info', 6000); }
@@ -1411,7 +1411,7 @@
     camPos.x += (tx - camPos.x) * k; camPos.y += (ty - camPos.y) * k; camPos.z += (tz - camPos.z) * k;
     camLook.x += (lx - camLook.x) * k * 1.4; camLook.y += (ly - camLook.y) * k; camLook.z += (lz - camLook.z) * k * 1.4;
     // 카메라가 지형 밑으로 들어가지 않게
-    var gy = terrain.heightAt(camPos.x, camPos.z) + 1.2; if (camPos.y < gy) camPos.y = gy;
+    var gy = terrain.heightAt(camPos.x, camPos.z, walker ? walker.y : player.y) + 1.2; if (camPos.y < gy) camPos.y = gy;
     camera.position.copy(camPos); camera.lookAt(camLook); camFx(dt);
     world.followSun(player.pos.x, player.pos.z);
   }

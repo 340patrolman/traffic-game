@@ -27,7 +27,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.eyeHeight = function () { return this.kid ? 1.08 : 1.62; };
   this.eyeWorld = function () { return new THREE.Vector3(this.pos.x, this.y + this.eyeHeight(), this.pos.z); };
   this.sync = function (dt) {
-    this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z) : 0;
+    this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z, this.y) : 0;
     rig.baseY = this.y; g.position.x = this.pos.x; g.position.z = this.pos.z; g.rotation.y = this.heading;
     var sp = TG.audio.speaking, talking = sp === (this.kid ? 'kid' : 'officer');
     TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan, talking: talking, smile: !!this.smile }, dt || 0.016);

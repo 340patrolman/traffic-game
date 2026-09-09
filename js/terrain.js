@@ -106,23 +106,71 @@ TG.buildTerrain = function (scene, city, cfg) {
     var a = 0, b = link.N - 1, ba = 1e9, bb = 1e9;
     for (var i = 0; i < link.N; i++) { var da = Math.hypot(link.pts[i].x - start[0], link.pts[i].z - start[1]); if (da < ba) { ba = da; a = i; } var db = Math.hypot(link.pts[i].x - end[0], link.pts[i].z - end[1]); if (db < bb) { bb = db; b = i; } }
     link.pts = link.pts.slice(a, b + 1); link.N = link.pts.length;
-    for (var k = 0; k < link.N; k++) { link.pts[k].i = k; link.pts[k].s -= link.pts[0].s; }
+    // 스플라인이 제자리에서 되돌아 꺾이는 점(앞 점과 STEP 의 60% 미만)은 버린다.
+    // 남으면 그 자리에서 노면 사각형이 뒤집혀 **도로가 끊긴 것처럼** 보이고 차가 튕긴다(한남대교 연결로 1곳).
+    var keep = [link.pts[0]];
+    for (var m = 1; m < link.N; m++) {
+      var pv = keep[keep.length - 1], cu = link.pts[m];
+      if (m < link.N - 1 && Math.hypot(cu.x - pv.x, cu.z - pv.z) < STEP * 0.6) continue;
+      keep.push(cu);
+    }
+    if (keep.length !== link.N) {   // 버린 점이 있으면 거리·접선을 실제 좌표로 다시 낸다
+      link.pts = keep; link.N = keep.length;
+      link.pts[0].s = 0;
+      for (m = 1; m < link.N; m++) link.pts[m].s = link.pts[m - 1].s + Math.hypot(link.pts[m].x - link.pts[m - 1].x, link.pts[m].z - link.pts[m - 1].z);
+      for (m = 0; m < link.N; m++) {
+        var A2 = link.pts[Math.max(0, m - 1)], B2 = link.pts[Math.min(link.N - 1, m + 1)];
+        var tx2 = B2.x - A2.x, tz2 = B2.z - A2.z, tl2 = Math.hypot(tx2, tz2) || 1;
+        link.pts[m].tx = tx2 / tl2; link.pts[m].tz = tz2 / tl2; link.pts[m].rx = -tz2 / tl2; link.pts[m].rz = tx2 / tl2;
+      }
+    }
+    var s0 = link.pts[0].s;   // 기준을 먼저 떠 둔다 — 루프 안에서 pts[0].s 를 읽으면 첫 번째만 0 이 되고 나머지는 그대로 남는다(오래된 버그)
+    for (var k = 0; k < link.N; k++) { link.pts[k].i = k; link.pts[k].s -= s0; }
     link.P = function (i) { return link.pts[TG.clamp(i, 0, link.N - 1)]; };
     link.total = link.pts[link.N - 1].s;
   }
   // 램프: 연결로 A 끝(도시→링) → 링 A 바깥 차로 로 우회전 합류 / 링 A → 연결로 B 로 우회전 진출
+  // 링 위의 가장 가까운 점(높이·거리) — 램프 노면을 본선에 맞출 때 쓴다
+  function ringNear(x, z) {
+    var k = ringIndexNear(x, z), b = null, bd = 1e9;
+    for (var d = -3; d <= 3; d++) { var p = ring.P(k + d), dd = Math.hypot(p.x - x, p.z - z); if (dd < bd) { bd = dd; b = p; } }
+    return { p: b, d: bd, y: b.y };
+  }
+  // 램프의 한쪽 끝을 상대 도로 폭까지 넓힌다 — 왕복 8차로(반폭 17m)가 반폭 5.8m 램프로 갑자기 좁아져
+  // 이음부 양쪽에 맨땅이 드러나고 차가 포장 밖으로 나갔다(소유자: 「차들이 도로가 아닌 맨땅을 달리고 있어」).
+  // 종단 꺾임 완화(양 끝은 고정) — 기울기 구간과 본선 높이 구간이 만나는 자리를 매끄럽게 잇는다
+  function smoothY(link) {
+    for (var pass = 0; pass < 3; pass++) {
+      var out = [];
+      for (var i = 0; i < link.N; i++) {
+        if (i === 0 || i === link.N - 1) { out.push(link.pts[i].y); continue; }
+        var a = link.pts[Math.max(0, i - 2)].y, b = link.pts[i - 1].y, c = link.pts[i].y;
+        var d = link.pts[i + 1].y, e = link.pts[Math.min(link.N - 1, i + 2)].y;
+        out.push((a + b * 2 + c * 3 + d * 2 + e) / 9);
+      }
+      for (var k = 0; k < link.N; k++) link.pts[k].y = out[k];
+    }
+  }
+  function taperHalf(link, atStart, wide, len) {
+    var TL = len || 44;
+    for (var i = 0; i < link.N; i++) {
+      var p = link.pts[i], d = atStart ? p.s : (link.total - p.s);
+      if (d >= TL) continue;
+      var t = d / TL, w = wide * (1 - t) + p.half * t;
+      if (w > p.half) p.half = w;
+    }
+  }
   function ramps(conn, j, tag, split) {
-    var J = ring.pts[j], tc = [conn.pts[conn.N - 1].tx, conn.pts[conn.N - 1].tz], rc = [-tc[1], tc[0]];
+    var J = ring.pts[j];
+    var E = conn.pts[conn.N - 1];                            // 연결로의 실제 끝(분기점). 램프는 반드시 이 점에서 시작하고 끝난다
+    var tc = [E.tx, E.tz], rc = [-tc[1], tc[0]];
     var LO = cfg.HW_LANES[cfg.HW_LANES.length - 1];
-    var SP = split || 56;                                    // 연결로가 링에서 떨어져 있는 거리(분기점)
+    var SP = Math.max(30, (J.x - E.x) * tc[0] + (J.z - E.z) * tc[1]);   // 분기점 → 링 접속점 실측 거리
     var tR = [J.tx, J.tz];                                   // 링 진행 방향(접선)
-    var Rf = Math.max(34, SP - LO);                           // 원호 반지름 — 방사 거리에서 차로선까지
-    function L(k) { var p = ring.P(j + k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
-    var sp = Math.hypot(ring.P(j + 1).x - J.x, ring.P(j + 1).z - J.z) || 3.5;
-    var dK = Math.max(6, Math.round(Rf / sp));               // 원호가 링을 따라 나아가는 샘플 수
-    // 원호: 시작점(연결로 쪽, 방향 tc) → 끝점(링 쪽, 방향 sgn·tR). 5점으로 샘플링해 스플라인에 넣는다.
-    function arc(sgn, side) {
-      var T = [J.x - tc[0] * SP + rc[0] * side * 2, J.z - tc[1] * SP + rc[1] * side * 2];
+    var Rf = Math.max(34, SP - LO);                          // 원호 반지름
+    // 원호: 분기점 E(방향 tc)에서 링 방향 sgn·tR 으로 90° 돈다. 진입·진출 램프가 같은 점에서 갈라진다.
+    function arc(sgn) {
+      var T = [E.x, E.z];
       var C = [T[0] + tR[0] * sgn * Rf, T[1] + tR[1] * sgn * Rf], out = [];
       for (var k = 0; k <= 4; k++) {
         var th = (k / 4) * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
@@ -130,24 +178,38 @@ TG.buildTerrain = function (scene, city, cfg) {
       }
       return out;
     }
-    // 원호 끝을 「링 바깥 차로선 위의 실제 점」으로 바꿔 붙인다 — 링이 휘어 있어 계산값과 조금 어긋나면 그 자리에서 꺾인다.
+    // 원호 끝을 「링 바깥 차로선 위의 실제 점」으로 바꿔 붙인다 — 링이 휘어 있어 계산값과 어긋나면 그 자리에서 꺾인다.
     function ringLane(k) { var p = ring.P(k); return [p.x + p.rx * LO, p.z + p.rz * LO]; }
-    // 진입 램프: 연결로 → 원호 → 링과 나란히(가속차로) → 합류
-    var aOn = arc(1, 1), Ton = aOn[0];
+    // 진입 램프: 분기점 → 원호 → 링과 나란히(가속차로) → 합류
+    var aOn = arc(1), Ton = aOn[0];
     var jOn = ringIndexNear(aOn[4][0], aOn[4][1]); aOn[4] = ringLane(jOn);
-    var onCP = [[Ton[0] - tc[0] * 26, Ton[1] - tc[1] * 26]].concat(aOn)
+    var onCP = [[Ton[0] - tc[0] * 34, Ton[1] - tc[1] * 34]].concat(aOn)
       .concat([ringLane(jOn + 6), ringLane(jOn + 14), ringLane(jOn + 22), ringLane(jOn + 28)]);
     var on = buildLink('on' + tag, onCP, 'onramp', false);
-    trimLink(on, Ton, ringLane(jOn + 22));
-    // 진출 램프: 링(감속차로) → 원호 → 연결로
-    var aOff = arc(-1, -1), Toff = aOff[0];
+    trimLink(on, [Ton[0] - tc[0] * 2.5, Ton[1] - tc[1] * 2.5], ringLane(jOn + 22));   // 분기점보다 2.5m 뒤에서 시작해 연결로 포장과 겹치게 한다(틈 방지)
+    // 진출 램프: 링(감속차로) → 원호 → 분기점
+    var aOff = arc(-1), Toff = aOff[0];
     var jOff = ringIndexNear(aOff[4][0], aOff[4][1]); aOff[4] = ringLane(jOff);
     var aRev = aOff.slice().reverse();
     var offCP = [ringLane(jOff - 28), ringLane(jOff - 22), ringLane(jOff - 14), ringLane(jOff - 6)]
-      .concat(aRev).concat([[Toff[0] - tc[0] * 26, Toff[1] - tc[1] * 26]]);
+      .concat(aRev).concat([[Toff[0] - tc[0] * 34, Toff[1] - tc[1] * 34]]);
     var off = buildLink('off' + tag, offCP, 'offramp', false);
-    trimLink(off, ringLane(jOff - 22), Toff);
+    trimLink(off, ringLane(jOff - 22), [Toff[0] - tc[0] * 2.5, Toff[1] - tc[1] * 2.5]);
     on.mergeFrom = 0.55; off.mergeFrom = -1;                 // 안쪽 선을 점선으로 바꾸는 지점(합류·분기 구간)
+    // 노면 높이 이음: 링 포장 안에 드는 구간은 링 높이 그대로, 나머지는 분기점 높이까지 일정 기울기로 잇는다.
+    // 전에는 링크마다 지형을 따로 완만화해 합류부에 1~2.4m 턱이 있었다(소유자: 「매끈하게 연결되어야 하는데 턱이 있고」).
+    var HH = cfg.HW_HALF + 2.5, y0 = E.y + 0.02, i, q;
+    var iR = on.N;
+    for (i = 0; i < on.N; i++) { q = ringNear(on.pts[i].x, on.pts[i].z); if (q.d <= HH) { if (iR === on.N) iR = i; on.pts[i].y = q.y; } }
+    if (iR > 0) { var y1 = on.pts[Math.min(iR, on.N - 1)].y, s1 = Math.max(1e-3, on.pts[Math.min(iR, on.N - 1)].s);
+      for (i = 0; i < Math.min(iR, on.N); i++) on.pts[i].y = y0 + (y1 - y0) * (on.pts[i].s / s1); }
+    var iC = -1;
+    for (i = 0; i < off.N; i++) { q = ringNear(off.pts[i].x, off.pts[i].z); if (q.d <= HH) { iC = i; off.pts[i].y = q.y; } }
+    var i0 = Math.max(iC, 0), yA = off.pts[i0].y, sA = off.pts[i0].s, sT = Math.max(1e-3, off.total - sA);
+    for (i = i0 + 1; i < off.N; i++) off.pts[i].y = yA + (y0 - yA) * ((off.pts[i].s - sA) / sT);
+    smoothY(on); smoothY(off);
+    taperHalf(on, true, E.half, Math.min(90, on.total * 0.45)); taperHalf(off, false, E.half, Math.min(90, off.total * 0.45));   // 램프 ↔ 연결로: 급하게 좁아지지 않도록 길게 줄인다
+    conn.splitEnd = true;          // 끝이 램프 분기점이다(난간을 세우지 않는 구간)
     var connEndIdx = conn.N - 1;   // 연결로 끝 = 램프 분기점
     conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
     on.nextA = { link: ring, index: ((jOn + 22) % ring.N + ring.N) % ring.N, merge: true };
@@ -178,9 +240,16 @@ TG.buildTerrain = function (scene, city, cfg) {
     var v0 = ic.via[0], run = Math.min(45, Math.max(12, Math.hypot(v0[0] - start[0], v0[1] - start[1]) * 0.45));
     var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
     var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);
-    trimLink(conn, start, end);
-    var Ept = conn.pts[conn.N - 1], SPLIT = 56, split = [end[0] - Ept.tx * SPLIT, end[1] - Ept.tz * SPLIT];   // 90° 원호(반경 약 59m)가 들어갈 만큼 링에서 떨어뜨린다
-    trimLink(conn, start, split);
+    trimLink(conn, [start[0] - dv[0] * 4, start[1] - dv[1] * 4], end);   // 도시 스텁 포장과 4m 겹치게 시작한다(사이에 잔디가 보였다)
+    // 램프 분기점은 **다리 위에 두지 않는다**. 한남대교 연결로는 링 접속점에서 56m 뒤가 한강 한복판이어서
+    // 분기점과 두 램프가 강 위에 조각조각 떠 있었다(소유자: 「도로가 또 끊어져 있음 · 연결성이 매우 중요함에도」).
+    // 링에서 멀어지는 쪽으로 물러나며 물 위가 아닌 첫 지점을 분기점으로 삼는다 — 강은 램프가 아니라 **연결로 본선**이 건넌다.
+    var Ept = conn.pts[conn.N - 1], SPLIT = 56;
+    for (var sp = 56; sp <= 136; sp += 6) { SPLIT = sp; if (river(J.x - Ept.tx * sp, J.z - Ept.tz * sp) > -1.2) break; }
+    var split = [J.x - Ept.tx * SPLIT, J.z - Ept.tz * SPLIT];   // 90° 원호(반경 약 59m)가 들어갈 만큼 링에서 떨어뜨린다
+    trimLink(conn, [start[0] - dv[0] * 4, start[1] - dv[1] * 4], split);
+    var cAx = city.axisOfDir(ic.dir), cIdx = cAx === 'v' ? ic.node[0] : ic.node[1];
+    taperHalf(conn, true, city.halfOf(cAx, cIdx), 90);   // 도시 도로 폭에서 연결로 폭으로 점차 줄인다
     conn.cityStart = { node: node, dir: ic.dir };
     conn.cityEnd = { node: node, dir: (ic.dir + 2) % 4 };
     conn.ic = ic.tag;
@@ -189,9 +258,18 @@ TG.buildTerrain = function (scene, city, cfg) {
   });
   var connE = conns[0], connN = conns[1], rE = ramps_.E, rN = ramps_.N;
   // 도로명·제한속도(축약 서울): 남쪽 연결로 = 경부고속도로(100), 북쪽 = 반포대로·반포대교(80), 서쪽 = 서초대로 연장(60), 동쪽 = 테헤란로 연장(60). 링 북쪽 호는 올림픽대로(80, frameAt).
-  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[2].busLane = true;   // 서울 구간 왕복 8차로 + 1차로 버스전용(다인승). 올림픽대로·순환고속도로에는 버스전용차로가 없다 conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80; conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80; conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장'; conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
-  // 연습 서킷(도시 남동쪽 언덕, 링 안): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
-  var circuit = buildLink('circuit', [[200, 400], [300, 400], [318, 428], [292, 456], [255, 455], [238, 486], [266, 514], [242, 536], [200, 532], [184, 502], [196, 470], [180, 436]], 'circuit', true);
+  // 서울 구간 왕복 8차로 + 1차로 버스전용(다인승). 올림픽대로·순환고속도로에는 버스전용차로가 없다
+  conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[2].busLane = true;
+  conns[1].name = '강남대로 · 한남대교'; conns[1].limit = 80;
+  conns[5].name = '반포대로 · 반포대교'; conns[5].limit = 80;
+  conns[3].name = '서초대로 연장'; conns[0].name = '테헤란로 연장';
+  conns[4].name = '언주로 · 청담대교 방향'; conns[6].name = '언주로 연장'; conns[7].name = '반포대로 연장 · 양재 방향';
+  // 연습 서킷(도시 동쪽 해안 평지, 링 바깥): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
+  // 전에는 x 180~318 · z 400~536 에 있어서 **경부고속도로 연결로와 양재IC 램프를 22m 파고들었다** —
+  // 고속도로 옆에 적·백 코너 연석과 서킷 노면이 겹쳐 보였고, frameAt 이 고속도로 위를 「연습 서킷(반폭 7.5m) 밖」으로
+  // 잡아 도로 위인데 도로 밖으로 판정됐다(소유자: 「차들이 도로에 반쯤 들어가서 달리고 있음」).
+  // x 를 460m 동쪽으로 옮겨 가장 가까운 도로 끝에서 56m, 고저차 1.5m 의 평지에 놓았다.
+  var circuit = buildLink('circuit', [[660, 400], [760, 400], [778, 428], [752, 456], [715, 455], [698, 486], [726, 514], [702, 536], [660, 532], [644, 502], [656, 470], [640, 436]], 'circuit', true);
 
   // ---------- 공간 해시(모든 링크) ----------
   var CELL = 24, grid = {};
@@ -205,7 +283,8 @@ TG.buildTerrain = function (scene, city, cfg) {
       var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
       for (var m = 0; m < list.length; m++) {
         var p = list[m], d2 = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
-        if (!allowRamp && p.link.oneWay) d2 += 36;   // 램프는 6m 페널티
+        if (allowRamp === 'no') { if (p.link.oneWay) continue; }        // 본선만 본다
+        else if (!allowRamp && p.link.oneWay) d2 += 36;   // 램프는 6m 페널티
         if (d2 < bd) { bd = d2; best = p; }
         if (lowest) {                                 // 노면 폭 안에 드는 후보 중 가장 낮은 것
           var lat = (x - p.x) * p.rx + (z - p.z) * p.rz, alo = (x - p.x) * p.tx + (z - p.z) * p.tz;
@@ -229,16 +308,71 @@ TG.buildTerrain = function (scene, city, cfg) {
     br.dist = Math.abs(br.lateral);
     return br;
   }
-  function heightAt(x, z) {
-    var rv = river(x, z), h = hBase(x, z) + rv;
-    var q = nearest(x, z, true, true);   // 지형은 가장 낮은 노면에 맞춘다
-    if (q && q.dist < 36) {
-      var t = 1 - sstep(q.p.half + 4, 36, q.dist);
-      if (rv > -1.0) h = h * (1 - t) + (q.y - 0.12) * t;
-      else if (q.dist <= q.p.half + 0.6) h = q.y - 0.12;              // 다리 위: 노면 높이(강 위에서 차가 빠지지 않는다)
-      else if (q.dist < q.p.half + 2) h = Math.min(h, q.y - 1.5);
+  // 도로마다 가장 가까운 한 점씩 모은다(같은 링크의 여러 점이 중복해서 끌어당기지 않게)
+  function roadCands(x, z) {
+    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), by = {}, out = [];
+    for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
+      var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
+      for (var m = 0; m < list.length; m++) {
+        var p = list[m], d = Math.hypot(p.x - x, p.z - z);
+        if (d > 40) continue;
+        var k = p.link.id, cur = by[k];
+        if (!cur || d < cur.dist) by[k] = { p: p, dist: d, y: p.y, half: p.half };
+      }
     }
+    for (var k2 in by) out.push(by[k2]);
+    return out;
+  }
+  function groundAt(x, z) {
+    var rv = river(x, z), h = hBase(x, z) + rv;
+    var cs = roadCands(x, z);
+    if (!cs.length) return h;
+    // 가장 낮은 노면을 기준으로, **그보다 4m 안쪽에 있는 노면들만** 함께 본다.
+    // 4m 이상 높은 것은 고가(위로 지나가는 길)이므로 지형을 끌어올리지 않는다 — 본선이 흙에 묻히던 원인(v0.9.2).
+    var lo = 1e9, near = null, nd = 1e9, m2;
+    for (m2 = 0; m2 < cs.length; m2++) { if (cs[m2].y < lo) lo = cs[m2].y; if (cs[m2].dist < nd) { nd = cs[m2].dist; near = cs[m2]; } }
+    var sw = 0, sy = 0, tmax = 0;
+    for (m2 = 0; m2 < cs.length; m2++) {
+      var c = cs[m2]; if (c.y > lo + 4) continue;
+      var t = 1 - sstep(c.half + 4, 36, c.dist); if (t <= 0) continue;
+      // 거리 가중 평균: 나란히 가는 램프와 본선 사이에서 **절벽 대신 성토 사면**이 생긴다
+      var w = t * t / Math.max(1.2, c.dist);
+      sw += w; sy += w * (c.y - 0.12); if (t > tmax) tmax = t;
+    }
+    if (sw <= 0) return h;
+    var target = sy / sw;
+    if (rv > -1.0) return h * (1 - tmax) + target * tmax;
+    // 강·하천 위: 다리 노면 아래로 꺼지지 않게 한다
+    if (near && near.dist <= near.half + 0.6) return near.y - 0.12;
+    if (near && near.dist < near.half + 2) return Math.min(h, near.y - 1.5);
     return h;
+  }
+  // 차량·사람이 실제로 올라서 있는 노면 높이. 겹치는 도로(램프 ↔ 본선)가 있으면
+  // 지금 높이(yHint)에 가장 가까운 노면을 고른다 — 램프 위의 차는 램프에, 밑을 지나는 차는 본선에 붙는다.
+  // 전에는 지형용 groundAt(가장 낮은 노면)을 그대로 썼기 때문에 램프 위의 차가 아래 본선 높이로 내려앉아
+  // 노면에 파묻히고 카메라가 포장 밑으로 들어가 화면이 검게 나왔다.
+  function surfaceAt(x, z, yHint) {
+    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
+    var hint = (yHint === undefined || yHint === null || !isFinite(yHint)) ? null : yHint;
+    // 1차: 지금 높이와 같은 층(±3m)의 도로만 후보로 본다. 2차: 못 찾으면 층을 가리지 않는다.
+    for (var pass = 0; pass < 2; pass++) {
+      var best = null, bs = 1e9, useHint = pass === 0 && hint !== null;
+      for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
+        var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
+        for (var m = 0; m < list.length; m++) {
+          var p = list[m], lat = (x - p.x) * p.rx + (z - p.z) * p.rz, alo = (x - p.x) * p.tx + (z - p.z) * p.tz;
+          if (Math.abs(lat) > p.half + 1.5 || Math.abs(alo) > 5) continue;
+          if (useHint && Math.abs(p.y - hint) > 3.0) continue;
+          var sc = Math.abs(lat) + Math.abs(alo) * 0.2;   // 중심선에 가까운 도로가 내가 달리고 있는 도로
+          if (sc < bs) { bs = sc; best = p; }
+        }
+      }
+      // 노면 「위」를 준다 — 포장은 p.y + 0.02(램프 0.04) 에 깔린다. 전에는 지형 기준(p.y − 0.12)을 줘서
+      // 바퀴가 아스팔트 30cm 아래에 잠겼다(소유자: 「차량이 도로에 묻혀서 달리고 있음」).
+      if (best) return best.y + 0.02;
+      if (!useHint) break;
+    }
+    return groundAt(x, z);
   }
   function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9 + (flood ? 1.2 : 0); }
   function nearStream(x, z) { return Math.abs(z - yjZ(x)) < 16 && x > -80 && x > -80 && x < 420; }
@@ -258,7 +392,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   var tg = new THREE.BufferGeometry(), tp = [], tc = [], ti = [];
   var C_SAND = rgb(0xd8c79a), C_GRASS = rgb(0x7ea45c), C_F1 = rgb(0x8db35f), C_F2 = rgb(0x9fc06a), C_HILL = rgb(0x5e8c47), C_FOREST = rgb(0x466f3a), C_ROCK = rgb(0x8d8a84), C_SNOW = rgb(0xf2f4f7), C_BED = rgb(0x6e6a5a);
   for (var iz = 0; iz < NZ; iz++) for (var ix = 0; ix < NX; ix++) {
-    var wx = X0 + ix * TS, wz = Z0 + iz * TS, hh = heightAt(wx, wz), col;
+    var wx = X0 + ix * TS, wz = Z0 + iz * TS, hh = groundAt(wx, wz), col;
     tp.push(wx, hh, wz);
     if (hh < -0.8) col = C_BED;
     else if (hh < 0.6) col = mix(C_SAND, C_GRASS, sstep(-0.8, 0.6, hh));
@@ -285,7 +419,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   for (var sx2 = -80; sx2 < 420; sx2 += 10) {
     var zA = yjZ(sx2), zB = yjZ(sx2 + 10);
     sg2.quad([sx2, -1.05, zA - 9], [sx2, -1.05, zA + 9], [sx2 + 10, -1.05, zB + 9], [sx2 + 10, -1.05, zB - 9], [0, 1, 0], 0x4f8fbf, [[0, sx2 / 20], [0.9, sx2 / 20], [0.9, (sx2 + 10) / 20], [0, (sx2 + 10) / 20]]);
-    for (var pside = -1; pside <= 1; pside += 2) { var pz0 = zA + pside * 11.5, pz1 = zB + pside * 11.5, py0 = heightAt(sx2, pz0) + 0.05, py1 = heightAt(sx2 + 10, pz1) + 0.05; pathG.quad([sx2, py0, pz0 - 1.3], [sx2, py0, pz0 + 1.3], [sx2 + 10, py1, pz1 + 1.3], [sx2 + 10, py1, pz1 - 1.3], [0, 1, 0], 0xd9d4c7, null); }
+    for (var pside = -1; pside <= 1; pside += 2) { var pz0 = zA + pside * 11.5, pz1 = zB + pside * 11.5, py0 = groundAt(sx2, pz0) + 0.05, py1 = groundAt(sx2 + 10, pz1) + 0.05; pathG.quad([sx2, py0, pz0 - 1.3], [sx2, py0, pz0 + 1.3], [sx2 + 10, py1, pz1 + 1.3], [sx2 + 10, py1, pz1 - 1.3], [0, 1, 0], 0xd9d4c7, null); }
   }
   var streamMesh = mesh(sg2.build(), waterMat, false, false); mesh(pathG.build(), lambertVC, false, true);
   hanMesh.matrixAutoUpdate = true; streamMesh.matrixAutoUpdate = true;
@@ -314,31 +448,46 @@ TG.buildTerrain = function (scene, city, cfg) {
   // IC 분기점 직진 차단봉(황·흑 줄무늬)
   walls.forEach(function (W) {
     if (!W.icEnd) return;
-    var cx = (W.x1 + W.x2) / 2, cz = (W.z1 + W.z2) / 2, len = Math.hypot(W.x2 - W.x1, W.z2 - W.z1), rot = Math.atan2(W.tz, W.tx) + Math.PI / 2, y = heightAt(cx, cz);
+    var cx = (W.x1 + W.x2) / 2, cz = (W.z1 + W.z2) / 2, len = Math.hypot(W.x2 - W.x1, W.z2 - W.z1), rot = Math.atan2(W.tz, W.tx) + Math.PI / 2, y = groundAt(cx, cz);
     props.box(cx, y + 0.55, cz, len, 0.5, 0.3, 0xf2c200, { rotY: rot });
     var ux = (W.x2 - W.x1) / (len || 1), uz = (W.z2 - W.z1) / (len || 1);
     for (var k = -1; k <= 1; k++) props.box(cx + ux * k * len / 3, y + 0.55, cz + uz * k * len / 3, 1.2, 0.52, 0.32, 0x15171a, { rotY: rot });
     props.box(cx, y + 0.15, cz, len + 0.2, 0.3, 0.4, 0xc9c5ba, { rotY: rot });
   });
   // 램프가 링 가장자리를 가로지르는 곳(±16m)은 가드레일을 비운다 — 진입·진출로가 벽에 막히지 않는다. 램프가 있는 쪽(lateral 부호)만.
+  // 램프가 본선 포장 안을 달리는 구간(가속·감속차로)을 표시한다 — 그 구간에서는 램프의 가장자리선을 그리지 않는다.
+  // 그리지 않으면 램프 차로선이 본선 차로를 가로질러 이어져 보였다(소유자: 「연결도로선이 본선도로까지 이어짐」).
+  links.forEach(function (Lm) { if (!Lm.oneWay) return; for (var mi = 0; mi < Lm.N; mi++) { var mp = Lm.pts[mi], mq = nearest(mp.x, mp.z, 'no'); mp.inMain = !!(mq && mq.dist <= mq.p.half - 1.5 && Math.abs(mq.y - mp.y) < 1.5); } });
   var rampPts = []; links.forEach(function (Lr) { if (Lr.oneWay) for (var ri = 0; ri < Lr.N; ri++) rampPts.push(Lr.pts[ri]); });
   function rampGap(L, p, side) {
     if (!L.closed) return false;
-    for (var k = 0; k < rampPts.length; k++) { var rp = rampPts[k]; if (Math.abs(rp.x - p.x) > 18 || Math.abs(rp.z - p.z) > 18) continue; var lat = (rp.x - p.x) * p.rx + (rp.z - p.z) * p.rz; if (Math.hypot(rp.x - p.x, rp.z - p.z) < 18 && Math.sign(lat) === side && Math.abs(lat) > 9.5 && Math.abs(lat) < 24) return true; }
+    // 램프가 본선 옆을 지나거나 합류하는 구간에서는 방호벽·난간을 비운다(실제 IC 도 합류부에 방호벽이 끊긴다).
+    // 탐색 반경 18 → 26m, 측방 띠 9.5~24 → 7.5~28m: 원호에서 가속차로로 바뀌는 구간(측방 13~19m)에서
+    // 램프 중심선이 본선 방호벽 선(반폭 −0.4 = 16.6m) 위를 지나 차가 벽에 걸려 멈췄다.
+    for (var k = 0; k < rampPts.length; k++) { var rp = rampPts[k]; if (Math.abs(rp.x - p.x) > 26 || Math.abs(rp.z - p.z) > 26) continue; var lat = (rp.x - p.x) * p.rx + (rp.z - p.z) * p.rz; var alo = (rp.x - p.x) * p.tx + (rp.z - p.z) * p.tz;
+      if (Math.abs(alo) <= 12 && Math.sign(lat) === side && Math.abs(lat) > 1.2 && Math.abs(lat) < 28) return true; }
     return false;
   }
   links.forEach(function (L) {
     var segs = L.closed ? L.N : L.N - 1;
     for (var i = 0; i < segs; i++) {
       var p = L.P(i), q = L.P(i + 1), half = p.half, hw = p.f > 0.5, ramp = L.oneWay;
+      var noseZone = L.splitEnd && (L.total - p.s) < 46;   // 램프 분기점 앞: 난간·방호벽을 세우지 않는다(램프가 이 선을 가로지른다)
       ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);
-      wallQuad(props, p, q, -half, -4, 0.02, 0x6b6a5e); wallQuad(props, p, q, half, -4, 0.02, 0x6b6a5e);
+      // 노면 옆치마(4m 벽)는 **정말로 지형이 꺼진 곳**에만 세운다.
+      // 램프가 본선 포장 위를 나란히 달리는 구간에서는 이 벽이 차로 가운데를 가로지르는 「턱」으로 보였다
+      // (소유자: 「매끈하게 연결되어야 하는데 턱이 있고 차들이 도로에 반쯤 들어가서 달리고 있음」).
+      for (var ws = -1; ws <= 1; ws += 2) {
+        var wex = p.x + p.rx * ws * half, wez = p.z + p.rz * ws * half;
+        var wox = p.x + p.rx * ws * (half + 7), woz = p.z + p.rz * ws * (half + 7);
+        var wq = nearest(wex, wez, true);
+        var covered = wq && wq.link !== L && wq.dist <= wq.p.half + 1 && Math.abs(wq.p.y - p.y) < 1.5;   // 다른 도로 포장 위
+        if (!covered && p.y - groundAt(wox, woz) > 0.5) wallQuad(props, p, q, ws * half, -4, 0.02, 0x6b6a5e);
+      }
       var LIFT = ramp ? 0.07 : 0.05;
       if (ramp) {
         var ru = (i + 0.5) / L.N, inMerge = L.mergeFrom > 0 ? ru > L.mergeFrom : ru < 0.42, dsh = (i % 2) === 0;
-        if (!inMerge || dsh) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
-        var noseNear = L.mergeFrom > 0 ? (i >= L.N - 7) : (i <= 6);
-        if (noseNear && dsh) ribbon(mark, p, q, -half + 0.5, half - 0.5, LIFT - 0.004, 0xe9edf0);   // 도류선(코 부분 노면 표시)
+        if (!p.inMain && (!inMerge || dsh)) { ribbon(mark, p, q, half - 0.3, half - 0.16, LIFT, WHT); ribbon(mark, p, q, -half + 0.16, -half + 0.3, LIFT, WHT); }
       }
       else if (L.kind === 'circuit') {   // 서킷: 흰 가장자리선, 코너 연석(적·백), 출발선(체크), 코너 앞 러버콘
         ribbon(mark, p, q, half - 0.5, half - 0.32, LIFT, WHT); ribbon(mark, p, q, -half + 0.32, -half + 0.5, LIFT, WHT);
@@ -348,7 +497,7 @@ TG.buildTerrain = function (scene, city, cfg) {
       }
       else if (!hw) {
         ribbon(mark, p, q, -0.3, -0.15, LIFT, YEL); ribbon(mark, p, q, 0.15, 0.3, LIFT, YEL);
-        ribbon(mark, p, q, 3.63, 3.77, LIFT, WHT); ribbon(mark, p, q, -3.77, -3.63, LIFT, WHT);
+        ribbon(mark, p, q, half - 2.37, half - 2.23, LIFT, WHT); ribbon(mark, p, q, -half + 2.23, -half + 2.37, LIFT, WHT);
       } else {
         var dash = (i % 2) === 0, nHW = cfg.HW_LANES.length;
         for (var side = -1; side <= 1; side += 2) {
@@ -359,10 +508,11 @@ TG.buildTerrain = function (scene, city, cfg) {
             else if (dash) ribbon(mark, p, q, side * (hb - 0.07), side * (hb + 0.07), LIFT, WHT);
           }
           ribbon(mark, p, q, side * (0.25 + cfg.LANE_W * nHW - 0.07), side * (0.25 + cfg.LANE_W * nHW + 0.07), LIFT, WHT);
-          if (!rampGap(L, p, side)) wallQuad(props, p, q, side * (half - 0.4), 0.55, 0.85, 0xd9dde2);
-          if (i % 2 === 0) { var gp = Pt(p, side * (half - 0.4), 0); props.box(gp[0], gp[1] + 0.4, gp[2], 0.12, 0.8, 0.12, 0x8f959c, {}); }
+          var barOk = !noseZone && !rampGap(L, p, side);   // 방호벽을 비운 자리에는 **지주(말뚝)도 세우지 않는다** —
+          if (barOk) wallQuad(props, p, q, side * (half - 0.4), 0.55, 0.85, 0xd9dde2);   // 벽만 지우고 말뚝을 남겨 램프가 말뚝으로 막혀 있었다(소유자 지적)
+          if (barOk && i % 2 === 0) { var gp = Pt(p, side * (half - 0.4), 0); props.box(gp[0], gp[1] + 0.4, gp[2], 0.12, 0.8, 0.12, 0x8f959c, {}); }
           var w0 = Pt(p, side * (half - 0.4), 0), w1 = Pt(q, side * (half - 0.4), 0);
-          if (!rampGap(L, p, side)) walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2] });
+          if (barOk) walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2] });
         }
         wallQuad(props, p, q, -0.35, 0, 0.85, 0xb9b6ad); wallQuad(props, p, q, 0.35, 0, 0.85, 0xb9b6ad); ribbon(props, p, q, -0.35, 0.35, 0.85, 0xc8c5bc);
         var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2] });
@@ -379,10 +529,11 @@ TG.buildTerrain = function (scene, city, cfg) {
       }
       if (p.bridge) {   // 다리: 램프는 난간 없이 상판만(합류부에서 본선 위에 난간이 서지 않게)
         for (var s3 = -1; s3 <= 1; s3 += 2) { if (L.oneWay) break;
-          wallQuad(props, p, q, s3 * (half + 0.2), 0, 1.1, 0xc9cdd2);
+          if (!noseZone) wallQuad(props, p, q, s3 * (half + 0.2), 0, 1.1, 0xc9cdd2);
           var bp = Pt(p, s3 * (half + 0.2), 0), bq = Pt(q, s3 * (half + 0.2), 0);
-          props.box(bp[0], bp[1] + 0.55, bp[2], 0.16, 1.1, 0.16, 0x8f959c, {});
-          if (!L.oneWay && !rampGap(L, p, s3)) walls.push({ x1: bp[0], z1: bp[2], x2: bq[0], z2: bq[2] });   // 램프 난간·램프 합류부 난간은 충돌 없음(시각만)
+          var railOk = !L.oneWay && !noseZone && !rampGap(L, p, s3);
+          if (railOk) props.box(bp[0], bp[1] + 0.55, bp[2], 0.16, 1.1, 0.16, 0x8f959c, {});
+          if (railOk) walls.push({ x1: bp[0], z1: bp[2], x2: bq[0], z2: bq[2] });   // 램프 난간·램프 합류부 난간은 충돌 없음(시각만)
         }
         ribbon(props, p, q, -half - 0.3, half + 0.3, -0.9, 0xa9a59c);
         if (i % 5 === 0) { var pc = Pt(p, 0, 0); props.box(pc[0], pc[1] - 4, pc[2], half * 1.2, 8, 1.6, 0x9d9a91, { rotY: Math.atan2(p.tx, p.tz) }); }
@@ -409,19 +560,19 @@ TG.buildTerrain = function (scene, city, cfg) {
       face('hw:' + txt, cxg, p5.y + 5.4, czg, rotG, 6, 2.2);
     }
   }
-  gantry(ring, (jE + 20) % ring.N, '순환고속도로 · 1차로 버스전용'); gantry(ring, (jN + 20) % ring.N, '순환고속도로 · 제한 100');
+  gantry(ring, (jE + 20) % ring.N, '경부고속도로 · 제한 100'); gantry(ring, (jN + 20) % ring.N, '올림픽대로 · 제한 80');   // 버스전용차로는 경부고속도로 남쪽 연결로(link.busLane)에만 있다
   // IC 안내표지(강남·서초 축약): 연결로 도시 쪽 「순환고속도로 → ○○IC」, 분기 54m 전 「↱ ○○IC 진입」, 링 위 출구 500m·직전 「↗ ○○IC 출구」. 시내 방향 면에는 「강남역·시내 방향」.
   var IC_INFO = { E: ['삼성IC', '코엑스·잠실 방향'], N: ['한남IC', '한남대교·강북 방향'], S: ['경부고속도로 시점', '판교·부산 방향'], W: ['서초IC', '예술의전당·법원 방향'],
                   NE: ['청담IC', '청담대교·영동대로 방향'], NW: ['반포IC', '고속터미널·반포대교 방향'], SE: ['수서IC', '수서·세곡 방향'], SW: ['양재IC', '양재천·양재역 방향'] };
   conns.forEach(function (c) {
     var info = IC_INFO[c.ic] || [c.id, '']; c.icName = info[0]; c.icDest = info[1];
-    gantry(c, Math.min(6, c.N - 1), '순환고속도로 →|' + info[0] + ' · ' + info[1], '강남역 · 시내 방향|' + (c.name || '') );
+    gantry(c, Math.min(6, c.N - 1), '경부고속도로 →|' + info[0] + ' · ' + info[1], '강남역 · 시내 방향|' + (c.name || '') );
     gantry(c, Math.max(2, c.N - 18), '↱ ' + info[0] + ' 진입|' + info[1] + ' · 우측 램프', '강남역 · 시내 방향|직진');
   });
   ring.exitsA.forEach(function (ex) {
     var c = ex.link.nextA && ex.link.nextA.link, info = c && IC_INFO[c.ic]; if (!info) return;
-    gantry(ring, ((ex.atIndex - 45) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구 500m|' + info[1], '순환고속도로|계속 주행');
-    gantry(ring, ((ex.atIndex - 12) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구|' + info[1] + ' · 우측', '순환고속도로|계속 주행');
+    gantry(ring, ((ex.atIndex - 45) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구 500m|' + info[1], '본선|계속 주행');
+    gantry(ring, ((ex.atIndex - 12) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구|' + info[1] + ' · 우측', '본선|계속 주행');
   });
   mesh(busTextGeo.build(), new THREE.MeshBasicMaterial({ map: TG.tex.roadText('버스전용', '#2f6fd6'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), false, false);
   var roadMatT = new THREE.MeshLambertMaterial({ map: TG.tex.asphalt(), vertexColors: true }); TG.mats.road.push(roadMatT);
@@ -435,7 +586,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 나무·농가
   var trees = new G(), trng = TG.makeRNG(1234), placed = 0;
   function tree(x, z, sc, dark) {
-    var y = heightAt(x, z), col = dark ? [0x3f6b32, 0x476f38, 0x385f2c][placed % 3] : [0x4f8a3a, 0x5c9a42, 0x437a33][placed % 3];
+    var y = groundAt(x, z), col = dark ? [0x3f6b32, 0x476f38, 0x385f2c][placed % 3] : [0x4f8a3a, 0x5c9a42, 0x437a33][placed % 3];
     trees.cylinder(x, y, z, 0.22 * sc, 0.16 * sc, 2.4 * sc, 5, 0x6b4a2b);
     trees.cylinder(x, y + 1.6 * sc, z, 2.1 * sc, 0.9 * sc, 2.2 * sc, 6, col, false);
     trees.cylinder(x, y + 3.2 * sc, z, 1.6 * sc, 0.6 * sc, 2.0 * sc, 6, col, false);
@@ -460,7 +611,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     if (fx > -80 && fx < 400 && fz > -80 && fz < 400) continue;
     if (fh < 0.5 || fh > 12) continue;
     var q9 = nearest(fx, fz, true); if (!q9 || q9.dist < 24 || q9.dist > 120) continue;
-    var fw = 8 + frng() * 8, fd = 6 + frng() * 6, fy = heightAt(fx, fz);
+    var fw = 8 + frng() * 8, fd = 6 + frng() * 6, fy = groundAt(fx, fz);
     farm.box(fx, fy + 1.8, fz, fw, 3.6, fd, [0xe8e2d4, 0xd9cfc0, 0xc9d3dd][fi % 3], {});
     farm.box(fx, fy + 4.0, fz, fw + 0.6, 0.8, fd + 0.6, [0x8a4a3a, 0x3b4a58, 0x6d4f3a][fi % 3], {});
   }
@@ -494,7 +645,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     var jbm = new THREE.Mesh(jb.build(), lambertVC); jamsuGroup.add(jbm);
     jamsuGroup.visible = false; scene.add(jamsuGroup);
     var fsm = new THREE.MeshBasicMaterial({ map: TG.tex.sign('flood'), transparent: true, side: THREE.DoubleSide });
-    for (var fx2 = -60; fx2 <= 400; fx2 += 115) { var fz = yjZ(fx2) + 14.5, fm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), fsm); fm.position.set(fx2, heightAt(fx2, fz) + 2.2, fz); jamsuGroup.add(fm); }   // 양재천 산책로 「통제」 표지(침수 때만)
+    for (var fx2 = -60; fx2 <= 400; fx2 += 115) { var fz = yjZ(fx2) + 14.5, fm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), fsm); fm.position.set(fx2, groundAt(fx2, fz) + 2.2, fz); jamsuGroup.add(fm); }   // 양재천 산책로 「통제」 표지(침수 때만)
   })();
   function setFlood(on) {
     flood = !!on;
@@ -504,7 +655,7 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   return {
     links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
-    heightAt: heightAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, nearest: nearest, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

@@ -566,7 +566,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var fx3 = Math.sin(car.heading), fz3 = Math.cos(car.heading);
     car.pos.x += fx3 * car.v * dt; car.pos.z += fz3 * car.v * dt;
     if (self.terrain && !city.inGridArea(car.pos.x, car.pos.z)) {
-      var yA = self.terrain.heightAt(car.pos.x + fx3 * 2, car.pos.z + fz3 * 2), yB = self.terrain.heightAt(car.pos.x - fx3 * 2, car.pos.z - fz3 * 2);
+      var yh = car.y === undefined ? (car.ap ? car.ap.y : 0) : car.y;
+      var yA = self.terrain.heightAt(car.pos.x + fx3 * 2, car.pos.z + fz3 * 2, yh), yB = self.terrain.heightAt(car.pos.x - fx3 * 2, car.pos.z - fz3 * 2, yh);
       car.y = (yA + yB) / 2; car.pitch = -Math.atan2(yA - yB, 4);
     } else { car.y = 0; car.pitch = 0; }
     car.mesh.position.set(car.pos.x, car.y, car.pos.z); car.mesh.rotation.set(car.pitch, car.heading, 0);

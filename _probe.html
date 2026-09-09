@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.7">
+<link rel="stylesheet" href="css/style.css?v=0.9.8">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -30,7 +30,7 @@
     <div><span class="lbl">남은 시간</span> <b id="timer">6:00</b></div>
     <div><span class="lbl">단속</span> <b id="stops">0</b>건 <span id="sirenState"></span></div>
   </div>
-  <canvas id="minimap" width="236" height="232"></canvas>
+  <canvas id="minimap" width="360" height="354"></canvas>
   <div id="notice" class="notice"></div>
   <div id="target"></div>
   <div id="hint"></div>
@@ -244,42 +244,42 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.7"></script>
-<script src="js/config.js?v=0.9.7"></script>
-<script src="js/rng.js?v=0.9.7"></script>
-<script src="js/save.js?v=0.9.7"></script>
-<script src="js/perf.js?v=0.9.7"></script>
-<script src="js/textures.js?v=0.9.7"></script>
-<script src="js/audio.js?v=0.9.7"></script>
-<script src="js/city.js?v=0.9.7"></script>
-<script src="js/world.js?v=0.9.7"></script>
-<script src="js/terrain.js?v=0.9.7"></script>
-<script src="js/weather.js?v=0.9.7"></script>
-<script src="js/signals.js?v=0.9.7"></script>
-<script src="js/vehmesh.js?v=0.9.7"></script>
-<script src="js/vehicle.js?v=0.9.7"></script>
-<script src="js/traffic.js?v=0.9.7"></script>
-<script src="js/peds.js?v=0.9.7"></script>
-<script src="js/character.js?v=0.9.7"></script>
-<script src="js/vfx.js?v=0.9.7"></script>
-<script src="js/response.js?v=0.9.7"></script>
-<script src="js/junction.js?v=0.9.7"></script>
-<script src="js/chase.js?v=0.9.7"></script>
-<script src="js/intro.js?v=0.9.7"></script>
-<script src="js/walker.js?v=0.9.7"></script>
-<script src="js/rail.js?v=0.9.7"></script>
-<script src="js/enforcement.js?v=0.9.7"></script>
-<script src="js/study.js?v=0.9.7"></script>
-<script src="js/hud.js?v=0.9.7"></script>
-<script src="js/minimap.js?v=0.9.7"></script>
-<script src="js/input.js?v=0.9.7"></script>
-<script src="js/main.js?v=0.9.7"></script>
-<script src="_probe_tail.js"></script>
+<script src="lib/three.min.js?v=0.9.8"></script>
+<script src="js/config.js?v=0.9.8"></script>
+<script src="js/rng.js?v=0.9.8"></script>
+<script src="js/save.js?v=0.9.8"></script>
+<script src="js/perf.js?v=0.9.8"></script>
+<script src="js/textures.js?v=0.9.8"></script>
+<script src="js/audio.js?v=0.9.8"></script>
+<script src="js/city.js?v=0.9.8"></script>
+<script src="js/world.js?v=0.9.8"></script>
+<script src="js/terrain.js?v=0.9.8"></script>
+<script src="js/weather.js?v=0.9.8"></script>
+<script src="js/signals.js?v=0.9.8"></script>
+<script src="js/vehmesh.js?v=0.9.8"></script>
+<script src="js/vehicle.js?v=0.9.8"></script>
+<script src="js/traffic.js?v=0.9.8"></script>
+<script src="js/peds.js?v=0.9.8"></script>
+<script src="js/character.js?v=0.9.8"></script>
+<script src="js/vfx.js?v=0.9.8"></script>
+<script src="js/response.js?v=0.9.8"></script>
+<script src="js/junction.js?v=0.9.8"></script>
+<script src="js/chase.js?v=0.9.8"></script>
+<script src="js/intro.js?v=0.9.8"></script>
+<script src="js/walker.js?v=0.9.8"></script>
+<script src="js/rail.js?v=0.9.8"></script>
+<script src="js/enforcement.js?v=0.9.8"></script>
+<script src="js/study.js?v=0.9.8"></script>
+<script src="js/hud.js?v=0.9.8"></script>
+<script src="js/minimap.js?v=0.9.8"></script>
+<script src="js/input.js?v=0.9.8"></script>
+<script src="js/main.js?v=0.9.8"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.log('[TG] 서비스워커 등록 실패: ' + e.message); }); });
 }
 </script>
+<script src="_probe_tail.js"></script>
 </body>
 </html>

@@ -143,8 +143,8 @@
     // 도색 데칼(참고 사진 순찰차): 옆면 청색 스우시 띠 + 황색 테두리 + 앞문 엠블럼 + 뒷문 「경찰 POLICE」, 후드 청색 쐐기 + 엠블럼, 트렁크 「112」
     // +x 는 차 왼쪽(운전석). 왼쪽 데칼은 u 가 뒤→앞으로 가며 +z 로 진행, 오른쪽은 글자가 거꾸로 보이지 않게 flip 텍스처.
     var decalOpts = { transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
-    var decL = new THREE.Mesh(TG.vehmesh.sideDecal(T, 1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(false) }, decalOpts)));
-    var decR = new THREE.Mesh(TG.vehmesh.sideDecal(T, -1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(true) }, decalOpts)));
+    var decL = new THREE.Mesh(TG.vehmesh.sideDecal(T, 1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(true) }, decalOpts)));
+    var decR = new THREE.Mesh(TG.vehmesh.sideDecal(T, -1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(false) }, decalOpts)));
     var decH = new THREE.Mesh(TG.vehmesh.hoodDecal(T), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liveryHood() }, decalOpts)));
     g.add(decL); g.add(decR); g.add(decH);
     var l112 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.2), new THREE.MeshBasicMaterial({ map: TG.tex.label('112', '#1f4fa8'), transparent: true }));
@@ -249,7 +249,7 @@
     var surface = (onRoad ? 1.0 : 0.72) * (this.surfaceFactor || 1);   // 날씨(비·눈) 그립 계수
 
     // 경사(앞뒤 높이차)
-    var hA = city.heightAt(this.pos.x + fx * 2, this.pos.z + fz * 2), hB = city.heightAt(this.pos.x - fx * 2, this.pos.z - fz * 2);
+    var hA = city.heightAt(this.pos.x + fx * 2, this.pos.z + fz * 2, this.y), hB = city.heightAt(this.pos.x - fx * 2, this.pos.z - fz * 2, this.y);
     var slope = (hA - hB) / 4; T.slope = slope;
     vF -= 9.81 * slope * 0.7 * dt;
 
@@ -302,7 +302,7 @@
     }
     this.pos.x = fixed.x; this.pos.z = fixed.z;
     this.vF = vF; this.vL = vL;
-    this.y = city.heightAt(this.pos.x, this.pos.z);
+    this.y = city.heightAt(this.pos.x, this.pos.z, this.y);
 
     T.speed = Math.abs(vF); T.aLong = (vF - vF0) / Math.max(dt, 1e-4); T.aLat = vF * yawRate; T.kappa = kappa; T.ratio = ratio;
     T.understeer = ratio > 1 && Math.abs(vF) > 3;
@@ -311,7 +311,7 @@
     T.stopDist = vF > 0 ? vF * vF / (2 * s.brake) : 0; T.limit = limit;
 
     // 시각: 지형 기울기 + 동적 피치·롤
-    var hL = city.heightAt(this.pos.x + rx2 * 0.9, this.pos.z + rz2 * 0.9), hR = city.heightAt(this.pos.x - rx2 * 0.9, this.pos.z - rz2 * 0.9);
+    var hL = city.heightAt(this.pos.x + rx2 * 0.9, this.pos.z + rz2 * 0.9, this.y), hR = city.heightAt(this.pos.x - rx2 * 0.9, this.pos.z - rz2 * 0.9, this.y);
     var groundPitch = -Math.atan2(hA - hB, 4), groundRoll = Math.atan2(hR - hL, 1.8);
     var pitchT = TG.clamp(-T.aLong * 0.012, -0.06, 0.07), rollT = TG.clamp(T.aLat * 0.012, -0.08, 0.08);
     this.pitch += (groundPitch + pitchT - this.pitch) * Math.min(1, dt * 8);

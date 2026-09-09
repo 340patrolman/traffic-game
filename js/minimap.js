@@ -1,4 +1,4 @@
-// 미니맵: 도시 격자·순환고속도로·연결로를 한 번 그려 두고, 매 프레임 플레이어(파란 화살표)·위반 차량(주황)·정차 대상(빨강)만 덧그린다.
+// 미니맵: 도시 격자·순환고속도로(경부고속도로·올림픽대로)·연결로를 한 번 그려 두고, 매 프레임 플레이어(파란 화살표)·위반 차량(주황)·정차 대상(빨강)만 덧그린다.
 TG.Minimap = function (canvas, city, terrain) {
   var W = canvas.width, H = canvas.height, ctx = canvas.getContext('2d');
   var K = W / 236;   // 기준 캔버스(236px) 대비 배율 — 글자·선 두께를 함께 키운다
@@ -29,7 +29,7 @@ TG.Minimap = function (canvas, city, terrain) {
     for (var x = X0; x <= X1; x += 20) { var rz = -212 + 18 * Math.sin(x / 230 + 0.6); if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
     g.stroke();
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2'; g.textAlign = 'center';
-    g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('순환고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
+    g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('경부고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
     g.save(); g.translate(mx(160) + 9, mz(470)); g.rotate(-Math.PI / 2); g.fillText('경부고속도로', 0, 0); g.restore();
     g.font = 'bold ' + Math.round(10.5 * K) + 'px sans-serif'; g.fillStyle = '#ffd86b';
     g.fillText('서초구', mx(60), mz(300)); g.fillText('강남구', mx(260), mz(300)); g.fillText('강남역', mx(160), mz(152)); g.fillText('교대역', mx(80), mz(152)); g.fillText('서초역', mx(0) + 14, mz(152)); g.fillText('성모병원', mx(0) + 16, mz(72)); g.fillText('고속터미널', mx(0) + 22, mz(-8));

@@ -228,11 +228,12 @@ TG.buildCity = function (cfg) {
     }
     if (terrain) {
       var q = terrain.nearest(x, z, true);
-      if (q && q.dist > q.p.half) { var q2 = terrain.nearest(x, z, false); if (q2 && q2.dist <= q2.p.half) q = q2; }   // 램프 옆 본선 위(합류부)는 본선 프레임
+      // 램프가 본선 포장 안을 달리는 구간(가속·감속차로)에서는 **본선**이 기준이다 — 이름도 제한속도도 본선을 따른다
+      if (q && (q.link.oneWay || q.dist > q.p.half)) { var q2 = terrain.nearest(x, z, 'no'); if (q2 && q2.dist <= q2.p.half) q = q2; }
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
         var hwN = (cfg.HW_LANES ? cfg.HW_LANES.length : 3) * 2;   // 실제 차로 수로 표기한다(고정 「6차로」 였다)
-        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 ' + hwN + '차로)' : '순환고속도로(왕복 ' + hwN + '차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '진입로' : k === 'circuit' ? '연습 서킷' : '램프';
+        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 ' + hwN + '차로)' : '경부고속도로(왕복 ' + hwN + '차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '연결로' : k === 'circuit' ? '연습 서킷' : k === 'onramp' ? '진입로(램프)' : '진출로(램프)';
         var lim2 = k === 'highway' ? (z < -120 ? 80 : terrain.limitOf(k)) : terrain.limitOf(k);
         if (q.link.name) name = q.link.name + (k === 'suburb' ? '(왕복 2차로)' : '');
         if (q.link.limit) lim2 = q.link.limit;
@@ -242,10 +243,10 @@ TG.buildCity = function (cfg) {
                  y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7, oneWay: q.link.oneWay, tx: dirA ? q.tx : -q.tx, tz: dirA ? q.tz : -q.tz, oneLane: oneLane };
       }
     }
-    return { kind: 'off', name: '도로 밖', lateral: 0, limit: 999, half: 0, shoulder: 0, shoulderMin: 0, onRoad: false, lanes: 0, y: terrain ? terrain.heightAt(x, z) : 0 };
+    return { kind: 'off', name: '도로 밖', lateral: 0, limit: 999, half: 0, shoulder: 0, shoulderMin: 0, onRoad: false, lanes: 0, y: terrain ? terrain.groundAt(x, z) : 0 };
   }
   function onRoadAny(x, z) { if (onRoad(x, z)) return true; if (!terrain) return false; var q = terrain.nearest(x, z, true); return !!(q && q.dist <= q.p.half); }
-  function heightAt(x, z) { return terrain ? terrain.heightAt(x, z) : 0; }
+  function heightAt(x, z, yHint) { return terrain ? terrain.heightAt(x, z, yHint) : 0; }
 
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
