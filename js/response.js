@@ -6,7 +6,7 @@
 //    이유: 이륜차·자전거·PM 은 추격하면 넘어져 사람이 죽거나 다친다. 단순 교통위반의 법익보다 추격의 위험이 크다.
 TG.Response = function (game) {
   var self = this, cfg = game.cfg, S = cfg.SCORE;
-  var TIER = { drunk: 'A', license: 'A', wanted: 'A', motorcycle: 'C', bicycle: 'C', pm: 'C', pmHelmet: 'C', pmTwo: 'C' };
+  var TIER = { drunk: 'A', license: 'A', wanted: 'A', motorcycle: 'C', bicycle: 'C', pm: 'C', pmHelmet: 'C', pmTwo: 'C', bikeCross: 'C' };
   this.state = { videos: 0, radios: 0, handedOver: 0, pursuitWarn: 0, pursuitT: 0, lastRadio: '' };
   var pending = [];   // 무전 전파 뒤 인접 순찰차가 처리하는 대상
 

@@ -154,6 +154,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.isMoto || car.isBike || car.isPM) {
       car.laneIdx = 1; car.trait = null; car.noSignalViolator = false;
       car.edgeRider = rng() < (car.isPM ? 0.5 : car.isBike ? 0.45 : 0.3); car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5;
+      car.crossRider = (car.isBike || car.isPM) && rng() < 0.5;   // 절반은 타고 건넌다(위반) — 나머지는 내려서 끌고 걷는다(제13조의2 제6항)
       if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; }
       else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = rng() < 0.35; car.pmTwo = rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
       else if (car.violator) car.pedViolator = false;
@@ -173,7 +174,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       for (var rr = 0; rr < riders; rr++) {
         var rg = TG.Character.build('civilian', { shirt: TG.pick(rng, SHIRTS2), pants: TG.pick(rng, PANTS2), helmet: hel || undefined });
         TG.Character.pose(rg, car.isPM ? 'stand' : 'ride');
-        rg.group.position.set(0, rideY, rideZ - rr * 0.42);
+        rg.group.position.set(0, rideY, rideZ - rr * 0.42); car.rideY = rideY; car.rideZ = rideZ;
         rg.group.scale.setScalar(car.isPM ? 0.95 : 1.0);
         if (rr > 0) { rg.joints.shL.rotation.x = -0.2; rg.joints.shR.rotation.x = -0.2; }   // 뒷사람은 팔을 내린다(2인 탑승)
         g.add(rg.group); car.riders.push(rg);
@@ -243,6 +244,17 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       return car;
     }
     return null;
+  }
+  // 내려서 끌기(자전거·PM 이 횡단보도를 건널 때): 탑승자를 기계 옆에 세우고 걷는 자세로 바꾼다. 다시 타면 원래 자세로.
+  function setPush(car, on) {
+    if (!car.riders || !car.riders.length || !!car.pushing === !!on) return;
+    car.pushing = !!on;
+    for (var pi = 0; pi < car.riders.length; pi++) {
+      var rg = car.riders[pi];
+      TG.Character.pose(rg, on ? 'stand' : (car.isPM ? 'stand' : 'ride'));
+      if (on) rg.group.position.set(0.62, 0.02, -0.1 - pi * 0.45);                                  // 기계 왼쪽(차 국소 +x)에 서서 끌고 간다
+      else rg.group.position.set(0, car.rideY || 0, (car.rideZ || 0) - pi * 0.42);
+    }
   }
   function tooClose(x, z) { for (var c = 0; c < cars.length; c++) if (Math.hypot(cars[c].pos.x - x, cars[c].pos.z - z) < 12) return true; return false; }
   function remove(car) { scene.remove(car.mesh); var k = cars.indexOf(car); if (k >= 0) cars.splice(k, 1); }
@@ -413,6 +425,33 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     // 보도 주행 차량(sidewalk 습관): 30초마다 7초 동안 보도로 올라갔다 내려온다. 이륜차·자전거는 계속(edgeRider).
     if (car.trait === 'sidewalk' && !onLink && car.mode === 'drive' && !car.isMoto && !car.isBike) { car.swT += dt; var swOn = (car.swT % 30) < 7 && !(ap && distStop < 26 && distStop > -2); if (swOn && !car.edgeRider) { car.edgeRider = true; car.edgeT = 3; car.laneIdx = 1; } if (!swOn && car.edgeRider) car.edgeRider = false; car.edgeOff = 6.0; }
+    // 보도 주행(edgeRider)의 옆 이동량은 도로 폭에 맞춘다 — 보도 중앙선까지. 고정값(5.4m)이면 8차로 도로에서는 바깥 차로에 있을 뿐 보도가 아니다.
+    if (car.edgeRider && !onLink && ap && car.mode === 'drive') {
+      var rdE = city.roadOf(ap.node, ap.d);
+      car.edgeOff = city.sideOff(rdE.axis, rdE.idx) - city.laneOff(rdE.axis, rdE.idx, car.laneIdx || 0);
+    }
+    // 자전거·개인형 이동장치가 횡단보도로 도로를 횡단할 때에는 **내려서 끌거나 들고 보행**해야 한다(도로교통법 제13조의2 제6항).
+    // 탄 채로 건너면 그 사람은 「자전거등의 운전자」여서 보행자가 아니다 — 통행방법 위반이고, 사고가 나도 12대 중과실(횡단보도 보행자 보호)이 성립하지 않는다.
+    // (근거: 티북 v21.94 「자전거 타고 횡단보도」 카드 — 조문 인용. 판례가 아니라 조문이 정면으로 정한다.)
+    if ((car.isBike || car.isPM) && car.edgeRider && !onLink && car.mode === 'drive') {
+      // 경로점(ap)은 정지선을 지나면 다음 교차로로 넘어가 버린다 — 그래서 가까운 노드와 진행 방향으로 직접 잰다.
+      var ndE = city.nodes[city.nearestIdx(city.xs, car.pos.x)][city.nearestIdx(city.zs, car.pos.z)];
+      var dE = Math.abs(Math.sin(car.heading)) > Math.abs(Math.cos(car.heading)) ? (Math.sin(car.heading) > 0 ? 1 : 3) : (Math.cos(car.heading) > 0 ? 0 : 2);
+      var fE2 = TG.DIR_VEC[dE], anE = (ndE.x - car.pos.x) * fE2[0] + (ndE.z - car.pos.z) * fE2[1];   // 노드까지(진행 방향)
+      var bandE = city.crossHalf(ndE, dE) + 4.2, onCrossE = Math.abs(anE) <= bandE, nearE = anE > 0 && anE <= bandE + 10;
+      if (nearE || onCrossE) {
+        var walkE = signals.pedWalk(ndE, (dE === 0 || dE === 2) ? 'h' : 'v');   // 건너는 도로의 축(진행축의 반대)
+        if (car.crossRider) {   // 타고 건너는 사람(위반)
+          if (onCrossE && !car.violation) { self.stats.violations++; flag(car, 'bikeCross', ndE, self.witness(car)); }   // 이미 기록된 위반(보도 주행 등)은 덮지 않는다
+        } else {                // 내려서 끌고 걷는 사람(정상)
+          setPush(car, true);
+          if (!onCrossE && !walkE) target = Math.min(target, stopProfile(Math.max(0, anE - bandE), cfg.AI_DECEL));   // 보행 신호를 기다린다
+          else target = Math.min(target, 1.35);                                                                      // 끌고 걷는 속도
+        }
+      } else setPush(car, false);
+
+    }
+    if (car.pushing && car.riders) for (var pr = 0; pr < car.riders.length; pr++) TG.Character.animate(car.riders[pr], { speed: car.v, moving: car.v > 0.12 }, dt);
     if (car.edgeRider && !onLink && car.mode === 'drive') { var et = car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : car.isPM ? 'pm' : 'sidewalk'; car.edgeT += dt; if (car.edgeT > (et === 'sidewalk' ? 4 : 6) && self.witness(car) && (!car.violation || car.violation.type !== et)) { self.stats.violations++; flag(car, et, null, true); car.edgeT = -30; } }
     // 개인형 이동장치: 인명보호장구(헬멧) 미착용 · 2인 이상 탑승 — 목격 3초면 기록(보도 통행과 별개)
     if (car.isPM && car.mode === 'drive' && car.v > 1.5 && self.witness(car)) {
