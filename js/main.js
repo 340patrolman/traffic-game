@@ -229,6 +229,22 @@
         if (G.state === 'title') { scene.remove(player.mesh); player = new TG.PlayerCar(scene, city, C, carSpec(settings.car)); player.setSiren(true); G.player = player; weather.attachPlayer(player.mesh, player.len); }
       });
     });
+    // 전체화면(소유자: 「인트로 화면 전체화면으로 표현」). 브라우저는 사용자 조작이 있어야 허용한다 —
+    // 인트로 화면을 처음 터치할 때와 「⛶ 전체화면」 단추로 들어간다.
+    function goFull() {
+      var el0 = document.documentElement;
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return false; }
+        var rq = el0.requestFullscreen || el0.webkitRequestFullscreen || el0.webkitRequestFullScreen;
+        if (rq) { var p = rq.call(el0); if (p && p.catch) p.catch(function () {}); return true; }
+      } catch (e) { }
+      return false;
+    }
+    G.goFull = goFull;
+    input.bindTap($('introFull'), goFull);
+    var lnkF = $('lnkFull'); if (lnkF) lnkF.addEventListener('click', function (e) { e.preventDefault(); goFull(); });
+    $('intro').addEventListener('pointerdown', function () { if (!G.fullTried) { G.fullTried = true; goFull(); } }, true);
+    window.addEventListener('resize', function () { resize(); });
     input.bindTap($('btnStart'), function () { start(settings.car); });
     // 타이틀: 인트로 다시 보기(홍보용으로 인트로만 보여 줄 때 쓴다)
     var lnkI = $('lnkIntroAgain');
@@ -790,6 +806,56 @@
       }
     }
   }
+  // 어린이 교실: 「👀 본다」 단계에서 좌우로 자전거·오토바이가 휙 지나간다.
+  // 왜 좌우를 봐야 하는지 말로 하지 않고 보여 준다(소유자 지시). 한 번 건널 때 한 번만.
+  function kidZip(node, d) {
+    var rd = city.roadOf(node, d), axis = rd.axis, lanes = city.lanesOf(axis, rd.idx);
+    var made = 0;
+    for (var k = 0; k < 2; k++) {
+      var dir = k === 0 ? d : (d + 2) % 4;                     // 양쪽에서 하나씩(좌우를 다 봐야 한다)
+      var up = city.nodeFrom(node, (dir + 2) % 4); if (!up) continue;
+      var f = TG.DIR_VEC[dir], r = [-f[1], f[0]], lane = lanes - 1;   // 가장 바깥 차로(연석 쪽)
+      var back = city.stopDist(node, dir) + 15 + k * 5, lo = city.laneOff(axis, rd.idx, lane);
+      var x = node.x - f[0] * back + r[0] * lo, z = node.z - f[1] * back + r[1] * lo;
+      var c = traffic.spawn({ at: { x: x, z: z, d: dir, node: up }, v: 8.5, cruise: 9.5, straight: true, violator: false, laneIdx: lane, type: k ? 'moto' : 'bike' });
+      if (c) { c.zip = true; c.crossRider = false; c.edgeRider = false; made++; }
+    }
+    if (made) { walk.zipT = 0; walk.zipDone = false; }
+    return made;
+  }
+  // 지나갈 때 소리와 안내를 한 번 준다
+  function kidZipWatch(dt) {
+    if (!walk || !walker) return;
+    walk.zipCd = (walk.zipCd || 0) - dt;
+    if (walk.zipDone !== false) return;
+    walk.zipT = (walk.zipT || 0) + dt;
+    for (var i = 0; i < traffic.cars.length; i++) {
+      var c = traffic.cars[i]; if (!c.zip) continue;
+      var d = Math.hypot(c.pos.x - walker.pos.x, c.pos.z - walker.pos.z);
+      if (d < 9.5 && c.v > 2.5) {
+        walk.zipDone = true; TG.audio.whoosh();
+        hud.notice('🚲 지금 ' + (c.isMoto ? '오토바이' : '자전거') + '가 휙 지나갔어요! 그래서 좌우를 보는 거예요', 'warn', 4200);
+        kidVoice('왼쪽, 오른쪽을 꼭 봐요. 자전거도 오토바이도 지나가요', true);
+        break;
+      }
+    }
+    if (walk.zipT > 12) walk.zipDone = true;
+  }
+  // 어린이가 건널 때 다른 행인도 함께 건넌다(혼자 건너는 그림은 어색하다 — 소유자 지시)
+  function kidCompanions(node, d) {
+    if (!peds || !peds.spawn) return 0;
+    var rd = city.roadOf(node, d), axis = rd.axis, made = 0;
+    for (var k = 0; k < 3; k++) {
+      // 아이와 겹치지 않게 인도 위로 벌려 세운다(한 명은 길 건너편에서 마주 건너온다)
+      var side = k === 0 ? 1 : -1, along = city.crossFar(node, d) + (k === 0 ? -city.crossHalf(node, d) * 2 - 6 : 7 + k * 5);
+      var f = TG.DIR_VEC[d], r = [-f[1], f[0]];
+      var px = node.x - f[0] * along + r[0] * side * city.sideOff(axis, rd.idx);
+      var pz = node.z - f[1] * along + r[1] * side * city.sideOff(axis, rd.idx);
+      var p = peds.spawn({ at: { x: px, z: pz, axis: axis, idx: rd.idx, coord: axis === 'v' ? city.xs[rd.idx] : city.zs[rd.idx], side: side, d: d }, jaywalker: false });
+      if (p) { p.companion = true; made++; }
+    }
+    return made;
+  }
   // 어린이 교실: 쉬운 말로 음성 안내(앰프와 같은 speechSynthesis, 없으면 차임). 너무 자주 말하지 않는다
   // 목소리: 어린이 교실의 안내는 따뜻한 선생님(경찰관) 목소리, 아이의 대답은 높은 목소리. 같은 뜻의 말을 여러 개 두고 돌려 쓴다(같은 말 반복 방지).
   var LINES = {
@@ -901,7 +967,12 @@
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
         if (!nearX) kidStep(-1);
         else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
-        else if (walk.stopT < 1.6) { kidStep(1); if (walk.voiceCd <= 0) kidVoice('look'); }   // 👀 본다: 멈춰 선 채로 좌우를 살핀다
+        else if (walk.stopT < 1.6) {   // 👀 본다: 멈춰 선 채로 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
+          kidStep(1); if (walk.voiceCd <= 0) kidVoice('look');
+          var crossAx = city.roadOf(node, best).axis;
+          if ((walk.zipCd || 0) <= 0 && !signals.pedWalk(node, crossAx)) { walk.zipCd = 30; kidZip(node, best); }   // 차량 녹색(보행 적색) 때만 — 적색에 스폰하면 정지선에 서 버린다
+          if ((walk.compCd || 0) <= 0) { walk.compCd = 30; kidCompanions(node, best); }
+        }
         else if (walker.hand <= 0) { kidStep(2); if (walk.voiceCd <= 0) kidVoice('hand'); }   // ✋ 손을 든다: 운전자가 나를 보게 한다
         else {
           var wk = signals.pedWalk(node, city.roadOf(node, best).axis);
@@ -994,6 +1065,7 @@
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX)); traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
     if (G.mode === 'duty') dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else walkRules(dt);
+    if (G.mode === 'kid') kidZipWatch(dt);
     if (G.state !== 'play') return;
     walk.camYaw = walkCamera(dt);
     enforcement.update(dt);   // 도보 수신호 정차 유도(운전석 옆에 서면 고지 완료)

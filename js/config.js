@@ -28,7 +28,7 @@ TG.CONFIG = {
   HW_SHOULDER: 15.65,          // 고속도로 갓길 중심
   SUB_LIMIT_KMH: 60, HW_LIMIT_KMH: 100,
   AI_CRUISE_SUB: 15, AI_CRUISE_HW: 26, AI_CRUISE_BUS: 22,
-  BUSLANE_VIOLATOR_RATE: 0.35, // 고속도로 승용차 중 버스전용차로로 달리는 비율
+  BUSLANE_VIOLATOR_RATE: 0.14, // 고속도로 승용차 중 버스전용차로로 달리는 비율
   BUSLANE_WITNESS_SEC: 1.5,
 
   // --- 신호 ---
@@ -62,7 +62,7 @@ TG.CONFIG = {
   AI_ACCEL: 3.2,
   AI_FOLLOW_SEC: 1.8,
   SPAWN_MIN: 45, SPAWN_MAX: 130, DESPAWN: 170,
-  VIOLATOR_RATE: 0.30,         // 스폰 시 "신호를 무시할 성향" 부여 비율
+  VIOLATOR_RATE: 0.12,         // 스폰 시 "신호를 무시할 성향" 부여 비율(대부분은 지킨다 — 소유자: 너무 안 지키면 곤란)
   VIOLATOR_COOLDOWN: 45,       // 한 번 위반 후 다음 위반까지
   WITNESS_DIST: 55,            // 목격 거리
   WITNESS_FOV: 75,             // 목격 시야 반각(도)

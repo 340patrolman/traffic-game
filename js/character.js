@@ -23,10 +23,11 @@ TG.Character = (function () {
             CHEEK: 0xf49a9a, BATON: 0xe2342c, BATON2: 0x2a2e33, SHIRT_W: 0xf2f4f7, EPAU: 0x1b2c52,
             KID_SHIRT: 0xff6b6b, KID_PANTS: 0x2f5fd1, KID_CAP: 0xffd23f, KID_BAG: 0xe53935, KID_SHOE: 0xf4f4f4 };
   function mesh(gb, cast) { var m = new THREE.Mesh(gb.build(), mat); m.castShadow = cast !== false; return m; }
-  function seg(r0, r1, len, color) { var gb = new TG.GeoBuilder(); gb.cylinder(0, -len, 0, r1, r0, len, 10, color, false); gb.sphere(0, 0, 0, r0 * 1.02, 8, 6, color); return gb; }   // 관절 위(0)에서 아래(-len)로
+  // seg: 관절 위(0)에서 아래(-len)로. hi = 해상도 높임(어린이는 화면에 크게 나온다)
+  function seg(r0, r1, len, color, hi) { var gb = new TG.GeoBuilder(); gb.cylinder(0, -len, 0, r1, r0, len, hi ? 16 : 10, color, false); gb.sphere(0, 0, 0, r0 * 1.02, hi ? 12 : 8, hi ? 9 : 6, color); return gb; }
   // 얼굴: 눈·눈썹·입·귀. 앞 = +z
   function face(gb, y, r, skin, hair, kid) {
-    gb.sphere(0, y, 0, r, 18, 12, skin, 1.08);
+    gb.sphere(0, y, 0, r, kid ? 26 : 18, kid ? 18 : 12, skin, 1.08);
     var bw = kid ? 0.040 : 0.05, bh = kid ? 0.006 : 0.009;                                        // 어린이는 눈썹을 얇고 짧게
     gb.box(-0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {}); gb.box(0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {});
     gb.box(0, y - 0.008, r * 1.01, 0.022, 0.032, 0.022, skin, {});   // 코
@@ -107,9 +108,9 @@ TG.Character = (function () {
     var UA = kid ? 0.20 : 0.28, FA = kid ? 0.18 : 0.26;
     function arm(side) {
       var sh = new THREE.Object3D(); sh.position.set(side * 0.235, HIP + 0.58, 0); g.add(sh);
-      var up = mesh(seg(0.056, 0.05, UA, shirt)); sh.add(up);
+      var up = mesh(seg(0.056, 0.05, UA, shirt, kid)); sh.add(up);
       var el = new THREE.Object3D(); el.position.set(0, -UA, 0); sh.add(el);
-      var fo = mesh(seg(0.05, 0.043, FA, officer ? shirt : (kid ? skin : shirt))); el.add(fo);
+      var fo = mesh(seg(0.05, 0.043, FA, officer ? shirt : (kid ? skin : shirt), kid)); el.add(fo);
       var hb2 = new TG.GeoBuilder(); hb2.box(0, -FA - 0.05, 0, 0.07, 0.09, 0.045, glove, {}); if (officer) hb2.box(0, -FA + 0.01, 0, 0.09, 0.05, 0.065, C.WHITE, {});   // 장갑·소매
       el.add(mesh(hb2));
       return { sh: sh, el: el };
@@ -129,9 +130,9 @@ TG.Character = (function () {
     var TH = kid ? 0.33 : 0.44, SH = kid ? 0.31 : 0.42;
     function leg(side) {
       var hp = new THREE.Object3D(); hp.position.set(side * 0.105, HIP, 0); g.add(hp);
-      hp.add(mesh(seg(0.085, 0.072, TH, pants)));
+      hp.add(mesh(seg(0.085, 0.072, TH, pants, kid)));
       var kn = new THREE.Object3D(); kn.position.set(0, -TH, 0); hp.add(kn);
-      var lo = new TG.GeoBuilder(); lo.cylinder(0, -SH, 0, 0.062, 0.07, SH, 10, pants, false); lo.sphere(0, 0, 0, 0.072, 8, 6, pants);
+      var lo = new TG.GeoBuilder(); lo.cylinder(0, -SH, 0, 0.062, 0.07, SH, kid ? 16 : 10, pants, false); lo.sphere(0, 0, 0, 0.072, kid ? 12 : 8, kid ? 9 : 6, pants);
       lo.box(0, -SH - 0.035, 0.03, 0.11, 0.07, 0.27, shoe, {}); lo.box(0, -SH - 0.06, 0.05, 0.112, 0.02, 0.275, kid ? 0xdddddd : 0x111111, {});
       kn.add(mesh(lo));
       return { hp: hp, kn: kn };
@@ -146,8 +147,10 @@ TG.Character = (function () {
   // ---- 애니메이션 ----
   function animate(R, s, dt) {
     var J = R.joints, sp = s.speed || 0, run = sp > 2.4, amp = TG.clamp(sp / 1.5, 0, 1.35);
+    if (R.kid) amp *= 0.82;                                                        // 어린이는 팔다리를 작게 흔든다(보폭이 짧다)
     R.t += dt;
-    if (s.moving) R.ph += dt * sp * 4.6; else { var k0 = R.ph % (Math.PI * 2); if (k0 > 0.05) R.ph += dt * 6; }   // 멈추면 발을 모은다
+    var cad = R.kid ? 6.6 : 4.6;                                                   // 어린이는 보폭이 짧아 발걸음이 더 빠르다
+    if (s.moving) R.ph += dt * sp * cad; else { var k0 = R.ph % (Math.PI * 2); if (k0 > 0.05) R.ph += dt * 6; }   // 멈추면 발을 모은다
     var ph = R.ph, k = Math.min(1, dt * 10);
     var sw = Math.sin(ph) * (0.42 + 0.1 * amp) * amp;
     // 다리: 앞으로 흔들 때(−) 무릎은 지나갈 때 굽힌다. 뒤로 찰 때 살짝 굽힘
@@ -174,7 +177,7 @@ TG.Character = (function () {
     }
     J.shR.rotation.x = lerp(J.shR.rotation.x, rx, k); J.shR.rotation.z = lerp(J.shR.rotation.z, rz, k); J.elR.rotation.x = lerp(J.elR.rotation.x, rel, k);
     // 몸통: 위아래 흔들림·좌우 기울기·달릴 때 앞으로 숙임·숨쉬기
-    var bob = Math.abs(Math.cos(ph)) * 0.035 * amp, breathe = (1 - Math.min(1, amp)) * Math.sin(R.t * 1.6) * 0.008;
+    var bob = Math.abs(Math.cos(ph)) * (R.kid ? 0.055 : 0.035) * amp, breathe = (1 - Math.min(1, amp)) * Math.sin(R.t * 1.6) * 0.008;
     R.group.position.y = (R.baseY || 0) + bob + breathe;
     R.parts.torso.rotation.z = lerp(R.parts.torso.rotation.z, Math.sin(ph) * 0.035 * amp, k);
     R.parts.torso.rotation.x = lerp(R.parts.torso.rotation.x, run ? -0.1 : -0.02 * amp, k);

@@ -143,8 +143,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       laneIdx: opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1),
       // 운전자 습관(위반 소재): phone(휴대전화) · litter(꽁초 던지기) · animal(동물 안고 운전). 방향지시등 없이 차로 변경(noSignalViolator), 실선 구간 변경은 위치로 판정.
       // 12대 중과실 소재: drunk(비틀거림) · overtake(우측 앞지르기) · sidewalk(보도 주행) · cargo(트럭 낙하물) · door(버스 문 열고 주행 = passenger). noLicense 는 정차 후 면허 조회에서만 드러난다.
-      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.22 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk']) : null)),
-      noLicense: opts.noLicense !== undefined ? !!opts.noLicense : rng() < 0.08, weaveT: rng() * 6, swT: rng() * 20, cargoT: 8 + rng() * 12, doorT: 0, otBoost: 0,
+      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.10 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk']) : null)),
+      noLicense: opts.noLicense !== undefined ? !!opts.noLicense : rng() < 0.04, weaveT: rng() * 6, swT: rng() * 20, cargoT: 8 + rng() * 12, doorT: 0, otBoost: 0,
       signal: null, signalT: 0, lcShift: 0, lcCd: 6 + rng() * 20, noSignalViolator: opts.noSignalViolator !== undefined ? opts.noSignalViolator : (violator && rng() < 0.6), traitT: rng() * 6, litterT: 6 + rng() * 10,
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
@@ -153,8 +153,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.isMoto = type === 'moto'; car.isBike = type === 'bike'; car.isPM = type === 'pm';
     if (car.isMoto || car.isBike || car.isPM) {
       car.laneIdx = 1; car.trait = null; car.noSignalViolator = false;
-      car.edgeRider = rng() < (car.isPM ? 0.5 : car.isBike ? 0.45 : 0.3); car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5;
-      car.crossRider = (car.isBike || car.isPM) && rng() < 0.5;   // 절반은 타고 건넌다(위반) — 나머지는 내려서 끌고 걷는다(제13조의2 제6항)
+      car.edgeRider = rng() < (car.isPM ? 0.26 : car.isBike ? 0.24 : 0.14);   // 보도 통행은 드물게(대부분 차도 우측) car.edgeOff = car.edgeRider ? 5.4 : 0; car.edgeT = rng() * 5;
+      car.crossRider = (car.isBike || car.isPM) && rng() < 0.28;   // 일부만 타고 건넌다(위반) — 대부분은 내려서 끌고 걷는다(제13조의2 제6항)
       if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; }
       else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = rng() < 0.35; car.pmTwo = rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
       else if (car.violator) car.pedViolator = false;
@@ -519,7 +519,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var rr = self.rail.approach(car, onLink ? cur : null);
       if (rr) {
         if (rr.closed && rr.dist > 0 && !car.railRun) target = Math.min(target, stopProfile(rr.dist - 1.5, cfg.AI_DECEL));
-        if (rr.closed && rr.dist > 0 && rr.dist < 30 && car.railRun === undefined) car.railRun = car.violator && rng() < 0.7;
+        if (rr.closed && rr.dist > 0 && rr.dist < 30 && car.railRun === undefined) car.railRun = car.violator && rng() < 0.35;
         if (!rr.closed) car.railRun = undefined;
         if (car.railPrev !== undefined && car.railPrev > 0 && rr.dist <= 0 && rr.closed && car.v > 1) { self.stats.violations++; flag(car, 'railroad', null, self.witness(car)); }
         car.railPrev = rr.dist;

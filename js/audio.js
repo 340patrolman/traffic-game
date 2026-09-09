@@ -122,7 +122,10 @@ TG.audio = (function () {
   // 매 프레임: speedNorm 0..1(최고속 대비), throttle 0..1, skidLevel 0..1, kmh, decel(감속 중이면 true)
   function update(dt, speedNorm, throttle, skidLevel, kmh, decel) {
     if (!ready) return;
-    kmh = kmh || 0;
+    // Web Audio 는 non-finite 값을 받으면 예외를 던져 그 프레임을 죽인다 — 들어오는 값을 먼저 막는다.
+    function fin(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; }
+    dt = fin(dt, 0.016); speedNorm = TG.clamp(fin(speedNorm, 0), 0, 1); throttle = TG.clamp(fin(throttle, 0), 0, 1);
+    skidLevel = TG.clamp(fin(skidLevel, 0), 0, 3); kmh = TG.clamp(fin(kmh, 0), 0, 400);
     var now = ctx.currentTime;
     if (powertrain === 'ice') {
       // 변속: 상한을 넘으면 올리고(회전수 낙차), 아래 단 하한의 70% 아래면 내린다

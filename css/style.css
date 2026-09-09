@@ -43,8 +43,8 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stickBase{position:absolute;left:24px;top:auto;bottom:24px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(20,30,50,.75),rgba(10,14,22,.85));border:3px solid rgba(255,207,63,.75);box-shadow:0 0 0 3px rgba(10,14,22,.6),0 6px 18px rgba(0,0,0,.5);opacity:.8;transition:opacity .15s}
 #stickBase.on{opacity:1;bottom:auto}
 #stickBase.live{opacity:1}
-#minimap{position:fixed;top:calc(96px + var(--sa-t));right:calc(60px + var(--sa-r));width:118px;height:116px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:pointer}
-body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-r));width:96px;height:94px}
+#minimap{position:fixed;top:calc(96px + var(--sa-t));right:calc(60px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:pointer}
+body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-r));width:148px;height:146px}
 #stickBase .ring{position:absolute;inset:30px;border-radius:50%;border:1px dashed rgba(255,255,255,.3)}
 #stickBase .cross{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/1px 100% no-repeat,linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/100% 1px no-repeat;border-radius:50%}
 #stickBase .arrow{position:absolute;display:flex;align-items:center;gap:2px;color:#ffe9a8;font-size:11px;font-weight:800;text-shadow:0 1px 2px #000;line-height:1}
@@ -293,11 +293,11 @@ body.portrait #dutyPanel{bottom:calc(150px + var(--sa-b))}
 /* ---------- 인트로 연출(상용 게임 느낌): 레터박스 · 하단 3분할 자막 · 타이틀 등장 ---------- */
 .overlay.intro{background:linear-gradient(180deg,rgba(6,8,14,.45) 0%,rgba(6,8,14,0) 26%,rgba(6,8,14,0) 52%,rgba(6,8,14,.84) 100%)}
 .overlay.intro::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 42%,rgba(0,0,0,.55) 100%)}
-.cine-bar{position:absolute;left:0;right:0;height:11vh;background:#05070c;pointer-events:none;transition:height .9s cubic-bezier(.16,.84,.3,1),opacity .6s ease}
+.cine-bar{position:absolute;left:0;right:0;height:6vh;background:#05070c;pointer-events:none;transition:height .9s cubic-bezier(.16,.84,.3,1),opacity .6s ease}
 .cine-bar.top{top:0}.cine-bar.bot{bottom:0}
 body.cine-out .cine-bar{height:0}
 /* 하단 3분할 자막 */
-.intro-shot{position:absolute;padding-left:16px;left:clamp(14px,5vw,80px);bottom:calc(11vh + 26px);text-align:left;pointer-events:none;opacity:0;transform:translateX(-14px);transition:opacity .5s ease,transform .5s ease;max-width:min(88vw,760px)}
+.intro-shot{position:absolute;padding-left:16px;left:clamp(14px,5vw,80px);bottom:calc(6vh + 26px);text-align:left;pointer-events:none;opacity:0;transform:translateX(-14px);transition:opacity .5s ease,transform .5s ease;max-width:min(88vw,760px)}
 .intro-shot.on{opacity:1;transform:none}
 .intro-shot .kick{display:block;font-size:clamp(10px,1.5vw,13px);letter-spacing:5px;color:var(--accent);font-weight:700;margin-bottom:4px}
 .intro-shot .ttl{display:block;word-break:keep-all;font-size:clamp(22px,4.2vw,42px);font-weight:900;color:#fff;line-height:1.12;text-shadow:0 3px 18px rgba(0,0,0,.75)}
@@ -320,8 +320,8 @@ body.cine-out .cine-bar{height:0}
 #introFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 #introFlash.on{animation:cineFlash .7s ease-out}
 @keyframes cineFlash{0%{opacity:.9}35%{opacity:.35}100%{opacity:0}}
-body.portrait .cine-bar{height:7vh}
-body.portrait .intro-shot{bottom:calc(7vh + 20px)}
+body.portrait .cine-bar{height:4vh}
+body.portrait .intro-shot{bottom:calc(4vh + 20px)}
 /* 하차·승차 버튼(순찰 근무 중) — 도보 상태에서는 「승차」로 바뀐다 */
 .tbtn.footbtn{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(286px + var(--sa-b));width:64px;height:64px;background:rgba(120,220,255,.16);border-color:rgba(120,220,255,.75)}
 .tbtn.footbtn .ico{font-size:24px}
@@ -342,3 +342,7 @@ body.chasing #section{border-color:rgba(255,90,90,.8)}
 .titlelinks a:hover{color:#fff;border-bottom-color:#fff}
 /* 한국어 줄바꿈: 단어 중간에서 끊지 않는다(「걷 / 는다」 처럼 깨지던 것) */
 .intro-shot .ttl,.intro-shot .sub,.intro-lines .il,.notice,#hint,#target,.section,.intro-title .tag,#kidNow{word-break:keep-all;overflow-wrap:break-word}
+
+/* 인트로 전체화면 단추(건너뛰기 왼쪽) */
+.skip.full{right:calc(126px + var(--sa-r))}
+body.portrait .skip.full{right:calc(112px + var(--sa-r))}
