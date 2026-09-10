@@ -21,7 +21,9 @@
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
   // 도보 상태: 보행 모드·어린이 교실·교차로 근무는 처음부터 도보, 순찰·자유 주행에서는 하차(G.afoot)하면 도보가 된다.
-  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.mode === 'duty' || G.afoot === true; }
+  // 교차로 근무는 **하차 근무**다 — 순찰차로 와서 갓길에 세우고 내린다(소유자: 「하차근무가 좋을지 싶네」).
+  // 그래서 duty 는 여기서 뺀다. 내리기 전까지는 「차 안」이고, 내리면 G.afoot 이 켜진다.
+  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.afoot === true; }
   G.actor = actor;
   // 차량 선택 「랜덤」: 근무마다 다른 순찰차
   function carSpec(id) { if (id === 'random' || !C.CARS[id]) { var ks = Object.keys(C.CARS); return C.CARS[ks[Math.floor(Math.random() * ks.length)]]; } return C.CARS[id]; }
@@ -421,13 +423,13 @@
     input.bindTap($('btnEnforce'), enforce);
     input.onKey('KeyF', enforce);
     // 손 들기(보행자·어린이 모드): ✋ 버튼 · G 키
-    function raiseHand() { if (G.mode === 'duty') { if (G.state === 'play' && duty) dutyHand(); return; }   // 교차로 근무에서는 ✋ 가 꼬리 끊기 수신호다
+    function raiseHand() { if (G.mode === 'duty') { if (G.state === 'play' && duty && walker) dutyHand(); return; }   // 교차로 근무에서는 ✋ 가 꼬리 끊기 수신호다
       if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요 — 운전자가 나를 잘 봐요', 'good', 1600); TG.audio.ui(); kidSay('kidOk'); } } }
     input.bindTap($('btnHand'), raiseHand); input.onKey('KeyG', raiseHand);
     // 걷기/달리기 토글(보행자·어린이 모드): 스틱을 끝까지 밀어도 걷는다. 달리기는 이 버튼(또는 Shift·패드 A)으로만
     input.bindTap($('btnRun'), function () { input.runToggle = !input.runToggle; var b = $('btnRun'); b.classList.toggle('on', input.runToggle); b.querySelector('.ico').textContent = input.runToggle ? '🏃' : '🚶'; b.querySelector('span:last-child').textContent = input.runToggle ? '달리기' : '걷기'; TG.audio.ui(); if (G.mode === 'kid' && input.runToggle) kidVoice('norun', true); });
     // 교차로 근무: 신호제어기 조작판(제어함 R 키 · 🔧 버튼). 자동/수동 · 방향별 녹색 요청 · 바깥 차로 차단 · 꼬리 끊기
-    function toggleBox() { if (G.state === 'play' && G.mode === 'duty' && duty) dutyOpen(!duty.open); }
+    function toggleBox() { if (G.state === 'play' && G.mode === 'duty' && duty && walker) dutyOpen(!duty.open); }
     input.bindTap($('btnBox'), toggleBox); input.onKey('KeyR', toggleBox);
     input.bindTap($('dutyX'), function () { dutyOpen(false); });
     input.bindTap($('dutyAuto'), function () { if (!duty) return; signals.setManual(duty.node, false); junction.setBoxLamp(false); duty.why = ''; hud.notice('자동 운영으로 전환 — 신호기 프로그램대로 돌아갑니다', 'info', 2400); TG.audio.ui(); dutyPanelDraw(); });
@@ -627,6 +629,10 @@
   function exitCar() {
     if (G.state !== 'play' || !player || G.afoot || onFoot()) return false;
     if (player.speedKmh() > 3) { hud.notice('완전히 정차한 뒤 내립니다', 'warn', 2000); return false; }
+    // 교차로 근무는 **그 교차로 가까이**에서 내려야 근무가 된다 — 멀리서 내리면 걸어갈 수 없다
+    if (G.mode === 'duty' && duty && Math.hypot(player.pos.x - duty.node.x, player.pos.z - duty.node.z) > 70) {
+      hud.notice('교차로에서 멉니다 — 교차로 가까운 갓길까지 이동한 뒤 내립니다', 'warn', 2600); return false;
+    }
     var fr = city.frameAt(player.pos.x, player.pos.z, player.heading);
     if (!player.siren) hud.hint('💭 내리기 전에 경광등을 켠다 — 뒤차에 내가 보여야 한다');
     var pf = player.forward(), pr = [-pf[1], pf[0]];
@@ -642,6 +648,7 @@
     hud.notice('🚶 하차 — 걸어서 현장을 확인합니다. 다시 타려면 운전석 옆에서 「승차」', 'info', 4200);
     hud.hint('차도에 오래 서 있지 않는다. 뒤차가 보이는 위치에서 움직인다');
     TG.audio.ui(); officerSay('하차합니다');
+    if (G.mode === 'duty') dutyAfterExit();   // 교차로 근무는 내리는 순간부터가 근무다
     return true;
   }
   function enterCar() {
@@ -721,30 +728,33 @@
     var node = city.nodes[2][1];   // 서울성모병원 사거리(반포대로 × 사평대로) — 실제 병원이 이 구간 반포대로변에 있다
     junction = new TG.Junction(G); junction.node = node; G.junction = junction;
     var box = junction.placeBox(node, 1, 1);   // 남동쪽 모퉁이 보도
-    // 순찰차: 교차로 남쪽 갓길에 경광등을 켜고 정차한다 — 하차 근무의 보호 장비다
-    player.teleport(node.x + city.shoulderOff('v', node.i), node.z + city.halfH[node.j] + 26, Math.PI);
+    // **하차 근무**: 접근로 100m 뒤에서 순찰차로 시작한다. 경광등을 켠 채 갓길까지 서행해 세우고 「하차」로 내린다.
+    // 전에는 이미 내려 있는 상태로 시작해 근무의 앞부분이 통째로 없었다.
+    player.teleport(node.x + city.laneOff('v', node.i, 0), node.z + city.halfH[node.j] + 100, Math.PI);
     player.setSiren(true); hud.setSiren(true);
-    walker = new TG.Walker(scene, city, terrain, C, {}); G.walker = walker;
-    // 함체를 **등지고** 서면 경찰관 몸이 함체를 가려 「제어함이 안 보인다」가 된다(화면 점검에서 확인).
-    // 함체 **옆**에 서서 교차로를 바라보게 둔다 — 함체가 화면에 같이 보이고, 근무 자세로도 맞다.
-    var side = [box.x - node.x, box.z - node.z];
-    var sl = Math.hypot(side[0], side[1]) || 1;
-    var perp = [-side[1] / sl, side[0] / sl];                 // 교차로–함체 축에 직각 = 함체 옆
-    var px = box.x + perp[0] * 1.7, pz = box.z + perp[1] * 1.7;
-    walker.teleport(px, pz, Math.atan2(node.x - px, node.z - pz));   // 교차로를 본다
-    traffic.player = walker; peds.player = walker; peds.walker = walker;
-    C.TRAFFIC_MAX = BASE_TRAFFIC + 26;   // 교차로 하나에 통행이 몰리는 근무다
+    traffic.player = player; peds.player = player; peds.walker = null;
+    C.TRAFFIC_MAX = BASE_TRAFFIC + 26;
     G.timeLeft = C.DUTY_SECONDS;
-    walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, duty: true };
+    walk = null; walker = null; G.walker = null;
     duty = { node: node, box: box, open: false, burstT: 6, waves: 0, why: '', uiT: 0, staged: false, hintCd: 0 };
-    walker.setMarker({ x: box.x, z: box.z });
+    hud.setTarget('🚓 교차로까지 서행 → 갓길 정차 → 「하차」');
+    hud.hint('경광등을 켠 채로 갓길에 세운 뒤 「하차」로 내린다 — 뒤차에 내가 보여야 한다');
+    officerSay('서울성모병원 사거리 교통관리 나갑니다. 갓길에 정차하고 하차하겠습니다');
+  }
+  // 하차 근무에서 내린 뒤: 목표를 제어함으로 바꾸고 근무를 시작한다
+  function dutyAfterExit() {
+    if (!duty || !walker) return;
+    walk.duty = true;
+    peds.walker = walker;
+    walker.setMarker({ x: duty.box.x, z: duty.box.z });
     hud.setTarget('🔧 신호제어기(제어함)로 — 3m 안에서 「제어함」 버튼');
-    hud.hint('제어함을 열어 자동 → 수동으로 바꾼 뒤, 정체가 심한 방향에 녹색을 더 준다');
-    officerSay('서울성모병원 사거리 교통관리 나갑니다. 제어함을 열고 수동으로 전환하겠습니다');
+    // hint 는 앞 안내 뒤 2.5초 동안 막힌다 — 하차 안내에 가려 「제어함으로」가 안 보였다(화면 점검)
+    hud.hintNow('제어함을 열어 자동 → 수동으로 바꾼 뒤, 정체가 심한 방향에 녹색을 더 준다');
+    officerSay('하차했습니다. 제어함을 열고 수동으로 전환하겠습니다');
   }
   // 조작판 열기·닫기: 제어함 3.2m 안에서만 열린다(순찰차 안에서는 조작할 수 없다 — 그래서 하차 근무다)
   function dutyOpen(on, why) {
-    if (!duty) return false;
+    if (!duty || !walker) return false;   // 아직 차 안이다 — 내려야 제어함을 만질 수 있다
     if (on && junction.nearBox(walker.pos.x, walker.pos.z) > 3.2) { hud.notice('제어함에서 멉니다 — 함체 3m 안으로 걸어가세요', 'warn', 2200); return false; }
     duty.open = !!on; document.body.classList.toggle('dutyopen', duty.open);
     if (junction.setPanel) junction.setPanel(duty.open, signals.isManual(duty.node), false);   // 실물 조작문이 위로 젖혀 열린다
@@ -1125,7 +1135,7 @@
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX)); traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
-    if (G.mode === 'duty') dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else walkRules(dt);
+    if (G.mode === 'duty' && duty && walker) dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else walkRules(dt);
     if (G.mode === 'kid') kidZipWatch(dt);
     if (G.state !== 'play') return;
     walk.camYaw = walkCamera(dt);
@@ -1649,6 +1659,18 @@
     enforcement.update(dt); if (response) response.update(dt);
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
     checkRules(dt, frame);
+    // 하차 근무: 아직 차 안이어도 그 교차로는 돌아가고 있다 — 대기 행렬·꼬리물기를 계속 센다.
+    if (G.mode === 'duty' && duty && junction && !walker) {
+      junction.update(dt);
+      if (junction.boxAnim) junction.boxAnim(dt);
+      duty.uiT -= dt;
+      if (duty.uiT <= 0) {
+        duty.uiT = 0.5;
+        var dst = junction.stats(duty.node);
+        hud.setSectionText('🔧 ' + city.nodeName(duty.node) + ' — 갓길에 세우고 「하차」 · 대기 ' +
+          [0, 1, 2, 3].reduce(function (a, d) { return a + (dst.q[d] ? dst.q[d].n : 0); }, 0) + '대' + (dst.grid ? ' · 꼬리물기 ' + dst.grid : ''));
+      }
+    }
     if (chase) chaseUpdate(dt);   // 구간 이름 뒤에 갱신해야 추격 줄이 화면에 남는다(전에는 덮어써서 안 보였다)
     updateCamera(dt);
     hud.tick(dt);

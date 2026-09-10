@@ -10,7 +10,7 @@ TG.Enforcement = function (game) {
   var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null;
 
   function me() { return game.actor ? game.actor() : game.player; }   // 순찰차, 보행자 모드면 걷는 경찰관
-  function onFoot() { return game.mode === 'walk' || game.mode === 'kid' || game.mode === 'duty'; }
+  function onFoot() { return game.mode === 'walk' || game.mode === 'kid' || game.afoot === true; }
   function distToTarget() { var pl = me(), c = self.target; return Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z); }
   function cancel(msg) {
     if (self.target) game.traffic.setYield(self.target, false);

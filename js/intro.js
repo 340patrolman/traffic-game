@@ -12,6 +12,16 @@ TG.Intro = function (game) {
   var el = { shot: null, title: null, flash: null, lines: null, credit: null };
   function $(id) { return document.getElementById(id); }
   function sm(u) { return u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u); }        // smoothstep
+  // three.js 의 fov 는 **세로** 화각이다. 세로로 긴 화면(폰 세로)에서는 가로 화각이 확 좁아져
+  // 도시가 한쪽 구석으로 몰리고 아래 절반이 빈 들판으로 남았다(화면 점검에서 확인).
+  // 그래서 **가로 화각을 기준(16:9)으로 유지**하도록 세로 화각을 키운다. 너무 넓어지지 않게 105도에서 자른다.
+  function fovFit(f, aspect) {
+    var REF = 16 / 9;
+    if (!aspect || aspect >= REF) return f;
+    var hor = 2 * Math.atan(Math.tan(f * Math.PI / 360) * REF);
+    return Math.min(105, 2 * Math.atan(Math.tan(hor / 2) / aspect) * 180 / Math.PI);
+  }
+  self.fovFit = fovFit;
   function ease(u) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3); }   // ease-out
   function mix(a, b, u) { return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; }
 
@@ -215,7 +225,8 @@ TG.Intro = function (game) {
       if (game.player.setView) game.player.setView(wantView);
       cam.near = wantView === 'cockpit' ? 0.12 : 0.5; cam.updateProjectionMatrix();
     }
-    if (Math.abs(cam.fov - s.fov) > 0.01) { cam.fov += (s.fov - cam.fov) * Math.min(1, dt * 3.2); cam.updateProjectionMatrix(); }
+    var wantFov = fovFit(s.fov, cam.aspect);
+    if (Math.abs(cam.fov - wantFov) > 0.01) { cam.fov += (wantFov - cam.fov) * Math.min(1, dt * 3.2); cam.updateProjectionMatrix(); }
     var hh = Math.sin(t * 3.7) * 0.028 + Math.sin(t * 1.9) * 0.02;    // 아주 약한 손떨림 — 실사감
     cam.position.set(c.p[0] + hh, c.p[1] + hh * 0.5, c.p[2] - hh);
     cam.lookAt(c.l[0], c.l[1], c.l[2]);

@@ -1,5 +1,6 @@
 // 미니맵: 도시 격자·순환고속도로(경부고속도로·올림픽대로)·연결로를 한 번 그려 두고, 매 프레임 플레이어(파란 화살표)·위반 차량(주황)·정차 대상(빨강)만 덧그린다.
 TG.Minimap = function (canvas, city, terrain) {
+  var self = this;
   var W = canvas.width, H = canvas.height, ctx = canvas.getContext('2d');
   var K = W / 236;   // 기준 캔버스(236px) 대비 배율 — 글자·선 두께를 함께 키운다
   var X0 = -330, X1 = 650, Z0 = -320, Z1 = 640;           // 링을 포함하는 범위
@@ -28,27 +29,51 @@ TG.Minimap = function (canvas, city, terrain) {
     g.lineWidth = 5 * K; g.strokeStyle = 'rgba(80,150,220,0.75)';
     for (var x = X0; x <= X1; x += 20) { var rz = terrain.riverZ ? terrain.riverZ(x) : -112; if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
     g.stroke();
-    g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2'; g.textAlign = 'center';
-    g.fillText('올림픽대로', mx(160), mz(-262) - 3); g.fillText('경부고속도로', mx(160), mz(585) + 8); g.fillText('한강', mx(40), mz(-200) - 4);
-    g.save(); g.translate(mx(160) + 9, mz(470)); g.rotate(-Math.PI / 2); g.fillText('경부고속도로', 0, 0); g.restore();
-    g.font = 'bold ' + Math.round(10.5 * K) + 'px sans-serif'; g.fillStyle = '#ffd86b';
-    // 지하철역: 도시 좌표에 그대로 찍는다(city.subways 와 같은 자리). 노선 색 점 + 역 이름.
-    g.fillText('서초구', mx(70), mz(292));
+    // 이름표가 서로 겹쳐 읽을 수 없었다(소유자 신고). **먼저 그리는 것이 이긴다** —
+    // 자리를 차지한 글자와 겹치는 이름표는 건너뛴다. 그래서 **중요한 순서대로** 그린다:
+    // 도로명 → 다리 → 지하철역 → 랜드마크 → 자연·기타. 달리는 사람에게 가장 쓸모 있는 것이 도로명이다.
+    g.textAlign = 'center';
+    var placed = [], skipped = [];
+    function lab(text, x, y, rot) {
+      var w = g.measureText(text).width, h = parseInt(g.font, 10) || 11;
+      var bw = rot ? h + 3 : w + 4, bh = rot ? w + 4 : h + 3;
+      var bx = x - bw / 2, by = rot ? y - bh / 2 : y - h + 1;
+      for (var i = 0; i < placed.length; i++) {
+        var p = placed[i];
+        if (bx < p.x + p.w && bx + bw > p.x && by < p.y + p.h && by + bh > p.y) { skipped.push(text); return false; }
+      }
+      placed.push({ x: bx, y: by, w: bw, h: bh, t: text });
+      if (rot) { g.save(); g.translate(x, y); g.rotate(rot); g.fillText(text, 0, 0); g.restore(); }
+      else g.fillText(text, x, y);
+      return true;
+    }
+    // ① 도로명
+    g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillStyle = '#cfe0ff';
+    lab('서초대로', mx(60), mz(172)); lab('남부순환로', mx(60), mz(312));
+    lab('반포대로', mx(160) - 6, mz(60), -Math.PI / 2); lab('강남대로', mx(320) - 6, mz(60), -Math.PI / 2);
+    g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2';
+    lab('올림픽대로', mx(160), mz(-262) - 3); lab('경부고속도로', mx(160), mz(585) + 8);
+    lab('경부고속도로', mx(160) + 9, mz(470), -Math.PI / 2);
+    // ② 다리
+    g.fillStyle = '#e6f0ff'; lab('반포대교', mx(160) + 30, mz(-70)); lab('한남대교', mx(320) - 26, mz(-70));
+    // ③ 지하철역 — 점은 늘 찍고 이름만 겹침을 피한다
+    g.font = 'bold ' + Math.round(10.5 * K) + 'px sans-serif';
     (city.subways || []).forEach(function (S) {
       g.beginPath(); g.arc(mx(S.x), mz(S.z), 3.0 * K, 0, Math.PI * 2); g.fillStyle = S.colors[0] || '#888'; g.fill();
       g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.1 * K; g.stroke();
-      g.fillStyle = '#ffd86b'; g.fillText(S.name.replace('역', ''), mx(S.x), mz(S.z) - 6 * K);
+      g.fillStyle = '#ffd86b'; lab(S.name.replace('역', ''), mx(S.x), mz(S.z) - 6 * K);
     });
+    // ④ 랜드마크
     g.fillStyle = '#e6f0ff';
-    g.fillText('성모병원', mx(200), mz(120)); g.fillText('중앙도서관', mx(120), mz(120));
-    g.fillText('예술의전당', mx(200), mz(282)); g.fillText('법원·검찰', mx(280), mz(200));
-    g.fillText('구청', mx(280), mz(282)); g.fillText('고속터미널', mx(200), mz(40));
-    g.fillText('서리풀공원', mx(120), mz(282)); g.fillText('향나무', mx(193), mz(190));
-    // 한강 시설·남쪽 자연(terrain.scenery 와 같은 자리)
+    lab('고속터미널', mx(200), mz(40)); lab('성모병원', mx(200), mz(120)); lab('중앙도서관', mx(120), mz(120));
+    lab('법원·검찰', mx(280), mz(200)); lab('예술의전당', mx(200), mz(282)); lab('구청', mx(280), mz(282));
+    lab('서리풀공원', mx(120), mz(282)); lab('향나무', mx(193), mz(190));
+    // ⑤ 자연·기타
     g.fillStyle = '#bfe3ff';
-    (terrain.scenery || []).forEach(function (S) { if (S.name) g.fillText(S.name, mx(S.x), mz(S.z)); });
-    g.fillStyle = '#e6f0ff'; g.fillText('반포대교', mx(160) + 30, mz(-70)); g.fillText('한남대교', mx(320) - 26, mz(-70));
-    g.fillStyle = '#cfe0ff'; g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillText('서초대로', mx(60), mz(172)); g.fillText('남부순환로', mx(60), mz(312)); g.save(); g.translate(mx(160) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('반포대로', 0, 0); g.restore(); g.save(); g.translate(mx(320) - 6, mz(60)); g.rotate(-Math.PI / 2); g.fillText('강남대로', 0, 0); g.restore();
+    (terrain.scenery || []).forEach(function (S) { if (S.name) lab(S.name, mx(S.x), mz(S.z)); });
+    g.fillStyle = '#ffd86b'; lab('서초구', mx(70), mz(292));
+    g.fillStyle = '#e8edf2'; lab('한강', mx(40), mz(-200) - 4);
+    self.labels = { placed: placed, skipped: skipped };   // 검증에서 겹침 0 을 확인한다
   })();
   // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.
   this.zoom = 1; this.levels = [1, 2, 4];
