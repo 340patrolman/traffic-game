@@ -10,7 +10,11 @@ TG.Signals = function (city, world, cfg) {
     ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12, gv: G, gh: G };   // gv·gh = 남북·동서 녹색 시간(교차로마다 다르게 설정할 수 있다)
   }); });
   function keyOf(node) { return node.i + ',' + node.j; }
-  function greenFor(node, axis) { var c = ctrl[keyOf(node)]; return axis === 'v' ? c.gv : c.gh; }
+  // **읽는 순간 하한을 강제한다.** 저장된 값(교통시설 화면·이전 판)이 보행 시간보다 짧으면
+  // 「보고 출발해도 다 건너기 전에 적색」이 다시 생긴다. 어디서 무엇을 써 넣었든 이 문을 지난다.
+  function gvOf(node) { var c = ctrl[keyOf(node)]; return Math.max(c.gv, greenMin(node, 'v')); }
+  function ghOf(node) { var c = ctrl[keyOf(node)]; return Math.max(c.gh, greenMin(node, 'h')); }
+  function greenFor(node, axis) { return axis === 'v' ? gvOf(node) : ghOf(node); }
   // ↓ 아래 raiseToPedMin() 은 ctrl 을 다 만든 뒤 이 파일 끝에서 한 번 부른다.
   // 기본 녹색(cfg.SIG_GREEN)이 넓은 횡단보도의 보행 시간을 못 품는 교차로가 있었다.
   // 그러면 pedTime 이 「차량 녹색 − 2」로 깎여, 보행 신호를 보고 제때 출발해도 다 건너기 전에 적색이 됐다
@@ -23,12 +27,13 @@ TG.Signals = function (city, world, cfg) {
       c.gh = Math.max(c.gh, greenMin(nd, 'h'));
     }
   }
-  function cycleOf(node) { var c = ctrl[keyOf(node)]; return c.gv + c.gh + 2 * (Y + R); }
+  function cycleOf(node) { return gvOf(node) + ghOf(node) + 2 * (Y + R); }
   // 녹색 시간 하한: 그 방향의 최소 녹색과, 직각 횡단보도의 보행 시간 + 2초. **보행 시간은 줄일 수 없다**(소유자 강조).
   function greenMin(node, axis) {
+    // 그 방향 녹색은 **직각 횡단보도의 보행 시간**을 품어야 한다. 계산은 pedTime 한 곳에만 둔다
+    // (전에는 여기에 5초·1.15m/s 를 따로 적어 두어, pedTime 을 고쳐도 이쪽이 따라오지 않았다).
     var c = ctrl[keyOf(node)], crossAx = axis === 'v' ? 'h' : 'v';
-    var len = 2 * city.sideOff(crossAx, crossAx === 'v' ? node.i : node.j);
-    return Math.max(c.minGreen, Math.ceil(Math.max(cfg.PED_WALK, 5 + len / 1.15)) + 2);
+    return Math.max(c.minGreen, Math.ceil(pedTime(node, crossAx)) + 2);
   }
   function setGreen(node, axis, sec) {
     var c = ctrl[keyOf(node)], lo = greenMin(node, axis), hi = 60;
@@ -38,23 +43,27 @@ TG.Signals = function (city, world, cfg) {
   }
   function greenInfo(node) {
     var c = ctrl[keyOf(node)];
-    return { gv: c.gv, gh: c.gh, minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
+    return { gv: gvOf(node), gh: ghOf(node), minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
              pedV: Math.round(pedTime(node, 'v')), pedH: Math.round(pedTime(node, 'h')), minGreen: c.minGreen };
   }
-  // 보행 시간 = 진입 5초 + 횡단 거리 ÷ 1.15m/s(어린이 걸음). 차량 녹색보다 2초 짧게 묶는다.
+  // 보행 시간 = 진입 시간 + 횡단 거리 ÷ 설계 보행속도. 값은 config 에 있고 **법령 수치가 아니라 게임 설계값**이다.
+  // 어린이보호구역은 더 느린 속도로 잡는다 — 아이가 뛰지 않고 건널 수 있어야 한다.
   // crossAxis 는 **건너는 도로**의 축이다(그 도로의 보도선 사이가 횡단 거리).
   function pedTime(node, crossAxis) {
     var idx = crossAxis === 'v' ? node.i : node.j;
-    var len = 2 * city.sideOff(crossAxis, idx);
-    var gAx = crossAxis === 'v' ? 'h' : 'v';   // 이 횡단보도는 직각 축 차량 녹색 동안 켜진다
-    // 진입 5초 + 횡단거리 ÷ 1.15m/s — **차량 녹색 길이로 깎지 않는다**. 짧으면 차량 녹색을 늘리는 쪽이다(raiseToPedMin).
-    return Math.max(cfg.PED_WALK, 5 + len / 1.15);
+    // 횡단 거리는 **연석에서 연석까지**(차도 폭)다. 보도 바깥선까지 재면 양쪽 보도 폭(6m)만큼 과하게 잡혀
+    // 주기가 100초 가까이 늘어난다 — 사람은 보도 위를 「건너지」 않는다.
+    var len = 2 * city.halfOf(crossAxis, idx);
+    var school = city.inSchoolZone ? city.inSchoolZone(node.x, node.z) : false;
+    var v = school ? (cfg.PED_SPEED_SCHOOL || 0.8) : (cfg.PED_SPEED || 1.0);
+    // **차량 녹색 길이로 깎지 않는다.** 짧으면 차량 녹색을 늘리는 쪽이다(raiseToPedMin).
+    return Math.max(cfg.PED_WALK, (cfg.PED_ENTER_SEC || 7) + len / v);
   }
   // 지금 녹색인 축과 경과·지속 시간(전환 중이면 null)
   function greenNow(node) {
-    var c = ctrl[keyOf(node)], p = phase(c.t, c.gv, c.gh);
-    if (p.ns.s === 'green') return { axis: 'v', elapsed: p.ns.elapsed, dur: c.gv, at: 0 };
-    if (p.ew.s === 'green') return { axis: 'h', elapsed: p.ew.elapsed, dur: c.gh, at: c.gv + Y + R };
+    var c = ctrl[keyOf(node)], gv = gvOf(node), gh = ghOf(node), p = phase(c.t, gv, gh);
+    if (p.ns.s === 'green') return { axis: 'v', elapsed: p.ns.elapsed, dur: gv, at: 0 };
+    if (p.ew.s === 'green') return { axis: 'h', elapsed: p.ew.elapsed, dur: gh, at: gv + Y + R };
     return null;
   }
   // 수동 전환에 필요한 남은 시간: 최소 녹색·보행 최소를 채우고 + 황색 + 전적색
@@ -112,7 +121,7 @@ TG.Signals = function (city, world, cfg) {
     else { ns = { s: 'red', remain: C - t, elapsed: t - gv - Y }; ew = { s: 'red', remain: C - t + Hv, elapsed: t - Hv - gh }; }
     return { ns: ns, ew: ew, t: t, cycle: C };
   }
-  function ph(node) { var c = ctrl[keyOf(node)]; return phase(c.t, c.gv, c.gh); }
+  function ph(node) { var c = ctrl[keyOf(node)]; return phase(c.t, gvOf(node), ghOf(node)); }
   function state(node, axis) {
     var p = ph(node);
     return axis === 'v' ? p.ns : p.ew;
@@ -126,16 +135,41 @@ TG.Signals = function (city, world, cfg) {
   }
   // 보행 신호 잔여 시간: 녹색이면 남은 보행 시간, 적색이면 다음 보행 신호까지 남은 시간(초)
   function pedRemain(node, crossAxis) {
-    var c = ctrl[keyOf(node)], p = ph(node), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? (c.gv + Y + R) : 0;
+    var c = ctrl[keyOf(node)], p = ph(node), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? (gvOf(node) + Y + R) : 0;
     var W = pedTime(node, crossAxis);
     if (s.s === 'green' && s.elapsed < W) return W - s.elapsed;
     var until = start - p.t; while (until <= 0) until += p.cycle;
     return until;
   }
+  // ---- 보행 시간 연장 ----
+  // 아직 횡단보도 위에 사람이 있는데 초록불이 꺼지면, 뛰라는 말이 된다(소유자 신고).
+  // 그 동안 시간을 멈춰 초록불을 붙잡는다 — 실제 스마트 횡단보도와 같은 생각이다.
+  // 무한정은 안 된다: 한 번의 보행 신호에서 **최대 PED_EXTEND_MAX 초**까지만 늘린다.
+  var hold = {};
+  function holdPed(node, crossAxis) {
+    var k = keyOf(node), h = hold[k] = hold[k] || { used: 0, ax: crossAxis, t: 0 };
+    if (h.ax !== crossAxis) { h.ax = crossAxis; h.used = 0; }
+    h.t = 0.4;   // 이 호출이 끊기면(다 건넜다) 0.4초 뒤 연장도 끝난다
+  }
+  function holdTick(c, nd, k, dt) {
+    var h = hold[k];
+    if (!h) return false;
+    if (h.t > 0) h.t -= dt; else { h.used = 0; return false; }
+    var walking = pedWalk(nd, h.ax);
+    if (!walking) { h.used = 0; return false; }
+    var rem = pedRemain(nd, h.ax);
+    if (rem > 2.5) { return false; }                       // 아직 여유가 있다 — 연장할 필요 없다
+    if (h.used >= (cfg.PED_EXTEND_MAX || 12)) return false; // 한도까지 늘렸다
+    h.used += dt;
+    return true;                                           // 시간을 멈춘다(초록불 유지)
+  }
+  function extendInfo(node) { var h = hold[keyOf(node)]; return h ? { used: Math.round(h.used * 10) / 10, ax: h.ax } : null; }
+
   var blinkT = 0;
   function update(dt) {
     for (var k in ctrl) {
       var c = ctrl[k], kn = k.split(','), nd = city.nodes[+kn[0]][+kn[1]];
+      if (holdTick(c, nd, k, dt)) continue;   // 아직 건너는 사람이 있다 — 초록불을 붙잡는다
       if (!c.manual) { c.t += dt; continue; }
       // 수동: 현재 녹색 끝에서 멈춰 유지(요청 없으면 계속 녹색). 요청이 있으면 최소 시간을 채운 뒤 황색·전적색을 거쳐 다음 녹색으로.
       var g = greenNow(nd);
@@ -171,13 +205,14 @@ TG.Signals = function (city, world, cfg) {
   function force(i, j, t) { ctrl[i + ',' + j].t = t; }
   // 테스트·디버그: 어떤 노드의 축 axis 를 지금 즉시 상태 s 로 만든다
   function set(node, axis, s) {
-    var c = ctrl[keyOf(node)], Hv = c.gv + Y + R, t;
+    var c = ctrl[keyOf(node)], Hv = gvOf(node) + Y + R, t;
     if (axis === 'v') t = s === 'green' ? 0.5 : s === 'yellow' ? c.gv + 0.5 : Hv + 0.5;
     else t = s === 'green' ? Hv + 0.5 : s === 'yellow' ? Hv + c.gh + 0.5 : 0.5;
     ctrl[node.i + ',' + node.j].t = t;
   }
   raiseToPedMin();   // 어느 교차로에서도 보행 시간이 차량 녹색에 밀려 줄어들지 않게, 처음부터 녹색을 충분히 준다
   return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
+           holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
            greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf };
 };

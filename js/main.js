@@ -994,12 +994,20 @@
       }
       walk.jay = false; walk.stopT = 0;
       if (kid && G.kidCourse) G.kidCourse.note('road');   // 횡단보도 위는 「보도로 걷기」로 세지 않는다
+      // **아직 건너는 중이면 초록불을 붙잡는다.** 다 건너기 전에 꺼지면 뛰라는 말이 된다(소유자 신고).
+      if (p.node && signals.holdPed) signals.holdPed(p.node, p.crossAxis);
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
       if (kid) { kidStep(3);
         // 어린이는 횡단보도 위에서 **끝까지** 손을 든 채로 건넌다(소유자 지시). 보도에서 든 손도 그대로 이어진다.
         walker.hand = Math.max(walker.hand, 1.5); walk.handHeld = true;
         if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
-      if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
+      if (p.walk && p.remain < 3 && walk.hintCd <= 0) {
+        var ex = signals.extendInfo ? signals.extendInfo(p.node) : null;
+        // 연장이 걸려 있으면 「뛰라」고 하지 않는다 — 기다려 주고 있다고 알려 준다
+        if (ex && ex.used > 0.3) hud.hintNow(kid ? '🟢 다 건널 때까지 기다려 줘요 — 뛰지 말고 걸어요' : '보행 시간 연장 중 — 끝까지 걸어서 건넌다');
+        else hud.hintNow(kid ? '초록불이 곧 꺼져요 — 서두르지 말고 걸어요' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다');
+        walk.hintCd = 3;
+      }
     } else if (p.where === 'road' || p.where === 'box') {
       if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('road', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
       sec = '⚠ 차도 위 — 횡단보도로'; walk.stopT = 0; if (kid) kidStep(-1);
