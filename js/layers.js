@@ -13,6 +13,7 @@ TG.Layers = function (game, city, cfg, scene) {
   var taas = null;           // data/taas.json
   var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
   var fatal = null;          // data/taas-fatal-<지도>.json — 사망사고 한 건씩(집계하지 않는다)
+  var vuln = null;           // data/taas-vuln-<지도>.json — 어린이·보행자·노인·자전거(홍보용 분포까지)
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
   var risk = {};
@@ -50,9 +51,15 @@ TG.Layers = function (game, city, cfg, scene) {
       };
       // 사망사고는 건수가 적어 뭉치지 않는다 — 한 건씩 사례로 읽는다
       var ff = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasFatal) || (TG.MAP && TG.MAP.taasFatal) || null;
+      // 어린이·보행자·노인·자전거 — 홍보 활동에 쓸 분포까지 같이 들어 있다
+      var vf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasVuln) || (TG.MAP && TG.MAP.taasVuln) || null;
+      var loadVuln = function () {
+        if (!vf) { after(); return; }
+        fetch(vf).then(function (r4) { return r4.json(); }).then(function (v4) { vuln = v4; after(); }).catch(function () { after(); });
+      };
       var loadFatal = function () {
-        if (!ff) { after(); return; }
-        fetch(ff).then(function (r3) { return r3.json(); }).then(function (f3) { fatal = f3; after(); }).catch(function () { after(); });
+        if (!ff) { loadVuln(); return; }
+        fetch(ff).then(function (r3) { return r3.json(); }).then(function (f3) { fatal = f3; loadVuln(); }).catch(function () { loadVuln(); });
       };
       if (!nf) { loadFatal(); return; }
       return fetch(nf).then(function (r2) { return r2.json(); }).then(function (n2) { nodes = n2; loadFatal(); })
@@ -84,6 +91,28 @@ TG.Layers = function (game, city, cfg, scene) {
         }) },
         desc: fatal.years + ' 사망사고 ' + fatal.collected + '건 중 이 지도 안 ' + fatal.inMap + '건 — 한 건씩 사례로 둔다' });
     }
+    // 어린이·보행자·노인·자전거: 교차로 부근 집계로 얹는다. 어린이 보행자만 건수가 적어 한 건씩 사례로 둔다.
+    if (vuln && vuln.groups) vuln.groups.forEach(function (g) {
+      var items;
+      if (g.cases && g.cases.length) {
+        items = g.cases.map(function (c) {
+          return { xz: [c[11], c[12]], radius: 10, name: g.name + ' · ' + c[5], year: c[0] + '년 ' + c[1] + '월',
+            total: null, death: 0, verified: true, approx: true,
+            caseLine: c[3] + ' ' + c[4] + '시 · ' + c[2] + '요일 · ' + c[7] + ' · ' + c[8] + ' · ' + c[6] + ' · 가해 ' + c[9] + ' · ' + c[10] };
+        });
+      } else {
+        items = (g.nodes || []).map(function (n) {
+          // 교차로 이름은 파일이 아니라 지도가 가지고 있다 — 지도를 바꾸면 이름도 따라 바뀐다
+          var nd = city.nodes[n[0]] && city.nodes[n[0]][n[1]];
+          return { node: [n[0], n[1]], name: nd ? city.nodeName(nd) + ' 부근' : null,
+            total: n[2], death: n[3], serious: n[4], slight: n[5], report: n[6],
+            year: vuln.years, verified: true, approx: true, agg: true };
+        });
+      }
+      defs.push({ id: 'vuln_' + g.id, name: g.name, color: g.color || '#ef476f', kind: 'taas', src: { items: items },
+        desc: vuln.years + ' ' + g.total + '건 · 사망 ' + g.dead + ' · 중상 ' + g.ser +
+          (g.cases ? ' · 한 건씩 사례' : ' · 교차로 부근 ' + (g.total - g.outside) + '건, 격자 바깥 ' + g.outside + '건') });
+    });
     defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
     defs.push({ id: 'risk', name: '시뮬레이션 위험도', color: '#d33bd3', kind: 'risk', desc: '이 기기에서 달린 결과 — 급제동·보행자 근접·신호위반을 교차로별로 쌓는다' });
@@ -118,6 +147,10 @@ TG.Layers = function (game, city, cfg, scene) {
   self.nodesNote = function () { return nodes ? { source: nodes.source, attribution: nodes.attribution, years: nodes.years,
     collected: nodes.collected, assigned: nodes.assigned, outside: nodes.outside, byGrade: nodes.byGrade,
     method: nodes.method, caution: nodes.caution, notice: nodes.notice, wholeGu: nodes.wholeGu } : null; };
+  self.vulnNote = function () { return vuln ? { source: vuln.source, attribution: vuln.attribution, years: vuln.years,
+    method: vuln.method, privacy: vuln.privacy, caution: vuln.caution, highlights: vuln.highlights || [],
+    groups: (vuln.groups || []).map(function (g) { return { id: g.id, name: g.name, total: g.total, dead: g.dead,
+      ser: g.ser, outside: g.outside, dist: g.dist }; }) } : null; };
   self.fatalNote = function () { return fatal ? { source: fatal.source, attribution: fatal.attribution, years: fatal.years,
     collected: fatal.collected, inMap: fatal.inMap, outsideMap: fatal.outsideMap, casualties: fatal.casualties,
     byYear: fatal.byYear, byViolation: fatal.byViolation, byType: fatal.byType, byTimeZone: fatal.byTimeZone,
@@ -162,7 +195,7 @@ TG.Layers = function (game, city, cfg, scene) {
   // 원 크기: 사고건수 + 사망·중상 가중. TAAS 다발지 기준은 반경 100m 라 최대도 그 안에 둔다.
   function radOf(it) {
     if (it.radius) return it.radius;   // 사망사고처럼 크기를 고정한 항목
-    if (it.types) {   // 교차로별 집계(건수가 수백) — 제곱근으로 눌러 화면을 덮지 않게
+    if (it.types || it.agg) {   // 교차로별 집계(건수가 수백) — 제곱근으로 눌러 화면을 덮지 않게
       var t = (it.total || 0) + (it.death || 0) * 20;
       return Math.max(12, Math.min(38, 8 + Math.sqrt(t) * 2.0));
     }
@@ -283,6 +316,15 @@ TG.Layers = function (game, city, cfg, scene) {
           nn.wholeGu.violations.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
         h += '<div class="pl-min">' + lesc(nn.method) + '</div>';
         h += '<div class="pl-min">개인정보 · ' + lesc(nn.notice) + '</div>';
+      }
+      var vn = self.vulnNote();
+      if (vn) {
+        h += '<div class="pl-note">어린이 · 보행자 · 노인 · 자전거 (' + lesc(vn.years) + ')</div>';
+        h += '<div class="pl-min">' + vn.groups.map(function (g) { return lesc(g.name) + ' ' + g.total + '건(사망 ' + g.dead + ')'; }).join(' · ') + '</div>';
+        // 홍보에 그대로 쓸 문장 — 위 숫자에서만 뽑았다
+        vn.highlights.forEach(function (s) { h += '<div class="pl-min">· ' + lesc(s) + '</div>'; });
+        h += '<div class="pl-min">개인정보 · ' + lesc(vn.privacy) + '</div>';
+        h += '<div class="pl-min">' + lesc(vn.caution) + '</div>';
       }
       var fn = self.fatalNote();
       if (fn) {

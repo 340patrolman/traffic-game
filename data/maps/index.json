@@ -12,6 +12,7 @@
       "taas": "data/taas.json",
       "taasNodes": "data/taas-nodes-seocho.json",
       "taasFatal": "data/taas-fatal-seocho.json",
+      "taasVuln": "data/taas-vuln-seocho.json",
       "region": { "siDo": "11", "guGun": "650" }
     }
   ],
