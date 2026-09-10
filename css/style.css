@@ -383,6 +383,11 @@ body.portrait .skip.full{right:calc(112px + var(--sa-r))}
 .pl-body h3{margin:0 0 2px;font-size:17px}
 .pl-body h4{margin:12px 0 4px;font-size:13px;color:#cfe0ff}
 .pl-sub{font-size:12px;color:var(--dim);margin-bottom:8px}
+.pl-src{font-size:12px;line-height:1.5;color:#cfe0ff;background:rgba(40,90,170,.16);border-left:3px solid #4a86d8;border-radius:0 6px 6px 0;padding:6px 9px;margin:-2px 0 9px;word-break:keep-all}
+.pl-src b{color:#fff}
+.pl-src2{display:block;font-size:10.5px;color:var(--dim);margin-top:2px}
+.pl-real{font-style:normal;font-size:10.5px;color:#8ef0b0;border:1px solid rgba(140,240,176,.5);border-radius:4px;padding:0 4px;margin:0 2px}
+.pl-est{font-style:normal;font-size:10.5px;color:#e8c98a;border:1px solid rgba(232,201,138,.5);border-radius:4px;padding:0 4px;margin:0 2px}
 .pl-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0;padding:6px 8px;border-radius:9px;background:rgba(255,255,255,.05)}
 .pl-lbl{font-size:12px;font-weight:700;flex:1 1 100%}   /* 이름은 한 줄 차지 — 좁은 화면에서 −/값/+ 가 흩어지지 않는다 */
 .pl-val{font-size:16px;min-width:52px;text-align:center}

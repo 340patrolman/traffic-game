@@ -4,10 +4,18 @@ TG.Signals = function (city, world, cfg) {
   // 교차로마다 고유값(강제값): 최소 녹색 시간. 보행 신호 최소(cfg.PED_WALK)는 어느 교차로에서도 줄일 수 없다.
   // 수동 조작에서 버튼을 눌러도 최소 녹색·보행 최소를 채운 뒤 황색·전적색을 거쳐야 넘어간다 — 교차로 특성을 알아야 조작할 수 있다.
   var NODE_MIN = { '2,1': 18, '2,2': 16, '3,2': 18, '4,2': 20, '2,0': 16, '4,1': 18, '3,4': 15, '2,4': 15, '4,4': 18 };   // 성모병원·서초역·교대역·강남역·고속터미널·신논현·남부터미널·예술의전당·양재역
+  // **주기는 경찰청 실측값을 쓴다.** 지도 파일의 signals 블록에서 읽는다(코드에 숫자를 적지 않는다).
+  // 이름이 맞는 실제 교차로가 없는 곳은 서울 주간 운영계획의 주기 중앙값으로 물러서고, 화면에 「추정」이라고 밝힌다.
+  var SIG = (TG.MAP && TG.MAP.signals) || null;
+  var SIG_CYC = (SIG && SIG.cycles) || {};
+  var SIG_DEF = (SIG && +SIG.cycleDefault) || 0;
   var ctrl = {};
   city.xs.forEach(function (_, i) { city.zs.forEach(function (__, j) {
     var key = i + ',' + j;
-    ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12, gv: G, gh: G };   // gv·gh = 남북·동서 녹색 시간(교차로마다 다르게 설정할 수 있다)
+    var rc = SIG_CYC[key] || null, cyc = (rc && +rc.sec) || SIG_DEF || 0;
+    ctrl[key] = { t: ((i * 7 + j * 11) % 10) * 3, manual: false, req: null, minGreen: NODE_MIN[key] || 12, gv: G, gh: G,   // gv·gh = 남북·동서 녹색 시간(교차로마다 다르게 설정할 수 있다)
+                  cycle: cyc, cycSrc: rc ? (rc.src || '실측') : (SIG_DEF ? '추정' : ''), cycReal: !!rc,
+                  cycPhases: rc ? (+rc.phases || 0) : 0, cycLap: !!(rc && rc.lap) };
   }); });
   function keyOf(node) { return node.i + ',' + node.j; }
   // **읽는 순간 하한을 강제한다.** 저장된 값(교통시설 화면·이전 판)이 보행 시간보다 짧으면
@@ -28,6 +36,29 @@ TG.Signals = function (city, world, cfg) {
     }
   }
   function cycleOf(node) { return gvOf(node) + ghOf(node) + 2 * (Y + R); }
+  // 실측 주기에 맞춰 녹색을 **늘린다. 줄이지는 않는다** — 보행 하한이 언제나 먼저다.
+  // 남는 시간은 차로 수(수용력)에 비례해 남북·동서로 나눈다. 실제로는 교통량으로 나누지만
+  // 방향별 교통량 자료가 없으므로 차로 수를 대리값으로 쓴다 — 이 배분은 **게임 설계값**이고 실측이 아니다.
+  // (경찰청 자료가 주는 A링·B링 현시값은 어느 현시가 어느 방향인지 알려주지 않는다. 주기만 실측을 쓴다.)
+  function applyCycles() {
+    for (var k in ctrl) {
+      var kn = k.split(','), i = +kn[0], j = +kn[1], nd = city.nodes[i][j], c = ctrl[k];
+      if (!c.cycle) continue;
+      var T = c.cycle - 2 * (Y + R), fv = greenMin(nd, 'v'), fh = greenMin(nd, 'h');
+      if (T <= fv + fh) continue;   // 보행 시간이 실측 주기보다 크면 보행이 이긴다(주기가 그만큼 길어진다)
+      var lv = city.lanesOf('v', i), lh = city.lanesOf('h', j);
+      var extra = T - fv - fh, share = lv / (lv + lh);
+      c.gv = Math.round(fv + extra * share);
+      c.gh = T - c.gv;
+      if (c.gh < fh) { c.gh = fh; c.gv = T - fh; }
+    }
+  }
+  // 화면에 「실측 200초(사당역)」인지 「추정 160초」인지 밝힌다. 출처를 숨기지 않는다.
+  function cycleInfo(node) {
+    var c = ctrl[keyOf(node)];
+    return { target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: c.cycPhases || 0, lap: !!c.cycLap,
+             actual: cycleOf(node), source: (SIG && SIG.source) || '' };
+  }
   // 녹색 시간 하한: 그 방향의 최소 녹색과, 직각 횡단보도의 보행 시간 + 2초. **보행 시간은 줄일 수 없다**(소유자 강조).
   function greenMin(node, axis) {
     // 그 방향 녹색은 **직각 횡단보도의 보행 시간**을 품어야 한다. 계산은 pedTime 한 곳에만 둔다
@@ -36,7 +67,7 @@ TG.Signals = function (city, world, cfg) {
     return Math.max(c.minGreen, Math.ceil(pedTime(node, crossAx)) + 2);
   }
   function setGreen(node, axis, sec) {
-    var c = ctrl[keyOf(node)], lo = greenMin(node, axis), hi = 60;
+    var c = ctrl[keyOf(node)], lo = greenMin(node, axis), hi = 150;   // 실측 주기가 200초까지 있어 60초 상한으로는 담을 수 없다
     var v = Math.round(TG.clamp(sec, lo, hi));
     if (axis === 'v') c.gv = v; else c.gh = v;
     return { sec: v, min: lo, max: hi, clamped: v !== Math.round(sec) };
@@ -44,7 +75,8 @@ TG.Signals = function (city, world, cfg) {
   function greenInfo(node) {
     var c = ctrl[keyOf(node)];
     return { gv: gvOf(node), gh: ghOf(node), minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
-             pedV: Math.round(pedTime(node, 'v')), pedH: Math.round(pedTime(node, 'h')), minGreen: c.minGreen };
+             pedV: Math.round(pedTime(node, 'v')), pedH: Math.round(pedTime(node, 'h')), minGreen: c.minGreen,
+             target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: c.cycPhases || 0, lap: !!c.cycLap };
   }
   // 보행 시간 = 진입 시간 + 횡단 거리 ÷ 설계 보행속도. 값은 config 에 있고 **법령 수치가 아니라 게임 설계값**이다.
   // 어린이보호구역은 더 느린 속도로 잡는다 — 아이가 뛰지 않고 건널 수 있어야 한다.
@@ -211,8 +243,9 @@ TG.Signals = function (city, world, cfg) {
     ctrl[node.i + ',' + node.j].t = t;
   }
   raiseToPedMin();   // 어느 교차로에서도 보행 시간이 차량 녹색에 밀려 줄어들지 않게, 처음부터 녹색을 충분히 준다
+  applyCycles();     // 그 위에서 실측 주기까지 녹색을 늘린다(보행 하한은 건드리지 않는다)
   return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
            holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
-           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf };
+           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo };
 };

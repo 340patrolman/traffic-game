@@ -159,11 +159,19 @@ TG.Facil = function (game, city, signals, cfg, scene) {
       var tuned = (data.green[nd.i + ',' + nd.j] ? '●' : '');
       h += '<button class="pl-item' + (nd === sel ? ' on' : '') + '" data-i="' + nd.i + '" data-j="' + nd.j + '">' +
            '<b>' + esc(city.nodeName(nd)) + '</b>' +
-           '<span>주기 ' + g2.cycle + '초 · 남북 ' + g2.gv + ' · 동서 ' + g2.gh + (n ? ' · 📷' + n : '') + ' ' + tuned + '</span></button>';
+           '<span>주기 ' + g2.cycle + '초 ' + (g2.real ? '<i class="pl-real">실측</i>' : '<i class="pl-est">추정</i>') +
+           ' · 남북 ' + g2.gv + ' · 동서 ' + g2.gh + (n ? ' · 📷' + n : '') + ' ' + tuned + '</span></button>';
     });
     h += '</div><div class="pl-body">';
     h += '<h3>' + esc(city.nodeName(sel)) + '</h3>';
     h += '<div class="pl-sub">한 주기 <b>' + gi.cycle + '초</b> (황색 ' + cfg.SIG_YELLOW + ' + 전적색 ' + cfg.SIG_ALLRED + '초 포함) · 최소 녹색 ' + gi.minGreen + '초</div>';
+    var ci = signals.cycleInfo ? signals.cycleInfo(sel) : null;
+    if (ci && ci.target) {
+      h += '<div class="pl-src">' + (ci.real
+        ? '실제 신호값 <b>' + ci.target + '초</b> — ' + esc(ci.src) + ' 교차로' + (ci.phases ? ' · ' + ci.phases + '현시' : '') + (ci.lap ? ' · 겹침현시' : '')
+        : '<b>추정 ' + ci.target + '초</b> — 이 교차로는 개방 목록에 없어 서울 주간 주기 중앙값을 씁니다')
+        + '<span class="pl-src2">' + esc(ci.source) + '</span></div>';
+    }
     [['v', '남북(' + esc(city.roadNamesV[sel.i]) + ')', gi.gv, gi.minV, gi.pedH],
      ['h', '동서(' + esc(city.hName(sel.j, sel.x)) + ')', gi.gh, gi.minH, gi.pedV]].forEach(function (row) {
       h += '<div class="pl-row"><span class="pl-lbl">' + row[1] + ' 녹색</span>' +
