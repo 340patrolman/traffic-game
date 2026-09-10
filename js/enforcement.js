@@ -141,6 +141,10 @@ TG.Enforcement = function (game) {
     } else setTimeout(function () { if (game.state === 'play') game.hud.hint('MDT 면허 조회: 이상 없음'); }, 1800);
     game.traffic.setYield(car, false);
     self.state = 'release'; releaseT = 4; game.hud.setTarget(null);
+    // 음주 의심으로 세운 차는 여기서 끝나지 않는다 — 감지 → 음용수 → 측정 → 고지 → (불복 시) 채혈까지 밟는다.
+    if (car.violation && car.violation.type === 'drunk' && game.drunkProc) {
+      setTimeout(function () { if (game.state === 'play') game.drunkProc.start(car); }, 900);
+    }
   }
 
   this.update = function (dt) {

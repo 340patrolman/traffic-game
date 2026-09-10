@@ -448,6 +448,7 @@
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () {
+      if (G.drunkProc && G.drunkProc.isOpen()) { G.drunkProc.close(); return; }   // 음주 절차 화면이 열려 있으면 그것부터 닫는다
       if (TG.study && TG.study.isOpen()) { TG.study.close(); return; }   // 학습 화면이 열려 있으면 그것부터 닫는다
       if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro();
     });
@@ -536,6 +537,7 @@
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
     while (peds.peds.length) peds.remove(peds.peds[0]);
     enforcement = new TG.Enforcement(G); G.enforcement = enforcement;
+    if (TG.DrunkProc) G.drunkProc = new TG.DrunkProc(G);   // 음주 적발 절차(감지 → 음용수 → 측정 → 고지 → 채혈)
     response = new TG.Response(G); G.response = response;   // 대응 원칙: 등급 A 적극 대응 / B 정차 단속 / C 추격 금지(영상·무전)
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
     // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
