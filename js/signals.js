@@ -80,7 +80,12 @@ TG.Signals = function (city, world, cfg) {
   function manualInfo(node) {
     var c = ctrl[keyOf(node)], g = greenNow(node);
     return { manual: c.manual, req: c.req, minGreen: c.minGreen, axis: g ? g.axis : null, elapsed: g ? g.elapsed : 0,
-             holding: !!(c.manual && g && g.elapsed >= g.dur - 0.05 && !c.req), pedMin: g ? Math.round(pedTime(node, g.axis === 'v' ? 'h' : 'v')) : cfg.PED_WALK };
+             // 전환(황색·전적색) 중에는 녹색 축이 없다. 그때 cfg.PED_WALK(하한 20초)를 보여 주면
+             // 「보행 최소 20초」라는 **틀린 숫자**가 화면에 뜬다 — 이 교차로의 실제 보행 시간은 도로 폭으로 정해진다(v0.9.28).
+             // 그래서 두 횡단보도 중 **긴 쪽**을 보여 준다.
+             holding: !!(c.manual && g && g.elapsed >= g.dur - 0.05 && !c.req),
+             pedMin: g ? Math.round(pedTime(node, g.axis === 'v' ? 'h' : 'v'))
+                       : Math.round(Math.max(pedTime(node, 'v'), pedTime(node, 'h'))) };
   }
 
   var mats = {
@@ -135,7 +140,10 @@ TG.Signals = function (city, world, cfg) {
       // 수동: 현재 녹색 끝에서 멈춰 유지(요청 없으면 계속 녹색). 요청이 있으면 최소 시간을 채운 뒤 황색·전적색을 거쳐 다음 녹색으로.
       var g = greenNow(nd);
       if (g) {
-        var needMin = Math.max(c.minGreen, cfg.PED_WALK + 2);
+        // 이미 그 방향이 녹색이면 요청은 이룬 것이다 — 안 지우면 「유지 중」으로 안 보이고 연장 판정도 어긋난다.
+        if (c.req === g.axis) c.req = null;
+        // 하한은 cfg.PED_WALK(20) 가 아니라 **이 교차로의 실제 최소 녹색**이다(도로 폭으로 정해진 보행 시간을 품는다).
+        var needMin = greenMin(nd, g.axis);
         var canLeave = c.req && c.req !== g.axis && g.elapsed >= needMin;
         var atEnd = g.elapsed >= g.dur - 0.05;
         if (atEnd && !canLeave) { c.t = g.at + g.dur - 0.05; continue; }   // 녹색 유지(연장)

@@ -63,13 +63,19 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     }
     var along = p.axis === 'v' ? p.pos.z : p.pos.x, node = city.nodeAhead(p.pos.x, p.pos.z, p.d, 0);
     if (!node) {
+      // 횡단 중에 앞 교차로가 사라지면(지나쳤다) 「건너는 중」에서 못 빠져나와 끝없이 걸었다 — 88초·134m 를 확인했다.
+      if (p.state === 'cross') { p.state = 'walk'; p.decided = null; p.crossNode = null; p.jayLive = false; if (p.hurry) { p.speed /= p.hurryK || 1.5; p.hurry = false; } }
       if (p.state === 'walk') { var edge = p.axis === 'v' ? (p.d === 0 ? city.zs[city.zs.length - 1] : city.zs[0]) : (p.d === 1 ? city.xs[city.xs.length - 1] : city.xs[0]);
         if ((p.axis === 'v' ? p.pos.z : p.pos.x) * (f[0] + f[1]) > edge * (f[0] + f[1]) + 9) { p.d = (p.d + 2) % 4; p.decided = null; } }
       return;
     }
     var nc = p.axis === 'v' ? node.z : node.x, dist = (nc - along) * (f[0] + f[1]), SIDE = acrossSide(p, node);
     if (p.state === 'cross') {
-      if (dist < -SIDE) { p.state = 'walk'; p.decided = node; p.jayLive = false; if (p.hurry) { p.speed /= p.hurryK || 1.5; p.hurry = false; } return; }
+      // **건너던 그 교차로**를 기준으로 다 건넜는지 본다. nodeAhead 는 지나치면 **다음** 교차로를 돌려주므로,
+      // 그것으로 재면 dist 가 다시 커져 「건너는 중」이 끝나지 않았다 — 100m 넘게 횡단 중인 사람이 있었다.
+      var cn = p.crossNode || node;
+      var cnc = p.axis === 'v' ? cn.z : cn.x, cdist = (cnc - along) * (f[0] + f[1]);
+      if (cdist < -acrossSide(p, cn)) { p.state = 'walk'; p.decided = cn; p.crossNode = null; p.jayLive = false; if (p.hurry) { p.speed /= p.hurryK || 1.5; p.hurry = false; } return; }
       if (!p.hurry && !signals.pedWalk(node, p.axis === 'v' ? 'h' : 'v')) { p.hurryK = 1.35; p.speed *= 1.35; p.hurry = true; }   // 점멸·적색으로 바뀌면 서둘러 건넌다
       return;
     }
@@ -78,8 +84,8 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       var crossAx = p.axis === 'v' ? 'h' : 'v', walk = signals.pedWalk(node, crossAx);
       // 녹색 점멸(잔여 3초)에는 횡단을 시작할 수 없다 — 시행규칙 별표2 보행신호등 녹색등화의 점멸.
       var canStart = walk && signals.pedRemain(node, crossAx) >= 3.2;
-      if (canStart && !carBlocking(p)) { p.state = 'cross'; p.waitT = 0; }
-      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p, false, true)) { p.state = 'cross'; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; p.hurryK = 1.5; p.speed *= 1.5; p.hurry = true; self.onEvent('jaywalk', p); }
+      if (canStart && !carBlocking(p)) { p.state = 'cross'; p.waitT = 0; p.crossNode = node; }
+      else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p, false, true)) { p.state = 'cross'; p.crossNode = node; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; p.hurryK = 1.5; p.speed *= 1.5; p.hurry = true; self.onEvent('jaywalk', p); }
       else if (p.waitT > 62) turnCorner(p, node);   // 한 주기(57초)는 기다려 본다
       return;
     }
@@ -141,9 +147,20 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       var aFix = (a === self.walker), bFix = (b === self.walker);
       var gap = R - d;
       if (aFix && bFix) continue;
-      if (aFix) { bp.x += ux * gap; bp.z += uz * gap; }
-      else if (bFix) { ap.x -= ux * gap; ap.z -= uz * gap; }
-      else { var push = gap * 0.5; ap.x -= ux * push; ap.z -= uz * push; bp.x += ux * push; bp.z += uz * push; }
+      // **진행 방향으로는 밀지 않는다.** 같은 방향으로 줄지어 걸으면 뒤 사람이 매 프레임 뒤로 밀려
+      // 횡단보도 위에서 제자리걸음이 됐다(소유자: 「횡단보도위 사람들이 같은 자리만 걷고 있어」).
+      // 옆으로만 벌린다 — 사람은 나란히 서지, 서로를 뒤로 밀지 않는다.
+      var sideStep = function (o, sgn, half) {
+        var hd = (o.heading !== undefined) ? o.heading : TG.DIR_HEADING[o.d || 0];
+        var fx = Math.sin(hd), fz = Math.cos(hd), rx = -fz, rz = fx;
+        var lat = (ux * rx + uz * rz) * sgn;
+        if (Math.abs(lat) < 0.25) lat = sgn * 0.6;             // 완전히 일직선이면 정해진 쪽으로 비킨다
+        var amt = gap * half * (lat >= 0 ? 1 : -1);
+        o.pos.x += rx * amt; o.pos.z += rz * amt;
+      };
+      if (aFix) sideStep(b, 1, 1);
+      else if (bFix) sideStep(a, -1, 1);
+      else { sideStep(a, -1, 0.5); sideStep(b, 1, 0.5); }
     }
   }
   function pushOutOfCars() {

@@ -431,7 +431,7 @@
     input.bindTap($('btnBox'), toggleBox); input.onKey('KeyR', toggleBox);
     input.bindTap($('dutyX'), function () { dutyOpen(false); });
     input.bindTap($('dutyAuto'), function () { if (!duty) return; signals.setManual(duty.node, false); junction.setBoxLamp(false); duty.why = ''; hud.notice('자동 운영으로 전환 — 신호기 프로그램대로 돌아갑니다', 'info', 2400); TG.audio.ui(); dutyPanelDraw(); });
-    input.bindTap($('dutyMan'), function () { if (!duty) return; signals.setManual(duty.node, true); junction.setBoxLamp(true); duty.why = ''; hud.notice('🔧 수동 조작으로 전환 — 이 교차로 최소 녹색 ' + signals.minGreenOf(duty.node) + '초, 보행 최소 ' + C.PED_WALK + '초', 'alert', 3600); TG.audio.ui(); hud.hint('막힌 방향에 녹색을 더 준다. 버튼을 눌러도 최소 시간을 채운 뒤에 바뀐다'); dutyPanelDraw(); });
+    input.bindTap($('dutyMan'), function () { if (!duty) return; signals.setManual(duty.node, true); junction.setBoxLamp(true); duty.why = ''; hud.notice('🔧 수동 조작으로 전환 — 이 교차로 최소 녹색 ' + Math.max(signals.greenMin(duty.node, 'v'), signals.greenMin(duty.node, 'h')) + '초 (그 안에 보행 ' + Math.round(Math.max(signals.greenInfo(duty.node).pedV, signals.greenInfo(duty.node).pedH)) + '초를 품는다)', 'alert', 3600); TG.audio.ui(); hud.hint('막힌 방향에 녹색을 더 준다. 버튼을 눌러도 최소 시간을 채운 뒤에 바뀐다'); dutyPanelDraw(); });
     input.bindTap($('dutyNS'), function () { if (duty) dutyRequest('v'); });
     input.bindTap($('dutyEW'), function () { if (duty) dutyRequest('h'); });
     input.bindTap($('dutyLane'), function () { if (duty) dutyLane(); });

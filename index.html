@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.31">
+<link rel="stylesheet" href="css/style.css?v=0.9.32">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -92,7 +92,7 @@
     <div class="dreq"><button id="dutyNS">↕ 남북 녹색</button><button id="dutyEW">↔ 동서 녹색</button></div>
     <div class="dwhy" id="dutyWhy">수동으로 바꾸면 방향별 녹색을 요청할 수 있습니다</div>
     <div class="dreq"><button id="dutyLane">🚧 바깥 차로 차단</button><button id="dutyHand">✋ 꼬리 끊기</button></div>
-    <div class="dnote">보행 신호(최소 <b id="dutyPed">20</b>초)는 어느 교차로에서도 줄일 수 없다. 버튼을 눌러도 최소 녹색을 채우고 황색·전적색을 거쳐야 바뀐다.</div>
+    <div class="dnote">이 교차로 보행 신호 <b id="dutyPed">—</b>초(도로 폭으로 정해진다)는 줄일 수 없다. 버튼을 눌러도 최소 녹색을 채우고 황색·전적색을 거쳐야 바뀐다.</div>
   </div>
 </div>
 
@@ -252,40 +252,40 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.31"></script>
-<script src="js/config.js?v=0.9.31"></script>
-<script src="js/rng.js?v=0.9.31"></script>
-<script src="js/save.js?v=0.9.31"></script>
-<script src="js/perf.js?v=0.9.31"></script>
-<script src="js/emblem.js?v=0.9.31"></script>
-<script src="js/textures.js?v=0.9.31"></script>
-<script src="js/audio.js?v=0.9.31"></script>
-<script src="js/city.js?v=0.9.31"></script>
-<script src="js/world.js?v=0.9.31"></script>
-<script src="js/terrain.js?v=0.9.31"></script>
-<script src="js/weather.js?v=0.9.31"></script>
-<script src="js/signals.js?v=0.9.31"></script>
-<script src="js/vehmesh.js?v=0.9.31"></script>
-<script src="js/vehicle.js?v=0.9.31"></script>
-<script src="js/traffic.js?v=0.9.31"></script>
-<script src="js/peds.js?v=0.9.31"></script>
-<script src="js/character.js?v=0.9.31"></script>
-<script src="js/vfx.js?v=0.9.31"></script>
-<script src="js/response.js?v=0.9.31"></script>
-<script src="js/junction.js?v=0.9.31"></script>
-<script src="js/chase.js?v=0.9.31"></script>
-<script src="js/intro.js?v=0.9.31"></script>
-<script src="js/walker.js?v=0.9.31"></script>
-<script src="js/rail.js?v=0.9.31"></script>
-<script src="js/enforcement.js?v=0.9.31"></script>
-<script src="js/facil.js?v=0.9.31"></script>
-<script src="js/layers.js?v=0.9.31"></script>
-<script src="js/study.js?v=0.9.31"></script>
-<script src="js/drunkproc.js?v=0.9.31"></script>
-<script src="js/hud.js?v=0.9.31"></script>
-<script src="js/minimap.js?v=0.9.31"></script>
-<script src="js/input.js?v=0.9.31"></script>
-<script src="js/main.js?v=0.9.31"></script>
+<script src="lib/three.min.js?v=0.9.32"></script>
+<script src="js/config.js?v=0.9.32"></script>
+<script src="js/rng.js?v=0.9.32"></script>
+<script src="js/save.js?v=0.9.32"></script>
+<script src="js/perf.js?v=0.9.32"></script>
+<script src="js/emblem.js?v=0.9.32"></script>
+<script src="js/textures.js?v=0.9.32"></script>
+<script src="js/audio.js?v=0.9.32"></script>
+<script src="js/city.js?v=0.9.32"></script>
+<script src="js/world.js?v=0.9.32"></script>
+<script src="js/terrain.js?v=0.9.32"></script>
+<script src="js/weather.js?v=0.9.32"></script>
+<script src="js/signals.js?v=0.9.32"></script>
+<script src="js/vehmesh.js?v=0.9.32"></script>
+<script src="js/vehicle.js?v=0.9.32"></script>
+<script src="js/traffic.js?v=0.9.32"></script>
+<script src="js/peds.js?v=0.9.32"></script>
+<script src="js/character.js?v=0.9.32"></script>
+<script src="js/vfx.js?v=0.9.32"></script>
+<script src="js/response.js?v=0.9.32"></script>
+<script src="js/junction.js?v=0.9.32"></script>
+<script src="js/chase.js?v=0.9.32"></script>
+<script src="js/intro.js?v=0.9.32"></script>
+<script src="js/walker.js?v=0.9.32"></script>
+<script src="js/rail.js?v=0.9.32"></script>
+<script src="js/enforcement.js?v=0.9.32"></script>
+<script src="js/facil.js?v=0.9.32"></script>
+<script src="js/layers.js?v=0.9.32"></script>
+<script src="js/study.js?v=0.9.32"></script>
+<script src="js/drunkproc.js?v=0.9.32"></script>
+<script src="js/hud.js?v=0.9.32"></script>
+<script src="js/minimap.js?v=0.9.32"></script>
+<script src="js/input.js?v=0.9.32"></script>
+<script src="js/main.js?v=0.9.32"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
