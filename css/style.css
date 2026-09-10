@@ -442,3 +442,6 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
 .dp-gap b{color:#f5d97a}
 .dp-gap .sit{font-size:12.5px;line-height:1.6;opacity:.92}
 .dp-un{margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.7;opacity:.85}
+/* 절차 카드 글씨는 왼쪽 정렬 — .card 가 가운데 정렬이라 조문·본문이 가운데로 몰려 읽기 어려웠다(화면 점검) */
+.dp-step,.dp-b,.dp-res,.dp-gap{text-align:left}
+.dp-b .law,.dp-b .sit,.dp-b .tip{text-align:left}

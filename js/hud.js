@@ -102,8 +102,10 @@ TG.hud = (function () {
   function burst(emoji, n) { var box = $('pops'); if (!box) return; for (var i = 0; i < (n || 8); i++) { var s = document.createElement('div'); s.className = 'burst'; s.textContent = emoji; var a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 120; s.style.left = '50%'; s.style.top = '42%'; s.style.setProperty('--dx', Math.cos(a) * r + 'px'); s.style.setProperty('--dy', (Math.sin(a) * r - 40) + 'px'); box.appendChild(s); (function (el2) { setTimeout(function () { if (el2.parentNode) el2.parentNode.removeChild(el2); }, 1500); })(s); } }
   function setSectionText(t) { if (el._sec !== t) { el._sec = t; el.section.textContent = t; } }
   function hintNow(text) { hintGap = 0; hint(text); }   // 감속 시점처럼 급한 안내: 간격 무시
+  // 모드를 바꿀 때 앞 모드의 안내를 **지운다**. hint('') 는 hintGap 에 막히고 빈 글씨로 남을 뿐이라 따로 둔다.
+  function clearHint() { hintGap = 0; hintT = 0; el.hint.textContent = ''; el.hint.style.opacity = 0; noticeT = 0; el.notice.style.opacity = 0; }
   return { init: init, setTimerText: setTimerText, setSectionText: setSectionText, pop: pop, flash: flash, burst: burst, hintNow: hintNow, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
-           setTarget: setTarget, notice: notice, hint: hint, vignette: vignette, showTitle: showTitle, hideTitle: hideTitle, showIntro: showIntro, introLines: introLines, showPause: showPause,
+           setTarget: setTarget, notice: notice, hint: hint, clearHint: clearHint, vignette: vignette, showTitle: showTitle, hideTitle: hideTitle, showIntro: showIntro, introLines: introLines, showPause: showPause,
            showEnd: showEnd, hideEnd: hideEnd, showTicket: showTicket, ticketTimer: ticketTimer, ticketResult: ticketResult, hideTicket: hideTicket,
            closeTicketNow: closeTicketNow, setHints: setHints, setStopbar: setStopbar, showTouch: showTouch, showHud: showHud, tick: tick };
 })();

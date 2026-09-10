@@ -18,6 +18,13 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   ring.rotation.x = -Math.PI / 2; beam.visible = false; ring.visible = false; scene.add(beam); scene.add(ring);
   this.marker = null;
   this.setMarker = function (m) { this.marker = m; beam.visible = ring.visible = !!m; if (m) { var y = terrain ? terrain.heightAt(m.x, m.z) : 0; beam.position.set(m.x, y + 20, m.z); ring.position.set(m.x, y + 0.12, m.z); } };
+  // 목표 빔은 **찾을 때** 쓰는 것이다. 바로 앞에 서면 빔이 대상을 가린다 —
+  // 교차로 근무에서 노란 기둥이 제어함을 반쯤 덮었다(화면 점검에서 발견). 6m 안에서는 바닥 고리만 남긴다.
+  this.markerFade = function () {
+    if (!this.marker) return;
+    var d = Math.hypot(this.marker.x - this.pos.x, this.marker.z - this.pos.z);
+    beam.visible = d > 6;
+  };
 
   this.forward = function () { return [Math.sin(this.heading), Math.cos(this.heading)]; };
   this.speedKmh = function () { return this.v * 3.6; };
@@ -54,6 +61,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
     this.vx = f[0] * this.v; this.vz = f[1] * this.v; this.vF = this.v;
     this.moving = this.v > 0.15; if (this.moving) this.walkT += dt * (6 + this.v * 2.2);
     this.telemetry.speed = this.v; this.controls.throttle = want > 0 ? 1 : 0;
+    this.markerFade();
     this.sync(dt);
     if (this.marker) ring.rotation.z += dt * 0.8;
   };

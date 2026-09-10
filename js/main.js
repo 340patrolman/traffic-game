@@ -529,6 +529,10 @@
 
   function start(carId, modeOverride) {
     TG.audio.resume(); if (TG.study) TG.study.close();
+    if (G.drunkProc) G.drunkProc.close();
+    // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
+    hud.clearHint(); hud.setTarget(null);
+
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
     player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len); if (vfx) flares = vfx.attachFlares(player.mesh, player.wid, player.len, 0.72);
@@ -721,8 +725,13 @@
     player.teleport(node.x + city.shoulderOff('v', node.i), node.z + city.halfH[node.j] + 26, Math.PI);
     player.setSiren(true); hud.setSiren(true);
     walker = new TG.Walker(scene, city, terrain, C, {}); G.walker = walker;
-    var px = box.x + 0.7, pz = box.z + 2.0;   // 함체 옆 보도(차도로 내려서지 않는 자리)
-    walker.teleport(px, pz, Math.atan2(box.x - px, box.z - pz));
+    // 함체를 **등지고** 서면 경찰관 몸이 함체를 가려 「제어함이 안 보인다」가 된다(화면 점검에서 확인).
+    // 함체 **옆**에 서서 교차로를 바라보게 둔다 — 함체가 화면에 같이 보이고, 근무 자세로도 맞다.
+    var side = [box.x - node.x, box.z - node.z];
+    var sl = Math.hypot(side[0], side[1]) || 1;
+    var perp = [-side[1] / sl, side[0] / sl];                 // 교차로–함체 축에 직각 = 함체 옆
+    var px = box.x + perp[0] * 1.7, pz = box.z + perp[1] * 1.7;
+    walker.teleport(px, pz, Math.atan2(node.x - px, node.z - pz));   // 교차로를 본다
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     C.TRAFFIC_MAX = BASE_TRAFFIC + 26;   // 교차로 하나에 통행이 몰리는 근무다
     G.timeLeft = C.DUTY_SECONDS;
