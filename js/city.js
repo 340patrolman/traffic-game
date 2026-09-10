@@ -3,14 +3,31 @@
 // 좌표계: y 위. heading h → forward f=(sin h, cos h), right r=(-fz, fx). 방위 0..3 = 남(+z) 동(+x) 북(-z) 서(-x).
 TG.buildCity = function (cfg) {
   var rng = TG.makeRNG(cfg.SEED);
-  var xs = cfg.ROAD_XS, zs = cfg.ROAD_ZS, SW = cfg.SIDEWALK_W;
+  // **격자는 지도 파일이 정한다**(실제 지도로 가는 1단계). 파일에 grid 가 없거나 형식이 틀리면 config 로 물러선다 —
+  // 파일을 못 읽어도 게임은 돈다는 규칙을 지킨다.
+  var MAP = TG.MAP || null;
+  function mapv(key, def) { return (MAP && MAP[key] !== undefined && MAP[key] !== null) ? MAP[key] : def; }
+  function numsOK(a, n) {
+    if (!a || !a.length || (n && a.length !== n)) return false;
+    for (var k = 0; k < a.length; k++) if (typeof a[k] !== 'number' || !isFinite(a[k])) return false;
+    return true;
+  }
+  var grid = mapv('grid', null), gridFrom = 'config.js';
+  var xs = cfg.ROAD_XS, zs = cfg.ROAD_ZS;
+  var lanesVsrc = cfg.LANES_V, lanesHsrc = cfg.LANES_H;
+  if (grid && numsOK(grid.xs) && numsOK(grid.zs) && grid.xs.length >= 2 && grid.zs.length >= 2 &&
+      numsOK(grid.lanesV, grid.xs.length) && numsOK(grid.lanesH, grid.zs.length)) {
+    xs = grid.xs; zs = grid.zs; lanesVsrc = grid.lanesV; lanesHsrc = grid.lanesH; gridFrom = 'map';
+  } else if (grid) {
+    if (window.console) console.warn('[TG] 지도 파일의 grid 형식이 맞지 않아 config.js 격자를 씁니다');
+  }
+  var SW = cfg.SIDEWALK_W;
   var M = cfg.WORLD_MARGIN;
   var bounds = { x0: xs[0] - M, x1: xs[xs.length - 1] + M, z0: zs[0] - M, z1: zs[zs.length - 1] + M };
-  // 도로별 차로 수(편도) 와 반폭
-  // 도로마다 편도 차로 수가 다르다(config.LANES_V/H). 반폭 = 3 + 차로폭 × 편도차로수
+  // 도로별 차로 수(편도) 와 반폭. 반폭 = 3 + 차로폭 × 편도차로수
   function halfFor(n) { return 3 + cfg.LANE_W * n; }
-  var lanesV = xs.map(function (_, i) { return (cfg.LANES_V && cfg.LANES_V[i]) || 2; });
-  var lanesH = zs.map(function (_, j) { return (cfg.LANES_H && cfg.LANES_H[j]) || 2; });
+  var lanesV = xs.map(function (_, i) { return (lanesVsrc && lanesVsrc[i]) || 2; });
+  var lanesH = zs.map(function (_, j) { return (lanesHsrc && lanesHsrc[j]) || 2; });
   var halfV = lanesV.map(halfFor), halfH = lanesH.map(halfFor);
 
   var nodes = [];
@@ -39,9 +56,15 @@ TG.buildCity = function (cfg) {
   // ---- 지도 데이터 ----
   // data/maps/<id>.json 을 먼저 읽어 TG.MAP 에 담아 두면 그 지도의 이름·랜드마크·역을 쓴다.
   // 파일을 못 읽었으면(file:// 등) 아래 기본값 = 첫 지도 「서울 서초구(베타)」 로 돈다.
-  var MAP = TG.MAP || null;
-  function mapv(key, def) { return (MAP && MAP[key] !== undefined && MAP[key] !== null) ? MAP[key] : def; }
-  var schoolBlock = mapv('schoolBlock', { i: 1, j: 2 }), parkBlock = mapv('parkBlock', { i: 1, j: 3 });   // 학교=방배역 옆, 공원=서리풀공원
+  // 격자를 지도 파일이 정하면서 **다른 항목이 격자 밖을 가리킬 수 있다**(작은 격자로 바꾸면 역·랜드마크의 i·j 가 넘친다).
+  // 넘치는 것은 조용히 건너뛴다 — 지도 하나가 잘못됐다고 게임이 죽으면 안 된다.
+  function inNode(i, j) { return i >= 0 && j >= 0 && i < xs.length && j < zs.length; }
+  function inBlock(i, j) { return i >= 0 && j >= 0 && i < xs.length - 1 && j < zs.length - 1; }
+  function clampBlock(b, di, dj) {
+    if (b && inBlock(b.i, b.j)) return b;
+    return { i: Math.min(di, Math.max(0, xs.length - 2)), j: Math.min(dj, Math.max(0, zs.length - 2)) };
+  }
+  var schoolBlock = clampBlock(mapv('schoolBlock', null), 1, 2), parkBlock = clampBlock(mapv('parkBlock', null), 1, 3);   // 학교=방배역 옆, 공원=서리풀공원
   // 서울 서초구를 본뜬 배치(축약).
   // 반포대로×서초대로 = 서울성모병원 사거리(교차로 근무 무대). 강남대로는 동쪽 구 경계다.
   // 서초구 축약 지도. 남북은 서 → 동, 동서는 북 → 남 순서로 실제 배열과 같게 놓았다.
@@ -143,10 +166,12 @@ TG.buildCity = function (cfg) {
   SUBWAY_SPOTS.forEach(function (S) {
     var cols = (S.lines || []).map(function (L) { return LINE_COLOR[L] || '#888'; });
     if (S.midV) {   // 교차로가 아니라 두 남북도로 사이(도로 중간)에 있는 역 — 그 가로도로 남쪽 보도에 세운다
+      if (!inNode(S.midV[0], S.j) || !inNode(S.midV[1], S.j)) return;
       var mx = (xs[S.midV[0]] + xs[S.midV[1]]) / 2;
       subways.push({ x: mx, z: zs[S.j] + halfH[S.j] + SW * 0.5, rot: TG.DIR_HEADING[2], name: S.name, lines: S.lines, colors: cols });
       return;
     }
+    if (!inNode(S.i, S.j)) return;                               // 이 격자에 없는 자리 — 건너뛴다
     var nd = nodes[S.i][S.j], sx = S.side || 1;                  // side +1 = 도로 동쪽 보도, -1 = 서쪽 보도
     var x = nd.x + sx * (halfV[S.i] + SW * 0.5), z = nd.z + halfH[S.j] + 13;
     subways.push({ x: x, z: z, rot: TG.DIR_HEADING[sx > 0 ? 3 : 1], name: S.name, lines: S.lines, colors: cols });
@@ -158,10 +183,11 @@ TG.buildCity = function (cfg) {
     .map(function (M) {
       if (M.x !== undefined) return M;                            // 좌표를 직접 준 경우
       var b = M.atBlock || [2, 2];                                 // 블록 [i,j] 의 북서 모퉁이 안쪽
+      if (!inBlock(b[0], b[1])) return null;                       // 이 격자에 없는 블록 — 건너뛴다
       return { kind: M.kind, r: M.r || 9.5, label: M.label, sub: M.sub,
                x: xs[b[0]] + halfV[b[0]] + SW + (M.r || 9.5) + 3.5,
                z: zs[b[1]] + halfH[b[1]] + SW + (M.r || 9.5) + 3.5 };
-    });
+    }).filter(Boolean);
 
   // ---- 가로등: 보도 바깥선(반폭 + 2.4), 24m 간격 ----
   for (var i2 = 0; i2 < xs.length; i2++) for (var z = zs[0] + 20; z < zs[zs.length - 1]; z += 24) {
@@ -325,6 +351,7 @@ TG.buildCity = function (cfg) {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
     schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
     map: MAP, mapName: mapv('name', '서울 서초구'), mapBeta: !!mapv('beta', true), mapId: mapv('id', 'seocho'),
+    gridFrom: gridFrom,   // 격자를 어디서 읽었는가 — 'map'(지도 파일) 또는 'config.js'(물러선 값)
     landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,

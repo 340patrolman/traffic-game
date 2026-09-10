@@ -47,10 +47,16 @@ TG.Minimap = function (canvas, city, terrain) {
       else g.fillText(text, x, y);
       return true;
     }
-    // ① 도로명
+    // ① 도로명 — **격자에서 뽑는다**(자리를 코드에 적지 않는다). 지도 파일이 격자를 바꾸면 이름표도 따라 움직인다.
+    // 차로가 많은(=간선) 도로부터 적어 좁은 미니맵에서 중요한 것이 남게 한다.
     g.font = Math.round(9.5 * K) + 'px sans-serif'; g.fillStyle = '#cfe0ff';
-    lab('서초대로', mx(60), mz(172)); lab('남부순환로', mx(60), mz(312));
-    lab('반포대로', mx(160) - 6, mz(60), -Math.PI / 2); lab('강남대로', mx(320) - 6, mz(60), -Math.PI / 2);
+    var zMid = (city.zs[0] + city.zs[city.zs.length - 1]) / 2, xMid = (city.xs[0] + city.xs[city.xs.length - 1]) / 2;
+    var roadsV = city.xs.map(function (x, i) { return { name: (city.roadNamesV || [])[i], x: x, n: city.lanesV[i] }; })
+      .filter(function (r) { return r.name; }).sort(function (a, b) { return b.n - a.n; });
+    var roadsH = city.zs.map(function (z, j) { return { name: (city.roadNamesH || [])[j], z: z, n: city.lanesH[j] }; })
+      .filter(function (r) { return r.name; }).sort(function (a, b) { return b.n - a.n; });
+    roadsV.forEach(function (r) { lab(r.name, mx(r.x) - 6, mz(zMid * 0.42), -Math.PI / 2); });
+    roadsH.forEach(function (r) { lab(r.name, mx(city.xs[0] + (xMid - city.xs[0]) * 0.42), mz(r.z) + 10); });
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2';
     lab('올림픽대로', mx(160), mz(-262) - 3); lab('경부고속도로', mx(160), mz(585) + 8);
     lab('경부고속도로', mx(160) + 9, mz(470), -Math.PI / 2);
