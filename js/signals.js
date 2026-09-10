@@ -45,7 +45,7 @@ TG.Signals = function (city, world, cfg) {
       var kn = k.split(','), i = +kn[0], j = +kn[1], nd = city.nodes[i][j], c = ctrl[k];
       if (!c.cycle) continue;
       var T = c.cycle - 2 * (Y + R), fv = greenMin(nd, 'v'), fh = greenMin(nd, 'h');
-      if (T <= fv + fh) continue;   // 보행 시간이 실측 주기보다 크면 보행이 이긴다(주기가 그만큼 길어진다)
+      if (T <= fv + fh) { c.gv = fv; c.gh = fh; continue; }   // 보행 시간이 실측 주기보다 크면 보행이 이긴다(주기가 그만큼 길어진다)
       var lv = city.lanesOf('v', i), lh = city.lanesOf('h', j);
       var extra = T - fv - fh, share = lv / (lv + lh);
       c.gv = Math.round(fv + extra * share);
@@ -53,10 +53,26 @@ TG.Signals = function (city, world, cfg) {
       if (c.gh < fh) { c.gh = fh; c.gv = T - fh; }
     }
   }
+  // **시간대별 계획(TOD)**을 지금 시각으로 적용한다. 자료가 늦게 도착하므로(fetch) 나중에 한 번 더 부른다.
+  // 실측 교차로만 바뀐다 — 개방 목록에 없는 곳은 추정 주기로 남는다.
+  function applyTod(tod, date) {
+    if (!tod || !tod.ready) return 0;
+    var n = 0;
+    for (var k in ctrl) {
+      var c = ctrl[k];
+      if (!c.cycReal || !c.cycSrc) continue;
+      var inf = tod.info(c.cycSrc, date);
+      if (!inf || !inf.cycle) continue;
+      c.cycle = inf.cycle; c.tod = inf; n++;
+    }
+    if (n) applyCycles();
+    return n;
+  }
   // 화면에 「실측 200초(사당역)」인지 「추정 160초」인지 밝힌다. 출처를 숨기지 않는다.
   function cycleInfo(node) {
     var c = ctrl[keyOf(node)];
-    return { target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: c.cycPhases || 0, lap: !!c.cycLap,
+    return { target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: (c.tod ? c.tod.phases : c.cycPhases) || 0,
+             lap: c.tod ? c.tod.lap : !!c.cycLap, tod: c.tod || null,
              actual: cycleOf(node), source: (SIG && SIG.source) || '' };
   }
   // 녹색 시간 하한: 그 방향의 최소 녹색과, 직각 횡단보도의 보행 시간 + 2초. **보행 시간은 줄일 수 없다**(소유자 강조).
@@ -247,5 +263,5 @@ TG.Signals = function (city, world, cfg) {
   return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
            holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
-           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo };
+           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod };
 };

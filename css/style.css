@@ -387,6 +387,17 @@ body.portrait .skip.full{right:calc(112px + var(--sa-r))}
 .pl-src b{color:#fff}
 .pl-src2{display:block;font-size:10.5px;color:var(--dim);margin-top:2px}
 .pl-real{font-style:normal;font-size:10.5px;color:#8ef0b0;border:1px solid rgba(140,240,176,.5);border-radius:4px;padding:0 4px;margin:0 2px}
+.pl-sel{width:100%;box-sizing:border-box;font-size:14px;padding:9px 10px;margin:2px 0 8px;border-radius:8px;background:#1b2436;color:#eaf1ff;border:1px solid #3b4a66}
+.pl-now{font-size:13px;line-height:1.55;color:#eaf1ff;background:rgba(40,90,170,.2);border-radius:8px;padding:7px 10px;margin-bottom:8px;word-break:keep-all}
+.pl-now b{color:#ffe08a}
+.pl-tod{max-height:210px;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #2b3a55;border-radius:8px;margin-bottom:7px}
+.pl-tod table{width:100%;border-collapse:collapse;font-size:12px}
+.pl-tod th{position:sticky;top:0;background:#1b2436;color:var(--dim);font-weight:600;padding:5px 6px;text-align:left;white-space:nowrap}
+.pl-tod td{padding:4px 6px;border-top:1px solid rgba(255,255,255,.07);white-space:nowrap;color:#dbe6f7}
+.pl-tod td b{color:#fff}
+.pl-tod tr.on td{background:rgba(255,224,138,.14)}
+.pl-tod tr.on td:first-child::before{content:"▶ ";color:#ffe08a}
+.pl-tod i{font-style:normal;font-size:10px;color:#ffb;opacity:.8}
 .pl-est{font-style:normal;font-size:10.5px;color:#e8c98a;border:1px solid rgba(232,201,138,.5);border-radius:4px;padding:0 4px;margin:0 2px}
 .pl-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0;padding:6px 8px;border-radius:9px;background:rgba(255,255,255,.05)}
 .pl-lbl{font-size:12px;font-weight:700;flex:1 1 100%}   /* 이름은 한 줄 차지 — 좁은 화면에서 −/값/+ 가 흩어지지 않는다 */

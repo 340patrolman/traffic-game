@@ -139,7 +139,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
 
   // ---- 교통시설 관리 화면(심시티식): 왼쪽 교차로 목록 · 오른쪽 설정판 ----
   // 손가락으로 쓰도록 목록에서 골라 큰 단추로 바꾼다(3D 화면을 찍는 방식은 폰에서 어렵다).
-  var sel = null, host = null;
+  var sel = null, host = null, todSel = '';
   function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
   function nodesWithSignal() {
     var out = [];
@@ -189,6 +189,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
            '<button class="pl-tog' + (self.hasCam(sel, d, 'speed') ? ' on' : '') + '" data-cd="' + d + '" data-ck="speed"' + (up ? '' : ' disabled') + '>📷 과속</button></div>';
     }
     h += '</div>';
+    h += todHtml();
     h += '<div class="pl-foot"><button class="pl-btn wide" data-reset="1">이 교차로 기본값으로</button>' +
          '<span class="pl-min">단속 실적 ' + stats.caught + '건 (신호 ' + (stats.byKind.signal || 0) + ' · 과속 ' + (stats.byKind.speed || 0) + ')</span></div>';
     h += '</div></div>';
@@ -214,6 +215,54 @@ TG.Facil = function (game, city, signals, cfg, scene) {
     });
     var rb = host.querySelector('[data-reset]');
     if (rb) rb.addEventListener('click', function () { self.resetNode(sel); render(); });
+    var ts = host.querySelector('#todSel');
+    if (ts) ts.addEventListener('change', function () { todSel = ts.value; render(); });
+  }
+  // ---- 🚦 신호 근무표 — 교통근무 중에 그 교차로가 지금 몇 초로 도는지 본다 ----
+  // 자료는 경찰청 교차로계획정보 그대로다. 숫자를 코드에 적지 않는다.
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function todHtml() {
+    var T = game.signalTod;
+    if (!T) return '';
+    if (!T.ready) return '<h4>🚦 신호 근무표</h4><div class="pl-note">시간대별 신호계획을 읽지 못했습니다' +
+      (T.err ? ' — ' + esc(T.err) : '') + '. 정적 서버(http)로 열면 나옵니다.</div>';
+    var spots = T.spots();
+    // 처음에는 고른 교차로에 해당하는 실측 지점을 보여 준다(있으면).
+    var ci = signals.cycleInfo ? signals.cycleInfo(sel) : null;
+    if (!todSel) todSel = (ci && ci.real && ci.src) ? ci.src : spots[0].name;
+    var sp = T.spot(todSel) || spots[0];
+    var now = new Date(), inf = T.infoBySpot(sp, now), rows = T.rows(sp, now), ni = T.nowIndex(sp, now);
+    var h = '<h4>🚦 신호 근무표 <span class="pl-min">지금 ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) +
+            ' · ' + esc(T.dowKo(now)) + '요일 · 계획 ' + esc(inf ? inf.plan : '?') + '</span></h4>';
+    h += '<select class="pl-sel" id="todSel">';
+    spots.forEach(function (s) { h += '<option value="' + esc(s.name) + '"' + (s.name === sp.name ? ' selected' : '') + '>' + esc(s.name) + '</option>'; });
+    h += '</select>';
+    if (inf) {
+      h += '<div class="pl-now">지금 <b>주기 ' + inf.cycle + '초</b> · 옵셋 ' + inf.offset + ' · ' + inf.phases + '현시' +
+           (inf.lap ? ' · <b>겹침현시</b>' : '') + ' <span class="pl-min">' + esc(inf.time) + ' 계획' +
+           (inf.wrapped ? '(전날 심야분이 이어짐)' : '') + ' → 다음 ' + esc(inf.nextTime) + ' ' + inf.nextCycle + '초</span></div>';
+    }
+    h += '<div class="pl-tod"><table><thead><tr><th>시각</th><th>주기</th><th>옵셋</th><th>A링 현시</th><th>B링 현시</th></tr></thead><tbody>';
+    var odd = 0;
+    rows.forEach(function (r, i) {
+      var sum = String(r[3]).split(' ').filter(Boolean).reduce(function (x, y) { return x + (+y); }, 0);
+      var bad = sum !== r[1];
+      if (bad) odd++;
+      h += '<tr' + (i === ni ? ' class="on"' : '') + '><td>' + esc(r[0]) + '</td><td><b>' + r[1] + '</b>' +
+           (bad ? '<i title="현시 합 ' + sum + '초">⚠</i>' : '') + '</td><td>' + r[2] +
+           '</td><td>' + esc(r[3]) + '</td><td>' + esc(r[4]) + (r[3] !== r[4] ? ' <i>겹침</i>' : '') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if (odd) h += '<div class="pl-note warn">⚠ 표시한 ' + odd + '줄은 <b>현시값의 합이 주기보다 적습니다</b>(원자료 그대로 · 지어내 채우지 않았습니다). ' +
+                  '이런 줄은 <b>어느 요일도 쓰지 않는 예비 계획</b>에만 있습니다 — 실제로 도는 계획에는 없습니다.</div>';
+    var dw = [];
+    for (var d = 1; d <= 7; d++) if (sp.dow && sp.dow['' + d]) dw.push((T.data().dowKo[d - 1]) + ' ' + sp.dow['' + d]);
+    h += '<div class="pl-min">요일별 계획 — ' + esc(dw.join(' · ')) + '</div>';
+    h += '<div class="pl-note">현시값의 합 = 주기입니다(어긋나는 줄은 ⚠ 로 표시 — 예비 계획에만 있습니다). ' +
+         'A링과 B링이 다르면 겹침현시(좌회전이 한쪽에서 먼저 열리거나 늦게 닫힘)입니다. ' +
+         '<b>어느 현시가 어느 방향인지는 이 자료에 없습니다</b> — 그래서 게임은 주기만 실측을 쓰고 남북·동서 배분은 설계값입니다.' +
+         '<span class="pl-src2">' + esc(T.source()) + '<br>' + esc(T.area()) + '</span></div>';
+    return h;
   }
   self.openPanel = function (el) { host = el; render(); };
   self.refreshPanel = render;

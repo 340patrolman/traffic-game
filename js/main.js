@@ -92,6 +92,7 @@
 
     bindUI();
     loadLaws();
+    loadSignalTod();
     resize();
     addEventListener('resize', resize);
     addEventListener('orientationchange', function () { setTimeout(resize, 200); });
@@ -112,6 +113,19 @@
     if (location.protocol.indexOf('http') !== 0) { log('file:// 모드 — data/laws.json 을 읽을 수 없어 범칙금·벌점은 「확인 중」으로 표시됩니다'); return; }
     fetch('data/laws.json').then(function (r) { return r.json(); }).then(function (j) { G.laws = j; log('laws.json 로딩: ' + j.violations.length + '항목 (' + j.updated + ')'); })
       .catch(function (e) { log('laws.json 로딩 실패: ' + e.message); });
+  }
+  // 시간대별 신호계획(경찰청 실측). 자료가 늦게 오므로 도착한 뒤 신호기에 한 번 더 적용한다.
+  // 「지금」은 기기 시계다 — 교통근무 중에 그 교차로가 지금 몇 초로 도는지 보려는 것이 목적이다.
+  function loadSignalTod() {
+    if (!TG.SignalTod) return;
+    G.signalTod = new TG.SignalTod();
+    var path = (TG.MAP_ENTRY && TG.MAP_ENTRY.signalTod) || (TG.MAP && TG.MAP.signalTod) || null;
+    G.signalTod.load(path, function (err, n) {
+      if (err) { log('시간대별 신호계획 없음: ' + err); return; }
+      var applied = signals.applyTod ? signals.applyTod(G.signalTod) : 0;
+      log('시간대별 신호계획 로딩: ' + n + '곳 · 지금 시각 적용 ' + applied + '곳');
+      if (facil && facil.refreshPanel) facil.refreshPanel();
+    });
   }
   // 시야각: 차내 72 / 세로 72 / PC 와이드(가로 1.6배 이상) 64 / 그 외 60
   // 추격 중에는 속도에 따라 화각을 넓혀 속도감을 준다(최대 +9도). 일반 주행은 그대로.
