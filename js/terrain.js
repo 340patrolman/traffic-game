@@ -96,7 +96,10 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
 
   // ---------- 순환 고속도로(타원) + 연결로 + 램프 ----------
-  var CXC = 160, CZC = 160, RA = 440, RB = 420;
+  // 순환도로 중심은 **도시 격자의 한가운데**다. 격자를 지도 파일이 정하게 되면서(v0.9.36)
+  // 160,160 에 못 박아 두면 실지도에서 도시가 고리 한쪽으로 치우친다. 베타 지도는 값이 같아 변화가 없다.
+  var CXC = (city.xs[0] + city.xs[city.xs.length - 1]) / 2, CZC = (city.zs[0] + city.zs[city.zs.length - 1]) / 2;
+  var RA = 440, RB = 420;
   var ringCP = [];
   for (var th = 0; th < 40; th++) { var ang = th / 40 * Math.PI * 2; ringCP.push([CXC + RA * Math.cos(ang) + Math.sin(ang * 3) * 12, CZC + RB * Math.sin(ang) + Math.cos(ang * 2) * 10]); }
   var ring = buildLink('ring', ringCP, 'highway', true);

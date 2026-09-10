@@ -55,8 +55,12 @@ TG.Minimap = function (canvas, city, terrain) {
       .filter(function (r) { return r.name; }).sort(function (a, b) { return b.n - a.n; });
     var roadsH = city.zs.map(function (z, j) { return { name: (city.roadNamesH || [])[j], z: z, n: city.lanesH[j] }; })
       .filter(function (r) { return r.name; }).sort(function (a, b) { return b.n - a.n; });
-    roadsV.forEach(function (r) { lab(r.name, mx(r.x) - 6, mz(zMid * 0.42), -Math.PI / 2); });
-    roadsH.forEach(function (r) { lab(r.name, mx(city.xs[0] + (xMid - city.xs[0]) * 0.42), mz(r.z) + 10); });
+    // 격자 **안**에 놓으면 세로 이름표(글자 길이만큼 긴 상자)가 가로 이름표를 다 밀어낸다.
+    // 그래서 도로 이름표는 **격자 바깥 여백**에 붙인다 — 가로 이름표는 격자 왼쪽, 세로 이름표는 격자 위쪽.
+    // 그 자리에는 다른 이름표가 없어서 열 개가 다 남는다. 도로 끝에 붙으므로 어느 도로인지도 분명하다.
+    var padX = city.xs[0] - 46, padZ = city.zs[0] - 30;
+    roadsV.forEach(function (r) { lab(r.name, mx(r.x) - 5, mz(padZ), -Math.PI / 2); });
+    roadsH.forEach(function (r) { lab(r.name, mx(padX), mz(r.z) + 4); });
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2';
     lab('올림픽대로', mx(160), mz(-262) - 3); lab('경부고속도로', mx(160), mz(585) + 8);
     lab('경부고속도로', mx(160) + 9, mz(470), -Math.PI / 2);
