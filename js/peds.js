@@ -41,7 +41,10 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (opts.at) { x = opts.at.x; z = opts.at.z; axis = opts.at.axis; idx = opts.at.idx !== undefined ? opts.at.idx : (axis === 'v' ? city.nearestIdx(city.xs, opts.at.coord) : city.nearestIdx(city.zs, opts.at.coord)); side = opts.at.side; d = opts.at.d; }
       if (pl && !opts.at) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.PED_SPAWN_MIN || dist > cfg.PED_SPAWN_MAX) continue; }
       var p = { pos: { x: x, z: z }, axis: axis, idx: idx, coord: axis === 'v' ? city.xs[idx] : city.zs[idx], side: side, d: d, speed: 1.1 + rng() * 0.6, state: 'walk', t: rng() * 10, waitT: 0, decided: null,
-                jaywalker: opts.jaywalker !== undefined ? opts.jaywalker : rng() < 0.07, jayT: 0, jayDone: false, warned: false, jayLive: false };   // 무단횡단은 드물게
+                // 무단횡단은 드물게. **인트로에서는 아예 안 나온다** — 홍보 영상은 지켜지는 거리를 보여야 한다
+                // (소유자: 「인트로에서 사람들이 너무 많이 무단횡단을 한다. 좋은세상을 보여줘야지」).
+                jaywalker: opts.jaywalker !== undefined ? opts.jaywalker : (self.noJaywalk ? false : rng() < 0.07),
+                jayT: 0, jayDone: false, warned: false, jayLive: false };
       var m = makeMesh(p); m.position.set(x, 0.2, z); m.rotation.y = TG.DIR_HEADING[d]; m.userData.ped = p; scene.add(m); p.mesh = m; peds.push(p);
       return p;
     }

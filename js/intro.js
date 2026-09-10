@@ -138,6 +138,11 @@ TG.Intro = function (game) {
     el.shot = $('introShot'); el.title = $('introTitle'); el.flash = $('introFlash'); el.lines = $('introLines');
     el.credit = $('introCredit');
     self.creditOn = false;
+    // 인트로는 홍보 영상이다 — **무단횡단을 보여 주지 않는다.** 이미 걷고 있는 사람의 성향도 지운다.
+    if (game.peds) {
+      game.peds.noJaywalk = true;
+      (game.peds.peds || []).forEach(function (p) { p.jaywalker = false; if (p.state === 'jaywalk') { p.state = 'walk'; p.jayLive = false; } });
+    }
     self.lines = stackLines();
     game.hud.introLines(self.lines, -1);
     game.hud.showIntro(true);
@@ -179,6 +184,7 @@ TG.Intro = function (game) {
     if (el.shot) el.shot.classList.remove('on');
     if (el.title) { el.title.classList.remove('on'); el.title.classList.remove('tagon'); }
     if (el.credit) { el.credit.classList.remove('on'); self.creditOn = false; }
+    if (game.peds) game.peds.noJaywalk = false;   // 인트로가 끝나면 원래대로(순찰 근무에는 무단횡단이 있어야 단속을 배운다)
     // 1인칭 샷을 썼으면 3인칭으로 되돌리고, 안개·근접 평면도 원래대로
     if (game.player && game.player.setView) game.player.setView('chase');
     self.view = null;
