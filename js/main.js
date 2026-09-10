@@ -966,7 +966,8 @@
       walk.jay = false; walk.stopT = 0;
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
       if (kid) { kidStep(3);
-        walker.hand = Math.max(walker.hand, 1.2);   // 어린이는 횡단보도 위에서 **끝까지** 손을 든 채로 건넌다(소유자 지시)
+        // 어린이는 횡단보도 위에서 **끝까지** 손을 든 채로 건넌다(소유자 지시). 보도에서 든 손도 그대로 이어진다.
+        walker.hand = Math.max(walker.hand, 1.5); walk.handHeld = true;
         if (walker.running && walker.v > 2.2 && walk.cross) { walk.cross.ran = true; if (walk.voiceCd <= 0) { kidVoice('norun', true); hud.notice('🏃 뛰지 말고 걸어요!', 'warn', 1800); } } }
       if (p.walk && p.remain < 3 && walk.hintCd <= 0) { hud.hintNow(kid ? '초록불이 곧 꺼져요 — 빨리 걸어요(뛰지 않아요)' : '보행 신호 곧 종료 — 서두르되 뛰지 않는다'); walk.hintCd = 3; }
     } else if (p.where === 'road' || p.where === 'box') {
@@ -1006,7 +1007,7 @@
         var crossAxK = nearX ? city.roadOf(node, best).axis : 'v';
         var wk = nearX && signals.pedWalk(node, crossAxK), rem = nearX ? signals.pedRemain(node, crossAxK) : 99;
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
-        if (!nearX) kidStep(-1);
+        if (!nearX) { kidStep(-1); walk.handHeld = false; }
         else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
         else if (walk.stopT < 1.6) {   // 👀 본다: 멈춰 선 채로 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
           kidStep(1); if (walk.voiceCd <= 0) kidVoice('look');
@@ -1020,6 +1021,10 @@
           if (walk.hintCd <= 0) { hud.hintNow('초록불이 깜빡이면 건너지 않아요. 다음 초록불을 기다려요'); walk.hintCd = 4; }
         }
         else {
+          // 손을 한 번 들었으면 **초록불을 기다리는 동안에도** 계속 든 상태를 유지한다.
+          // 전에는 raiseHand(4) 의 4초가 지나면 대기 중에 팔이 내려가 「손을 바로 내리네」로 보였다(소유자 신고).
+          walk.handHeld = true;
+          walker.hand = Math.max(walker.hand, 1.0);
           kidStep(wk ? 3 : 2, wk ? null : '🔴 손 들고 초록불을 기다린다');
           if (walk.voiceCd <= 0) kidVoice(wk ? 'go' : 'wait');
           if (wk && walk.step !== 3) kidSay('kidOk');

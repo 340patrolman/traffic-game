@@ -118,6 +118,58 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     p.state = 'walk'; p.decided = node;
   }
 
+  // ---- 겹침 풀기 ----
+  // 사람이 사람을 통과하고 차를 통과해 지나가면, 그 뒤에 나오는 어떤 숫자도 믿기지 않는다(소유자 신고).
+  // ① 사람끼리: 어깨 반경 안으로 들어오면 서로 밀어낸다. ② 차: 차체 사각형 안에 있으면 가장 가까운 변으로 밀어낸다.
+  var PED_R = 0.34;          // 어깨 반경 — 둘이 만나면 0.68m 이상 벌어진다
+  function bodies() {        // 밀어낼 대상: 행인 + (보행 모드의) 플레이어·동행 어린이
+    var list = peds.slice();
+    if (self.walker) list.push(self.walker);
+    if (self.extra) for (var i = 0; i < self.extra.length; i++) list.push(self.extra[i]);
+    return list;
+  }
+  function separate() {
+    var list = bodies(), n = list.length;
+    for (var i = 0; i < n; i++) for (var k = i + 1; k < n; k++) {
+      var a = list[i], b = list[k], ap = a.pos, bp = b.pos;
+      var dx = bp.x - ap.x, dz = bp.z - ap.z, d2 = dx * dx + dz * dz, R = PED_R * 2;
+      if (d2 >= R * R) continue;
+      var d = Math.sqrt(d2), ux, uz;
+      if (d < 1e-4) { ux = 1; uz = 0; d = 0; }                    // 완전히 겹쳤으면 아무 방향으로 뗀다(방향만 정하고 거리는 0)
+      else { ux = dx / d; uz = dz / d; }
+      // **플레이어(보행 모드의 사람)는 밀지 않는다.** 조작하는 사람이 밀려나면 횡단보도에서 차도로 튕겨 나간다.
+      var aFix = (a === self.walker), bFix = (b === self.walker);
+      var gap = R - d;
+      if (aFix && bFix) continue;
+      if (aFix) { bp.x += ux * gap; bp.z += uz * gap; }
+      else if (bFix) { ap.x -= ux * gap; ap.z -= uz * gap; }
+      else { var push = gap * 0.5; ap.x -= ux * push; ap.z -= uz * push; bp.x += ux * push; bp.z += uz * push; }
+    }
+  }
+  function pushOutOfCars() {
+    var T = self.traffic; if (!T) return;
+    var cars = T.cars.slice();
+    // **보행 모드에서는 `self.player` 가 사람(walker)이다.** 그것을 차 목록에 넣으면 자기 자신을 차로 보고
+    // 매 프레임 자기를 밀어낸다 — 교차로 근무 경찰관이 1초에 37m 를 미끄러져 벌판으로 나갔다(소유자: 「벌판에 서있다」).
+    if (self.player && self.player.mesh && self.player !== self.walker && self.player.wid && self.player.len) cars.push(self.player);
+    var list = bodies();
+
+    for (var i = 0; i < cars.length; i++) {
+      var c = cars[i], h = c.heading || 0, fx = Math.sin(h), fz = Math.cos(h);
+      var hl = (c.len || 4.4) / 2 + PED_R, hw = (c.wid || 1.8) / 2 + PED_R;
+      for (var k = 0; k < list.length; k++) {
+        var p = list[k]; if (p === c) continue;             // 자기 자신은 건너뛴다(위 방어와 이중으로)
+        var dx = p.pos.x - c.pos.x, dz = p.pos.z - c.pos.z;
+        var al = dx * fx + dz * fz, la = dx * -fz + dz * fx;         // 차체 국소 좌표(앞뒤, 좌우)
+        if (Math.abs(al) >= hl || Math.abs(la) >= hw) continue;      // 차체 밖
+        // 사각형 안이다 — 빠져나갈 거리가 짧은 쪽으로 민다
+        var outL = hl - Math.abs(al), outW = hw - Math.abs(la);
+        if (outW <= outL) { var s = la >= 0 ? 1 : -1; p.pos.x += -fz * s * outW; p.pos.z += fx * s * outW; }
+        else { var s2 = al >= 0 ? 1 : -1; p.pos.x += fx * s2 * outL; p.pos.z += fz * s2 * outL; }
+      }
+    }
+  }
+
   var spawnT = 0;
   this.update = function (dt, budget) {
     spawnT -= dt;
@@ -125,12 +177,18 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     var pl = self.player;
     for (var i = peds.length - 1; i >= 0; i--) {
       var p = peds[i]; step(p, dt); p.t += dt;
-      var moving = p.state !== 'wait' && p.state !== 'warned', w = p.t * 7.5 * (p.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
-      p.mesh.position.set(p.pos.x, 0.2 + (moving ? Math.abs(Math.cos(w)) * 0.03 : 0), p.pos.z); p.mesh.rotation.y = TG.DIR_HEADING[p.d];
-      p.limbs[0].rotation.x = sw; p.limbs[1].rotation.x = -sw; p.limbs[2].rotation.x = -sw * 0.7; p.limbs[3].rotation.x = sw * 0.7;
       if (pl && Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) > cfg.PED_DESPAWN) remove(p);
     }
+    // 걸음을 다 옮긴 뒤에 겹침을 푼다 — 그래야 밀어낸 자리가 그 프레임에 그대로 그려진다
+    separate(); pushOutOfCars();
+    for (var i2 = peds.length - 1; i2 >= 0; i2--) {
+      var q = peds[i2];
+      var moving = q.state !== 'wait' && q.state !== 'warned', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
+      q.mesh.position.set(q.pos.x, 0.2 + (moving ? Math.abs(Math.cos(w)) * 0.03 : 0), q.pos.z); q.mesh.rotation.y = TG.DIR_HEADING[q.d];
+      q.limbs[0].rotation.x = sw; q.limbs[1].rotation.x = -sw; q.limbs[2].rotation.x = -sw * 0.7; q.limbs[3].rotation.x = sw * 0.7;
+    }
   };
+  self.separate = separate; self.pushOutOfCars = pushOutOfCars;   // 검증에서 직접 부른다
   this.nearestAhead = function (x, z, fx, fz, maxAlong, maxLat) {
     var best = null, list = self.walker ? peds.concat([self.walker]) : peds;
     for (var i = 0; i < list.length; i++) {
