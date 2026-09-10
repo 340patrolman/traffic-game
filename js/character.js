@@ -26,17 +26,33 @@ TG.Character = (function () {
   // seg: 관절 위(0)에서 아래(-len)로. hi = 해상도 높임(어린이는 화면에 크게 나온다)
   function seg(r0, r1, len, color, hi) { var gb = new TG.GeoBuilder(); gb.cylinder(0, -len, 0, r1, r0, len, hi ? 16 : 10, color, false); gb.sphere(0, 0, 0, r0 * 1.02, hi ? 12 : 8, hi ? 9 : 6, color); return gb; }
   // 얼굴: 눈·눈썹·입·귀. 앞 = +z
-  function face(gb, y, r, skin, hair, kid) {
+  // 얼굴은 **더하지 않고 줄여서** 세련되게 만든다(소유자: 「얼굴을 좀더 세련되게 표현해줘 봐서 이상하지 않게」).
+  // 사실적으로 가면 불쾌한 골짜기에 빠져 어린이 홍보물로 쓰기 더 어려워진다. 그래서:
+  //   코를 그리지 않는다 · 눈은 흰자 없이 짙은 타원 하나 · 입은 선 하나 · 볼 홍조는 어린이만 ·
+  //   대신 **머리 실루엣**을 사람마다 다르게 한다 — 사람은 얼굴보다 실루엣으로 구별된다.
+  function face(gb, y, r, skin, hair, kid, style) {
     gb.sphere(0, y, 0, r, kid ? 26 : 18, kid ? 18 : 12, skin, 1.08);
     var bw = kid ? 0.040 : 0.05, bh = kid ? 0.006 : 0.009;                                        // 어린이는 눈썹을 얇고 짧게
     gb.box(-0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {}); gb.box(0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {});
-    gb.box(0, y - 0.008, r * 1.01, 0.022, 0.032, 0.022, skin, {});   // 코
     gb.box(-r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {}); gb.box(r * 0.98, y, 0, 0.025, 0.045, 0.03, skin, {});   // 귀
-    var ch = kid ? 0.030 : 0.022;                                                                                   // 볼 홍조(친근한 인상)
-    gb.box(-r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {}); gb.box(r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {});
+    if (kid) {                                                                                   // 볼 홍조는 어린이만 — 어른에게는 어색하다
+      var ch = 0.030;
+      gb.box(-r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {}); gb.box(r * 0.52, y - 0.030, r * 0.94, ch, ch * 0.72, 0.008, C.CHEEK, {});
+    }
     gb.sphere(0, y + 0.045, -r * 0.22, r * 0.99, 16, 8, hair, 0.80);            // 뒷머리(얼굴 앞으로 나오지 않게 뒤로 물린다)
     gb.box(0, y + 0.075, -r * 0.58, r * 1.82, r * 0.86, r * 0.86, hair, {});     // 뒤통수
+    // 머리 실루엣 네 갈래: 0 짧은머리 · 1 단발 · 2 가르마 · 3 묶은머리
+    var st = style === undefined ? 0 : (style | 0) % 4;
     gb.box(0, y + r * 0.66, r * 0.26, r * 1.55, r * 0.34, r * 0.86, hair, {});   // 앞머리(이마 위 — 눈보다 위에만)
+    if (st === 1) {                                                             // 단발: 귀 옆으로 내려온다
+      gb.box(-r * 0.92, y - r * 0.22, -r * 0.10, r * 0.30, r * 1.10, r * 1.30, hair, {});
+      gb.box(r * 0.92, y - r * 0.22, -r * 0.10, r * 0.30, r * 1.10, r * 1.30, hair, {});
+    } else if (st === 2) {                                                      // 가르마: 한쪽만 이마를 덮는다
+      gb.box(-r * 0.42, y + r * 0.62, r * 0.42, r * 0.80, r * 0.30, r * 0.50, hair, {});
+    } else if (st === 3) {                                                      // 묶은머리: 뒤로 하나
+      gb.sphere(0, y + r * 0.10, -r * 1.05, r * 0.46, 12, 8, hair, 1.0);
+      gb.box(0, y - r * 0.35, -r * 1.05, r * 0.40, r * 0.80, r * 0.40, hair, {});
+    }
   }
   function build(kind, opts) {
     opts = opts || {};
@@ -75,7 +91,8 @@ TG.Character = (function () {
     var neck = new THREE.Object3D(); neck.position.set(0, HIP + 0.63, 0); g.add(neck); R.joints.neck = neck;
     var hb = new TG.GeoBuilder(); hb.cylinder(0, 0, 0, 0.055, 0.06, 0.07, 8, skin, false);
     var HR = kid ? 0.168 : 0.12, HY = 0.07 + HR;   // 어린이는 머리를 크게(치비 비율) — 귀엽게 보인다
-    face(hb, HY, HR, skin, hair, kid);
+    // 머리 실루엣: 경찰관은 정모를 쓰므로 짧은머리 고정, 나머지는 사람마다 다르게(얼굴보다 실루엣으로 구별된다)
+    face(hb, HY, HR, skin, hair, kid, officer ? 0 : (opts.hairStyle !== undefined ? opts.hairStyle : Math.floor(Math.random() * 4)));
     if (officer) {   // 정모: 흰 덮개 + 남색 밴드 + 검정 챙 + 금색 표장
       hb.cylinder(0, HY + HR * 0.55, 0, HR * 1.13, HR * 1.06, 0.052, 16, C.GOLD, false);                       // 금색 밴드(실물)
       hb.cylinder(0, HY + HR * 0.55 - 0.004, 0, HR * 1.14, HR * 1.07, 0.012, 16, C.BLACK, false);                // 밴드 아래 검정 선
@@ -94,14 +111,21 @@ TG.Character = (function () {
     } else if (opts.hat) { hb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); }
     var head = mesh(hb); neck.add(head); R.parts.head = head;
     // 눈·입은 따로(깜빡임·말할 때 움직임). 눈: 흰자 + 눈동자, 입: 살구색 선(웃으면 넓어진다)
+    // **흰자를 없앤다.** 흰자와 눈동자가 같이 있으면 크기가 조금만 어긋나도 어색해진다 —
+    // 짙은 타원 하나에 작은 하이라이트만 둔다(미니 캐릭터 방식). 대신 조금 크게 그려 멀리서도 읽힌다.
     var ek = kid ? 1.72 : 1.05, eg = new TG.GeoBuilder();                                                        // 어린이 눈은 크고 동그랗게
-    eg.box(0, 0, 0, 0.036 * ek, 0.03 * ek, 0.012, C.WHITE, {}); eg.box(0, 0, 0.008, 0.018 * ek, 0.022 * ek, 0.012, C.EYE, {});
-    eg.box(0.004 * ek, 0.005 * ek, 0.016, 0.007 * ek, 0.007 * ek, 0.004, C.WHITE, {});
+    // 상자 하나면 눈이 네모로 보인다 — 좁게·넓게·좁게 세 겹으로 쌓아 **둥글게** 만든다(면 수는 그대로 적다).
+    eg.box(0, 0.011 * ek, 0.004, 0.017 * ek, 0.007 * ek, 0.011, C.EYE, {});
+    eg.box(0, 0, 0.004, 0.025 * ek, 0.017 * ek, 0.012, C.EYE, {});
+    eg.box(0, -0.011 * ek, 0.004, 0.017 * ek, 0.007 * ek, 0.011, C.EYE, {});
+    eg.box(0.006 * ek, 0.007 * ek, 0.013, 0.006 * ek, 0.006 * ek, 0.004, C.WHITE, {});                           // 하이라이트 한 점
     var eyeGeo = eg.build(), eyes = [];
     // 눈은 머리 표면 **밖으로** 내밀어야 보인다(전에는 HR·0.9 로 구 안쪽에 박혀 얼굴이 없어 보였다)
     [-0.042 * (kid ? 1.18 : 1), 0.042 * (kid ? 1.18 : 1)].forEach(function (ex) { var e = new THREE.Mesh(eyeGeo, mat); e.position.set(ex, HY + (kid ? 0.012 : 0.02), HR * 1.05); neck.add(e); eyes.push(e); });
-    var mg = new TG.GeoBuilder(); mg.box(0, 0, 0, kid ? 0.050 : 0.046, kid ? 0.016 : 0.012, 0.012, C.LIP, {}); mg.box(0, -0.002, 0.004, kid ? 0.034 : 0.03, 0.008, 0.006, 0x6b2a25, {});
-    if (kid) { mg.box(-0.030, 0.008, 0.002, 0.014, 0.011, 0.010, C.LIP, {}); mg.box(0.030, 0.008, 0.002, 0.014, 0.011, 0.010, C.LIP, {}); }   // 입꼬리를 올려 웃는 입
+    // **입은 선 하나.** 입술·입안·입꼬리를 따로 그리면 얼굴이 복잡해진다 — 표정은 곡률(scale)로 만든다.
+    var mg = new TG.GeoBuilder();
+    mg.box(0, 0, 0.004, kid ? 0.044 : 0.038, kid ? 0.009 : 0.007, 0.010, C.LIP, {});
+    if (kid) { mg.box(-0.024, 0.006, 0.003, 0.010, 0.008, 0.009, C.LIP, {}); mg.box(0.024, 0.006, 0.003, 0.010, 0.008, 0.009, C.LIP, {}); }   // 어린이만 입꼬리를 살짝
     var mouth = new THREE.Mesh(mg.build(), mat); mouth.position.set(0, HY - (kid ? 0.055 : 0.05), HR * 1.03); neck.add(mouth);
     R.parts.eyes = eyes; R.parts.mouth = mouth; R.blinkT = 2 + Math.random() * 3; R.blink = 0; R.talkT = 0; R.smile = 0;
     // ---- 팔(어깨 → 위팔 → 팔꿈치 → 아래팔 → 손) ----
@@ -229,7 +253,7 @@ TG.Character = (function () {
       if (opts.female) tb.box(0, HIP + 0.02, 0, 0.36, 0.14, 0.24, pants, {});   // 치마
       if (opts.bag) tb.box(0.24, HIP + 0.20, 0, 0.09, 0.30, 0.22, 0x6d4f3a, {});
       tb.cylinder(0, HIP + 0.63, 0, 0.055, 0.06, 0.07, 8, skin, false);
-      var HR = 0.12, HY = HIP + 0.63 + 0.07 + HR; face(tb, HY, HR, skin, hair, false);
+      var HR = 0.12, HY = HIP + 0.63 + 0.07 + HR; face(tb, HY, HR, skin, hair, false, opts && opts.hairStyle !== undefined ? opts.hairStyle : 0);
       if (opts.female) tb.box(0, HY - 0.02, -HR * 0.8, HR * 1.7, HR * 1.6, HR * 0.8, hair, {});   // 긴 머리
       if (opts.hat) { tb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); tb.box(0, HY + HR * 0.5, HR * 1.0, HR * 1.6, 0.015, HR * 0.8, opts.hat, {}); }
       var ag = new TG.GeoBuilder(); ag.cylinder(0, -0.28, 0, 0.05, 0.056, 0.28, 8, shirt, false); ag.sphere(0, 0, 0, 0.057, 8, 6, shirt); ag.cylinder(0, -0.54, 0, 0.043, 0.05, 0.26, 8, skin, false); ag.box(0, -0.59, 0.02, 0.07, 0.09, 0.045, skin, {});

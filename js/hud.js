@@ -31,13 +31,23 @@ TG.hud = (function () {
   function setStops(n) { el.stops.textContent = n; }
   function setSiren(on) { el.sirenState.textContent = on ? '경광등 ON' : ''; el.sirenState.classList.toggle('on', on); if (el.btnSiren) el.btnSiren.classList.toggle('active', on); }
   function setTarget(text) { el.target.textContent = text || ''; el.target.style.display = text ? '' : 'none'; }
-  function notice(text, kind, ms) { el.notice.textContent = text; el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000; }
+  function notice(text, kind, ms) {
+    el.notice.textContent = text; el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000;
+    pushKidChips();
+  }
+  // 좁은 화면에서는 안내문이 두세 줄이 되어 **어린이 4단계 칩을 덮었다**(화면 점검에서 발견).
+  // 안내문 높이만큼 칩을 아래로 내린다. 안내문이 사라지면 되돌린다.
+  function pushKidChips() {
+    var kn = document.getElementById('kidNow'); if (!kn) return;
+    var h = el.notice.style.opacity > 0 ? el.notice.getBoundingClientRect().height : 0;
+    kn.style.transform = h > 40 ? 'translateY(' + Math.round(h - 34) + 'px)' : '';
+  }
   function hint(text) {
     if (!settings.hints || hintGap > 0) return;
     hintGap = 2.5; el.hint.textContent = text; el.hint.style.opacity = 1; hintT = 3.2;
   }
   function tick(dt) {
-    if (noticeT > 0) { noticeT -= dt; if (noticeT <= 0) el.notice.style.opacity = 0; }
+    if (noticeT > 0) { noticeT -= dt; if (noticeT <= 0) { el.notice.style.opacity = 0; pushKidChips(); } }
     if (hintT > 0) { hintT -= dt; if (hintT <= 0) el.hint.style.opacity = 0; }
     if (hintGap > 0) hintGap -= dt;
   }
