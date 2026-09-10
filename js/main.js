@@ -544,10 +544,13 @@
     while (peds.peds.length) peds.remove(peds.peds[0]);
     enforcement = new TG.Enforcement(G); G.enforcement = enforcement;
     if (TG.DrunkProc) G.drunkProc = new TG.DrunkProc(G);   // 음주 적발 절차(감지 → 음용수 → 측정 → 고지 → 채혈)
+    if (TG.KidCourse && !G.kidCourse) G.kidCourse = new TG.KidCourse(G);   // 어린이 교실: 걷기·건너기·차 안·자전거·킥보드·서로 조심
     response = new TG.Response(G); G.response = response;   // 대응 원칙: 등급 A 적극 대응 / B 정차 단속 / C 추격 금지(영상·무전)
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
     // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
     G.mode = modeOverride || settings.mode || 'patrol'; if (!MODES[G.mode]) G.mode = 'patrol';
+    // **모드가 정해진 뒤에** 켠다 — 앞에서 켜면 G.mode 가 아직 지난 판의 것이라 늘 꺼져 있었다.
+    if (G.kidCourse) { if (G.mode === 'kid') G.kidCourse.start(); else G.kidCourse.reset(); }
     C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
     coach = { cd: 0, lastCorner: -1, apexDone: -1 };
@@ -882,6 +885,7 @@
       var d = Math.hypot(c.pos.x - walker.pos.x, c.pos.z - walker.pos.z);
       if (d < 9.5 && c.v > 2.5) {
         walk.zipDone = true; TG.audio.whoosh();
+        if (G.kidCourse) G.kidCourse.note(c.isMoto ? 'pm' : 'bike');   // 어린이 교실 ④⑤「자전거·킥보드」
         hud.notice('🚲 지금 ' + (c.isMoto ? '오토바이' : '자전거') + '가 휙 지나갔어요! 그래서 좌우를 보는 거예요', 'warn', 4200);
         kidVoice('왼쪽, 오른쪽을 꼭 봐요. 자전거도 오토바이도 지나가요', true);
         break;
@@ -985,6 +989,7 @@
         else hud.hint('보행 신호 — 좌우를 살피고 횡단보도 안으로 건넌다 (남은 ' + Math.ceil(p.remain) + '초)');
       }
       walk.jay = false; walk.stopT = 0;
+      if (kid && G.kidCourse) G.kidCourse.note('road');   // 횡단보도 위는 「보도로 걷기」로 세지 않는다
       sec = (p.walk ? '🟢 보행 신호 ' + Math.ceil(p.remain) + '초' : '🔴 보행 신호 대기 ' + Math.ceil(p.remain) + '초') + ' · ' + (p.crossAxis === 'v' ? city.roadNamesV[p.node.i] : city.hName(p.node.j, walker.pos.x)) + ' 횡단 중';
       if (kid) { kidStep(3);
         // 어린이는 횡단보도 위에서 **끝까지** 손을 든 채로 건넌다(소유자 지시). 보도에서 든 손도 그대로 이어진다.
@@ -994,6 +999,7 @@
     } else if (p.where === 'road' || p.where === 'box') {
       if (!walk.jay) { walk.jay = true; walk.cross = null; if (kid) { kidVoice('road', true); hud.notice('⚠ 차도는 위험해요! 횡단보도로 건너요', 'bad', 2600); TG.audio.bad(); } else penalize('jaywalk', '무단횡단 — 횡단보도 밖 차도 진입', '차도는 횡단보도로만 건넌다 · ' + lawLine('jaywalk', '도로교통법 제10조')); }
       sec = '⚠ 차도 위 — 횡단보도로'; walk.stopT = 0; if (kid) kidStep(-1);
+      if (kid && G.kidCourse) G.kidCourse.note('road');
     } else {
       walk.jay = false;
       if (walk.cross) {
@@ -1005,6 +1011,7 @@
             var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) - (walk.cross.blink ? 1 : 0), 1, 3);
             walk.stars += st; walk.crossings++; addScore(st * 10, null);
             if (walk.cross.hand) { walk.handCross = (walk.handCross || 0) + 1; addScore(5, null); }
+            if (G.kidCourse) G.kidCourse.note('crossed');   // 어린이 교실 ②「건널 자리」
             hud.burst('⭐', st * 4); TG.audio.jingle(st); walk.smileT = 4; walk.waveT = 3.5;
             hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춘다 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 본다 ✓ · 손을 든다 ' + (walk.cross.hand ? '✓' : '✗') + ' · 걷는다 ' + (walk.cross.ran ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
             kidVoice(st === 3 ? 'good3' : st === 2 ? 'good2' : 'good1', true);
@@ -1021,6 +1028,13 @@
       }
       if (best !== null) { var ax = city.roadOf(node, best).axis, w = signals.pedWalk(node, ax), rem = signals.pedRemain(node, ax); sec = (w ? '🟢 앞 횡단보도 보행 ' + Math.ceil(rem) + '초' : '🔴 앞 횡단보도 대기 ' + Math.ceil(rem) + '초') + ' · ' + (ax === 'v' ? city.roadNamesV[node.i] : city.hName(node.j, walker.pos.x)); }
       else sec = p.where === 'sidewalk' ? '🚶 보도 · ' + city.nodeName(node).replace(' 교차로', '') + ' 부근' : '🚶 도로 밖';
+      // 어린이 교실 ①「걸을 자리」: 보도로 걸으면 쌓인다. 차도로 나가면 처음부터.
+      if (kid && G.kidCourse) {
+        if (p.where === 'sidewalk' && walker.v > 0.3) G.kidCourse.note('sidewalk', dt);
+        else if (p.where !== 'sidewalk') G.kidCourse.note('road');
+        // ③「차에 탈 때」: 순찰차 6m 안으로 가면 안전띠·유아보호용 장구를 배운다
+        if (player && Math.hypot(walker.pos.x - player.pos.x, walker.pos.z - player.pos.z) < 6) G.kidCourse.note('car');
+      }
       // 어린이 교실 4단계(소유자 지시): 🛑 멈춘다(0.8초) → 👀 본다(1.6초) → ✋ 손을 든다 → 🚶 걷는다(초록불).
       // 「멈추고 손 들고」는 어린이 보행 교육이다. 자전거·PM 은 손을 드는 것이 아니라 내려서 끌고 걸어야 보행자가 된다.
       if (kid) {
@@ -1055,6 +1069,8 @@
     var secEl = document.getElementById('section'); if (secEl) { secEl.className = 'section walk ' + (sec.charAt(0) === '🟢' ? 'go' : sec.charAt(0) === '🔴' || sec.charAt(0) === '⚠' ? 'stop' : ''); }
     walk.onRoad = p.where === 'crosswalk' || p.where === 'road' || p.where === 'box';
     walk.greenAxis = p.where === 'crosswalk' ? (p.walk ? p.crossAxis : null) : (sec.charAt(0) === '🟢' && typeof best === 'number' && node ? city.roadOf(node, best).axis : null);
+    // 어린이 교실은 지금 무엇을 배우는 중인지 늘 보여 준다 — 횡단보도 하나만 배우는 게 아니다
+    if (kid && G.kidCourse && G.kidCourse.isOn()) sec += '  |  ' + G.kidCourse.hudLine();
     hud.setSectionText(sec);
     // 목적지
     var dst = walk.dests[walk.idx];
@@ -1362,6 +1378,7 @@
     TG.save.set('last', { score: G.score, stops: G.stats.stops, correct: G.stats.correct, penalty: penaltyTotal, date: new Date().toISOString().slice(0, 10) });
     // 별(1~5)·배지: 점수·정답률·감점·계도·별로 계산. 어린이 교실은 딴 별 그대로
     var st = G.stats, kidMode = G.mode === 'kid', badges = [];
+    if (kidMode && G.kidCourse && G.kidCourse.isOn()) G.kidCourse.badges().forEach(function (b) { badges.push(b); });
     if (kidMode) { st.stars = Math.max(1, Math.min(5, Math.round((walk ? walk.stars : 0) / 2.4))); if (walk && walk.stars >= 12) badges.push({ text: '🏅 횡단보도 박사', gold: true }); if (walk && (walk.handCross || 0) >= 2) badges.push({ text: '✋ 손 들고 건넜어요' }); if (walk && walk.arrived >= walk.dests.length) badges.push({ text: '🏠 무사히 집까지' }); if (!penaltyCount.pedestrian) badges.push({ text: '🛡 안전 보행' }); }
     else {
       var acc = st.stops ? st.correct / st.stops : 0;

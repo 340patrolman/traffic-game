@@ -10,7 +10,7 @@ TG.study = (function () {
     // 닫기 단추가 카드 **맨 아래**에만 있어서, 카드가 길어지면 빠져나올 방법이 없었다
     // (소유자: 「교통사고 12대 중과실로 들어가면 빠져 나올 방법이 없어 갖혀버리게 되고」).
     // 위쪽에 붙어 따라다니는 닫기 줄을 둔다. Esc 와 바깥 클릭으로도 닫힌다.
-    var html = '<div class="card wide"><div class="study-top"><span class="badge">학습 · 12대 중과실 · 어린이보호구역 · 자전거·킥보드</span>' +
+    var html = '<div class="card wide"><div class="study-top"><span class="badge">학습 · 12대 중과실 · 어린이보호구역 · 안전띠 · 자전거·킥보드</span>' +
       '<button id="btnStudyX" class="study-x" aria-label="닫기">✕ 닫기</button></div><h2>' + esc(S ? S.title : '교통사고 12대 중과실') + '</h2>';
     html += '<div class="dim small">' + esc(S ? S.source : '법령 데이터(laws.json)를 읽지 못했습니다 — 파일로 열면 브라우저가 fetch 를 막습니다. 정적 서버나 GitHub Pages 로 여세요.') + '</div>';
     html += '<div class="cards">';
@@ -22,7 +22,7 @@ TG.study = (function () {
     });
     html += '</div>';
     // ② 어린이보호구역 · ③ 자전거·킥보드 — 학년별로 묶어서. 항목에 scene 이 있으면 「게임에서 시연」 버튼이 붙는다.
-    [G.laws && G.laws.schoolZone, G.laws && G.laws.rideSafe].forEach(function (R) {
+    [G.laws && G.laws.schoolZone, G.laws && G.laws.carSafe, G.laws && G.laws.rideSafe].forEach(function (R) {
     if (R && R.items && R.items.length) {
       html += '<h2 style="margin-top:22px">' + esc(R.title) + '</h2>';
       html += '<div class="dim small">' + esc(R.source) + '</div>';
@@ -42,6 +42,7 @@ TG.study = (function () {
       });
     }
     });
+    if (G.kidCourse && G.kidCourse.html) html += G.kidCourse.html();
     html += '<div class="dim small">이 게임은 법령의 정본이 아닙니다. 범칙금·벌점·조문은 T-Book 과 법령 원문으로 확인하세요.</div><button id="btnStudyClose" class="primary">닫기</button></div>';
     el.innerHTML = html;
     el.querySelectorAll('[data-scene]').forEach(function (b) { b.addEventListener('click', function () { close(); if (G.startScenario) G.startScenario(b.getAttribute('data-scene')); }); });
