@@ -629,8 +629,18 @@ TG.buildTerrain = function (scene, city, cfg) {
   });
 
   // 나무·농가
-  var trees = new G(), trng = TG.makeRNG(1234), placed = 0;
+  var trees = new G(), trng = TG.makeRNG(1234), placed = 0, treeSkip = 0;
+  // **나무는 포장 위에 서지 않는다.** 연결로 가로수를 「그 도로의 가장자리」로만 계산해 심다 보니
+  // 그 자리가 **다른 도로(순환도로·램프) 한가운데**인 경우가 있었다 — 차로 위에 나무가 서 있었다(소유자 신고).
+  // 어디에 심든 이 문을 지나게 한다. 도로 반폭 + 3.5m 안이면 심지 않는다.
+  function treeOK(x, z) {
+    var q = nearest(x, z, true);
+    if (q && q.dist < q.p.half + 3.5) return false;
+    if (city && city.onRoadAny && city.onRoadAny(x, z)) return false;   // 도시 격자 포장도 피한다
+    return true;
+  }
   function tree(x, z, sc, dark) {
+    if (!treeOK(x, z)) { treeSkip++; return; }
     var y = groundAt(x, z), col = dark ? [0x3f6b32, 0x476f38, 0x385f2c][placed % 3] : [0x4f8a3a, 0x5c9a42, 0x437a33][placed % 3];
     trees.cylinder(x, y, z, 0.22 * sc, 0.16 * sc, 2.4 * sc, 5, 0x6b4a2b);
     trees.cylinder(x, y + 1.6 * sc, z, 2.1 * sc, 0.9 * sc, 2.2 * sc, 6, col, false);
@@ -643,7 +653,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     if (tx2 > -80 && tx2 < 400 && tz2 > -80 && tz2 < 400) continue;
     var hh2 = hBase(tx2, tz2) + river(tx2, tz2);
     if (hh2 < 0.3 || hh2 > 120) continue;
-    var q8 = nearest(tx2, tz2, true); if (q8 && q8.dist < q8.p.half + 6) continue;
+    var q8 = nearest(tx2, tz2, true); if (q8 && q8.dist < q8.p.half + 6) continue;   // tree() 안에서 한 번 더 본다
     if (trng() > (hh2 < 14 ? 0.22 : 0.8)) continue;
     tree(tx2, tz2, hh2 < 14 ? 0.9 + trng() * 0.6 : 1.4 + trng() * 1.4, hh2 > 30);
   }
@@ -800,6 +810,7 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   return {
     links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
     heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}

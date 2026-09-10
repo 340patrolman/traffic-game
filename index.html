@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.37">
+<link rel="stylesheet" href="css/style.css?v=0.9.38">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -80,6 +80,8 @@
   <!-- 보행자·어린이 모드: 손 들기 -->
   <div class="tbtn hand" id="btnHand" title="손 들기(G) — 어린이 횡단 4단계: 멈춘다 · 본다 · 손을 든다 · 걷는다"><span class="ico">✋</span><span>손 들기</span></div>
   <div class="tbtn footbtn" id="btnFoot" title="하차·승차(X): 완전히 정차한 뒤 내려서 걸어갑니다"><span class="ico">🚶</span><span>하차</span></div>
+  <!-- 후진(R): 스틱을 아래로 오래 눌러도 되지만, 그건 찾기 어렵다 — 누르는 동안 바로 뒤로 간다 -->
+  <div class="tbtn revbtn" id="btnRev" data-btn="rev" title="후진(R) — 누르는 동안 뒤로 갑니다"><span class="ico">🔙</span><span>후진</span></div>
   <div class="tbtn boxbtn" id="btnBox" title="신호제어기 조작판(F): 제어함 3m 안에서 열립니다"><span class="ico">🔧</span><span>제어함</span></div>
   <div class="tbtn runbtn" id="btnRun" title="걷기/달리기 전환(Shift 누르면 달리기)"><span class="ico">🚶</span><span>걷기</span></div>
   <!-- 어린이 보행 교실: 횡단보도 단계 -->
@@ -252,41 +254,41 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.37"></script>
-<script src="js/config.js?v=0.9.37"></script>
-<script src="js/rng.js?v=0.9.37"></script>
-<script src="js/save.js?v=0.9.37"></script>
-<script src="js/perf.js?v=0.9.37"></script>
-<script src="js/emblem.js?v=0.9.37"></script>
-<script src="js/textures.js?v=0.9.37"></script>
-<script src="js/audio.js?v=0.9.37"></script>
-<script src="js/city.js?v=0.9.37"></script>
-<script src="js/world.js?v=0.9.37"></script>
-<script src="js/terrain.js?v=0.9.37"></script>
-<script src="js/weather.js?v=0.9.37"></script>
-<script src="js/signals.js?v=0.9.37"></script>
-<script src="js/vehmesh.js?v=0.9.37"></script>
-<script src="js/vehicle.js?v=0.9.37"></script>
-<script src="js/traffic.js?v=0.9.37"></script>
-<script src="js/peds.js?v=0.9.37"></script>
-<script src="js/character.js?v=0.9.37"></script>
-<script src="js/vfx.js?v=0.9.37"></script>
-<script src="js/response.js?v=0.9.37"></script>
-<script src="js/junction.js?v=0.9.37"></script>
-<script src="js/chase.js?v=0.9.37"></script>
-<script src="js/intro.js?v=0.9.37"></script>
-<script src="js/walker.js?v=0.9.37"></script>
-<script src="js/rail.js?v=0.9.37"></script>
-<script src="js/enforcement.js?v=0.9.37"></script>
-<script src="js/facil.js?v=0.9.37"></script>
-<script src="js/layers.js?v=0.9.37"></script>
-<script src="js/study.js?v=0.9.37"></script>
-<script src="js/drunkproc.js?v=0.9.37"></script>
-<script src="js/kidcourse.js?v=0.9.37"></script>
-<script src="js/hud.js?v=0.9.37"></script>
-<script src="js/minimap.js?v=0.9.37"></script>
-<script src="js/input.js?v=0.9.37"></script>
-<script src="js/main.js?v=0.9.37"></script>
+<script src="lib/three.min.js?v=0.9.38"></script>
+<script src="js/config.js?v=0.9.38"></script>
+<script src="js/rng.js?v=0.9.38"></script>
+<script src="js/save.js?v=0.9.38"></script>
+<script src="js/perf.js?v=0.9.38"></script>
+<script src="js/emblem.js?v=0.9.38"></script>
+<script src="js/textures.js?v=0.9.38"></script>
+<script src="js/audio.js?v=0.9.38"></script>
+<script src="js/city.js?v=0.9.38"></script>
+<script src="js/world.js?v=0.9.38"></script>
+<script src="js/terrain.js?v=0.9.38"></script>
+<script src="js/weather.js?v=0.9.38"></script>
+<script src="js/signals.js?v=0.9.38"></script>
+<script src="js/vehmesh.js?v=0.9.38"></script>
+<script src="js/vehicle.js?v=0.9.38"></script>
+<script src="js/traffic.js?v=0.9.38"></script>
+<script src="js/peds.js?v=0.9.38"></script>
+<script src="js/character.js?v=0.9.38"></script>
+<script src="js/vfx.js?v=0.9.38"></script>
+<script src="js/response.js?v=0.9.38"></script>
+<script src="js/junction.js?v=0.9.38"></script>
+<script src="js/chase.js?v=0.9.38"></script>
+<script src="js/intro.js?v=0.9.38"></script>
+<script src="js/walker.js?v=0.9.38"></script>
+<script src="js/rail.js?v=0.9.38"></script>
+<script src="js/enforcement.js?v=0.9.38"></script>
+<script src="js/facil.js?v=0.9.38"></script>
+<script src="js/layers.js?v=0.9.38"></script>
+<script src="js/study.js?v=0.9.38"></script>
+<script src="js/drunkproc.js?v=0.9.38"></script>
+<script src="js/kidcourse.js?v=0.9.38"></script>
+<script src="js/hud.js?v=0.9.38"></script>
+<script src="js/minimap.js?v=0.9.38"></script>
+<script src="js/input.js?v=0.9.38"></script>
+<script src="js/main.js?v=0.9.38"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

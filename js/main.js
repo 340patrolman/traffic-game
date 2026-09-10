@@ -580,7 +580,9 @@
     if (onFoot()) { document.getElementById('stopbarWrap').style.display = 'none'; hud.setTimer(G.timeLeft); walkGuide(); }
     else { document.getElementById('stopbarWrap').style.display = settings.stopbar ? '' : 'none'; document.getElementById('section').className = 'section'; }
     document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('dutymode', G.mode === 'duty');
-    document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase');   // 하차 버튼
+    // 하차 버튼. **교차로 근무(하차 근무)도 포함한다** — v0.9.33 부터 차로 도착해 내려야 근무가 시작되는데
+    // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
+    document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
     hud.notice(G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);

@@ -55,17 +55,25 @@ TG.Enforcement = function (game) {
                 pm: '개인형 이동장치 보도 통행', pmHelmet: 'PM 인명보호장구 미착용', pmTwo: 'PM 2인 이상 탑승',
                 bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
   this.nameOf = function (id) { return NAMES[id] || id; };
+  this.optionsFor = function (car) { return carOptions(car); };   // 검증에서 보기 목록을 직접 본다
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
     var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'nosignal'];
     if (car.isMoto) ids = ['motorcycle', 'signal', 'pedestrian', 'unsafe'];
     if (car.isBike) ids = ['bicycle', 'bikeCross', 'signal', 'pedestrian'];
     if (car.isPM) ids = ['pm', 'pmHelmet', 'pmTwo', 'bikeCross'];
+    // **비틀거리는 차는 언제나 「음주운전 의심」을 보기에 둔다.** 눈으로 사행 주행을 보고 세웠는데
+    // 고를 항목이 없으면 단속을 할 수가 없다(소유자: 「음주의심차량을 단속하려면 단속항목에 있어야 하는데 없다」).
+    var forced = false;
+    if (car.trait === 'drunk' || (car.violation && car.violation.type === 'drunk')) {
+      if (ids.indexOf('drunk') < 0) ids[ids.length - 1] = 'drunk';
+      forced = true;   // 아래 무작위 보기가 이 자리를 **덮어쓰지 않게** 한다(처음엔 덮어써서 음주가 사라졌다)
+    }
     // 이 차량에 기록된 위반이 기본 보기에 없으면(휴대전화·꽁초·동물·실선 등) 하나를 바꿔 넣는다 — 정답이 항상 보기 안에 있게
     var v = car.violation && car.violation.type;
     if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
-    else if (!v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
-    else if (!v) { var extra = ['phone', 'litter', 'animal', 'solidline', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger'][Math.floor(Math.random() * 9)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
+    else if (!forced && !v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
+    else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'solidline', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger'][Math.floor(Math.random() * 9)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
     var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
     return out;
