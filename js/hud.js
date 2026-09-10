@@ -53,7 +53,13 @@ TG.hud = (function () {
   }
   function vignette(a) { el.vignette.style.opacity = TG.clamp(a, 0, 1); }
   function show(id, on) { el[id].style.display = on ? 'flex' : 'none'; }
-  function showTitle(best) { el.best.textContent = best ? '최고 기록 ' + best.score + '점 · 단속 ' + best.stops + '건' : ''; show('title', true); }
+  // 타이틀에 **누적 근무 일지**를 함께 보인다 — 한 판이 끝나면 아무것도 안 남던 것을 메운다.
+  function showTitle(best, careerLine) {
+    var a = best ? '최고 기록 ' + best.score + '점 · 단속 ' + best.stops + '건' : '';
+    el.best.textContent = careerLine ? (a ? a + '\n' + careerLine : careerLine) : a;
+    el.best.classList.toggle('two', !!(a && careerLine));
+    show('title', true);
+  }
   function hideTitle() { show('title', false); }
   function showIntro(on) { show('intro', on); }
   // 인트로 자막: 배열 중 idx 까지 보이게
@@ -74,7 +80,10 @@ TG.hud = (function () {
       '<div class="row"><span>목격한 위반</span><b>' + stats.witnessed + '건</b></div>' +
       (stats.incidents ? '<div class="row"><span>✅ 현장 안전조치</span><b>' + stats.incidents + '건</b></div>' : '') +
       ((stats.videos || stats.radios || stats.handedOver) ? '<div class="row"><span>📹 영상 단속 · 📡 무전</span><b>' + (stats.videos || 0) + '건 · ' + (stats.radios || 0) + '회' + (stats.handedOver ? ' (인계 ' + stats.handedOver + ')' : '') + '</b></div>' : '') +
-      '<div class="lesson">오늘 배운 것: ' + stats.lesson + '</div>' + (stats.reason ? '<div class="reason">' + stats.reason + '</div>' : '');
+      '<div class="lesson">오늘 배운 것: ' + stats.lesson + '</div>' + (stats.reason ? '<div class="reason">' + stats.reason + '</div>' : '') +
+      // 틀린 것을 그냥 지나치지 않는다 — 무엇을 다시 봐야 하는지 여기서 말해 준다
+      (stats.review ? '<div class="review">📕 다시 볼 것 · ' + stats.review + '</div>' : '') +
+      (stats.career ? '<div class="career">📒 ' + stats.career + '</div>' : '');
     show('end', true);
   }
   function hideEnd() { show('end', false); }

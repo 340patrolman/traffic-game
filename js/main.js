@@ -83,6 +83,8 @@
     hud.showTouch(true);   // 원형 조작판·경광등 버튼은 PC(마우스)에서도 항상 보인다
     document.body.classList.toggle('desktop', !input.isTouch);
     minimap = new TG.Minimap(document.getElementById('minimap'), city, terrain); G.minimap = minimap;
+    // 근무 일지 + 오답 노트는 **처음부터** 있어야 한다 — 타이틀 화면에도 누적 기록이 뜬다.
+    if (TG.Career) G.career = new TG.Career(G);
     minimap.layers = layers;   // 미니맵에도 레이어를 겹쳐 그린다
     TG.audio.setMuted(!settings.sound);
     TG.perf.onChange(function (scale, shadows) { world.sun.castShadow = shadows; });
@@ -217,7 +219,7 @@
     TG.audio.setSiren(false);
   }
   function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); if (cine) { cine.dispose(); cine = null; G.cine = null; } hud.showIntro(false); hud.showTouch(true); showTitle(); }
-  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null)); camInit = false; }
+  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null), G.career ? G.career.line() : ''); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -1400,6 +1402,14 @@
       if (walk && walk.crossings >= 4) badges.push({ text: '🚶 모범 보행 ' + walk.crossings + '회' });
     }
     st.badges = badges;
+    // 오답 노트·근무 일지를 결과 카드에 얹는다. finishShift 를 먼저 불러 오늘 판까지 센 값을 보인다.
+    if (G.career) {
+      var cs = G.career.finishShift({ score: G.score, stops: G.stats.stops, mode: G.mode });
+      var wl = G.career.wrongList();
+      st.review = wl.length ? wl.slice(0, 3).map(function (w) { return (enforcement && enforcement.nameOf ? enforcement.nameOf(w.id) : w.id) + '(' + w.left + '번 더)'; }).join(' · ') +
+        (wl.length > 3 ? ' 외 ' + (wl.length - 3) + '개' : '') + ' — 학습 화면에서 다시 보세요' : '';
+      st.career = G.career.line();
+    }
     if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
   }

@@ -108,6 +108,8 @@ TG.Enforcement = function (game) {
         kind = 'warn'; lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + NAMES[answer] + '」'); lines = lines.concat(lawLines(lawId, '승용')); lines.push('다시 관찰하고 단속하세요.'); TG.audio.bad();
       }
       game.stats.stops++; if (sel.kind === 'ped') game.stats.warned++;
+      // 오답 노트: 틀린 것은 사라지지 않고 모인다. 두 번 더 맞혀야 목록에서 빠진다.
+      if (game.career) game.career.noteAnswer(answer, choice === answer);
       game.addScore(delta, null);
       game.hud.ticketResult(lines, kind, function () {
         ticket = null; game.hud.hideTicket(); game.setPaused(false, 'ticket'); self.state = 'idle';

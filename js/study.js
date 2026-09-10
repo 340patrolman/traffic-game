@@ -42,6 +42,7 @@ TG.study = (function () {
       });
     }
     });
+    if (G.career && G.career.html) html += G.career.html();   // 근무 일지 · 다시 볼 것(오답 노트)
     if (G.kidCourse && G.kidCourse.html) html += G.kidCourse.html();
     html += '<div class="dim small">이 게임은 법령의 정본이 아닙니다. 범칙금·벌점·조문은 T-Book 과 법령 원문으로 확인하세요.</div><button id="btnStudyClose" class="primary">닫기</button></div>';
     el.innerHTML = html;

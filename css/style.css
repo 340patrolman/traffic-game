@@ -453,3 +453,9 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
 /* 절차 카드 글씨는 왼쪽 정렬 — .card 가 가운데 정렬이라 조문·본문이 가운데로 몰려 읽기 어려웠다(화면 점검) */
 .dp-step,.dp-b,.dp-res,.dp-gap{text-align:left}
 .dp-b .law,.dp-b .sit,.dp-b .tip{text-align:left}
+/* 타이틀 기록 줄이 두 줄이 될 수 있다(최고 기록 + 누적 근무 일지) */
+#best.two{white-space:pre-line;line-height:1.5}
+/* 결과 카드: 다시 볼 것(오답 노트) · 근무 일지 */
+#endStats .review{margin-top:10px;padding:8px 10px;border-radius:10px;font-size:12.5px;line-height:1.55;
+  background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.38);color:#ffd9da;text-align:left}
+#endStats .career{margin-top:6px;font-size:12px;opacity:.85;text-align:left}
