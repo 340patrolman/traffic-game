@@ -9,7 +9,7 @@ TG.Intro = function (game) {
   var NODE = city.nodes[2][2];                       // 서초역 사거리(반포대로 × 서초대로) — 인트로 교차로 근무 컷 무대
   var BOX = null, junc = null, officer = null, kid = null, guard = null, fovBase = 74;
   this.t = 0; this.done = false; this.shot = -1; this.theme = false; this.stackIdx = -1;
-  var el = { shot: null, title: null, flash: null, lines: null };
+  var el = { shot: null, title: null, flash: null, lines: null, credit: null };
   function $(id) { return document.getElementById(id); }
   function sm(u) { return u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u); }        // smoothstep
   function ease(u) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3); }   // ease-out
@@ -126,12 +126,15 @@ TG.Intro = function (game) {
     self.t = 0; self.done = false; self.shot = -1; self.theme = false; self.stackIdx = -1; self.view = null;
     self.titleOn = false; self.titleOut = false;   // 타이틀·흰 섬광은 self.shot 과 따로 센다(아래 주석)
     el.shot = $('introShot'); el.title = $('introTitle'); el.flash = $('introFlash'); el.lines = $('introLines');
+    el.credit = $('introCredit');
+    self.creditOn = false;
     self.lines = stackLines();
     game.hud.introLines(self.lines, -1);
     game.hud.showIntro(true);
     document.body.classList.remove('cine-out');
     if (el.shot) el.shot.classList.remove('on');
     if (el.title) { el.title.classList.remove('on'); el.title.classList.remove('tagon'); }
+    if (el.credit) el.credit.classList.remove('on');
     var em = $('introEmblem');
     if (em && !em.src && TG.tex.emblemPNG) { em.src = TG.tex.emblemPNG(function (u) { em.src = u; }); }   // 흰 바탕을 지운 판이 준비되면 바꿔 끼운다
     fovBase = game.camera.fov;
@@ -165,6 +168,7 @@ TG.Intro = function (game) {
     document.body.classList.add('cine-out');
     if (el.shot) el.shot.classList.remove('on');
     if (el.title) { el.title.classList.remove('on'); el.title.classList.remove('tagon'); }
+    if (el.credit) { el.credit.classList.remove('on'); self.creditOn = false; }
     // 1인칭 샷을 썼으면 3인칭으로 되돌리고, 안개·근접 평면도 원래대로
     if (game.player && game.player.setView) game.player.setView('chase');
     self.view = null;
@@ -230,6 +234,12 @@ TG.Intro = function (game) {
     if (self.titleOn && el.flash && t >= 13.5) el.flash.classList.remove('on');
     if (t >= 13.6 && el.title) el.title.classList.add('tagon');
     if (t >= 14.3 && el.title && self.titleOn && !self.titleOut) { el.title.classList.remove('on'); self.titleOut = true; }   // 뒤 샷을 덮지 않게 물러난다
+    // 21초부터 끝까지는 자막이 없던 구간이다 — 그 자리에 자료 출처를 밝힌다.
+    // jump() 로 시간을 되감을 수 있으므로 켜는 쪽과 끄는 쪽을 둘 다 둔다(검증에서 되감는다).
+    if (el.credit) {
+      var wantCredit = t >= 21.0;
+      if (wantCredit !== self.creditOn) { el.credit.classList.toggle('on', wantCredit); self.creditOn = wantCredit; }
+    }
     if (SHOTS[i].ttl) self.shot = i;
     if (game.weather) game.weather.update(dt, cam.position);   // 석양 색·안개·조명이 실제로 적용되게(인트로 루프는 play 가 아니다)
     if (self.fogSave && game.scene.fog) { game.scene.fog.near = self.fogSave.near * 2.4; game.scene.fog.far = self.fogSave.far * 2.0; }   // weather 가 되돌린 안개를 다시 물린다

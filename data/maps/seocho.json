@@ -7,6 +7,7 @@
   "region": { "name": "서울특별시 서초구", "siDo": "11", "guGun": "650" },
   "taas": "data/taas.json",
   "taasNodes": "data/taas-nodes-seocho.json",
+  "taasFatal": "data/taas-fatal-seocho.json",
   "wgs84": {
     "note": "실제 위경도(EPSG:4326) → 이 축약 지도 좌표. u=lon-127.01, w=lat-37.49. 사당역·고속터미널역·강남역·양재역 네 지점 최소제곱 맞춤(오차 5~26m).",
     "lon0": 127.01, "lat0": 37.49,

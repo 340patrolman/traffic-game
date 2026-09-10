@@ -398,3 +398,14 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
 /* 지도 베타 표시 */
 .pl-beta{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:5px;
   background:rgba(255,207,63,.22);border:1px solid rgba(255,207,63,.8);color:#ffd86b;vertical-align:1px}
+
+/* 인트로 자료 출처 — 마지막 구간(21초~)에 아래쪽에서 조용히 뜬다. 남의 자료를 쓰면 출처를 밝힌다. */
+.intro-credit{position:absolute;left:50%;bottom:12%;transform:translate(-50%,10px);max-width:92vw;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity 1.1s ease,transform 1.1s cubic-bezier(.12,.86,.2,1);z-index:6}
+.intro-credit.on{opacity:1;transform:translate(-50%,0)}
+.intro-credit b{display:block;font-size:clamp(13px,2.1vw,19px);font-weight:800;letter-spacing:1px;color:#fff;margin-bottom:6px;
+  text-shadow:0 2px 10px rgba(0,0,0,.9),0 0 24px rgba(6,10,20,.75)}
+.intro-credit span{display:block;font-size:clamp(10px,1.6vw,14px);letter-spacing:.5px;color:#dbe5f6;font-weight:600;line-height:1.55;
+  text-shadow:0 2px 8px rgba(0,0,0,.9)}
+.intro-credit span+span{margin-top:2px}
+@media (max-width:520px){ .intro-credit{bottom:16%} .intro-credit span:last-child{display:none} }

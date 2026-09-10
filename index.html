@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.25">
+<link rel="stylesheet" href="css/style.css?v=0.9.26">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -153,6 +153,13 @@
     <div class="sub2">서울교통 순찰근무</div>
     <div class="tag">근무 연습 · 스트레스 해소 · 교통안전 홍보</div>
   </div>
+  <!-- 자료 출처 — 인트로 마지막(21초~) 자막 없던 자리에 넣는다. 남의 자료를 쓰면 출처를 밝힌다. -->
+  <div id="introCredit" class="intro-credit">
+    <b>실제 교통사고 자료를 얹었습니다</b>
+    <span>자료 · 도로교통공단 교통사고분석시스템(TAAS)</span>
+    <span>서울 서초구 사고다발지 · 교차로별 집계 · 사망사고 2020~2025</span>
+    <span>축약 지도 위의 자리라 실제 사고 지점과 다릅니다 · 개인정보는 담지 않았습니다</span>
+  </div>
   <div id="introFlash"></div>
   <div id="introSound" class="intro-sound">🔊 화면을 한 번 터치하면 소리가 납니다</div>
   <button id="introFull" class="skip full">⛶ 전체화면</button>
@@ -245,39 +252,39 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.25"></script>
-<script src="js/config.js?v=0.9.25"></script>
-<script src="js/rng.js?v=0.9.25"></script>
-<script src="js/save.js?v=0.9.25"></script>
-<script src="js/perf.js?v=0.9.25"></script>
-<script src="js/emblem.js?v=0.9.25"></script>
-<script src="js/textures.js?v=0.9.25"></script>
-<script src="js/audio.js?v=0.9.25"></script>
-<script src="js/city.js?v=0.9.25"></script>
-<script src="js/world.js?v=0.9.25"></script>
-<script src="js/terrain.js?v=0.9.25"></script>
-<script src="js/weather.js?v=0.9.25"></script>
-<script src="js/signals.js?v=0.9.25"></script>
-<script src="js/vehmesh.js?v=0.9.25"></script>
-<script src="js/vehicle.js?v=0.9.25"></script>
-<script src="js/traffic.js?v=0.9.25"></script>
-<script src="js/peds.js?v=0.9.25"></script>
-<script src="js/character.js?v=0.9.25"></script>
-<script src="js/vfx.js?v=0.9.25"></script>
-<script src="js/response.js?v=0.9.25"></script>
-<script src="js/junction.js?v=0.9.25"></script>
-<script src="js/chase.js?v=0.9.25"></script>
-<script src="js/intro.js?v=0.9.25"></script>
-<script src="js/walker.js?v=0.9.25"></script>
-<script src="js/rail.js?v=0.9.25"></script>
-<script src="js/enforcement.js?v=0.9.25"></script>
-<script src="js/facil.js?v=0.9.25"></script>
-<script src="js/layers.js?v=0.9.25"></script>
-<script src="js/study.js?v=0.9.25"></script>
-<script src="js/hud.js?v=0.9.25"></script>
-<script src="js/minimap.js?v=0.9.25"></script>
-<script src="js/input.js?v=0.9.25"></script>
-<script src="js/main.js?v=0.9.25"></script>
+<script src="lib/three.min.js?v=0.9.26"></script>
+<script src="js/config.js?v=0.9.26"></script>
+<script src="js/rng.js?v=0.9.26"></script>
+<script src="js/save.js?v=0.9.26"></script>
+<script src="js/perf.js?v=0.9.26"></script>
+<script src="js/emblem.js?v=0.9.26"></script>
+<script src="js/textures.js?v=0.9.26"></script>
+<script src="js/audio.js?v=0.9.26"></script>
+<script src="js/city.js?v=0.9.26"></script>
+<script src="js/world.js?v=0.9.26"></script>
+<script src="js/terrain.js?v=0.9.26"></script>
+<script src="js/weather.js?v=0.9.26"></script>
+<script src="js/signals.js?v=0.9.26"></script>
+<script src="js/vehmesh.js?v=0.9.26"></script>
+<script src="js/vehicle.js?v=0.9.26"></script>
+<script src="js/traffic.js?v=0.9.26"></script>
+<script src="js/peds.js?v=0.9.26"></script>
+<script src="js/character.js?v=0.9.26"></script>
+<script src="js/vfx.js?v=0.9.26"></script>
+<script src="js/response.js?v=0.9.26"></script>
+<script src="js/junction.js?v=0.9.26"></script>
+<script src="js/chase.js?v=0.9.26"></script>
+<script src="js/intro.js?v=0.9.26"></script>
+<script src="js/walker.js?v=0.9.26"></script>
+<script src="js/rail.js?v=0.9.26"></script>
+<script src="js/enforcement.js?v=0.9.26"></script>
+<script src="js/facil.js?v=0.9.26"></script>
+<script src="js/layers.js?v=0.9.26"></script>
+<script src="js/study.js?v=0.9.26"></script>
+<script src="js/hud.js?v=0.9.26"></script>
+<script src="js/minimap.js?v=0.9.26"></script>
+<script src="js/input.js?v=0.9.26"></script>
+<script src="js/main.js?v=0.9.26"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

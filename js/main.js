@@ -1383,7 +1383,9 @@
         if (ht.serious) det += ' · 중상 ' + ht.serious;
         // 교차로별 집계에는 사고경위(법규위반)가 있다 — 그것을 보여 주는 것이 홍보에 쓸모 있다
         if (ht.violations && ht.violations.length) det += ' · ' + ht.violations.slice(0, 2).map(function (v) { return v[0] + ' ' + v[1]; }).join(' · ');
-        hud.hint((ht.example ? '⚠ (예시) ' : '⚠ ') + hot.layer.name + ' — ' + (ht.name || '') +
+        // 사망사고 한 건은 건수로 세지 않는다 — 그날의 조건을 그대로 읽어 준다
+        if (ht.caseLine) hud.hint('🕯 ' + hot.layer.name + ' — ' + (ht.year || '') + ' · ' + ht.name + ' · ' + ht.caseLine + ' · 위치 근사 · 감속');
+        else hud.hint((ht.example ? '⚠ (예시) ' : '⚠ ') + hot.layer.name + ' — ' + (ht.name || '') +
           (ht.year ? ' (' + ht.year + ')' : '') + ' · ' + det +
           (ht.verified ? '' : ' (확인 중)') + (ht.approx ? ' · 위치 근사' : '') + ' · 감속');
       }

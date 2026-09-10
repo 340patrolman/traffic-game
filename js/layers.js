@@ -12,6 +12,7 @@ TG.Layers = function (game, city, cfg, scene) {
   var on = {};               // id → boolean
   var taas = null;           // data/taas.json
   var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
+  var fatal = null;          // data/taas-fatal-<지도>.json — 사망사고 한 건씩(집계하지 않는다)
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
   var risk = {};
@@ -47,9 +48,15 @@ TG.Layers = function (game, city, cfg, scene) {
         if (self.refreshPanel) self.refreshPanel();   // 자료가 늦게 와도 패널이 비어 있지 않게
         if (cb) cb(null, j);
       };
-      if (!nf) { after(); return; }
-      return fetch(nf).then(function (r2) { return r2.json(); }).then(function (n2) { nodes = n2; after(); })
-        .catch(function () { after(); });
+      // 사망사고는 건수가 적어 뭉치지 않는다 — 한 건씩 사례로 읽는다
+      var ff = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasFatal) || (TG.MAP && TG.MAP.taasFatal) || null;
+      var loadFatal = function () {
+        if (!ff) { after(); return; }
+        fetch(ff).then(function (r3) { return r3.json(); }).then(function (f3) { fatal = f3; after(); }).catch(function () { after(); });
+      };
+      if (!nf) { loadFatal(); return; }
+      return fetch(nf).then(function (r2) { return r2.json(); }).then(function (n2) { nodes = n2; loadFatal(); })
+        .catch(function () { loadFatal(); });
     }).catch(function (e) { defsBuild(); if (self.refreshPanel) self.refreshPanel(); if (cb) cb(e.message); });
   }
   function defsBuild() {
@@ -65,6 +72,17 @@ TG.Layers = function (game, city, cfg, scene) {
                    vehicles: n.vehicles, roadForms: n.roadForms, year: nodes.years, verified: true, approx: true };
         }) },
         desc: (nodes.years || '') + ' · 사고 ' + (nodes.collected || 0) + '건 중 교차로 반경 약 600m 안 ' + (nodes.assigned || 0) + '건' });
+    }
+    if (fatal && fatal.cases && fatal.cases.length) {
+      // 사망사고: 원의 크기로 세기를 나타내지 않는다 — 한 건은 한 건이다. 크기를 고정한다.
+      defs.push({ id: 'taasFatal', name: '사망사고', color: '#ff2d2d', kind: 'taas',
+        src: { items: fatal.cases.filter(function (c) { return c.inMap; }).map(function (c) {
+          return { xz: [c.gx, c.gz], radius: 11, name: c.typeH + ' · ' + c.typeM, year: c.y + '년 ' + c.m + '월',
+            total: null, death: c.dead, serious: c.ser, verified: true, approx: true, fatal: true,
+            caseLine: c.tz + ' ' + c.hh + '시 · ' + c.dow + '요일 · ' + c.wx + ' · ' + c.road + ' · ' + c.viol +
+              ' · ' + c.wr + (c.dm && c.dm !== '없음' ? ' → ' + c.dm : '') };
+        }) },
+        desc: fatal.years + ' 사망사고 ' + fatal.collected + '건 중 이 지도 안 ' + fatal.inMap + '건 — 한 건씩 사례로 둔다' });
     }
     defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
@@ -89,6 +107,7 @@ TG.Layers = function (game, city, cfg, scene) {
     var all = d.src.items || [], real = realItems(d);
     if (!all.length) return '데이터 없음 — TAAS 자료를 data/taas.json 에 넣으면 지도에 뜹니다';
     if (!real.length) return '예시만 있습니다 — 실제 TAAS 값으로 교체하세요';
+    if (d.id === 'taasFatal') return real.length + '건 · 사망 ' + real.reduce(function (s, it) { return s + (it.death || 0); }, 0) + '명 · 원 크기는 세기가 아니라 자리만 나타낸다';
     var ys = {}; real.forEach(function (it) { if (it.year) ys[it.year] = 1; });
     var yl = Object.keys(ys).sort();
     var ap = real.filter(function (it) { return it.approx; }).length;
@@ -99,6 +118,10 @@ TG.Layers = function (game, city, cfg, scene) {
   self.nodesNote = function () { return nodes ? { source: nodes.source, attribution: nodes.attribution, years: nodes.years,
     collected: nodes.collected, assigned: nodes.assigned, outside: nodes.outside, byGrade: nodes.byGrade,
     method: nodes.method, caution: nodes.caution, notice: nodes.notice, wholeGu: nodes.wholeGu } : null; };
+  self.fatalNote = function () { return fatal ? { source: fatal.source, attribution: fatal.attribution, years: fatal.years,
+    collected: fatal.collected, inMap: fatal.inMap, outsideMap: fatal.outsideMap, casualties: fatal.casualties,
+    byYear: fatal.byYear, byViolation: fatal.byViolation, byType: fatal.byType, byTimeZone: fatal.byTimeZone,
+    byOffender: fatal.byOffender, byVictim: fatal.byVictim, method: fatal.method, privacy: fatal.privacy, caution: fatal.caution } : null; };
   self.sourceNote = function () { return taas ? { source: taas.source, sourceUrl: taas.sourceUrl, attribution: taas.attribution,
     years: taas.years, howto: taas.howto, updated: taas.updated, region: taas.region, criteria: taas.criteria, mapping: taas.mapping } : null; };
 
@@ -138,7 +161,7 @@ TG.Layers = function (game, city, cfg, scene) {
   function hex(c) { return parseInt(String(c).replace('#', ''), 16) || 0xffffff; }
   // 원 크기: 사고건수 + 사망·중상 가중. TAAS 다발지 기준은 반경 100m 라 최대도 그 안에 둔다.
   function radOf(it) {
-    if (it.radius) return it.radius;
+    if (it.radius) return it.radius;   // 사망사고처럼 크기를 고정한 항목
     if (it.types) {   // 교차로별 집계(건수가 수백) — 제곱근으로 눌러 화면을 덮지 않게
       var t = (it.total || 0) + (it.death || 0) * 20;
       return Math.max(12, Math.min(38, 8 + Math.sqrt(t) * 2.0));
@@ -213,7 +236,8 @@ TG.Layers = function (game, city, cfg, scene) {
           var p = posOf(it); if (!p) return;
           var r = radOf(it);
           g.beginPath(); g.arc(mx(p[0]), mz(p[1]), Math.max(2.5, r * 0.09) * K, 0, Math.PI * 2);
-          g.fillStyle = d.color + 'aa'; g.fill();
+          // 두 층을 같이 켜면 점이 74개가 되어 미니맵의 도로가 안 보였다 — 채움을 묽게 하고 테두리로 자리를 잡는다
+          g.fillStyle = d.color + '55'; g.fill();
           g.strokeStyle = d.color; g.lineWidth = 1.1 * K; g.stroke();
         });
       } else if (d.kind === 'risk') {
@@ -259,6 +283,16 @@ TG.Layers = function (game, city, cfg, scene) {
           nn.wholeGu.violations.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
         h += '<div class="pl-min">' + lesc(nn.method) + '</div>';
         h += '<div class="pl-min">개인정보 · ' + lesc(nn.notice) + '</div>';
+      }
+      var fn = self.fatalNote();
+      if (fn) {
+        h += '<div class="pl-note">사망사고 · ' + lesc(fn.years) + ' ' + fn.collected + '건 (사망 ' + fn.casualties['사망'] + '명) · 이 지도 안 ' + fn.inMap + '건 · 바깥 ' + fn.outsideMap + '건</div>';
+        h += '<div class="pl-min">연도별 · ' + Object.keys(fn.byYear).map(function (y) { return y + '년 ' + fn.byYear[y]; }).join(' · ') + '</div>';
+        h += '<div class="pl-min">법규위반 · ' + fn.byViolation.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
+        h += '<div class="pl-min">가해 차종 · ' + fn.byOffender.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
+        h += '<div class="pl-min">피해 · ' + fn.byVictim.slice(0, 5).map(function (v) { return lesc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
+        h += '<div class="pl-min">개인정보 · ' + lesc(fn.privacy) + '</div>';
+        h += '<div class="pl-min">' + lesc(fn.caution) + '</div>';
       }
       if (src.mapping) h += '<div class="pl-min">좌표 변환 · ' + lesc(src.mapping) + '</div>';
       h += '<div class="pl-min">넣는 방법 · ' + lesc(src.howto) + '</div>';

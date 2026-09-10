@@ -11,6 +11,7 @@
       "file": "data/maps/seocho.json",
       "taas": "data/taas.json",
       "taasNodes": "data/taas-nodes-seocho.json",
+      "taasFatal": "data/taas-fatal-seocho.json",
       "region": { "siDo": "11", "guGun": "650" }
     }
   ],
