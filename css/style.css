@@ -409,3 +409,10 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
   text-shadow:0 2px 8px rgba(0,0,0,.9)}
 .intro-credit span+span{margin-top:2px}
 @media (max-width:520px){ .intro-credit{bottom:16%} .intro-credit span:last-child{display:none} }
+
+/* 학습 화면(12대 중과실): 위에 붙어 따라오는 닫기 줄 — 카드가 길어도 빠져나올 수 있다 */
+.study .card.wide .study-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:-6px -4px 8px;padding:8px 4px;background:linear-gradient(180deg,rgba(11,16,28,.97) 0%,rgba(11,16,28,.92) 70%,rgba(11,16,28,0) 100%)}
+.study .study-x{flex:0 0 auto;min-height:40px;padding:8px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.10);color:#eef3fb;font-weight:800;font-size:13px;cursor:pointer}
+.study .study-x:hover{background:rgba(255,255,255,.18)}

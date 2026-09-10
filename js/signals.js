@@ -11,6 +11,18 @@ TG.Signals = function (city, world, cfg) {
   }); });
   function keyOf(node) { return node.i + ',' + node.j; }
   function greenFor(node, axis) { var c = ctrl[keyOf(node)]; return axis === 'v' ? c.gv : c.gh; }
+  // ↓ 아래 raiseToPedMin() 은 ctrl 을 다 만든 뒤 이 파일 끝에서 한 번 부른다.
+  // 기본 녹색(cfg.SIG_GREEN)이 넓은 횡단보도의 보행 시간을 못 품는 교차로가 있었다.
+  // 그러면 pedTime 이 「차량 녹색 − 2」로 깎여, 보행 신호를 보고 제때 출발해도 다 건너기 전에 적색이 됐다
+  // (소유자: 「횡단보도 보행자 신호가 너무 짧아서 제 시간에 출발해도 빨간불이 되는경우가 있다」).
+  // 그래서 초기값을 교차로마다 greenMin 까지 끌어올린다 — 보행 시간이 줄어드는 일이 없어진다.
+  function raiseToPedMin() {
+    for (var k in ctrl) {
+      var kn = k.split(','), nd = city.nodes[+kn[0]][+kn[1]], c = ctrl[k];
+      c.gv = Math.max(c.gv, greenMin(nd, 'v'));
+      c.gh = Math.max(c.gh, greenMin(nd, 'h'));
+    }
+  }
   function cycleOf(node) { var c = ctrl[keyOf(node)]; return c.gv + c.gh + 2 * (Y + R); }
   // 녹색 시간 하한: 그 방향의 최소 녹색과, 직각 횡단보도의 보행 시간 + 2초. **보행 시간은 줄일 수 없다**(소유자 강조).
   function greenMin(node, axis) {
@@ -35,7 +47,8 @@ TG.Signals = function (city, world, cfg) {
     var idx = crossAxis === 'v' ? node.i : node.j;
     var len = 2 * city.sideOff(crossAxis, idx);
     var gAx = crossAxis === 'v' ? 'h' : 'v';   // 이 횡단보도는 직각 축 차량 녹색 동안 켜진다
-    return Math.max(cfg.PED_WALK, Math.min(greenFor(node, gAx) - 2, 5 + len / 1.15));
+    // 진입 5초 + 횡단거리 ÷ 1.15m/s — **차량 녹색 길이로 깎지 않는다**. 짧으면 차량 녹색을 늘리는 쪽이다(raiseToPedMin).
+    return Math.max(cfg.PED_WALK, 5 + len / 1.15);
   }
   // 지금 녹색인 축과 경과·지속 시간(전환 중이면 null)
   function greenNow(node) {
@@ -155,6 +168,7 @@ TG.Signals = function (city, world, cfg) {
     else t = s === 'green' ? Hv + 0.5 : s === 'yellow' ? Hv + c.gh + 0.5 : 0.5;
     ctrl[node.i + ',' + node.j].t = t;
   }
+  raiseToPedMin();   // 어느 교차로에서도 보행 시간이 차량 녹색에 밀려 줄어들지 않게, 처음부터 녹색을 충분히 준다
   return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
            greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf };

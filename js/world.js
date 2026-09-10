@@ -378,7 +378,11 @@
     for (var hi = 0; hi < xs.length; hi++) for (var hj = 0; hj < zs.length; hj++) {
       var nd = city.nodes[hi][hj];
       for (var hd = 0; hd < 4; hd++) {
-        if (!city.nodeFrom(nd, (hd + 2) % 4) && !city.exitFor(nd, (hd + 2) % 4)) continue;
+        // 이 접근로로 차가 올 수 있으면 신호등을 세운다 — 옆 교차로에서 오거나(nodeFrom),
+        // 연결로에서 나오거나(exitFor), 짧은 스텁 도로에서 나오거나(hasStub). 스텁을 빼먹어
+        // 방배로·신반포로 교차로와 잠원역 사거리가 사거리인데 신호등이 3개뿐이었다.
+        var opp2 = (hd + 2) % 4;
+        if (!city.nodeFrom(nd, opp2) && !city.exitFor(nd, opp2) && !city.hasStub(nd, opp2)) continue;
         var f2 = TG.DIR_VEC[hd], r2 = [-f2[1], f2[0]], rd2 = city.roadOf(nd, hd), halfA = city.halfOf(rd2.axis, rd2.idx), lanes = city.lanesOf(rd2.axis, rd2.idx);
         // 차량 신호등 기둥은 **보행 신호등과 같은 자리**(보도 바깥선)에 세운다 — 전에는 차도 가장자리에서 1.6m,
         // 즉 보도 한가운데라 걸어가는 사람 앞을 막았다(소유자: 「신호등 시설물 위치를 보행자 신호등 있는 곳에 같이」). 암은 그만큼 길어진다.

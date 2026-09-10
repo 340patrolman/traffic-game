@@ -7,7 +7,11 @@ TG.study = (function () {
   function render(G) {
     if (!el) { el = document.createElement('div'); el.id = 'study'; el.className = 'overlay study'; document.body.appendChild(el); }
     var S = G.laws && G.laws.study12;
-    var html = '<div class="card wide"><div class="badge">학습 · 12대 중과실 · 어린이보호구역 · 자전거·킥보드</div><h2>' + esc(S ? S.title : '교통사고 12대 중과실') + '</h2>';
+    // 닫기 단추가 카드 **맨 아래**에만 있어서, 카드가 길어지면 빠져나올 방법이 없었다
+    // (소유자: 「교통사고 12대 중과실로 들어가면 빠져 나올 방법이 없어 갖혀버리게 되고」).
+    // 위쪽에 붙어 따라다니는 닫기 줄을 둔다. Esc 와 바깥 클릭으로도 닫힌다.
+    var html = '<div class="card wide"><div class="study-top"><span class="badge">학습 · 12대 중과실 · 어린이보호구역 · 자전거·킥보드</span>' +
+      '<button id="btnStudyX" class="study-x" aria-label="닫기">✕ 닫기</button></div><h2>' + esc(S ? S.title : '교통사고 12대 중과실') + '</h2>';
     html += '<div class="dim small">' + esc(S ? S.source : '법령 데이터(laws.json)를 읽지 못했습니다 — 파일로 열면 브라우저가 fetch 를 막습니다. 정적 서버나 GitHub Pages 로 여세요.') + '</div>';
     html += '<div class="cards">';
     (S ? S.items : []).forEach(function (it, i) {
@@ -42,6 +46,8 @@ TG.study = (function () {
     el.innerHTML = html;
     el.querySelectorAll('[data-scene]').forEach(function (b) { b.addEventListener('click', function () { close(); if (G.startScenario) G.startScenario(b.getAttribute('data-scene')); }); });
     document.getElementById('btnStudyClose').addEventListener('click', close);
+    document.getElementById('btnStudyX').addEventListener('click', close);
+    el.addEventListener('click', function (e) { if (e.target === el) close(); });   // 카드 바깥을 누르면 닫힌다
   }
   function open(G) { render(G); el.style.display = 'flex'; isOpen = true; }
   function close() { if (el) el.style.display = 'none'; isOpen = false; }

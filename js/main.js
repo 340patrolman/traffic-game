@@ -45,9 +45,13 @@
     camera = new THREE.PerspectiveCamera(62, 1, 0.5, 2600);
 
     city = TG.buildCity(C);
-    world = TG.buildWorld(scene, city, C);
+    // **순서가 중요하다.** world 가 terrain 보다 먼저 만들어지면 `city.exitFor` 가 아직 null 이라
+    // 연결로에서 들어오는 접근로에 차량 신호등이 안 세워졌다 — 강남역·고속터미널·이수역·예술의전당·
+    // 잠원역·방배로 신반포로 여섯 곳이 사거리인데 신호등이 3개뿐이었다(소유자: 「사거리 신호등이 표현 안된곳도 있고」).
+    // world.js 는 terrain 을 전혀 쓰지 않으므로 terrain 을 먼저 만들고 붙인 뒤 world 를 만든다.
     terrain = TG.buildTerrain(scene, city, C);
     city.attachTerrain(terrain);
+    world = TG.buildWorld(scene, city, C);
     weather = new TG.Weather(scene, world, terrain, city, renderer); G.weather = weather;
     if (!TG.WEATHERS[settings.weather]) settings.weather = 'auto';
     // 티북 연동: 티북의 「교통경찰GAME」 링크가 ?w=날씨종류&temp=기온&t=테마 를 붙여 오면 그 값으로 시간대·날씨를 맞춘다(설정보다 우선, 이번 실행만)
@@ -443,7 +447,10 @@
     input.bindTap($('btnFoot'), footToggle); input.onKey('KeyX', footToggle);
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
-    input.onKey('Escape', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro(); });
+    input.onKey('Escape', function () {
+      if (TG.study && TG.study.isOpen()) { TG.study.close(); return; }   // 학습 화면이 열려 있으면 그것부터 닫는다
+      if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro();
+    });
     input.onKey('KeyP', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
     input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } });
     input.onKey('Space', function () { if (G.state === 'intro') endIntro(); });
