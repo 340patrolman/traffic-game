@@ -79,6 +79,7 @@ TG.hud = (function () {
       '<div class="row"><span>안전 주행 감점</span><b>' + stats.penalty + '</b></div>' +
       '<div class="row"><span>목격한 위반</span><b>' + stats.witnessed + '건</b></div>' +
       (stats.incidents ? '<div class="row"><span>✅ 현장 안전조치</span><b>' + stats.incidents + '건</b></div>' : '') +
+      (stats.dispatches ? '<div class="row"><span>🚨 112 긴급출동</span><b>' + stats.dispatches + '건 · 제시간 ' + (stats.dispatchOnTime || 0) + (stats.emergFast ? ' · 교차로 과속 ' + stats.emergFast : '') + '</b></div>' : '') +
       ((stats.videos || stats.radios || stats.handedOver) ? '<div class="row"><span>📹 영상 단속 · 📡 무전</span><b>' + (stats.videos || 0) + '건 · ' + (stats.radios || 0) + '회' + (stats.handedOver ? ' (인계 ' + stats.handedOver + ')' : '') + '</b></div>' : '') +
       '<div class="lesson">오늘 배운 것: ' + stats.lesson + '</div>' + (stats.reason ? '<div class="reason">' + stats.reason + '</div>' : '') +
       // 틀린 것을 그냥 지나치지 않는다 — 무엇을 다시 봐야 하는지 여기서 말해 준다

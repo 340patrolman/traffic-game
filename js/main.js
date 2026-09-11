@@ -590,6 +590,8 @@
     if (TG.DrunkProc) G.drunkProc = new TG.DrunkProc(G);   // 음주 적발 절차(감지 → 음용수 → 측정 → 고지 → 채혈)
     if (TG.KidCourse && !G.kidCourse) G.kidCourse = new TG.KidCourse(G);   // 어린이 교실: 걷기·건너기·차 안·자전거·킥보드·서로 조심
     response = new TG.Response(G); G.response = response;   // 대응 원칙: 등급 A 적극 대응 / B 정차 단속 / C 추격 금지(영상·무전)
+    if (G.dispatch) G.dispatch.dispose();
+    G.dispatch = TG.Dispatch ? new TG.Dispatch(G) : null;   // 112 긴급출동(코드0·1) 연습 — 순찰 근무에서만 신고가 들어온다
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
     // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
     G.mode = modeOverride || settings.mode || 'patrol'; if (!MODES[G.mode]) G.mode = 'patrol';
@@ -1451,6 +1453,7 @@
       if (acc >= 0.8 && st.stops >= 3) badges.push({ text: '🎯 정확한 판단 ' + Math.round(acc * 100) + '%' });
       if ((st.warned || 0) >= 2) badges.push({ text: '🚸 보행자 지킴이' });
       if ((st.incidents || 0) >= 1) badges.push({ text: '🛠 현장 안전조치', gold: (st.incidents || 0) >= 2 });
+      if ((st.dispatchOnTime || 0) >= 1 && !(st.emergFast || 0) && !(st.emergConflict || 0)) badges.push({ text: '🚨 안전한 긴급출동', gold: (st.dispatchOnTime || 0) >= 2 });
       if ((st.videos || 0) >= 2 && !penaltyCount.pursuitBan) badges.push({ text: '📹 원칙대로 대응', gold: true });
       if ((st.radios || 0) >= 3) badges.push({ text: '📡 상황 전파' });
       if (st.chase && st.chase.result === 'break') badges.push({ text: '🛑 중단 판단', gold: true });
@@ -1477,7 +1480,10 @@
   // ---------- 규칙 ----------
   function checkRules(dt, frame) {
     var T = player.telemetry, kmh = player.speedKmh();
-    var exempt = player.siren && (enforcement.target || traffic.cars.some(function (c) { return !!c.violation; }));
+    // 긴급자동차 특례는 「본래의 긴급한 용도 + 경광등·사이렌 + 교통안전 주의의무」가 모두 있을 때다(티북 · laws.json emergency).
+    // 긴급 용도 = 112 코드0·1 출동 · 단속 대상 추적. 적색은 **서행**하며 지날 수 있고, 속도 특례는 어린이보호구역에 없다(v0.9.53).
+    var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || enforcement.target || traffic.cars.some(function (c) { return !!c.violation; }));
+    var schoolNow = city.inSchoolZone ? city.inSchoolZone(player.pos.x, player.pos.z) : false;
     hud.setSection(frame.name, frame.kind === 'off' ? '—' : frame.limit);
     // 1) 신호위반(격자에서만)
     if (frame.kind === 'grid') {
@@ -1492,8 +1498,17 @@
         if (rules.prevNode === node && rules.prevDist > 0 && dist <= 0 && player.vF > 1.5) {
           // 좌회전 깜빡이를 켜고 보호 좌회전 교차로를 지나면 좌회전 화살표로 판정한다(v0.9.49)
           var st = signals.moveState(node, d, (player.signal === 'L' && signals.hasLeftFor(node, d)) ? 'L' : 'S');
-          if (st.s === 'red' && st.elapsed > 0.6 && !exempt && rules.noFlagNode !== node) { penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red'); }
-          else if (st.s === 'red' && exempt) hud.hint('긴급 출동: 교차로는 서행하며 좌우를 확인한다');
+          if (st.s === 'red' && st.elapsed > 0.6 && !exempt && rules.noFlagNode !== node) {
+            var code2 = G.dispatch && G.dispatch.active && G.dispatch.active.code === 2 && player.siren;   // 코드2 에 사이렌을 켜도 일반 규칙이다
+            penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', (code2 && G.dispatch.msg('code2')) || '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red');
+          }
+          else if (st.s === 'red' && exempt && rules.noFlagNode !== node) {
+            // 긴급자동차도 교차로는 서행하고, 진행 방향에 보행자·교차 진행 차량이 있으면 멈춘다 — 사이렌을 켰다고 비켜 주리라 믿지 않는다
+            var dsp = G.dispatch, conflict = dsp ? dsp.crossConflict(node, d) : false;
+            if (conflict) { G.stats.emergConflict = (G.stats.emergConflict || 0) + 1; penalize('emergConflict', '🚨 교차하는 차·보행자가 있는데 적색 교차로에 진입', (dsp && dsp.msg('conflict')) || '교차하는 차·보행자가 있으면 멈춘다'); }
+            else if (kmh > C.EMERG_CROSS_KMH) { G.stats.emergFast = (G.stats.emergFast || 0) + 1; penalize('emergFast', '🚨 적색 교차로를 ' + Math.round(kmh) + 'km/h 로 통과', (dsp && dsp.msg('fast')) || '긴급 출동도 교차로는 서행'); }
+            else { G.stats.emergSlow = (G.stats.emergSlow || 0) + 1; hud.hint((dsp && dsp.msg('eye')) || '긴급 출동: 교차로는 서행하며 좌우를 확인한다'); }
+          }
         }
         rules.prevNode = node; rules.prevDist = dist;
       } else rules.prevNode = null;
@@ -1518,9 +1533,10 @@
       rules.hotCd = Math.max(0, (rules.hotCd || 0) - dt);
     }
     // 2) 과속(구간 제한속도)
-    if (frame.kind !== 'off' && kmh > frame.limit + C.SPEED_TOLERANCE_KMH && !exempt) {
+    // 속도 특례는 어린이보호구역에 없다 — 긴급 출동이어도 보호구역 제한속도는 그대로다(v0.9.53 · 티북)
+    if (frame.kind !== 'off' && kmh > frame.limit + C.SPEED_TOLERANCE_KMH && (!exempt || schoolNow)) {
       rules.speedT += dt;
-      if (rules.speedT > 2) { penalize('speeding', '과속(' + frame.name + ' 제한 ' + frame.limit + ') — 경찰이 먼저 지킨다', '이 속도의 정지거리 ' + Math.round(T.stopDist) + 'm'); rules.speedT = -10; }
+      if (rules.speedT > 2) { penalize('speeding', '과속(' + frame.name + ' 제한 ' + frame.limit + ') — 경찰이 먼저 지킨다', (exempt && schoolNow && G.dispatch && G.dispatch.msg('school')) || ('이 속도의 정지거리 ' + Math.round(T.stopDist) + 'm')); rules.speedT = -10; }
     } else rules.speedT = Math.max(Math.min(rules.speedT, 0), rules.speedT - dt);
     // 3) 중앙선 침범
     var nearNode = frame.kind === 'grid' && city.distToNearestNode(player.pos.x, player.pos.z) < 13;
@@ -1749,7 +1765,7 @@
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt);
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
     checkRules(dt, frame);
     sigChip(frame);
@@ -1776,7 +1792,7 @@
     var T = player.telemetry;
     hud.setSpeed(player.speedKmh(), T.stopDist, frame.kind === 'off' ? 999 : frame.limit);
     hud.setGear(player.gear);
-    minimap.draw(player, traffic.cars, enforcement.target);
+    minimap.draw(player, traffic.cars, enforcement.target, G.dispatch && G.dispatch.dest ? G.dispatch.dest : null);
     TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid, player.speedKmh(), player.controls.brake > 0 || (player.controls.throttle === 0 && T.speed > 3));
     if (G.mode === 'patrol' || G.mode === 'chase') { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift(G.mode === 'chase' ? '추격전 시간 종료' : '근무 시간 종료'); }
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
@@ -1913,6 +1929,7 @@
       signal: function (i, j, axis) { return signals.state(city.nodes[i][j], axis); },
       override: function (o) { G.testOverride = o; },
       siren: function (on) { if (player.siren !== on) toggleSiren(); },
+      dispatch: function (code, i, j) { return G.dispatch ? G.dispatch.call(code, i !== undefined ? city.nodes[i][j] : undefined) : null; },
       setSpawning: function (on) { C.TRAFFIC_MAX = on ? 18 : 0; C.PED_MAX = on ? 22 : 0; },
       simulateSlow: function (ms) { TG.perf.simulateSlow(ms); },
       ticketChoose: function (id) { var b = document.querySelector('#ticketOptions .opt[data-id="' + id + '"]'); if (b) b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return !!b; },
