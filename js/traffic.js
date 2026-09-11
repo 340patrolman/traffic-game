@@ -20,6 +20,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
   var litterMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a }), litters = [];
   var cargoMat = new THREE.MeshLambertMaterial({ color: 0xb98a4a }), doorMat = new THREE.MeshLambertMaterial({ color: 0xdfe4ea }), pasMat = new THREE.MeshLambertMaterial({ color: 0x3b6fd1 });
+  // 반투명 유리(깊이를 쓰지 않아 안의 운전자가 비친다) · 휴대전화 화면(손에 든 폰 = 말풍선 · 거치대 = 지도) · 운전자 옷·피부·머리색
+  // 유리는 너무 짙으면 안의 휴대전화 화면이 실내와 같은 회색으로 묻힌다(실측: 화면 157 · 옆 유리 106) — 조금 옅고 맑게
+  var glassMat = new THREE.MeshLambertMaterial({ color: 0x3a5068, transparent: true, opacity: 0.34, depthWrite: false });
+  var screenChatMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('chat'), side: THREE.DoubleSide }), screenMapMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('map'), side: THREE.DoubleSide });
+  var phoneBodyMat = new THREE.MeshLambertMaterial({ color: 0x15171a });
+  // 화면 빛(가산 스프라이트) — 창 너머에서 「켜진 화면」을 알아보게 한다. 차체에 가리면 안 보인다(깊이 검사는 한다)
+  var phoneGlowMat = new THREE.SpriteMaterial({ map: TG.tex.flare(), color: 0xcfe8ff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
+  var DRV_SHIRT = [0x2b2f38, 0xe8e2d4, 0x3b6fd1, 0x6b5a48, 0xd94f4f, 0x2fa36b, 0x8a8f98], DRV_SKIN = [0xf1c9a5, 0xd9a06e, 0xb5794f], DRV_HAIR = [0x1a1a1a, 0x3a2a1a, 0x5a3a2a];
   this.rail = null;   // TG.Rail(철길건널목) — main 이 붙인다
   this.control = { closed: [], hand: [] };   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
@@ -167,6 +175,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
+    // 거치대(내비게이션 지도) — 적법. 손에 든 휴대전화(phone 습관)와 가려 보게 한다
+    // (소유자: 「거치대를 사용한다면 별문제가 없지만 스마트폰을 들고 문자나 카톡을 보거나 만진 경우에도 해당」)
+    car.mount = opts.mount !== undefined ? !!opts.mount : (car.trait !== 'phone' && type !== 'bus' && type !== 'truck' && type !== 'moto' && type !== 'bike' && type !== 'pm' && rng() < 0.3);
     // 이륜차·자전거: 바깥 차로, 자전거는 느리게. 일부는 보도로 올라가 달린다(edgeRider → 이륜차 '보도 통행', 자전거 '보도 주행' 위반 소재)
     car.isMoto = type === 'moto'; car.isBike = type === 'bike'; car.isPM = type === 'pm';
     if (car.isMoto || car.isBike || car.isPM) {
@@ -184,8 +195,31 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     // 수배차량(절도·강도 등 중대 사건): 아주 드물게. 겉으로는 표시가 없고 무전 조회(📡)로만 드러난다 → 등급 A(적극 대응)
     car.wanted = opts.wanted !== undefined ? !!opts.wanted : (!car.isMoto && !car.isBike && !car.isPM && !car.isBus && rng() < 0.02);
     var twoW = car.isMoto || car.isBike || car.isPM;
-    var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false, twoW ? { noRider: true, helmet: car.pmHelmet, two: car.pmTwo } : null), bodyMat); mesh.castShadow = true;
+    // 승용·소형 승합·픽업은 유리를 반투명으로 따로 그리고 운전자를 태운다 — 손에 든 휴대전화와 거치대를 밖에서 보고 가려야 한다
+    var see = !twoW && type !== 'bus' && type !== 'truck';
+    var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false, twoW ? { noRider: true, helmet: car.pmHelmet, two: car.pmTwo } : (see ? { noGlass: true } : null)), bodyMat); mesh.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
+    if (see) {
+      g.add(new THREE.Mesh(TG.vehmesh.glass(type), glassMat));
+      var dv = new THREE.Mesh(TG.vehmesh.driver(type, car.trait === 'phone' ? 'phone' : 'wheel', TG.pick(rng, DRV_SHIRT), TG.pick(rng, DRV_SKIN), TG.pick(rng, DRV_HAIR)), bodyMat);
+      g.add(dv); car.driverMesh = dv;
+      var LY = TG.vehmesh.layout(T), EY = LY.eye;
+      if (car.trait === 'phone') {          // 손에 든 휴대전화 — 고개를 숙이고 화면(말풍선)을 본다. 창 높이라 밖에서 보인다
+        // 얼굴 앞(눈 12cm 아래 · 30cm 앞)에 들고 화면을 눈 쪽으로 기울인다 — 핸들 아래로 내리면 창 너머로 안 보인다
+        var hp = new THREE.Group(); hp.position.set(EY.x - 0.04, EY.y - 0.12, EY.z + 0.30); hp.rotation.x = 0.4;
+        hp.add(new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.19, 0.014), phoneBodyMat));   // 실제보다 조금 크게 — 창 너머로 알아봐야 한다
+        var hs = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.175), screenChatMat); hs.position.z = -0.009; hs.rotation.y = Math.PI; hp.add(hs);
+        var hg = new THREE.Sprite(phoneGlowMat); hg.scale.set(0.34, 0.34, 1); hg.position.z = -0.03; hp.add(hg);
+        g.add(hp); car.phoneMesh = hp; car.phoneY = hp.position.y;
+      } else if (car.mount) {               // 거치대에 꽂은 휴대전화(지도 안내) — 앞유리 밑, 대시보드 위
+        var mp = new THREE.Group(); mp.position.set(0.10, T.belt + 0.12, LY.wsBase - 0.22); mp.rotation.x = 0.2;
+        var marm = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.10, 0.03), phoneBodyMat); marm.position.y = -0.08; mp.add(marm);
+        mp.add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.09, 0.014), phoneBodyMat));
+        var ms = new THREE.Mesh(new THREE.PlaneGeometry(0.145, 0.078), screenMapMat); ms.position.z = -0.009; ms.rotation.y = Math.PI; mp.add(ms);
+        var mg = new THREE.Sprite(phoneGlowMat); mg.scale.set(0.30, 0.30, 1); mg.position.z = -0.03; mp.add(mg);
+        g.add(mp); car.mountMesh = mp;
+      }
+    }
     // 이륜차·자전거·킥보드 탑승자: 사람 리그(얼굴·머리카락·헬멧)를 태운다. 정지 자세라 매 프레임 계산이 없다.
     if (twoW && TG.Character && TG.Character.pose) {
       var SHIRTS2 = [0xd94f4f, 0x3b6fd1, 0x2fa36b, 0xe0b84a, 0x8b5cc7, 0x2b2f38, 0xf08a5d], PANTS2 = [0x2b3140, 0x4a4a4a, 0x1f2e4a, 0x6b5a48];
@@ -210,7 +244,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.05), blinkMat); b.position.set(bp[0] * T.w * 0.40, hy2 + 0.06, bp[1]); b.visible = false; g.add(b); (bp[0] > 0 ? car.blinkL : car.blinkR).push(b);
     });
     // 습관 소품: 휴대전화(운전석 머리 옆, 밝은 화면) / 반려동물(운전석 창가, 갈색)
-    if (car.trait === 'phone') { var ph = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 0.09), phoneMat); ph.position.set(T.w * 0.30, T.belt + 0.30, T.l * 0.06); ph.rotation.z = 0.3; g.add(ph); }
+    if (car.trait === 'phone' && !see) { var ph = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 0.09), phoneMat); ph.position.set(T.w * 0.30, T.belt + 0.30, T.l * 0.06); ph.rotation.z = 0.3; g.add(ph); }
     // 트럭 짐칸의 상자(고정 안 됨 → 흘린다) / 버스 열린 문 + 문가에 선 승객
     if (car.trait === 'cargo') { car.cargoBoxes = []; for (var cb = 0; cb < 3; cb++) { var bx = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.9), cargoMat); bx.position.set((cb - 1) * 0.6, T.belt + 0.55, -T.l * 0.12 - cb * 1.1); g.add(bx); car.cargoBoxes.push(bx); } }
     if (car.trait === 'door') { var dr = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 1.0), doorMat); dr.position.set(-T.w / 2 - 0.55, 1.5, T.l * 0.30); dr.rotation.y = -1.2; g.add(dr); var ps = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 0.3), pasMat); ps.position.set(-T.w / 2 + 0.05, 1.3, T.l * 0.30); g.add(ps); }
@@ -240,7 +274,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var offs = T.laneOffsets(p), off = offs[Math.min(lane, offs.length - 1)], x = p.x + p.rx * off * sgn, z = p.z + p.rz * off * sgn;
         if (pl && !opts.atLink) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.SPAWN_MIN || dist > cfg.SPAWN_MAX * 3.2) continue; var pfl = pl.forward(), ahl = (x - pl.pos.x) * pfl[0] + (z - pl.pos.z) * pfl[1]; if (ahl > 0 && dist < 140 && Math.abs((x - pl.pos.x) * -pfl[1] + (z - pl.pos.z) * pfl[0]) < dist * 0.9) continue; }   // 플레이어 앞 시야(140m) 안에서 불쑥 나타나지 않게
         if (tooClose(x, z)) continue;
-        car = makeCar(type, x, z, heading, { violator: opts.violator, straight: opts.straight, cruise: opts.cruise, busLaneViolator: lane === 0 && !isBus && !!L.busLane, stayRing: opts.stayRing, trait: opts.trait, noLicense: opts.noLicense, laneViolator: lvRoll });
+        car = makeCar(type, x, z, heading, { violator: opts.violator, straight: opts.straight, cruise: opts.cruise, busLaneViolator: lane === 0 && !isBus && !!L.busLane, stayRing: opts.stayRing, trait: opts.trait, noLicense: opts.noLicense, laneViolator: lvRoll, mount: opts.mount });
         car.route = { link: L, dirA: dirA, i: i, lane: lane, lanePrev: null };
         appendLink(car, 30);
         car.v = opts.v !== undefined ? opts.v : cruiseFor(car, p.kind) * 0.8;
@@ -262,7 +296,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       if (tooClose(gx, gz)) continue;
       var ctype = opts.type || TG.pick(rng, CITY_TYPES);
-      car = makeCar(ctype, gx, gz, TG.DIR_HEADING[d], { violator: opts.violator, pedViolator: opts.pedViolator, straight: opts.straight, cruise: opts.cruise, wantsExit: opts.wantsExit, laneIdx: laneIdx, trait: opts.trait, noLicense: opts.noLicense, color: opts.color });
+      car = makeCar(ctype, gx, gz, TG.DIR_HEADING[d], { violator: opts.violator, pedViolator: opts.pedViolator, straight: opts.straight, cruise: opts.cruise, wantsExit: opts.wantsExit, laneIdx: laneIdx, trait: opts.trait, noLicense: opts.noLicense, color: opts.color, mount: opts.mount });
       if (opts.at && opts.laneIdx === undefined) { var lf = city.laneFrame(gx, gz, TG.DIR_HEADING[d]); car.laneIdx = lf.lateral > 4 ? 1 : 0; }
       car.path.push(approachPoint(car, N2, d));
       car.lastNode = N2; car.lastDir = d;
@@ -415,7 +449,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (rightTurn && st.s === 'red') {
           if (car.rorNode !== ap.node) {
             if (dStopF < 3 && car.v < 0.2) { car.rorT = (car.rorT || 0) + dt; if (car.rorT > 1.0) car.rorNode = ap.node; } else car.rorT = 0;
-            if (car.rorNode !== ap.node) target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
+            // 우회전도 적색이면 정지선 앞에서 먼저 선다 — 평상 감속으로 넘치면 급제동한다(검증: 우회전 차가 정지선을 1.5~1.7m 넘어 섰다).
+            // 적색이 켜진 순간 급제동으로도 정지선 앞에 못 서는 차는 직진과 같이 멈추지 않는다 — 세우면 횡단보도 위에 선다(검증: 1.3m).
+            if (car.rorNode !== ap.node && car.v > 2 && dStopF - 0.3 < car.v * car.v / (2 * cfg.AI_EMERGENCY)) car.rorNode = ap.node;
+            if (car.rorNode !== ap.node) { target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL)); if (dStopF - 1.3 < car.v * car.v / (2 * cfg.AI_DECEL)) emergency = true; }
           }
         } else if (car.running !== ap.node) {
           var canStop = dStopF > car.v * car.v / (2 * cfg.AI_DECEL * 1.25) + 1.5;
@@ -626,6 +663,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       car.y = (yA + yB) / 2; car.pitch = -Math.atan2(yA - yB, 4);
     } else { car.y = 0; car.pitch = 0; }
     car.mesh.position.set(car.pos.x, car.y, car.pos.z); car.mesh.rotation.set(car.pitch, car.heading, 0);
+    // 운전자·휴대전화는 가까운 차(90m)만 그린다. 손에 든 폰은 조금씩 오르내린다(화면을 만지는 손)
+    if (car.driverMesh && self.player) {
+      var ddx = car.pos.x - self.player.pos.x, ddz = car.pos.z - self.player.pos.z, nearD = ddx * ddx + ddz * ddz < 90 * 90;
+      car.driverMesh.visible = nearD;
+      if (car.phoneMesh) { car.phoneMesh.visible = nearD; car.phoneMesh.position.y = car.phoneY + Math.sin(self.time * 2.3 + car.id) * 0.012; }
+      if (car.mountMesh) car.mountMesh.visible = nearD;
+    }
     car.brakeLamp.visible = car.braking;
     var blinkOn = car.signal && ((self.time * 1.6) % 1) < 0.5;
     for (var bi2 = 0; bi2 < car.blinkL.length; bi2++) { car.blinkL[bi2].visible = !!(blinkOn && car.signal === 'L'); car.blinkR[bi2].visible = !!(blinkOn && car.signal === 'R'); }

@@ -73,6 +73,7 @@ TG.Enforcement = function (game) {
     var v = car.violation && car.violation.type;
     if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
     else if (!forced && !v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
+    else if (!forced && !v && car.mount && ids.indexOf('phone') < 0) ids[ids.length - 1] = 'phone';   // 거치대 차량 — 「휴대전화」가 보기에 있어야 적법·위반을 가려 볼 수 있다
     else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'solidline', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger'][Math.floor(Math.random() * 9)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
     var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
@@ -100,6 +101,7 @@ TG.Enforcement = function (game) {
       if (answer === 'none') {
         if (choice === 'none') { delta = 5; lines.push('정답 · 위반 없음 — 잘 봤습니다 (+5)'); lines.push('위반을 직접 목격한 대상만 단속합니다.'); TG.audio.good(); game.stats.correct++; }
         else { delta = S.noViolation; kind = 'warn'; lines.push('위반 없음 — 무작위 단속은 감점 (' + delta + ')'); TG.audio.bad(); }
+        var mNote = e.mount && lawById('phone'); if (mNote && mNote.mountNote) lines.push(mNote.mountNote);   // 거치대 차량이면 왜 적법인지(티북 문구)
       } else if (choice === answer) {
         delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
       } else if (choice !== 'none' && choice !== 'timeout' && (choice === 'jaywalk' || choice === 'jaywalk-red') && (answer === 'jaywalk' || answer === 'jaywalk-red')) {

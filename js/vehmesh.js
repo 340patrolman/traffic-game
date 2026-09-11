@@ -122,10 +122,12 @@ TG.vehmesh = (function () {
         var a = V(side, s2, k), b = V(side, s2, k + 1), c = V(side, s2 + 1, k + 1), d = V(side, s2 + 1, k);
         var na = N(side, s2, k), nb = N(side, s2, k + 1), nc = N(side, s2 + 1, k + 1), nd = N(side, s2 + 1, k);
         var col = SC[s2][k];
+        if (opts.noGlass ? col === GLASS : (opts.onlyGlass && col !== GLASS)) continue;   // 유리를 따로(반투명) 그릴 때
         var g = cross(sub(b, a), sub(c, a)), avg = [na[0] + nc[0], na[1] + nc[1], na[2] + nc[2]];
         if (g[0] * avg[0] + g[1] * avg[1] + g[2] * avg[2] < 0) gb.quadN([a, d, c, b], [na, nd, nc, nb], col); else gb.quadN([a, b, c, d], [na, nb, nc, nd], col);
       }
     }
+    if (opts.onlyGlass) return;
     // 앞·뒤 캡(부채꼴): 아래쪽은 범퍼(어두움)
     [[0, 1], [M - 1, -1]].forEach(function (cap) {
       var s3 = cap[0], nz = cap[1], zc = zs[s3], top = pr.top(zc), ctr = [0, (0.30 + top) / 2, zc], nrm = [0, 0, nz];
@@ -142,6 +144,13 @@ TG.vehmesh = (function () {
     var env = pr.env, ws = null, rw = null;
     for (var e = 0; e < env.length - 1; e++) { if (env[e + 1].glass && env[e].z > 0 && !ws) ws = [env[e], env[e + 1]]; if (env[e + 1].glass && env[e].z < 0) rw = [env[e], env[e + 1]]; }
     function pillar(pa, pb, tint) {
+      // 유리가 비치는 차(noGlass)는 상자 5개로 쌓은 계단이 그대로 드러난다 — 매끈한 빔 하나로 긋는다
+      if (opts.noGlass) {
+        var sa = section(T, pa.z, pr.top(pa.z), true, color).P, sbp = section(T, pb.z, pr.top(pb.z), true, color).P;
+        var xa = Math.max(sa[8][0], sa[10][0]) + 0.005, xb = Math.max(sbp[8][0], sbp[10][0]) + 0.005;
+        slantBeam(gb, xa, pa.y, pa.z, xb, pb.y, pb.z, 0.07, 0.10, tint); slantBeam(gb, -xa, pa.y, pa.z, -xb, pb.y, pb.z, 0.07, 0.10, tint);
+        return;
+      }
       var n = 5;
       for (var i = 0; i < n; i++) {
         var t = (i + 0.5) / n, z = pa.z + (pb.z - pa.z) * t, y = pa.y + (pb.y - pa.y) * t;
@@ -158,6 +167,13 @@ TG.vehmesh = (function () {
     }
     // 바닥
     gb.quad([-w / 2 * 0.82, 0.30, zf], [-w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zf], [0, -1, 0], DARK, null);
+    // 유리를 반투명으로 그릴 때는 속이 비어 보이지 않게 실내(바닥판·대시보드·좌석 등받이)를 넣는다 — 창 너머로 땅이 보이면 안 된다
+    if (opts.noGlass) {
+      var cab = layout(T);
+      gb.box(0, (0.34 + belt - 0.02) / 2, (zf + zr) / 2, w * 0.86, belt - 0.36, (zf - zr) * 0.86, 0x24272d, {});
+      gb.box(0, belt + 0.05, cab.wsBase - 0.30, w * 0.84, 0.10, 0.45, 0x1c1e22, {});
+      for (var sb2 = -1; sb2 <= 1; sb2 += 2) gb.box(sb2 * 0.38, belt + 0.24, cab.eye.z - 0.34, 0.50, 0.52, 0.10, 0x2c3038, {});
+    }
     // 화물칸(트럭)
     if (T.cargo) {
       gb.box(0, 0.45 + 1.3, (0.13 * l + (-0.5 * l)) / 2, w, 2.6, 0.63 * l, lighten(color, 0.9), {});
@@ -309,12 +325,42 @@ TG.vehmesh = (function () {
     if (moto) gb.box(0, seatY + 0.60, seatZ + 0.15, 0.2, 0.08, 0.02, 0x0b0e12, { sidesOnly: true });   // 바이저
   }
   function build(type, color, bodyOnly, opts) {
-    var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0) + (opts ? ':' + (opts.helmet ? 1 : 0) + (opts.two ? 1 : 0) : '');
+    var key = type + ':' + color + ':' + (bodyOnly ? 1 : 0) + (opts ? ':' + (opts.helmet ? 1 : 0) + (opts.two ? 1 : 0) : '') + (opts && opts.noGlass ? ':ng' : '');
     if (cache[key]) return cache[key];
     var T = TYPES[type], gb = new TG.GeoBuilder();
     if (T.two) { twoWheeler(gb, T, color, opts); return (cache[key] = gb.build()); }
-    body(gb, T, color, {});
+    body(gb, T, color, { noGlass: !!(opts && opts.noGlass) });
     if (!bodyOnly) wheels(gb, T);
+    return (cache[key] = gb.build());
+  }
+  // 반투명 유리만(차 안이 보이게) — 차종마다 하나를 같이 쓴다
+  function glass(type) {
+    var key = 'gl:' + type;
+    if (cache[key]) return cache[key];
+    var gb = new TG.GeoBuilder(); body(gb, TYPES[type], 0xffffff, { onlyGlass: true });
+    return (cache[key] = gb.build());
+  }
+  // 운전자 상반신(운전석 = +x 쪽). pose: 'wheel' 두 손 핸들 · 'phone' 오른손에 휴대전화를 들고 고개를 숙인다
+  // (소유자: 「스마트폰을 들고 문자나 카톡을 보거나 만진 경우에도 해당하니 그런 장면을 보여주며」)
+  function driver(type, pose, shirt, skin, hair) {
+    var key = 'dv:' + type + ':' + pose + ':' + shirt + ':' + skin + ':' + hair;
+    if (cache[key]) return cache[key];
+    var T = TYPES[type], L = layout(T), E = L.eye, W = L.wheel, x = E.x, gb = new TG.GeoBuilder(), look = pose === 'phone' ? 0.06 : 0;
+    gb.box(x, E.y - 0.40, E.z - 0.08, 0.40, 0.46, 0.24, shirt, {});                               // 몸통
+    gb.box(x, E.y - 0.15, E.z - 0.05, 0.12, 0.08, 0.12, skin, {});                                // 목
+    gb.box(x, E.y - 0.02 - look * 0.5, E.z + look, 0.19, 0.22, 0.21, skin, {});                    // 머리(휴대전화를 보면 앞으로 숙인다)
+    gb.box(x, E.y + 0.09 - look * 0.5, E.z - 0.02 + look, 0.21, 0.07, 0.23, hair, {});             // 머리카락
+    gb.box(x, W.y, W.z, 0.36, 0.34, 0.04, 0x15171a, {});                                           // 핸들
+    gb.box(x + 0.17, W.y - 0.02, (E.z + W.z) / 2 - 0.02, 0.08, 0.08, W.z - E.z + 0.02, shirt, {}); // 왼팔은 언제나 핸들
+    gb.box(x + 0.15, W.y + 0.02, W.z - 0.02, 0.08, 0.08, 0.08, skin, {});
+    if (pose === 'phone') {
+      gb.box(x - 0.13, E.y - 0.40, E.z + 0.10, 0.08, 0.08, 0.26, shirt, {});                       // 오른팔 — 아래팔을 들어 올려 얼굴 앞에서 화면을 본다
+      gb.box(x - 0.09, E.y - 0.31, E.z + 0.25, 0.08, 0.20, 0.08, shirt, {});
+      gb.box(x - 0.05, E.y - 0.20, E.z + 0.29, 0.07, 0.07, 0.07, skin, {});
+    } else {
+      gb.box(x - 0.17, W.y - 0.02, (E.z + W.z) / 2 - 0.02, 0.08, 0.08, W.z - E.z + 0.02, shirt, {});
+      gb.box(x - 0.15, W.y + 0.02, W.z - 0.02, 0.08, 0.08, 0.08, skin, {});
+    }
     return (cache[key] = gb.build());
   }
   function wheelGeo(r, detail) {
@@ -481,5 +527,5 @@ TG.vehmesh = (function () {
     gb.cylinder(L.roomMirror.x, L.roomMirror.y + 0.05, L.roomMirror.z + 0.075, 0.012, 0.014, 0.02, 8, 0x0a0c0f, true);
     return (cache[key] = gb.build());
   }
-  return { TYPES: TYPES, build: build, wheelGeo: wheelGeo, interior: interior, roofY: roofY, layout: layout, hoodAt: hoodAt, profile: profile, hoodDecal: hoodDecal, sideDecal: sideDecal };
+  return { TYPES: TYPES, build: build, glass: glass, driver: driver, wheelGeo: wheelGeo, interior: interior, roofY: roofY, layout: layout, hoodAt: hoodAt, profile: profile, hoodDecal: hoodDecal, sideDecal: sideDecal };
 })();

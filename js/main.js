@@ -1299,6 +1299,15 @@
       }
       hud.notice('체험 · 횡단보도: 자전거·킥보드는 내려서 끌고 건너야 보행자다(§13조의2⑥). 타고 건너는 쪽을 터치해 단속 — 추격은 금지, 영상·무전으로', 'info', 7000);
     }
+    // 운전 중 휴대전화 시연(소유자: 「거치대를 사용한다면 별문제가 없지만 스마트폰을 들고 문자나 카톡을 보거나 만진 경우에도 해당하니 그런 장면을 보여주며」):
+    // 앞에 두 차 — 가까운 2차로 차는 손에 휴대전화(말풍선 화면 · 고개 숙임), 더 앞의 1차로 차는 거치대에 지도 화면(적법).
+    // 운전석은 왼쪽이라 **1차로로 올라가며 2차로 차의 왼쪽 창**을 보게 배치한다(휴대전화 차를 1차로에 두면 그 왼쪽은 중앙선이다).
+    else if (id === 'phone') {
+      var phN = city.nodes[2][3]; player.teleport(xs[2] + 2, zs[3] + 30, Math.PI);
+      traffic.spawn({ at: { x: xs[2] + 5.5, z: zs[2] + 72, d: 2, node: phN }, v: 7, cruise: 7.5, straight: true, violator: false, laneIdx: 1, type: 'sedan', trait: 'phone', mount: false });
+      traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 56, d: 2, node: phN }, v: 7, cruise: 7.5, straight: true, violator: false, laneIdx: 0, type: 'suv', trait: null, mount: true });
+      hud.notice('체험 · 운전 중 휴대전화: 2차로 차는 손에 들고 화면을 본다(§49①10) · 더 앞 1차로 차는 거치대에 지도(적법). 1차로로 올라가 왼쪽(운전석) 창을 보고 골라 단속', 'info', 8000);
+    }
     else if (id === 'cargo') { player.teleport(xs[2] + 2, zs[3] + 34, Math.PI); var tk = traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 62, d: 2, node: city.nodes[2][3] }, v: 8, cruise: 9, straight: true, violator: false, laneIdx: 0, type: 'truck', trait: 'cargo' }); if (tk) tk.cargoT = 2; hud.notice('체험 · 적재물 추락방지: 앞 트럭 짐칸 상자가 떨어진다 — 낙하물은 도로 위 장애물(§39④). 거리를 둔다', 'info', 6000); }
     camInit = false;
   };

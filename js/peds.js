@@ -194,16 +194,20 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
         if (Math.abs(al) >= hl || Math.abs(la) >= hw) continue;      // 차체 밖
         // 사각형 안이다 — 빠져나갈 거리가 짧은 쪽으로 민다
         var outL = hl - Math.abs(al), outW = hw - Math.abs(la);
+        // 건너는 사람이 **선 차에 막히면**(밀려나는 방향이 자기가 가려는 방향의 반대) 차를 돌아서 간다. 되밀리기만 하면 매 프레임 같은 자리로 돌아와
+        // 차는 사람을 기다리고 사람은 차에 막혀 **서로 영원히 기다렸다**(v0.9.45 검증 — 43~84초 교착). 옆구리에 막히면 가까운 끝(앞·뒤)으로,
+        // 앞·뒤 범퍼에 막히면 가까운 옆으로 비킨다. 처음엔 차가 사람 길과 직각일 때만 돌게 해서 **비스듬히 선 회전 차**에는 또 막혔다(v0.9.47 검증 35초).
+        var blocked = p !== self.walker && (p.state === 'cross' || p.state === 'jaywalk'), pf = blocked ? TG.DIR_VEC[p.d] : null, sl = 1.4 * dt;
         if (outW <= outL) {
           var s = la >= 0 ? 1 : -1; p.pos.x += -fz * s * outW; p.pos.z += fx * s * outW;
-          // 건너는 사람이 **선 차의 옆구리**에 막히면 가까운 끝(앞·뒤)으로 돌아간다. 옆으로만 밀면 매 프레임 같은 자리로 되밀려
-          // 차는 사람을 기다리고 사람은 차에 막혀 **서로 영원히 기다렸다**(v0.9.45 검증 — 43~84초 교착). 사람은 차를 돌아서 간다.
-          if (p !== self.walker && (p.state === 'cross' || p.state === 'jaywalk')) {
-            var pf = TG.DIR_VEC[p.d];
-            if (Math.abs(pf[0] * fx + pf[1] * fz) < 0.5) { var sg = al >= 0 ? 1 : -1, sl = Math.min(outL, 1.4 * dt); p.pos.x += fx * sg * sl; p.pos.z += fz * sg * sl; p.detour = 2.0; }
-          }
+          // 비키는 쪽은 **가려던 방향이 그 면을 따라 기우는 쪽**이다. 가까운 끝만 고르면 비스듬한 차의 모서리에서 옆면↔앞면을 오가며 제자리였다(v0.9.47 검증).
+          // 면과 정확히 직각으로 부딪혔을 때만 가까운 끝으로 간다(직각 버스 시험은 그대로).
+          if (blocked && (-fz * s * pf[0] + fx * s * pf[1]) < -0.3) { var tg = pf[0] * fx + pf[1] * fz, sg = Math.abs(tg) > 0.2 ? (tg > 0 ? 1 : -1) : (al >= 0 ? 1 : -1), sla = Math.min(Math.max(hl - al * sg, 0), sl); p.pos.x += fx * sg * sla; p.pos.z += fz * sg * sla; p.detour = 2.0; }
         }
-        else { var s2 = al >= 0 ? 1 : -1; p.pos.x += fx * s2 * outL; p.pos.z += fz * s2 * outL; }
+        else {
+          var s2 = al >= 0 ? 1 : -1; p.pos.x += fx * s2 * outL; p.pos.z += fz * s2 * outL;
+          if (blocked && (fx * s2 * pf[0] + fz * s2 * pf[1]) < -0.3) { var tu = pf[0] * -fz + pf[1] * fx, sgl = Math.abs(tu) > 0.2 ? (tu > 0 ? 1 : -1) : (la >= 0 ? 1 : -1), slw = Math.min(Math.max(hw - la * sgl, 0), sl); p.pos.x += -fz * sgl * slw; p.pos.z += fx * sgl * slw; p.detour = 2.0; }
+        }
       }
     }
   }

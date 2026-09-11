@@ -763,6 +763,26 @@ TG.tex = (function () {
     return (cache.marker = toTexture(c));
   }
 
-  return { smoke: smoke, flare: flare, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, camSign: camSign, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
+  // 휴대전화 화면(실존 앱·상표 없음): 'chat' 말풍선(손에 든 폰 — 문자·메신저) · 'map' 지도 안내(거치대 — 내비게이션)
+  function phoneScreen(kind) {
+    var key = 'ps:' + kind;
+    if (cache[key]) return cache[key];
+    var chat = kind === 'chat', c = canvas(chat ? 64 : 128, chat ? 128 : 64), g = c.getContext('2d');
+    if (chat) {
+      g.fillStyle = '#b9d3e8'; g.fillRect(0, 0, 64, 128);
+      g.fillStyle = '#2f3b4a'; g.fillRect(0, 0, 64, 12);
+      var ys = [20, 38, 56, 74, 92, 108];
+      for (var i = 0; i < ys.length; i++) { var mine = i % 2 === 1, bw = 24 + (i * 13) % 20; g.fillStyle = mine ? '#ffe14d' : '#ffffff'; g.fillRect(mine ? 60 - bw : 4, ys[i], bw, 12); }
+      g.fillStyle = '#ffffff'; g.fillRect(0, 120, 64, 8);
+    } else {
+      g.fillStyle = '#e8ecef'; g.fillRect(0, 0, 128, 64);
+      g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.beginPath(); g.moveTo(0, 44); g.lineTo(128, 30); g.moveTo(40, 0); g.lineTo(56, 64); g.moveTo(92, 0); g.lineTo(100, 64); g.stroke();
+      g.strokeStyle = '#2d7ff9'; g.lineWidth = 5; g.beginPath(); g.moveTo(52, 64); g.lineTo(48, 40); g.lineTo(96, 32); g.stroke();
+      g.fillStyle = '#2d7ff9'; g.beginPath(); g.moveTo(52, 60); g.lineTo(46, 50); g.lineTo(58, 50); g.fill();
+      g.fillStyle = '#1f2a37'; g.fillRect(0, 0, 128, 10);
+    }
+    return (cache[key] = toTexture(c));
+  }
+  return { smoke: smoke, flare: flare, phoneScreen: phoneScreen, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, camSign: camSign, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();
