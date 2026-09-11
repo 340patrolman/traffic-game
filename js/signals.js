@@ -27,6 +27,116 @@ TG.Signals = function (city, world, cfg) {
   function leftSeg(L) { return L > 0 ? L + Y + R : 0; }
   function leftExtra(node) { return leftSeg(lvOf(node)) + leftSeg(lhOf(node)); }
   function hasLeft(node, axis) { return (axis === 'v' ? lvOf(node) : lhOf(node)) > 0; }
+  // ---- 실측 현시(로컬 전용 — v0.9.50) ----
+  // 도면(KSC-5800SE)의 현시 목록을 그대로 돈다: 현시마다 켜지는 이동류(1~8)와 시간(A링, 황색·전적색 포함). 저장소에는 없고
+  // data/local/phases-seocho.json 이 있을 때만 쓴다(공개 여부 미정). 수동 조작 중이거나 녹색을 손으로 고친 교차로는 일반형으로 돈다.
+  var S_CODE = [4, 2, 8, 6], L_CODE = [7, 5, 3, 1];   // 진행 방향 d(0 남행 · 1 동행 · 2 북행 · 3 서행) → 직진 · 좌회전 이동류
+  var PAIR = { 1: 5, 5: 1, 3: 7, 7: 3, 2: 6, 6: 2, 4: 8, 8: 4 };   // 도면에 없는 접근로(예: 성모병원 동측)는 맞은편 이동류를 따른다
+  function realOn(c) { return !!(c && c.realPlan && !c.realOff && !c.manual); }
+  function runsOf(inP, durs) {   // 이어지는 현시를 하나로 붙인 구간 [첫 현시, 끝 현시, 길이, 늘 켜짐]
+    var n = inP.length, out = [], brk = inP.indexOf(false), tot = 0;
+    durs.forEach(function (x) { tot += x; });
+    if (inP.indexOf(true) < 0) return out;
+    if (brk < 0) return [[0, n - 1, tot, true]];
+    for (var k = 1; k <= n; k++) {
+      var p = (brk + k) % n;
+      if (!inP[p] || inP[(p + n - 1) % n]) continue;
+      var e = p, len = durs[p];
+      while (inP[(e + 1) % n] && (e + 1) % n !== p) { e = (e + 1) % n; len += durs[e]; }
+      out.push([p, e, len, false]);
+    }
+    return out;
+  }
+  function buildReal(c, plan, date) {
+    // 요일(1 월~목 · 2 금 · 3 토 · 4 일·공휴일) · 시각 → 계획 번호 → 현시 시간(A링)
+    var dow = date.getDay(), dt = dow === 0 ? 4 : dow === 6 ? 3 : dow === 5 ? 2 : 1;
+    var rows = plan.tod && (plan.tod[dt] || plan.tod['1']), mins = date.getHours() * 60 + date.getMinutes(), pno = null;
+    if (!rows || !rows.length || !plan.phases || !plan.phases.length) return false;
+    rows.forEach(function (r) { var hm = String(r[0]).split(':'); if ((+hm[0]) * 60 + (+hm[1] || 0) <= mins) pno = r[2]; });
+    if (pno === null) pno = rows[rows.length - 1][2];   // 첫 계획 전(자정 직후)은 전날 마지막 계획이 이어진다(근사)
+    var pat = plan.patterns && plan.patterns[pno], n = plan.phases.length;
+    if (!pat || !pat.a || pat.a.length < n) return false;
+    var durs = pat.a.slice(0, n), tot = 0, starts = [], yel = [], ar = [];
+    for (var i = 0; i < n; i++) { starts.push(tot); tot += durs[i]; yel.push(plan.yellow && plan.yellow[i] > 0 ? plan.yellow[i] : Y); ar.push(plan.allred && plan.allred[i] >= 0 ? plan.allred[i] : R); }
+    if (!tot) return false;
+    var iv = {}, has = {};
+    for (var m = 1; m <= 8; m++) {
+      var inP = plan.phases.map(function (x) { return x.moves.indexOf(m) >= 0; });
+      iv[m] = runsOf(inP, durs).map(function (r) { return r[3] ? { s: 0, g: tot, y: 0 } : { s: starts[r[0]], g: Math.max(1, r[2] - yel[r[1]] - ar[r[1]]), y: yel[r[1]] }; });
+      has[m] = iv[m].length > 0;
+    }
+    // 보행: 보행 표시가 있는 현시 중 **건너는 도로와 직각인 직진**이 켜진 현시(근사 — 도면의 횡단보도를 게임의 횡단보도에 1:1 로 붙이지 못했다)
+    var ped = {};
+    ['v', 'h'].forEach(function (cx) {
+      var perp = cx === 'v' ? [2, 6] : [4, 8];
+      var inQ = plan.phases.map(function (x) { return !!x.ped && (x.moves.indexOf(perp[0]) >= 0 || x.moves.indexOf(perp[1]) >= 0); });
+      ped[cx] = runsOf(inQ, durs).map(function (r) { return { s: r[3] ? 0 : starts[r[0]], g: r[3] ? tot : Math.max(1, r[2] - yel[r[1]] - ar[r[1]]) }; });
+    });
+    c.realPlan = { cycle: tot, pno: pno, iv: iv, has: has, ped: ped, n: n, durs: durs, no: plan.no, name: plan.name, offset: pat.offset || 0 };
+    return true;
+  }
+  function ivState(list, t, C) {   // 녹색 구간 목록에서 지금 상태: 녹색 → 황색 → 적색(다음 녹색까지 남은 초)
+    var best = null;
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i], e = t - a.s; if (e < 0) e += C;
+      if (e < a.g) return { s: 'green', remain: a.g - e, elapsed: e };
+      if (e < a.g + a.y) return { s: 'yellow', remain: a.g + a.y - e, elapsed: e - a.g };
+      if (!best || C - e < best.remain) best = { s: 'red', remain: C - e, elapsed: e - a.g - a.y };
+    }
+    return best;
+  }
+  function realMove(c, code) {
+    var rp = c.realPlan, m = rp.has[code] ? code : (rp.has[PAIR[code]] ? PAIR[code] : 0);
+    if (!m) return null;
+    return ivState(rp.iv[m], ((c.t % rp.cycle) + rp.cycle) % rp.cycle, rp.cycle);
+  }
+  function mergeSt(a, b) {   // 한 축의 두 접근로를 하나로 볼 때(축 단위 API): 어느 쪽이든 녹색이면 녹색
+    if (!a) return b; if (!b) return a;
+    if (a.s === 'green' || b.s === 'green') return a.s !== 'green' ? b : (b.s === 'green' && b.remain > a.remain ? b : a);
+    if (a.s === 'yellow' || b.s === 'yellow') return a.s === 'yellow' ? a : b;
+    return a.remain < b.remain ? a : b;
+  }
+  function realPedInfo(node, crossAxis) {
+    var c = ctrl[keyOf(node)]; if (!realOn(c)) return null;
+    var rp = c.realPlan, list = rp.ped[crossAxis] || [], C = rp.cycle, t = ((c.t % C) + C) % C, Wn = pedTime(node, crossAxis), best = null;
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i], W = Math.min(Wn, a.g), e = t - a.s; if (e < 0) e += C;
+      if (e < W) return { walk: true, remain: W - e, W: W };
+      if (!best || C - e < best.remain) best = { walk: false, remain: C - e, W: W };
+    }
+    return best || { walk: false, remain: C, W: 0 };
+  }
+  // 이 접근로(진행 방향 d)의 직진·좌회전 신호. 실측 현시가 있으면 그 이동류, 없으면 일반형(축 단위).
+  function moveState(node, d, man) {
+    var c = ctrl[keyOf(node)];
+    if (realOn(c)) { var r = realMove(c, man === 'L' ? L_CODE[d] : S_CODE[d]); if (r) return r; }
+    var ax = (d === 0 || d === 2) ? 'v' : 'h';
+    return man === 'L' ? leftState(node, ax) : state(node, ax);
+  }
+  // 이 접근로의 1차로가 좌회전 전용인가(좌회전 신호가 따로 도는가)
+  function hasLeftFor(node, d) {
+    var c = ctrl[keyOf(node)];
+    if (realOn(c)) return !!(c.realPlan.has[L_CODE[d]] || c.realPlan.has[PAIR[L_CODE[d]]]);
+    return hasLeft(node, (d === 0 || d === 2) ? 'v' : 'h');
+  }
+  function applyReal(data, date) {
+    if (!data || !data.nodes) return 0;
+    date = date || new Date();
+    var n = 0, secs = date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds();
+    for (var k in data.nodes) {
+      var c = ctrl[k]; if (!c) continue;
+      // 주기 시작 = 0시 + 옵셋 — **가설**이다(실시간 SPaT 로 확인하기 전). 틀려도 현시 순서·길이는 도면 그대로다.
+      if (buildReal(c, data.nodes[k], date)) { n++; var rp = c.realPlan; c.t = (((secs - rp.offset) % rp.cycle) + rp.cycle) % rp.cycle; }
+      else c.realPlan = null;
+    }
+    return n;
+  }
+  function restoreReal(node) { ctrl[keyOf(node)].realOff = false; }
+  function realInfo(node) {
+    var c = ctrl[keyOf(node)]; if (!realOn(c)) return null;
+    var rp = c.realPlan;
+    return { no: rp.no, name: rp.name, pno: rp.pno, cycle: rp.cycle, n: rp.n, durs: rp.durs.slice(), ref: '주기 시작 0시+옵셋(가설)' };
+  }
   // **읽는 순간 하한을 강제한다.** 저장된 값(교통시설 화면·이전 판)이 보행 시간보다 짧으면
   // 「보고 출발해도 다 건너기 전에 적색」이 다시 생긴다. 어디서 무엇을 써 넣었든 이 문을 지난다.
   function gvOf(node) { var c = ctrl[keyOf(node)]; return Math.max(c.gv, greenMin(node, 'v')); }
@@ -44,7 +154,7 @@ TG.Signals = function (city, world, cfg) {
       c.gh = Math.max(c.gh, greenMin(nd, 'h'));
     }
   }
-  function cycleOf(node) { return gvOf(node) + ghOf(node) + 2 * (Y + R) + leftExtra(node); }
+  function cycleOf(node) { var c = ctrl[keyOf(node)]; if (realOn(c)) return c.realPlan.cycle; return gvOf(node) + ghOf(node) + 2 * (Y + R) + leftExtra(node); }
   // 실측 주기에 맞춰 녹색을 **늘린다. 줄이지는 않는다** — 보행 하한이 언제나 먼저다.
   // 남는 시간은 차로 수(수용력)에 비례해 남북·동서로 나눈다. 실제로는 교통량으로 나누지만
   // 방향별 교통량 자료가 없으므로 차로 수를 대리값으로 쓴다 — 이 배분은 **게임 설계값**이고 실측이 아니다.
@@ -93,6 +203,7 @@ TG.Signals = function (city, world, cfg) {
   }
   function setGreen(node, axis, sec) {
     var c = ctrl[keyOf(node)], lo = greenMin(node, axis), hi = 150;   // 실측 주기가 200초까지 있어 60초 상한으로는 담을 수 없다
+    c.realOff = true;   // 녹색을 손으로 고치면 그 교차로는 실측 현시 대신 일반형(가정 시나리오)으로 돈다 — 되돌리기는 restoreReal
     var v = Math.round(TG.clamp(sec, lo, hi));
     if (axis === 'v') c.gv = v; else c.gh = v;
     return { sec: v, min: lo, max: hi, clamped: v !== Math.round(sec) };
@@ -101,7 +212,7 @@ TG.Signals = function (city, world, cfg) {
     var c = ctrl[keyOf(node)];
     return { gv: gvOf(node), gh: ghOf(node), minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
              pedV: Math.round(pedTime(node, 'v')), pedH: Math.round(pedTime(node, 'h')), minGreen: c.minGreen,
-             target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: c.cycPhases || 0, lap: !!c.cycLap, leftV: lvOf(node), leftH: lhOf(node) };
+             target: c.cycle || 0, real: c.cycReal, src: c.cycSrc || '', phases: c.cycPhases || 0, lap: !!c.cycLap, leftV: lvOf(node), leftH: lhOf(node), realPlan: realInfo(node) };
   }
   // 보행 시간 = 진입 시간 + 횡단 거리 ÷ 설계 보행속도. 값은 config 에 있고 **법령 수치가 아니라 게임 설계값**이다.
   // 어린이보호구역은 더 느린 속도로 잡는다 — 아이가 뛰지 않고 건널 수 있어야 한다.
@@ -188,13 +299,20 @@ TG.Signals = function (city, world, cfg) {
   }
   function ph(node) { var c = ctrl[keyOf(node)]; return phase(c.t, gvOf(node), ghOf(node), lvOf(node), lhOf(node)); }
   function state(node, axis) {
+    var c = ctrl[keyOf(node)];
+    if (realOn(c)) { var r2 = mergeSt(realMove(c, axis === 'v' ? 4 : 2), realMove(c, axis === 'v' ? 8 : 6)); if (r2) return r2; }
     var p = ph(node);
     return axis === 'v' ? p.ns : p.ew;
   }
   // 보호 좌회전 신호(좌회전 화살표). 그 축에 좌회전 현시가 없으면(좁은 도로) 직진과 같다 — 직좌 동시.
-  function leftState(node, axis) { var p = ph(node); return axis === 'v' ? p.lv : p.lh; }
+  function leftState(node, axis) {
+    var c = ctrl[keyOf(node)];
+    if (realOn(c)) { var r3 = mergeSt(realMove(c, axis === 'v' ? 7 : 5), realMove(c, axis === 'v' ? 3 : 1)); if (r3) return r3; }
+    var p = ph(node); return axis === 'v' ? p.lv : p.lh;
+  }
   // crossAxis: 건너는 도로의 축. 'v' 도로를 건넌다 = x 방향으로 걷는다 = 동서 차량 녹색 초반
   function pedWalk(node, crossAxis) {
+    var rq = realPedInfo(node, crossAxis); if (rq) return rq.walk;
     var p = ph(node);
     var W = pedTime(node, crossAxis);
     if (crossAxis === 'v') return p.ew.s === 'green' && p.ew.elapsed < W;
@@ -202,6 +320,7 @@ TG.Signals = function (city, world, cfg) {
   }
   // 보행 신호 잔여 시간: 녹색이면 남은 보행 시간, 적색이면 다음 보행 신호까지 남은 시간(초)
   function pedRemain(node, crossAxis) {
+    var rq = realPedInfo(node, crossAxis); if (rq) return rq.remain;
     var c = ctrl[keyOf(node)], p = ph(node), s = crossAxis === 'v' ? p.ew : p.ns, start = crossAxis === 'v' ? p.Hv : 0;
     var W = pedTime(node, crossAxis);
     if (s.s === 'green' && s.elapsed < W) return W - s.elapsed;
@@ -214,7 +333,11 @@ TG.Signals = function (city, world, cfg) {
     return Math.max(3, Math.min((cfg.PED_FLASH_K || 0.76) * len, W - (cfg.PED_STEADY_MIN || 6)));
   }
   // 지금 녹색 점멸인가 — 점멸에는 횡단을 **시작할 수 없다**(시행규칙 별표2). 건너는 중이면 신속히 마친다.
-  function pedFlash(node, crossAxis) { return pedWalk(node, crossAxis) && pedRemain(node, crossAxis) <= flashTime(node, crossAxis); }
+  function pedFlash(node, crossAxis) {
+    var rq = realPedInfo(node, crossAxis);
+    if (rq) return rq.walk && rq.remain <= Math.min(flashTime(node, crossAxis), Math.max(3, rq.W - (cfg.PED_STEADY_MIN || 6)));   // 실측 현시: 보행 창이 짧으면 점멸도 그 안에서
+    return pedWalk(node, crossAxis) && pedRemain(node, crossAxis) <= flashTime(node, crossAxis);
+  }
   // ---- 보행 시간 연장 ----
   // 아직 횡단보도 위에 사람이 있는데 초록불이 꺼지면, 뛰라는 말이 된다(소유자 신고).
   // 그 동안 시간을 멈춰 초록불을 붙잡는다 — 실제 스마트 횡단보도와 같은 생각이다.
@@ -267,17 +390,17 @@ TG.Signals = function (city, world, cfg) {
     for (var i = 0; i < heads.length; i++) {
       var h = heads[i];
       if (h.kind === 'veh') {
-        // 좁은 도로: 녹색 = 녹색+좌회전 화살표(직좌 동시). 보호 좌회전 교차로: 직진 현시 = 녹색만, 좌회전 현시 = 적색+화살표.
-        var sS = state(h.node, h.axis).s, sL = hasLeft(h.node, h.axis) ? leftState(h.node, h.axis).s : null, key2;
-        if (sL === null) key2 = sS;
-        else key2 = sS === 'green' ? 'straight' : sL === 'green' ? 'left' : (sS === 'yellow' || sL === 'yellow') ? 'yellow' : 'red';
+        // 머리마다 **자기가 맡은 진행 방향**의 직진·좌회전을 보여 준다(정지선 앞 머리 = 이 접근로로 오는 차 · 건너편 머리 = 맞은편에서 오는 차).
+        // 직진+좌회전 녹색 = 녹색+화살표(직좌 동시) · 직진만 = 녹색 · 좌회전만 = 적색+화살표.
+        var dT = h.near ? h.d : (h.d + 2) % 4, sS = moveState(h.node, dT, 'S').s, sL = moveState(h.node, dT, 'L').s, key2;
+        key2 = sS === 'green' ? (sL === 'green' ? 'green' : 'straight') : sL === 'green' ? 'left' : (sS === 'yellow' || sL === 'yellow') ? 'yellow' : 'red';
         if (h.last !== key2) { h.last = key2; h.mesh.material = mats[key2]; }
       } else {
         var w = pedWalk(h.node, h.axis), key = 'stop', m = pedMats.stop, rem = pedRemain(h.node, h.axis);
         // 녹색: 남은 보행 초(녹색 숫자). **점멸 토막 내내**(횡단 거리에 비례 — v0.9.48, 전 판은 끝 3초) 사람 그림이 깜빡이고 숫자는 남는다.
         // 적색: 다음 녹색까지 남은 대기 초(적색 숫자) — 소유자 제공 사진(용인 수지구 혁신신호등)·홍보담당 지적.
         // 수동 조작 중에는 언제 바뀔지 알 수 없으므로 대기 초를 띄우지 않는다.
-        if (w) { if (rem <= flashTime(h.node, h.axis) && (blinkT * 4) % 2 >= 1) { key = 'o' + Math.max(1, Math.ceil(rem)); m = pedMatOff(rem); } else { key = 'w' + Math.max(1, Math.ceil(rem)); m = pedMat(rem); } }
+        if (w) { if (pedFlash(h.node, h.axis) && (blinkT * 4) % 2 >= 1) { key = 'o' + Math.max(1, Math.ceil(rem)); m = pedMatOff(rem); } else { key = 'w' + Math.max(1, Math.ceil(rem)); m = pedMat(rem); } }
         else if (!ctrl[keyOf(h.node)].manual && Math.ceil(rem) <= 99) { key = 'r' + Math.ceil(rem); m = pedMatWait(rem); }
         if (h.last !== key) { h.last = key; h.mesh.material = m; }
       }
@@ -287,7 +410,14 @@ TG.Signals = function (city, world, cfg) {
   // 테스트·디버그: 어떤 노드의 축 axis 를 지금 즉시 상태 s 로 만든다
   // s = 'green' | 'yellow' | 'red' | 'left'(그 축의 보호 좌회전 녹색 — 좌회전 현시가 있을 때)
   function set(node, axis, s) {
-    var c = ctrl[keyOf(node)], Hv = ph(node).Hv, gv = gvOf(node), gh = ghOf(node), t;
+    var c = ctrl[keyOf(node)];
+    if (realOn(c)) {   // 실측 현시: 그 이동류가 켜지는 현시로 옮긴다('red' 는 직각 방향 직진 현시로)
+      var rp = c.realPlan, a = null;
+      var codes = s === 'left' ? (axis === 'v' ? [7, 3] : [5, 1]) : s === 'red' ? (axis === 'v' ? [2, 6] : [4, 8]) : (axis === 'v' ? [4, 8] : [2, 6]);
+      codes.forEach(function (cd) { if (!a && rp.has[cd]) a = rp.iv[cd][0]; });
+      if (a) { c.t = s === 'yellow' ? a.s + a.g + 0.5 : a.s + 0.5; return; }
+    }
+    var Hv = ph(node).Hv, gv = gvOf(node), gh = ghOf(node), t;
     if (axis === 'v') t = s === 'green' ? 0.5 : s === 'yellow' ? gv + 0.5 : s === 'left' ? gv + Y + R + 0.5 : Hv + 0.5;
     else t = s === 'green' ? Hv + 0.5 : s === 'yellow' ? Hv + gh + 0.5 : s === 'left' ? Hv + gh + Y + R + 0.5 : 0.5;
     c.t = t;
@@ -298,5 +428,6 @@ TG.Signals = function (city, world, cfg) {
            holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
            greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod,
-           leftState: leftState, hasLeft: hasLeft, leftExtra: leftExtra };
+           leftState: leftState, hasLeft: hasLeft, leftExtra: leftExtra,
+           moveState: moveState, hasLeftFor: hasLeftFor, applyReal: applyReal, restoreReal: restoreReal, realInfo: realInfo };
 };

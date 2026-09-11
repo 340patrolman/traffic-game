@@ -41,6 +41,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   self.resetNode = function (node) {
     var k = node.i + ',' + node.j;
     signals.setGreen(node, 'v', cfg.SIG_GREEN); signals.setGreen(node, 'h', cfg.SIG_GREEN);
+    if (signals.restoreReal) signals.restoreReal(node);   // 되돌리면 실측 현시(로컬 자료가 있으면)로 돌아간다
     delete data.green[k];
     data.cams = data.cams.filter(function (c) { return !(c.i === node.i && c.j === node.j); });
     store(); build();
