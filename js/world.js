@@ -373,7 +373,7 @@
 
     // 신호등: 접근로마다 교차로 건너편 우측 모서리 기둥 + 암 + 머리(차로 위). 4차로면 암을 길게 뽑아 두 차로를 덮는다.
     // 보행등은 **더 크게** 그린다 — 길 건너에서 읽어야 하는데 작아서 잘 안 보였다(소유자: 「보행자신호등도 잘 보이게」).
-    var sigProps = new GeoBuilder(), heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.66, 1.32);
+    var sigProps = new GeoBuilder(), heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.66, 1.98);   // 3구(적색 사람 · 녹색 사람 · 초 표시판)
     // 신호등 머리 재질은 signals.update 가 매 프레임 갈아 끼운다. 그 전에 렌더하면 material 이 null 이라 three 가 죽는다 — 보이지 않는 임시 재질을 물려 둔다.
     var headHold = new THREE.MeshBasicMaterial({ visible: false });
     for (var hi = 0; hi < xs.length; hi++) for (var hj = 0; hj < zs.length; hj++) {
@@ -414,32 +414,34 @@
         // **보행등 바로 위의 4색등은 없앴다.** 한국 도로에 그런 배치는 없다(소유자 지적) — v0.9.29 에서 내가 넣은 것이었다.
         // 「횡단보도에 선 사람 눈에 4색 신호가 안 보인다」는 문제는 v0.9.39 의 **정지선 앞 4색등**이 이미 해결했다.
         var yawP = Math.atan2(-r2[0], -r2[1]);                        // 머리는 길 건너편을 향한다(맞은편 사람이 읽는다)
-        sigProps.box(px2 - r2[0] * 0.02, 2.95, pz2 - r2[1] * 0.02, 0.74, 1.40, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게)
-        sigProps.box(px2 - r2[0] * 0.06, 3.70, pz2 - r2[1] * 0.06, 0.80, 0.07, 0.30, 0x1d2126, { rotY: yawP });   // 차양
+        // 보행등은 **3구**다(소유자 제공 사진): 위 적색 사람 · 가운데 녹색 사람 · 아래 LED 숫자판. 칸마다 작은 차양.
+        // 홍보담당 지적 — 「보행자 신호등 밑부분에 초가 나오는데 이 부분이 빠졌다」.
+        sigProps.box(px2 - r2[0] * 0.02, 3.20, pz2 - r2[1] * 0.02, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게, 3구)
+        for (var vkP = 0; vkP < 3; vkP++) sigProps.box(px2 - r2[0] * 0.10, 4.19 - vkP * 0.66, pz2 - r2[1] * 0.10, 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawP });   // 칸마다 차양
         sigProps.box(px2, 1.15, pz2, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });                                 // 보행자 작동 버튼함
         var ph = new THREE.Mesh(pedGeo, headHold);
         // 판을 함체보다 **0.09m** 앞으로 뺀다 — 전에는 0.01m 차이라 거리가 멀어지면 함체에 묻혀 녹색이 안 보였다
-        ph.position.set(px2 - r2[0] * 0.16, 2.95, pz2 - r2[1] * 0.16); ph.rotation.y = yawP;
+        ph.position.set(px2 - r2[0] * 0.16, 3.20, pz2 - r2[1] * 0.16); ph.rotation.y = yawP;
         ph.matrixAutoUpdate = false; ph.updateMatrix(); scene.add(ph);
         heads.push({ node: nd, d: (hd + 2) % 4, mesh: ph, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // **뒤쪽에서도 보이게** 같은 자리에 뒤를 보는 판을 하나 더 둔다.
         // 횡단보도 위에서는 앞(건너편 기둥)과 뒤(출발한 기둥) 둘 다 보행등이 보여야 한다
         // (소유자: 「횡단보도를 건널때 앞과 뒤에 보행자 신호등이 보여야 하는데 안보인다」).
         var phB = new THREE.Mesh(pedGeo, headHold);
-        phB.position.set(px2 + r2[0] * 0.02, 2.95, pz2 + r2[1] * 0.02); phB.rotation.y = yawP + Math.PI;
+        phB.position.set(px2 + r2[0] * 0.02, 3.20, pz2 + r2[1] * 0.02); phB.rotation.y = yawP + Math.PI;
         phB.matrixAutoUpdate = false; phB.updateMatrix(); scene.add(phB);
         heads.push({ node: nd, d: (hd + 2) % 4, mesh: phB, kind: 'ped', back: true, axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // 같은 기둥에 90° 돌려 하나 더 — 이 모퉁이에서 만나는 **직각 방향 횡단보도**의 보행등이다.
         // 기둥을 늘리지 않고 보행등 수를 늘린다(소유자: 「기둥 하나에 90도로 2곳에 신호를 보여줄 수 있고」).
         var yawQ = Math.atan2(-f2[0], -f2[1]);
-        sigProps.box(px2 - f2[0] * 0.02, 2.95, pz2 - f2[1] * 0.02, 0.74, 1.40, 0.14, 0x1d2126, { rotY: yawQ });
-        sigProps.box(px2 - f2[0] * 0.06, 3.70, pz2 - f2[1] * 0.06, 0.80, 0.07, 0.30, 0x1d2126, { rotY: yawQ });
+        sigProps.box(px2 - f2[0] * 0.02, 3.20, pz2 - f2[1] * 0.02, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawQ });
+        for (var vkQ = 0; vkQ < 3; vkQ++) sigProps.box(px2 - f2[0] * 0.10, 4.19 - vkQ * 0.66, pz2 - f2[1] * 0.10, 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawQ });
         var ph2 = new THREE.Mesh(pedGeo, headHold);
-        ph2.position.set(px2 - f2[0] * 0.16, 2.95, pz2 - f2[1] * 0.16); ph2.rotation.y = yawQ;
+        ph2.position.set(px2 - f2[0] * 0.16, 3.20, pz2 - f2[1] * 0.16); ph2.rotation.y = yawQ;
         ph2.matrixAutoUpdate = false; ph2.updateMatrix(); scene.add(ph2);
         heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
         var ph2B = new THREE.Mesh(pedGeo, headHold);
-        ph2B.position.set(px2 + f2[0] * 0.02, 2.95, pz2 + f2[1] * 0.02); ph2B.rotation.y = yawQ + Math.PI;
+        ph2B.position.set(px2 + f2[0] * 0.02, 3.20, pz2 + f2[1] * 0.02); ph2B.rotation.y = yawQ + Math.PI;
         ph2B.matrixAutoUpdate = false; ph2B.updateMatrix(); scene.add(ph2B);
         heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2B, kind: 'ped', back: true, axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
       }

@@ -350,6 +350,21 @@
     }
     var optE = $('optEasy');
     if (optE) { optE.checked = settings.easy !== false; optE.addEventListener('change', function () { settings.easy = optE.checked; TG.save.set('settings', settings); }); }
+    var optVb = $('optVibrate');
+    if (optVb) { optVb.checked = settings.vibrate !== false; optVb.addEventListener('change', function () { settings.vibrate = optVb.checked; TG.save.set('settings', settings); if (optVb.checked) buzz(40); }); }
+    // 배속 단추와 판: 1.0~3.0배 · 0.1 단위와 0.5 단위 · 1배 되돌리기. 키보드 [ ] (Shift 와 함께 0.5) · \ = 1배
+    var bSp = $('btnSpeed'), pSp = $('speedPanel');
+    if (bSp && pSp) {
+      input.bindTap(bSp, function () { pSp.hidden = !pSp.hidden; });
+      var tsBtns = pSp.querySelectorAll('[data-ts]');
+      for (var tbi = 0; tbi < tsBtns.length; tbi++) (function (b) {
+        input.bindTap(b, function () { var a = b.getAttribute('data-ts'); setTimeScale(a === 'reset' ? 1 : (G.timeScale || 1) + parseFloat(a)); });
+      })(tsBtns[tbi]);
+    }
+    input.onKey('BracketRight', function () { setTimeScale((G.timeScale || 1) + ((input.held.ShiftLeft || input.held.ShiftRight) ? 0.5 : 0.1)); });
+    input.onKey('BracketLeft', function () { setTimeScale((G.timeScale || 1) - ((input.held.ShiftLeft || input.held.ShiftRight) ? 0.5 : 0.1)); });
+    input.onKey('Backslash', function () { setTimeScale(1); });
+    setTimeScale(1);
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
     var optV = $('optVolume'), optVV = $('optVolumeVal');
@@ -549,7 +564,7 @@
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
-    hud.clearHint(); hud.setTarget(null);
+    hud.clearHint(); hud.setTarget(null); setTimeScale(1);   // 배속은 근무를 새로 시작하면 1배로 돌아간다
 
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
@@ -705,7 +720,7 @@
       for (var b = 0; b < cc.length; b++) {
         var ddx = walker.pos.x - cc[b].x, ddz = walker.pos.z - cc[b].z, d2 = ddx * ddx + ddz * ddz;
         if (d2 >= cr * cr) continue;
-        if (c.v > 0.8) { addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 근무 종료. 하차 근무는 내 안전이 먼저다', 'bad', 5000); TG.audio.thump(1); endShift('하차 중 차량 접촉'); return; }
+        if (c.v > 0.8) { addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 근무 종료. 하차 근무는 내 안전이 먼저다', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('하차 중 차량 접촉'); return; }
         var dd2 = Math.sqrt(d2) || 0.01; walker.pos.x += ddx / dd2 * (cr - dd2); walker.pos.z += ddz / dd2 * (cr - dd2); walker.sync();
       }
     }
@@ -870,7 +885,7 @@
       for (var i2 = 0; i2 < cc.length; i2++) {
         var ddx = walker.pos.x - cc[i2].x, ddz = walker.pos.z - cc[i2].z, d2 = ddx * ddx + ddz * ddz;
         if (d2 >= cr * cr) continue;
-        if (c.v > 0.8) { addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 근무 종료. 도로 위에서는 안전한 수신호 위치를 먼저 확보한다', 'bad', 5000); TG.audio.thump(1); endShift('차량 접촉 — 교차로 근무는 내 안전이 먼저'); return; }
+        if (c.v > 0.8) { addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 근무 종료. 도로 위에서는 안전한 수신호 위치를 먼저 확보한다', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차량 접촉 — 교차로 근무는 내 안전이 먼저'); return; }
         var dd2 = Math.sqrt(d2) || 0.01; walker.pos.x += ddx / dd2 * (cr - dd2); walker.pos.z += ddz / dd2 * (cr - dd2); walker.sync();
       }
     }
@@ -1116,7 +1131,7 @@
       for (var b = 0; b < cc.length; b++) {
         var ddx = walker.pos.x - cc[b].x, ddz = walker.pos.z - cc[b].z, d2 = ddx * ddx + ddz * ddz;
         if (d2 >= cr * cr) continue;
-        if (c.v > 0.8) { if (kid) { addScore(-10, 'pedestrian'); hud.notice('앗! 차에 부딪혔어요 — 차도는 위험해요. 다시 해 봐요', 'bad', 5000); TG.audio.thump(1); endShift('차에 부딪혔어요 — 횡단보도에서 멈추고, 손 들고, 초록불에 건너요'); return; } addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 보행자 체험 종료', 'bad', 5000); TG.audio.thump(1); endShift('차량 접촉 — 사람은 차와 부딪히면 끝'); return; }
+        if (c.v > 0.8) { if (kid) { addScore(-10, 'pedestrian'); hud.notice('앗! 차에 부딪혔어요 — 차도는 위험해요. 다시 해 봐요', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차에 부딪혔어요 — 횡단보도에서 멈추고, 손 들고, 초록불에 건너요'); return; } addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 보행자 체험 종료', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차량 접촉 — 사람은 차와 부딪히면 끝'); return; }
         var dd2 = Math.sqrt(d2) || 0.01; walker.pos.x += ddx / dd2 * (cr - dd2); walker.pos.z += ddz / dd2 * (cr - dd2); walker.sync();
       }
     }
@@ -1625,7 +1640,7 @@
           if (closing > 2.5 && rules.crashCd <= 0) {
             rules.crashCd = 1.5; TG.audio.thump(closing / 10);
             var teach = (G.lead && G.lead.car === c && G.lead.sec < 1.2) ? '1초 미만 간격에서는 사람의 반응 시간(약 1초) 안에 못 멈춘다' : '차량 접촉 — 속도를 줄이고 간격을 둔다';
-            penalize('crash', '차량 접촉', teach); if (chase) chase.onCollateral(); G.lastCrash = { car: c.id, closing: closing, t: performance.now() }; G.shake = Math.min(1.2, closing / 8);
+            penalize('crash', '차량 접촉', teach); if (chase) chase.onCollateral(); G.lastCrash = { car: c.id, closing: closing, t: performance.now() }; G.shake = Math.min(1.2, closing / 8); buzz(Math.round(60 + Math.min(1, closing / 10) * 160));
           }
         }
       }
@@ -1710,6 +1725,7 @@
     enforcement.update(dt); if (response) response.update(dt);
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
     checkRules(dt, frame);
+    sigChip(frame);
     // 하차 근무: 아직 차 안이어도 그 교차로는 돌아가고 있다 — 대기 행렬·꼬리물기를 계속 센다.
     if (G.mode === 'duty' && duty && junction && !walker) {
       junction.update(dt);
@@ -1739,6 +1755,58 @@
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
+  // ---- 배속(소유자: 「횡단보도에서 기다리는 시간이 너무 길 수 있어서 … 1부터 3배속으로, 0.1 단위와 0.5 단위로」) ----
+  // 한 번에 큰 dt 를 넣으면 주행 물리가 튄다 — 0.034초 이하 조각으로 나눠 update 를 여러 번 돈다.
+  // 눌림(pressed) 입력은 첫 조각에서만 받고 지운다(한 번 누른 것이 두 번 처리되지 않게).
+  function playStep(dt) {
+    var k = G.timeScale || 1;
+    if (k <= 1.0001) update(dt);
+    else {
+      var total = dt * k, n = Math.max(1, Math.ceil(total / 0.034)), sub = total / n;
+      for (var i = 0; i < n; i++) {
+        if (G.state !== 'play' || G.paused) break;
+        update(sub);
+        if (i === 0) input.clearPressed();
+      }
+    }
+    var sw = document.getElementById('sigWait');   // 이번 프레임에 신호 칩을 안 불렀으면(도보·고속도로) 감춘다
+    if (sw && !G.sigTick && !sw.hidden) { sw.hidden = true; sw._t = ''; }
+    G.sigTick = false;
+  }
+  function setTimeScale(v) {
+    v = Math.round(TG.clamp(+v || 1, 1, 3) * 10) / 10;
+    G.timeScale = v;
+    var b = document.getElementById('btnSpeed'); if (b) { b.textContent = '▶ ' + v.toFixed(1) + '×'; b.classList.toggle('fast', v > 1); }
+    var sv = document.getElementById('speedVal'); if (sv) sv.textContent = v.toFixed(1) + '×';
+    return v;
+  }
+  // 진동(소유자: 「게임중 부딛히면 진동도 오고」). 안드로이드 크롬만 된다 — 아이폰 사파리에는 진동 API 가 없어 조용히 넘어간다.
+  function buzz(p) {
+    if (settings.vibrate === false) return false;
+    G.buzzN = (G.buzzN || 0) + 1;
+    try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {}
+    return true;
+  }
+  // 🚦 앞 신호 남은 시간(소유자: 「티맵은 신호대기 시간을 보여주는데」). 게임은 모든 신호를 알고 있으니 정확하다.
+  // 앞 교차로 정지선까지 180m 안이면 그 접근로의 차량 신호 색과 남은 초를 띄운다. 수동 조작 중이면 초 대신 「수동」.
+  function sigChip(frame) {
+    var elc = document.getElementById('sigWait'); if (!elc || !player) return;
+    G.sigTick = true;
+    var txt = '', cls = 'sigwait';
+    if (frame && frame.kind === 'grid' && !onFoot()) {
+      var d = TG.headingToDir(player.heading), nd = city.nodeAhead(player.pos.x, player.pos.z, d, 0);
+      if (nd) {
+        var f = TG.DIR_VEC[d], dist = (nd.x - player.pos.x) * f[0] + (nd.z - player.pos.z) * f[1] - city.stopDist(nd, d);
+        if (dist > -2 && dist < 180) {
+          var st = signals.state(nd, (d === 0 || d === 2) ? 'v' : 'h'), man = signals.isManual && signals.isManual(nd);
+          txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
+          cls = 'sigwait ' + st.s;
+        }
+      }
+    }
+    if (elc._t !== txt) { elc._t = txt; elc.textContent = txt; elc.className = cls; elc.hidden = !txt; }
+  }
+  G.playStep = playStep; G.setTimeScale = setTimeScale; G.buzz = buzz;
   function loop(now) {
     requestAnimationFrame(loop);
     if (G.testFreeze) { lastT = now; return; }   // 검증용 정지(스크린샷을 한 프레임에 고정한다)
@@ -1746,7 +1814,7 @@
     var dt = Math.min(0.05, raw / 1000);
     if (G.slowmo > 0) { G.slowmo = Math.max(0, G.slowmo - dt); dt *= 0.35; }   // 검거 순간 슬로모션
     if (G.state === 'play') {
-      if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); update(dt); }
+      if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); playStep(dt); }
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
     } else if (G.state === 'intro') {
       var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = TG.audio.running ? 'none' : 'block';

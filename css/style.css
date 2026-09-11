@@ -19,6 +19,8 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 .unit{font-size:12px;color:var(--dim)}
 .gear{margin-left:auto;font-size:12px;font-weight:800;color:#fff;background:#d7262b;padding:2px 7px;border-radius:6px}
 .section{font-size:11px;color:var(--accent);margin-top:2px}
+.sigwait{margin-top:3px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;word-break:keep-all}
+.sigwait.red{color:#ff6b61}.sigwait.yellow{color:#ffd23f}.sigwait.green{color:#5ee07a}
 #stopbarWrap{margin-top:6px}
 .lbl{font-size:11px;color:var(--dim)}
 .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:3px}
@@ -126,6 +128,16 @@ h2{font-size:26px;letter-spacing:2px}
 @media (min-width:640px){.overlay.study .cards{grid-template-columns:1fr 1fr}}
 .viewpick.sel,.wpick.sel,.mpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
 .tbtn.small.view{top:calc(112px + var(--sa-t));font-size:12px;width:46px}
+.tbtn.small.speed{top:calc(208px + var(--sa-t));font-size:11px;width:54px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+body.portrait .tbtn.small.speed{top:calc(264px + var(--sa-t))}
+.tbtn.small.speed.fast{background:rgba(255,196,0,.88);color:#1b1b1b;border-color:#ffd23f}
+.speedpanel{position:fixed;top:calc(200px + var(--sa-t));right:calc(72px + var(--sa-r));z-index:40;background:rgba(14,18,26,.95);border:1px solid #3b4a66;border-radius:12px;padding:8px 9px;color:#eaf1ff;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+body.portrait .speedpanel{top:calc(256px + var(--sa-t))}
+.speedpanel .sp-val{font-size:20px;font-weight:800;text-align:center;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.speedpanel .sp-row{display:flex;gap:5px}
+.speedpanel button{min-width:46px;height:42px;border-radius:9px;border:1px solid #4a5a78;background:#1f2a3d;color:#eaf1ff;font-size:14px;font-weight:700;touch-action:manipulation}
+.speedpanel button[data-ts="reset"]{background:#2d3f5e}
+.speedpanel .sp-note{font-size:10.5px;color:var(--dim);text-align:center;margin-top:5px}
 body.portrait .tbtn.small.view{top:calc(168px + var(--sa-t))}
 button.primary{pointer-events:auto;display:block;width:100%;margin:12px auto 0;padding:14px;border-radius:12px;border:2px solid var(--accent);background:rgba(255,207,63,.14);color:#fff;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation}
 button.primary:active{background:rgba(255,207,63,.3)}

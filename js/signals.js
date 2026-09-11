@@ -153,6 +153,10 @@ TG.Signals = function (city, world, cfg) {
   // 보행 신호등: 적색 서 있는 사람 / 녹색 걷는 사람 + 잔여 시간 숫자(한국식 잔여시간 표시기). 끝나기 3초 전부터 녹색이 깜빡인다.
   var pedMats = { stop: new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(false) }), off: new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(true, -1) }) };
   function pedMat(remain) { var n = Math.max(1, Math.ceil(remain)), k = 'w' + n; if (!pedMats[k]) pedMats[k] = new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(true, n) }); return pedMats[k]; }
+  // 점멸의 꺼진 순간: 사람만 꺼지고 숫자는 남는다(실물 잔여시간 표시기와 같다)
+  function pedMatOff(remain) { var n = Math.max(1, Math.ceil(remain)), k = 'o' + n; if (!pedMats[k]) pedMats[k] = new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(true, n, true) }); return pedMats[k]; }
+  // 적색 대기: 다음 녹색까지 남은 초를 적색 숫자로(두 자리까지). 100 이상은 빈 판
+  function pedMatWait(wait) { var n = Math.ceil(wait); if (n < 1 || n > 99) return pedMats.stop; var k = 'r' + n; if (!pedMats[k]) pedMats[k] = new THREE.MeshBasicMaterial({ map: TG.tex.pedHead(false, n) }); return pedMats[k]; }
 
   // 축별 상태. axis 'v' = 남북 도로(x 고정) 위를 달리는 차량, 'h' = 동서.
   // 교차로마다 남북 녹색 gv · 동서 녹색 gh 가 다르다. 한 주기 = gv + Y + R + gh + Y + R.
@@ -244,8 +248,12 @@ TG.Signals = function (city, world, cfg) {
         var s = state(h.node, h.axis).s;
         if (h.last !== s) { h.last = s; h.mesh.material = mats[s]; }
       } else {
-        var w = pedWalk(h.node, h.axis), key = 'stop', m = pedMats.stop;
-        if (w) { var rem = pedRemain(h.node, h.axis); if (rem < 3 && (blinkT * 4) % 2 >= 1) { key = 'off'; m = pedMats.off; } else { key = 'w' + Math.max(1, Math.ceil(rem)); m = pedMat(rem); } }
+        var w = pedWalk(h.node, h.axis), key = 'stop', m = pedMats.stop, rem = pedRemain(h.node, h.axis);
+        // 녹색: 남은 보행 초(녹색 숫자). 끝 3초 점멸의 꺼진 순간에도 숫자는 남는다(사람 그림만 꺼진다).
+        // 적색: 다음 녹색까지 남은 대기 초(적색 숫자) — 소유자 제공 사진(용인 수지구 혁신신호등)·홍보담당 지적.
+        // 수동 조작 중에는 언제 바뀔지 알 수 없으므로 대기 초를 띄우지 않는다.
+        if (w) { if (rem < 3 && (blinkT * 4) % 2 >= 1) { key = 'o' + Math.max(1, Math.ceil(rem)); m = pedMatOff(rem); } else { key = 'w' + Math.max(1, Math.ceil(rem)); m = pedMat(rem); } }
+        else if (!ctrl[keyOf(h.node)].manual && Math.ceil(rem) <= 99) { key = 'r' + Math.ceil(rem); m = pedMatWait(rem); }
         if (h.last !== key) { h.last = key; h.mesh.material = m; }
       }
     }

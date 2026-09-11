@@ -185,24 +185,70 @@ TG.tex = (function () {
   }
 
   // 보행 신호등(세로 2구): 위 = 적색 서 있는 사람, 아래 = 녹색 걷는 사람 + 잔여시간 숫자. n = -1 이면 둘 다 꺼짐(깜빡임 프레임)
-  function pedHead(walk, n) {
-    var key = 'ph:' + walk + ':' + (n === undefined ? '' : n);
+  // 보행 신호등 **3구**(소유자 제공 사진 · 용인 수지구 「혁신신호등」): 위 적색 사람 · 가운데 녹색 사람 · 아래 LED 숫자판.
+  // 숫자판은 녹색일 때 남은 보행 초(녹색 숫자), **적색일 때도 다음 녹색까지 남은 대기 초(적색 숫자)**를 보인다
+  // (소유자: 「보행자 신호등 밑부분에 초가 나오는데 이 부분이 빠졌다」 — 홍보담당 지적). 두 자리까지만 띄운다(100 이상은 빈 판).
+  // 전부 LED 점으로 그린다 — 사진의 신호등이 점으로 된 사람·숫자다.
+  // walk: 녹색 여부 · n: 표시할 초(없으면 빈 판 · -1 은 옛 점멸 꺼짐) · manOff: 녹색 점멸의 꺼진 순간(사람만 꺼지고 숫자는 남는다)
+  var DIG5x7 = {
+    '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+    '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+    '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+    '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+    '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+    '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+    '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
+    '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+    '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+    '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100']
+  };
+  // 사람 그림을 LED 점으로 바꾼다 — 켜지면 밝은 점, 꺼지면 어두운 점 흔적(실물도 꺼진 LED 가 희미하게 보인다)
+  function ledMan(walking, on, colorOn) {
+    var key = 'ledman:' + walking + ':' + on + ':' + colorOn;
     if (cache[key]) return cache[key];
-    var c = canvas(64, 128), g = c.getContext('2d');
-    g.fillStyle = '#1d2126'; g.fillRect(0, 0, 64, 128);
-    var redOn = !walk, greenOn = walk && n !== -1;
-    g.fillStyle = redOn ? '#ff3b30' : '#2a2f36'; g.beginPath(); g.arc(32, 32, 24, 0, Math.PI * 2); g.fill();
-    g.fillStyle = greenOn ? '#34c759' : '#2a2f36'; g.beginPath(); g.arc(32, 96, 24, 0, Math.PI * 2); g.fill();
-    function man(cx, cy, walking, color) {
-      g.fillStyle = color; g.strokeStyle = color; g.lineWidth = 4; g.lineCap = 'round';
-      g.beginPath(); g.arc(cx, cy - 13, 3.5, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.moveTo(cx, cy - 9); g.lineTo(cx, cy + 2); g.stroke();
-      if (walking) { g.beginPath(); g.moveTo(cx, cy + 2); g.lineTo(cx - 6, cy + 13); g.moveTo(cx, cy + 2); g.lineTo(cx + 6, cy + 12); g.moveTo(cx, cy - 6); g.lineTo(cx - 6, cy - 1); g.moveTo(cx, cy - 6); g.lineTo(cx + 6, cy - 9); g.stroke(); }
-      else { g.beginPath(); g.moveTo(cx - 2, cy + 2); g.lineTo(cx - 2, cy + 13); g.moveTo(cx + 2, cy + 2); g.lineTo(cx + 2, cy + 13); g.moveTo(cx, cy - 6); g.lineTo(cx - 5, cy); g.moveTo(cx, cy - 6); g.lineTo(cx + 5, cy); g.stroke(); }
+    var S = 48, src = canvas(S, S), g = src.getContext('2d');
+    g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineWidth = 5.5;
+    var cx = 24, cy = 26;
+    g.beginPath(); g.arc(cx, cy - 15, 4.4, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(cx, cy - 9); g.lineTo(cx, cy + 4); g.stroke();
+    if (walking) {
+      g.beginPath(); g.moveTo(cx, cy + 4); g.lineTo(cx - 8, cy + 18); g.moveTo(cx, cy + 4); g.lineTo(cx + 7, cy + 17); g.stroke();
+      g.beginPath(); g.moveTo(cx, cy - 6); g.lineTo(cx - 8, cy + 2); g.moveTo(cx, cy - 6); g.lineTo(cx + 8, cy - 1); g.stroke();
+    } else {
+      g.beginPath(); g.moveTo(cx - 3, cy + 4); g.lineTo(cx - 3, cy + 19); g.moveTo(cx + 3, cy + 4); g.lineTo(cx + 3, cy + 19); g.stroke();
+      g.beginPath(); g.moveTo(cx - 3, cy - 7); g.lineTo(cx - 7, cy + 5); g.moveTo(cx + 3, cy - 7); g.lineTo(cx + 7, cy + 5); g.stroke();
     }
-    man(32, 32, false, redOn ? '#3a0c0a' : '#1a1d22');
-    man(walk && n > 0 ? 22 : 32, 96, true, greenOn ? '#0b3d1c' : '#1a1d22');
-    if (walk && n > 0) { g.fillStyle = greenOn ? '#0b3d1c' : '#1a1d22'; g.font = 'bold 22px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n), 44, 96); }
+    var px = g.getImageData(0, 0, S, S).data, out = canvas(S, S), o = out.getContext('2d'), P = 2.4;
+    o.fillStyle = on ? colorOn : '#262b31';
+    for (var y = P / 2; y < S; y += P) for (var x = P / 2; x < S; x += P) {
+      if (px[((y | 0) * S + (x | 0)) * 4 + 3] < 90) continue;
+      o.beginPath(); o.arc(x, y, P * 0.36, 0, Math.PI * 2); o.fill();
+    }
+    return (cache[key] = out);
+  }
+  function ledDigits(g, text, x0, y0, w, h, color) {
+    var cols = text.length * 5 + (text.length - 1), pitch = Math.min(w / cols, h / 7);
+    var ox = x0 + (w - pitch * cols) / 2, oy = y0 + (h - pitch * 7) / 2;
+    g.fillStyle = color;
+    for (var ci = 0; ci < text.length; ci++) {
+      var gl = DIG5x7[text.charAt(ci)]; if (!gl) continue;
+      for (var r = 0; r < 7; r++) for (var cc = 0; cc < 5; cc++) {
+        if (gl[r].charAt(cc) !== '1') continue;
+        g.beginPath(); g.arc(ox + (ci * 6 + cc + 0.5) * pitch, oy + (r + 0.5) * pitch, pitch * 0.38, 0, Math.PI * 2); g.fill();
+      }
+    }
+  }
+  function pedHead(walk, n, manOff) {
+    var key = 'ph3:' + walk + ':' + (n === undefined ? '' : n) + ':' + (manOff ? 1 : 0);
+    if (cache[key]) return cache[key];
+    var W = 48, H = 144, c = canvas(W, H), g = c.getContext('2d');
+    g.fillStyle = '#15181c'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#0b0d10';
+    for (var s = 0; s < 3; s++) g.fillRect(3, s * 48 + 3, W - 6, 42);   // 렌즈 칸
+    var redOn = !walk, greenOn = walk && !manOff && n !== -1;
+    g.drawImage(ledMan(false, redOn, '#ff3b30'), 0, 0);
+    g.drawImage(ledMan(true, greenOn, '#39d353'), 0, 48);
+    if (n > 0 && n < 100) ledDigits(g, String(n), 5, 96 + 7, W - 10, 34, walk ? '#39d353' : '#ff3b30');
     return (cache[key] = toTexture(c));
   }
 

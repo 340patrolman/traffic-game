@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.43">
+<link rel="stylesheet" href="css/style.css?v=0.9.44">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -22,6 +22,7 @@
   <div id="speedbox" class="panel">
     <div class="speedrow"><span id="sigL" class="sig">◀</span><span id="speed">0</span><span class="unit">km/h</span><span id="sigR" class="sig">▶</span><span id="gear" class="gear" style="display:none">R 후진</span><span id="driveMode" class="dmode">N</span></div>
     <div id="section" class="section">시내 · 제한 50</div>
+    <div id="sigWait" class="sigwait" hidden></div>
     <div id="stopbarWrap"><div class="lbl">정지거리 <span id="stopdist">—</span></div><div class="bar"><div id="stopbar"></div></div></div>
     <div id="gap" class="gap"></div>
   </div>
@@ -57,6 +58,12 @@
   </div>
   <div class="tbtn small" id="btnPause">❚❚</div>
   <div class="tbtn small view" id="btnView" title="시점 전환">시점</div>
+  <div class="tbtn small speed" id="btnSpeed" title="배속 — 신호를 기다릴 때 시간을 빨리 흐르게 합니다. 키보드 [ ] 0.1 · Shift+[ ] 0.5 · \ 1배">▶ 1.0×</div>
+  <div id="speedPanel" class="speedpanel" hidden>
+    <div class="sp-val" id="speedVal">1.0×</div>
+    <div class="sp-row"><button type="button" data-ts="-0.5">−0.5</button><button type="button" data-ts="-0.1">−0.1</button><button type="button" data-ts="reset">1배</button><button type="button" data-ts="0.1">+0.1</button><button type="button" data-ts="0.5">+0.5</button></div>
+    <div class="sp-note">1.0 ~ 3.0배 · 신호를 기다릴 때 · 근무를 새로 시작하면 1배</div>
+  </div>
   <!-- 화면 게임패드 배치(조작 설정 「게임패드」): 왼쪽 십자키 + 오른쪽 △○×□ + L1/R1 -->
   <div id="pad">
     <div class="pad-shoulder left"><div class="tbtn pbtn sh" data-key="Comma">L1<span>좌 깜빡이</span></div></div>
@@ -215,6 +222,7 @@
     <label class="opt"><input type="checkbox" id="optSound"> 소리</label>
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optEasy"> 초보 운전 보조(조향 완화 · 감속 시점에 살짝 자동 제동)</label>
+    <label class="opt"><input type="checkbox" id="optVibrate"> 충돌 진동(안드로이드 · 아이폰은 진동 기능이 없어 동작하지 않음)</label>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
     <label class="opt"><input type="checkbox" id="optHQ"> 고화질(해상도·그림자 올림 — 프레임이 떨어지면 끄세요)</label>
     <label class="opt"><span>조작 배치</span><select id="optCtl" style="flex:1"><option value="stick">🕹 조이스틱 + 버튼</option><option value="pad">🎮 게임패드(십자키 · △○×□)</option></select></label>
@@ -255,43 +263,43 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.43"></script>
-<script src="js/config.js?v=0.9.43"></script>
-<script src="js/rng.js?v=0.9.43"></script>
-<script src="js/save.js?v=0.9.43"></script>
-<script src="js/perf.js?v=0.9.43"></script>
-<script src="js/emblem.js?v=0.9.43"></script>
-<script src="js/textures.js?v=0.9.43"></script>
-<script src="js/audio.js?v=0.9.43"></script>
-<script src="js/city.js?v=0.9.43"></script>
-<script src="js/world.js?v=0.9.43"></script>
-<script src="js/terrain.js?v=0.9.43"></script>
-<script src="js/weather.js?v=0.9.43"></script>
-<script src="js/signals.js?v=0.9.43"></script>
-<script src="js/vehmesh.js?v=0.9.43"></script>
-<script src="js/vehicle.js?v=0.9.43"></script>
-<script src="js/traffic.js?v=0.9.43"></script>
-<script src="js/peds.js?v=0.9.43"></script>
-<script src="js/character.js?v=0.9.43"></script>
-<script src="js/vfx.js?v=0.9.43"></script>
-<script src="js/response.js?v=0.9.43"></script>
-<script src="js/junction.js?v=0.9.43"></script>
-<script src="js/chase.js?v=0.9.43"></script>
-<script src="js/intro.js?v=0.9.43"></script>
-<script src="js/walker.js?v=0.9.43"></script>
-<script src="js/rail.js?v=0.9.43"></script>
-<script src="js/enforcement.js?v=0.9.43"></script>
-<script src="js/signaltod.js?v=0.9.43"></script>
-<script src="js/facil.js?v=0.9.43"></script>
-<script src="js/layers.js?v=0.9.43"></script>
-<script src="js/study.js?v=0.9.43"></script>
-<script src="js/drunkproc.js?v=0.9.43"></script>
-<script src="js/kidcourse.js?v=0.9.43"></script>
-<script src="js/career.js?v=0.9.43"></script>
-<script src="js/hud.js?v=0.9.43"></script>
-<script src="js/minimap.js?v=0.9.43"></script>
-<script src="js/input.js?v=0.9.43"></script>
-<script src="js/main.js?v=0.9.43"></script>
+<script src="lib/three.min.js?v=0.9.44"></script>
+<script src="js/config.js?v=0.9.44"></script>
+<script src="js/rng.js?v=0.9.44"></script>
+<script src="js/save.js?v=0.9.44"></script>
+<script src="js/perf.js?v=0.9.44"></script>
+<script src="js/emblem.js?v=0.9.44"></script>
+<script src="js/textures.js?v=0.9.44"></script>
+<script src="js/audio.js?v=0.9.44"></script>
+<script src="js/city.js?v=0.9.44"></script>
+<script src="js/world.js?v=0.9.44"></script>
+<script src="js/terrain.js?v=0.9.44"></script>
+<script src="js/weather.js?v=0.9.44"></script>
+<script src="js/signals.js?v=0.9.44"></script>
+<script src="js/vehmesh.js?v=0.9.44"></script>
+<script src="js/vehicle.js?v=0.9.44"></script>
+<script src="js/traffic.js?v=0.9.44"></script>
+<script src="js/peds.js?v=0.9.44"></script>
+<script src="js/character.js?v=0.9.44"></script>
+<script src="js/vfx.js?v=0.9.44"></script>
+<script src="js/response.js?v=0.9.44"></script>
+<script src="js/junction.js?v=0.9.44"></script>
+<script src="js/chase.js?v=0.9.44"></script>
+<script src="js/intro.js?v=0.9.44"></script>
+<script src="js/walker.js?v=0.9.44"></script>
+<script src="js/rail.js?v=0.9.44"></script>
+<script src="js/enforcement.js?v=0.9.44"></script>
+<script src="js/signaltod.js?v=0.9.44"></script>
+<script src="js/facil.js?v=0.9.44"></script>
+<script src="js/layers.js?v=0.9.44"></script>
+<script src="js/study.js?v=0.9.44"></script>
+<script src="js/drunkproc.js?v=0.9.44"></script>
+<script src="js/kidcourse.js?v=0.9.44"></script>
+<script src="js/career.js?v=0.9.44"></script>
+<script src="js/hud.js?v=0.9.44"></script>
+<script src="js/minimap.js?v=0.9.44"></script>
+<script src="js/input.js?v=0.9.44"></script>
+<script src="js/main.js?v=0.9.44"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
