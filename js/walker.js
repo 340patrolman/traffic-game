@@ -80,7 +80,7 @@ TG.walkerPlace = function (city, signals, x, z) {
     // 접근로 d 의 횡단보도는 교차로 앞(along < 0 쪽)에 있다
     if (along <= -cn + 0.3 && along >= -cf - 0.3 && Math.abs(lat) <= half + 0.2) {
       var crossAxis = rd.axis;   // 건너는 도로의 축
-      return { where: 'crosswalk', node: node, d: d, crossAxis: crossAxis, walk: signals.pedWalk(node, crossAxis), remain: signals.pedRemain(node, crossAxis) };
+      return { where: 'crosswalk', node: node, d: d, crossAxis: crossAxis, walk: signals.pedWalk(node, crossAxis), remain: signals.pedRemain(node, crossAxis), flash: signals.pedFlash(node, crossAxis) };
     }
   }
   return { where: 'road' };

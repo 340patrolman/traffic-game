@@ -94,8 +94,8 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     if (p.state === 'wait') {
       p.waitT += dt;
       var crossAx = p.axis === 'v' ? 'h' : 'v', walk = signals.pedWalk(node, crossAx);
-      // 녹색 점멸(잔여 3초)에는 횡단을 시작할 수 없다 — 시행규칙 별표2 보행신호등 녹색등화의 점멸.
-      var canStart = walk && signals.pedRemain(node, crossAx) >= 3.2;
+      // 녹색 점멸에는 횡단을 시작할 수 없다 — 시행규칙 별표2 보행신호등 녹색등화의 점멸. 점멸은 횡단 거리에 비례해 길다(v0.9.48).
+      var canStart = walk && !signals.pedFlash(node, crossAx);
       if (canStart && !carBlocking(p)) { p.state = 'cross'; p.waitT = 0; p.crossNode = node; }
       else if (!walk && p.jaywalker && !p.jayDone && p.waitT > 4 && !carBlocking(p, false, true)) { p.state = 'cross'; p.crossNode = node; p.jayDone = true; p.jayLive = true; p.jayT = 0; p.jayKind = 'red'; p.hurryK = 1.5; p.speed *= 1.5; p.hurry = true; self.onEvent('jaywalk', p); }
       else if (p.waitT > 62) turnCorner(p, node);   // 한 주기(57초)는 기다려 본다

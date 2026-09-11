@@ -1015,7 +1015,7 @@
     if (p.where === 'crosswalk') {
       if (!walk.cross || walk.cross.node !== p.node || walk.cross.d !== p.d) {
         walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 0.8, hand: walker.hand > 0 };
-        var blinkIn = p.walk && p.remain < 3.2;                       // 녹색 점멸에 들어섰다
+        var blinkIn = p.walk && !!p.flash;                            // 녹색 점멸에 들어섰다(점멸은 횡단 거리에 비례해 길다 — v0.9.48)
         walk.cross.blink = blinkIn;
         if (kid) {
           if (!p.walk) { kidVoice('red', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); }
@@ -1072,7 +1072,7 @@
         var dd = Math.hypot(alk + city.crossNear(node, d) + 1.75, Math.max(0, Math.abs(lak) - hk));   // 횡단보도 띠(도로 폭 전체)까지의 거리 — 보도 위 사람 기준
         if (dd < bd) { bd = dd; best = d; }
       }
-      if (best !== null) { var ax = city.roadOf(node, best).axis, w = signals.pedWalk(node, ax), rem = signals.pedRemain(node, ax); sec = (w ? '🟢 앞 횡단보도 보행 ' + Math.ceil(rem) + '초' : '🔴 앞 횡단보도 대기 ' + Math.ceil(rem) + '초') + ' · ' + (ax === 'v' ? city.roadNamesV[node.i] : city.hName(node.j, walker.pos.x)); }
+      if (best !== null) { var ax = city.roadOf(node, best).axis, w = signals.pedWalk(node, ax), rem = signals.pedRemain(node, ax); sec = (w ? (signals.pedFlash(node, ax) ? '🟡 앞 횡단보도 점멸 ' : '🟢 앞 횡단보도 보행 ') + Math.ceil(rem) + '초' : '🔴 앞 횡단보도 대기 ' + Math.ceil(rem) + '초') + ' · ' + (ax === 'v' ? city.roadNamesV[node.i] : city.hName(node.j, walker.pos.x)); }
       else sec = p.where === 'sidewalk' ? '🚶 보도 · ' + city.nodeName(node).replace(' 교차로', '') + ' 부근' : '🚶 도로 밖';
       // 어린이 교실 ①「걸을 자리」: 보도로 걸으면 쌓인다. 차도로 나가면 처음부터.
       if (kid && G.kidCourse) {
@@ -1096,7 +1096,7 @@
           if ((walk.compCd || 0) <= 0) { walk.compCd = 30; kidCompanions(node, best); }
         }
         else if (walker.hand <= 0) { kidStep(2); if (walk.voiceCd <= 0) kidVoice('hand'); }   // ✋ 손을 든다: 운전자가 나를 보게 한다
-        else if (wk && rem < 3.2) {                                  // 🟡 깜빡이는 초록불 — 지금은 건너지 않는다
+        else if (wk && signals.pedFlash(node, crossAxK)) {           // 🟡 깜빡이는 초록불 — 지금은 건너지 않는다
           walk.blinkWaited = true; kidStep(2, '🟡 깜빡여요 — 기다린다');
           if (walk.voiceCd <= 0) kidVoice('blink');
           if (walk.hintCd <= 0) { hud.hintNow('초록불이 깜빡이면 건너지 않아요. 다음 초록불을 기다려요'); walk.hintCd = 4; }
