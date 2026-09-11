@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.9.44';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.9.45';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -30,6 +30,8 @@ TG.CONFIG = {
   AI_CRUISE_SUB: 15, AI_CRUISE_HW: 26, AI_CRUISE_BUS: 22,
   BUSLANE_VIOLATOR_RATE: 0.14, // 고속도로 승용차 중 버스전용차로로 달리는 비율
   BUSLANE_WITNESS_SEC: 1.5,
+  LANE_VIOLATOR_RATE: 0.18,    // 버스전용차로 없는 고속도로에서 화물·대형승합이 왼쪽 차로(1·2차로)로 달리는 비율
+  LANE_WITNESS_SEC: 3,         // 지정차로 위반을 이만큼 지켜봐야 기록된다
 
   // --- 신호 ---
   SIG_GREEN: 30, SIG_YELLOW: 3, SIG_ALLRED: 1.5,   // 차량 녹색 30초 — 보행 신호(도로 폭에 따라 20~28초)를 품는다

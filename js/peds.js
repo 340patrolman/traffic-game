@@ -191,7 +191,21 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   }
 
   var spawnT = 0;
+  // 무단횡단 표식: 방금 무단횡단한 보행자 머리 위에 위반 표식(차량과 같은 모양) — 60m 안에서만.
+  // 전에는 차에만 표식이 떠서 무단횡단자를 눈으로 찾을 수가 없었다(소유자: 「보행자 무단횡단도 단속할 수 있어야」).
+  var jayMarkMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
+  function jayMarks() {
+    var pl = self.player;
+    for (var i = 0; i < peds.length; i++) {
+      var p = peds[i], want = !p.warned && (p.jayLive || (p.jayDone && p.jayT < 12));
+      if (want && pl) want = Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) < 60;
+      if (want && !p.mark && p.mesh) { var sp = new THREE.Sprite(jayMarkMat); sp.scale.set(0.9, 0.9, 1); sp.position.set(0, 2.35 / (p.scale || 1), 0); p.mesh.add(sp); p.mark = sp; }
+      if (p.mark) p.mark.visible = want;
+    }
+  }
+  this.jayMarks = jayMarks;
   this.update = function (dt, budget) {
+    jayMarks();
     spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.7; if (peds.length < budget) spawn(); }
     var pl = self.player;

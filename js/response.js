@@ -19,7 +19,7 @@ TG.Response = function (game) {
     return 'B';
   }
   this.tierOf = tierOf;
-  function kindName(car) { return car.isPM ? '개인형 이동장치' : car.isBike ? '자전거' : car.isMoto ? '이륜차' : car.isBus ? '버스' : car.type === 'truck' ? '화물차' : '승용차'; }
+  function kindName(car) { return car.isPM ? '개인형 이동장치' : car.isBike ? '자전거' : car.isMoto ? '이륜차' : car.isBus ? '버스' : car.type === 'truck' ? '화물차' : car.type === 'pickup' ? '화물차(픽업)' : '승용차'; }
   this.kindName = kindName;
   // 지금 화면 앞의 대상(선택한 것 우선, 없으면 전방 70m 안 위반 차량)
   function target(maxDist) {

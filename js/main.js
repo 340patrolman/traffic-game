@@ -537,16 +537,21 @@
         selectTarget(selW); if (enforcement.quiz(selW)) selectTarget(null);
         return;
       }
+      // 무단횡단 보행자도 **단속**한다(소유자: 「도보순찰 모드나 순찰차 근무중에서 보행자 무단횡단도 단속할 수 있어야」).
+      // 고른 보행자, 없으면 25m 안에서 방금 무단횡단한 보행자를 객관식(조문·범칙금)으로. 대상이 없을 때만 가까운 계도(+8).
+      var selP = G.selected && G.selected.kind === 'ped' ? G.selected : null;
+      if (!selP) { var bdP = 25; peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var dP = Math.hypot(p.pos.x - walker.pos.x, p.pos.z - walker.pos.z); if (dP < bdP) { bdP = dP; selP = { kind: 'ped', ped: p }; } }); }
+      if (selP) { hud.notice('🚨 위반 확인: 무단횡단 — 보행자, 정지하세요', 'alert', 2400); paSay('보행자, 정지하세요'); selectTarget(selP); if (enforcement.quiz(selP)) selectTarget(null); return; }
       var wp2 = peds.tryWarn(walker);
       if (wp2) { addScore(8, null); G.stats.warned++; hud.setStops(G.stats.warned); hud.notice('무단횡단 보행자 계도 (+8)', 'good', 2600); paSay('보행자, 횡단보도로 건너 주세요'); }
-      else hud.notice('대상이 없습니다 — 위반 차량(45m 안)이나 무단횡단 보행자(9m 안)를 찾으세요', 'warn', 2400);
+      else hud.notice('대상이 없습니다 — 위반 차량(45m 안)이나 무단횡단 보행자(25m 안)를 찾으세요', 'warn', 2400);
       return;
     }
     var sel = G.selected;
     if (!sel) {
       var pf = player.forward(), best = null, bd = 1e9;
       traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 45 && dx * pf[0] + dz * pf[1] > -2 && d < bd) { bd = d; best = { kind: 'car', car: c }; } });
-      peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 20 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
+      peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 35 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
       if (!best) { hud.notice('대상이 없습니다 — 화면에서 차량이나 보행자를 터치해 고르세요', 'warn', 2400); return; }
       sel = best; selectTarget(sel);
     }
@@ -1862,6 +1867,7 @@
                  lead: G.lead ? { gap: G.lead.gap, sec: G.lead.sec, carId: G.lead.car.id, carV: G.lead.car.v } : null, lastCrash: G.lastCrash || null,
                  target: enforcement && enforcement.target ? { id: enforcement.target.id, mode: enforcement.target.mode, violation: enforcement.target.violation, x: enforcement.target.pos.x, z: enforcement.target.pos.z, h: enforcement.target.heading } : null };
       },
+      enforce: function () { enforce(); },
       setPlayer: function (x, z, heading, speed) { player.teleport(x, z, heading); var f = player.forward(); player.vx = f[0] * speed; player.vz = f[1] * speed; player.resync(); camInit = false; },
       spawnLead: function (gap, speed, cruise) {
         var d = TG.headingToDir(player.heading), f = TG.DIR_VEC[d], r = [-f[1], f[0]], frame = city.laneFrame(player.pos.x, player.pos.z, player.heading);

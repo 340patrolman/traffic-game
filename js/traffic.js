@@ -9,12 +9,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   this.time = 0;
   this.stats = { violations: 0, witnessed: 0 };
 
-  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'bus', 'moto', 'moto', 'bike', 'pm', 'pm'];
-  var HW_TYPES = ['sedan', 'sedan', 'sedan', 'suv', 'suv', 'hatch', 'van', 'truck', 'truck', 'bus', 'bus'];
+  var CITY_TYPES = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'van', 'truck', 'pickup', 'bus', 'moto', 'moto', 'bike', 'pm', 'pm'];
+  var HW_TYPES = ['sedan', 'sedan', 'sedan', 'suv', 'suv', 'hatch', 'van', 'truck', 'truck', 'pickup', 'pickup', 'bus', 'bus'];
   var COLORS = { sedan: [0xc94d43, 0x3e6bb0, 0x9aa3ad, 0x2f3438, 0xe6e2d8, 0x6b8f5a, 0xb08a3e, 0x7d5a96],
                  hatch: [0xd77a3a, 0x5c8bd6, 0xbfb8aa, 0x7d5a96, 0xd9d34f, 0x2f3438],
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
-                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8] };
+                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], pickup: [0xdcdcd4, 0x2f3438, 0x8e9aa6, 0x6d4f3a, 0x9a4a3a], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8] };
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
@@ -77,6 +77,18 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     return opts[opts.length - 1][0];
   }
   // 고속도로 차로 배정: 버스전용차로가 있는 도로(경부)에서만 버스가 1차로. 나머지 고속도로는 버스도 일반 차로로 달린다.
+  // 지정차로(도로교통법 §14② · 시행규칙 별표9 — 티북 원문): 고속도로 편도 3차로 이상은 1차로 = 앞지르기,
+  // 나머지를 반으로 나눠 1차로 쪽이 「왼쪽 차로」(승용·경~중형 승합), 바깥쪽이 「오른쪽 차로」(대형승합·화물·특수·건설기계).
+  // 홀수면 가운데 차로는 어느 쪽도 아니다. 「지정 차로보다 오른쪽은 언제나 가능」(비고2).
+  // → 편도 4차로면 화물·대형승합은 **3·4차로**. 티북 현장 사례 「5톤 화물이 고속도로 2차로(왼쪽) 주행 → 위반」.
+  // (전에는 화물을 2~4차로에 고르게 두어 **2차로의 화물차가 사실은 위반**이었다.)
+  function minCargoLane(n) { return 1 + Math.floor((n - 1) / 2); }
+  function cargoLane(car, n) {
+    var lo = minCargoLane(n);
+    if (car.laneViolator) return Math.floor(rng() * lo);             // 1차로 또는 2차로 — 위반 성향
+    return lo + Math.floor(rng() * Math.max(1, n - lo));
+  }
+  this.minCargoLane = minCargoLane;
   function laneFor(car, link) {
     if (link.kind !== 'highway') return 0;
     var n = self.terrain.laneOffsets(link.pts[0]).length, busl = !!link.busLane;
@@ -84,7 +96,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     // 지정차로: 버스전용차로가 없는 고속도로(올림픽대로·순환 본선)에서 승합·화물은 1차로에 들어갈 수 없다.
     // 중앙 기준 오른쪽 차로로 통행한다(소유자: 「올림픽대로에서는 지정차로 위반 — 1차로는 진입할 수 없음.
     // 승합차 화물차는 가운데 기준 우측차로로만 통행해야 함」). 시행규칙 별표9 취지.
-    if (!busl && (car.isBus || car.isTruck) && n > 1) return 1 + Math.floor(rng() * (n - 1));
+    if (!busl && (car.isBus || car.isCargo) && n > 1) return cargoLane(car, n);
     var lo = busl ? 1 : 0;
     return lo + Math.floor(rng() * Math.max(1, n - lo));
   }
@@ -141,7 +153,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var car = {
       id: nextId++, type: type, len: T.l, wid: T.w, pos: { x: x, z: z }, y: 0, heading: heading, v: 0, pitch: 0,
       speedK: 0.9 + rng() * 0.25, cruise: opts.cruise || (cfg.AI_CRUISE + (rng() - 0.5) * 2 * cfg.AI_CRUISE_VAR), path: [], idx: 0,
-      isBus: type === 'bus', isTruck: type === 'truck', violator: violator, pedViolator: opts.pedViolator !== undefined ? opts.pedViolator : (violator && rng() < 0.5), cooldown: opts.violator ? 0 : rng() * 10,
+      isBus: type === 'bus', isTruck: type === 'truck', isCargo: type === 'truck' || type === 'pickup',
+      laneViolator: opts.laneViolator !== undefined ? !!opts.laneViolator : ((type === 'truck' || type === 'pickup' || type === 'bus') && rng() < cfg.LANE_VIOLATOR_RATE), laneT: 0,
+      violator: violator, pedViolator: opts.pedViolator !== undefined ? opts.pedViolator : (violator && rng() < 0.5), cooldown: opts.violator ? 0 : rng() * 10,
       busLaneViolator: false, busLaneT: 0, running: null, violation: null, unseen: 0, mode: 'drive', extra: 0, yieldT: 0, radius: T.l * 0.36,
       braking: false, spawnT: self.time, straight: !!opts.straight, wantsExit: !!opts.wantsExit, stayRing: !!opts.stayRing, route: null,
       laneIdx: opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1),
@@ -218,13 +232,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES); if (type === 'bike' && !opts.type) type = 'sedan';   // 교외 링크엔 자전거 없음
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         var nHW = self.terrain.laneOffsets(L.pts[0]).length;
+        var isCargoT = type === 'truck' || type === 'pickup';
+        var lvRoll = opts.laneViolator !== undefined ? !!opts.laneViolator : ((isBus || isCargoT) && !L.busLane && rng() < cfg.LANE_VIOLATOR_RATE);
         if (L.kind === 'highway') lane = (opts.lane !== undefined) ? opts.lane
-          : (isBus || type === 'truck') ? (L.busLane && isBus ? 0 : 1 + Math.floor(rng() * Math.max(1, nHW - 1)))   // 지정차로: 전용차로가 있을 때만 버스가 1차로
+          : (isBus || isCargoT) ? (L.busLane ? (isBus ? 0 : 1 + Math.floor(rng() * Math.max(1, nHW - 1))) : cargoLane({ laneViolator: lvRoll }, nHW))   // 지정차로(별표9) · 전용차로 있는 경부는 버스만 1차로
           : (rng() < cfg.BUSLANE_VIOLATOR_RATE && L.busLane ? 0 : 1 + Math.floor(rng() * 2));
         var offs = T.laneOffsets(p), off = offs[Math.min(lane, offs.length - 1)], x = p.x + p.rx * off * sgn, z = p.z + p.rz * off * sgn;
         if (pl && !opts.atLink) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.SPAWN_MIN || dist > cfg.SPAWN_MAX * 3.2) continue; var pfl = pl.forward(), ahl = (x - pl.pos.x) * pfl[0] + (z - pl.pos.z) * pfl[1]; if (ahl > 0 && dist < 140 && Math.abs((x - pl.pos.x) * -pfl[1] + (z - pl.pos.z) * pfl[0]) < dist * 0.9) continue; }   // 플레이어 앞 시야(140m) 안에서 불쑥 나타나지 않게
         if (tooClose(x, z)) continue;
-        car = makeCar(type, x, z, heading, { violator: opts.violator, straight: opts.straight, cruise: opts.cruise, busLaneViolator: lane === 0 && !isBus, stayRing: opts.stayRing, trait: opts.trait, noLicense: opts.noLicense });
+        car = makeCar(type, x, z, heading, { violator: opts.violator, straight: opts.straight, cruise: opts.cruise, busLaneViolator: lane === 0 && !isBus && !!L.busLane, stayRing: opts.stayRing, trait: opts.trait, noLicense: opts.noLicense, laneViolator: lvRoll });
         car.route = { link: L, dirA: dirA, i: i, lane: lane, lanePrev: null };
         appendLink(car, 30);
         car.v = opts.v !== undefined ? opts.v : cruiseFor(car, p.kind) * 0.8;
@@ -431,9 +447,18 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       car.prevDistStop = distStop; car.prevAp = ap;
     } else { car.prevAp = null; car.prevDistStop = undefined; }
-    if (onLink && cur.kind === 'highway' && cur.link && cur.link.busLane && car.route && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
+    // 전용차로·지정차로 판정은 **차가 실제로 달리는 링크(car.route.link)** 로 한다. 위치로 잡은 프레임(cur)은 램프가 본선 포장 안을 지날 때
+    // 본선을 돌려준다 — 그러면 램프 위 0번 차로를 본선 1차로로 읽어 **준법 차량을 위반으로 기록**했다(v0.9.45 검증 2회차에서 잡힘).
+    if (onLink && cur.kind === 'highway' && car.route && car.route.link && car.route.link.busLane && !car.route.merge && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
       if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null, true); } }
     } else car.busLaneT = 0;
+    // 지정차로 위반: 버스전용차로가 없는 고속도로(올림픽대로·순환 본선)에서 화물·대형승합이 왼쪽 차로(편도 4차로면 1·2차로)로 달린다.
+    // 경부고속도로(전용차로 있음)는 소유자 지시대로 판정하지 않는다.
+    var RLn = car.route && car.route.link;
+    if (onLink && RLn && RLn.kind === 'highway' && !RLn.busLane && !car.route.merge && (car.isCargo || car.isBus) && car.mode === 'drive' &&
+        car.route.lane < minCargoLane(RLn.nLanes || (RLn.nLanes = self.terrain.laneOffsets(RLn.pts[0]).length))) {
+      if (self.witness(car)) { car.laneT += dt; if (car.laneT > cfg.LANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'lane', null, true); } }
+    } else car.laneT = 0;
     // ---- 방향지시등·차로 변경·운전자 습관 ----
     car.lcCd -= dt; car.signalT -= dt;
     if (ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop > -2 && distStop < 40) car.signal = ap.maneuver;   // 교차로 회전 예고
@@ -502,7 +527,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (car.cargoBoxes.length === 0) setTimeout(function () { car.cargoBoxes = null; }, 0);
       }
     }
-    if (car.trait === 'phone' || car.trait === 'animal') { car.traitT += dt; if (car.traitT > 8 && self.witness(car) && (!car.violation || car.violation.type !== car.trait)) { self.stats.violations++; flag(car, car.trait, null, true); car.traitT = -25; } }
+    // 휴대전화는 **주행 중에만** 쌓는다 — 「정지하고 있는 경우」는 문언상 예외다(§49①10 가목 · 티북: 신호대기 정지 중 사용은 예외, 주행 중 장면을 채증).
+    if (car.trait === 'phone' || car.trait === 'animal') { if (car.trait !== 'phone' || car.v > 1.5) car.traitT += dt; if (car.traitT > 8 && self.witness(car) && (!car.violation || car.violation.type !== car.trait)) { self.stats.violations++; flag(car, car.trait, null, true); car.traitT = -25; } }
     if (car.trait === 'litter' && car.mode === 'drive') {
       car.litterT -= dt;
       if (car.litterT <= 0) {

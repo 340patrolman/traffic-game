@@ -48,7 +48,7 @@ TG.Enforcement = function (game) {
     if (law && law.precedent && law.precedent.indexOf('대법원') === 0) out.push('판례 — ' + law.precedent);
     return out;
   }
-  var NAMES = { signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
+  var NAMES = { lane: '지정차로 통행 위반', signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
                 phone: '운전 중 휴대전화 사용', litter: '차 밖으로 물건(꽁초) 던지기', animal: '동물을 안고 운전', nosignal: '방향지시등 없이 차로 변경', solidline: '실선 구간 차로 변경',
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
                 drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
@@ -58,7 +58,7 @@ TG.Enforcement = function (game) {
   this.optionsFor = function (car) { return carOptions(car); };   // 검증에서 보기 목록을 직접 본다
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
-    var ids = onHighway ? ['buslane', 'signal', 'unsafe', 'centerline'] : ['signal', 'pedestrian', 'centerline', 'nosignal'];
+    var ids = onHighway ? ((car.isCargo || car.isBus) ? ['lane', 'buslane', 'unsafe', 'centerline'] : ['buslane', 'signal', 'unsafe', 'centerline']) : ['signal', 'pedestrian', 'centerline', 'nosignal'];
     if (car.isMoto) ids = ['motorcycle', 'signal', 'pedestrian', 'unsafe'];
     if (car.isBike) ids = ['bicycle', 'bikeCross', 'signal', 'pedestrian'];
     if (car.isPM) ids = ['pm', 'pmHelmet', 'pmTwo', 'bikeCross'];
