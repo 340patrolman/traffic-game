@@ -25,6 +25,10 @@ TG.Response = function (game) {
   function target(maxDist) {
     var sel = game.selected;
     if (sel && sel.kind === 'car' && sel.car.violation) return sel.car;
+    // 추격 중에는 **추격 대상**을 먼저 무전한다 — 가장 가까운 위반 차를 고르면 옆의 킥보드를 무전하고
+    // 정작 추격 대상은 전파되지 않았다(v0.9.51 검증 24회 중 1회). 추격 대상이 무전 거리 안에 있을 때만.
+    var ch = game.chase && game.chase.car, meC = game.actor ? game.actor() : game.player;
+    if (ch && ch.chase && game.traffic.cars.indexOf(ch) >= 0 && Math.hypot(ch.pos.x - meC.pos.x, ch.pos.z - meC.pos.z) < (maxDist || 70)) return ch;
     var me = game.actor ? game.actor() : game.player, pf = me.forward(), best = null, bd = maxDist || 70;
     game.traffic.cars.forEach(function (c) {
       if (!c.violation && !c.wanted && !(c.incident && !c.incident.handled)) return;
