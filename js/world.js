@@ -297,7 +297,9 @@
       var sx = (xs[bi] + xs[bi + 1]) / 2 + 10, sz = zs[bj] + hH[bj] + 1.6;
       shelters.box(sx, 2.6, sz, 4.2, 0.12, 1.6, 0x2f3d4c, {}); shelters.box(sx - 2.0, 1.3, sz, 0.1, 2.6, 1.6, 0x8f959c, {}); shelters.box(sx + 2.0, 1.3, sz, 0.1, 2.6, 1.6, 0x8f959c, {});
       shelters.box(sx, 1.4, sz + 0.75, 4.2, 2.2, 0.06, 0x5a7a9a, {}); shelters.box(sx, 0.55, sz + 0.3, 3.2, 0.08, 0.4, 0x8a6a4a, {});
-      props.cylinder(sx + 2.6, 0.2, sz - 0.4, 0.05, 0.05, 2.8, 5, 0x8f959c); busSigns.vquad(sx + 2.6, 2.4, sz - 0.4, 0.5, 1.0, Math.PI, 0xffffff, null);
+      props.cylinder(sx + 2.6, 0.2, sz - 0.4, 0.05, 0.05, 2.8, 5, 0x8f959c);
+      busSigns.vquad(sx + 2.6, 2.4, sz - 0.52, 0.5, 1.0, Math.PI, 0xffffff, null);   // 판을 기둥 앞으로(전에는 기둥이 판 가운데를 가렸다)
+      props.box(sx + 2.6, 2.4, sz - 0.49, 0.54, 1.04, 0.05, 0x9aa2ab, {});
       props.cylinder(sx - 3.2, 0.2, sz, 0.28, 0.28, 0.8, 8, 0x3a3f45, true);
     }
     // ---- 지하철역 출입구 + 역 이름 표지 ----
@@ -322,7 +324,11 @@
       props.cylinder(pole[0], 0.2, pole[1], 0.09, 0.08, 3.0, 8, 0x6f7680);             // 표지 기둥
       var key = 'sw:' + S.name;
       (swFaces[key] = swFaces[key] || { S: S, gb: new GeoBuilder() });
-      swFaces[key].gb.vquad(pole[0], 2.55, pole[1], 2.3, 0.78, S.rot + Math.PI, 0xffffff, null);   // 앞면이 도로를 보게(그냥 S.rot 이면 글씨가 뒤집혀 보인다)
+      // 판을 기둥(반지름 0.09m) 앞으로 0.16m 내고 뒤를 회색 판으로 막는다 — 기둥이 역 이름 가운데를 가리고 있었다
+      var swN = [Math.sin(S.rot + Math.PI), Math.cos(S.rot + Math.PI)];
+      swFaces[key].gb.vquad(pole[0] + swN[0] * 0.16, 2.55, pole[1] + swN[1] * 0.16, 2.3, 0.78, S.rot + Math.PI, 0xffffff, null);   // 앞면이 도로를 보게(그냥 S.rot 이면 글씨가 뒤집혀 보인다)
+      props.box(pole[0] + swN[0] * 0.13, 2.55, pole[1] + swN[1] * 0.13, 2.34, 0.82, 0.05, 0x9aa2ab, { rotY: S.rot });
+
     });
     Object.keys(swFaces).forEach(function (k) {
       var e = swFaces[k];
@@ -367,8 +373,18 @@
     addMesh(wires.build(), new THREE.MeshBasicMaterial({ vertexColors: true }), false, false);
     addMesh(shelters.build(), lambertVC, true, false);
     addMesh(busSigns.build(), new THREE.MeshBasicMaterial({ map: TG.tex.busStop(), side: THREE.DoubleSide }), false, false);
-    var signFaces = {};
-    city.signs.forEach(function (s) { (signFaces[s.kind] = signFaces[s.kind] || new GeoBuilder()).vquad(s.x, 2.75, s.z, 0.9, 0.9, s.rot, 0xffffff, null); });
+    var signFaces = {}, signBacks = new GeoBuilder();
+    // 표지판 판은 **기둥 앞으로 0.12m** 낸다. 전에는 판의 중심이 기둥 축과 같아서 기둥(반지름 0.06m)이
+    // 판 가운데를 위아래로 가로질렀고, 같은 면에 겹쳐 z-싸움까지 났다 —
+    // 소유자 「모든 교통표지판과 보행자 신호등이 기둥에 가려져 있어, 표지판과 신호등만 잘 보이게 화면을 수정해줘」.
+    // 뒷면은 회색 판으로 막는다(표지 그림이 뒤에서 좌우로 뒤집혀 보이던 것도 같이 없어진다).
+    city.signs.forEach(function (s) {
+      var nx = Math.sin(s.rot), nz = Math.cos(s.rot);
+      (signFaces[s.kind] = signFaces[s.kind] || new GeoBuilder()).vquad(s.x + nx * 0.12, 2.75, s.z + nz * 0.12, 0.9, 0.9, s.rot, 0xffffff, null);
+      signBacks.box(s.x + nx * 0.09, 2.75, s.z + nz * 0.09, 0.94, 0.94, 0.05, 0x9aa2ab, { rotY: s.rot });
+    });
+
+    if (!signBacks.empty()) addMesh(signBacks.build(), lambertVC, true, false);
     Object.keys(signFaces).forEach(function (k) { addMesh(signFaces[k].build(), new THREE.MeshBasicMaterial({ map: TG.tex.sign(k), transparent: true, side: THREE.DoubleSide }), false, false); });
 
     // 신호등: 접근로마다 교차로 건너편 우측 모서리 기둥 + 암 + 머리(차로 위). 4차로면 암을 길게 뽑아 두 차로를 덮는다.
@@ -416,32 +432,40 @@
         var yawP = Math.atan2(-r2[0], -r2[1]);                        // 머리는 길 건너편을 향한다(맞은편 사람이 읽는다)
         // 보행등은 **3구**다(소유자 제공 사진): 위 적색 사람 · 가운데 녹색 사람 · 아래 LED 숫자판. 칸마다 작은 차양.
         // 홍보담당 지적 — 「보행자 신호등 밑부분에 초가 나오는데 이 부분이 빠졌다」.
-        sigProps.box(px2 - r2[0] * 0.02, 3.20, pz2 - r2[1] * 0.02, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게, 3구)
-        for (var vkP = 0; vkP < 3; vkP++) sigProps.box(px2 - r2[0] * 0.10, 4.19 - vkP * 0.66, pz2 - r2[1] * 0.10, 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawP });   // 칸마다 차양
-        sigProps.box(px2, 1.15, pz2, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });                                 // 보행자 작동 버튼함
+        // **기둥에서 떼어 팔(브래킷)에 단다.** 전에는 함체 중심이 기둥 중심(반지름 0.16m)과 거의 같아서
+        // 기둥이 보행등 가운데를 위아래로 가로질렀다 — 사람 그림도, 남은 초 숫자도 반이 가려졌다
+        // (소유자: 「모든 교통표지판과 보행자 신호등이 기둥에 가려져 있어, 표지판과 신호등만 잘 보이게」).
+        // 실제 설치도 기둥에 브래킷으로 내어 단다. 0.42m 내면 함체(깊이 0.14)가 기둥 표면에서 0.19m 떨어진다.
+        var OUTP = 0.42;
+        sigProps.box(px2 - r2[0] * (OUTP - 0.21), 3.55, pz2 - r2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawP });   // 브래킷 팔
+        sigProps.box(px2 - r2[0] * OUTP, 3.20, pz2 - r2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게, 3구)
+        for (var vkP = 0; vkP < 3; vkP++) sigProps.box(px2 - r2[0] * (OUTP + 0.08), 4.19 - vkP * 0.66, pz2 - r2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawP });   // 칸마다 차양
+        sigProps.box(px2 - r2[0] * 0.20, 1.15, pz2 - r2[1] * 0.20, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });   // 보행자 작동 버튼함(기둥에 붙인다)
         var ph = new THREE.Mesh(pedGeo, headHold);
-        // 판을 함체보다 **0.09m** 앞으로 뺀다 — 전에는 0.01m 차이라 거리가 멀어지면 함체에 묻혀 녹색이 안 보였다
-        ph.position.set(px2 - r2[0] * 0.16, 3.20, pz2 - r2[1] * 0.16); ph.rotation.y = yawP;
+        // 판을 함체보다 **0.07m** 앞으로 뺀다 — 전에는 0.01m 차이라 거리가 멀어지면 함체에 묻혀 녹색이 안 보였다
+        ph.position.set(px2 - r2[0] * (OUTP + 0.14), 3.20, pz2 - r2[1] * (OUTP + 0.14)); ph.rotation.y = yawP;
         ph.matrixAutoUpdate = false; ph.updateMatrix(); scene.add(ph);
         heads.push({ node: nd, d: (hd + 2) % 4, mesh: ph, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
-        // **뒤쪽에서도 보이게** 같은 자리에 뒤를 보는 판을 하나 더 둔다.
+        // **뒤쪽에서도 보이게** 같은 함체 뒤에 뒤를 보는 판을 하나 더 둔다.
         // 횡단보도 위에서는 앞(건너편 기둥)과 뒤(출발한 기둥) 둘 다 보행등이 보여야 한다
         // (소유자: 「횡단보도를 건널때 앞과 뒤에 보행자 신호등이 보여야 하는데 안보인다」).
         var phB = new THREE.Mesh(pedGeo, headHold);
-        phB.position.set(px2 + r2[0] * 0.02, 3.20, pz2 + r2[1] * 0.02); phB.rotation.y = yawP + Math.PI;
+        phB.position.set(px2 - r2[0] * (OUTP - 0.14), 3.20, pz2 - r2[1] * (OUTP - 0.14)); phB.rotation.y = yawP + Math.PI;
         phB.matrixAutoUpdate = false; phB.updateMatrix(); scene.add(phB);
         heads.push({ node: nd, d: (hd + 2) % 4, mesh: phB, kind: 'ped', back: true, axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // 같은 기둥에 90° 돌려 하나 더 — 이 모퉁이에서 만나는 **직각 방향 횡단보도**의 보행등이다.
         // 기둥을 늘리지 않고 보행등 수를 늘린다(소유자: 「기둥 하나에 90도로 2곳에 신호를 보여줄 수 있고」).
+        // 이쪽도 브래킷으로 내어 단다 — 전에는 둘이 기둥 자리에서 서로를 뚫고 지나갔다.
         var yawQ = Math.atan2(-f2[0], -f2[1]);
-        sigProps.box(px2 - f2[0] * 0.02, 3.20, pz2 - f2[1] * 0.02, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawQ });
-        for (var vkQ = 0; vkQ < 3; vkQ++) sigProps.box(px2 - f2[0] * 0.10, 4.19 - vkQ * 0.66, pz2 - f2[1] * 0.10, 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawQ });
+        sigProps.box(px2 - f2[0] * (OUTP - 0.21), 3.55, pz2 - f2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawQ });
+        sigProps.box(px2 - f2[0] * OUTP, 3.20, pz2 - f2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawQ });
+        for (var vkQ = 0; vkQ < 3; vkQ++) sigProps.box(px2 - f2[0] * (OUTP + 0.08), 4.19 - vkQ * 0.66, pz2 - f2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawQ });
         var ph2 = new THREE.Mesh(pedGeo, headHold);
-        ph2.position.set(px2 - f2[0] * 0.16, 3.20, pz2 - f2[1] * 0.16); ph2.rotation.y = yawQ;
+        ph2.position.set(px2 - f2[0] * (OUTP + 0.14), 3.20, pz2 - f2[1] * (OUTP + 0.14)); ph2.rotation.y = yawQ;
         ph2.matrixAutoUpdate = false; ph2.updateMatrix(); scene.add(ph2);
         heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2, kind: 'ped', axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
         var ph2B = new THREE.Mesh(pedGeo, headHold);
-        ph2B.position.set(px2 + f2[0] * 0.02, 3.20, pz2 + f2[1] * 0.02); ph2B.rotation.y = yawQ + Math.PI;
+        ph2B.position.set(px2 - f2[0] * (OUTP - 0.14), 3.20, pz2 - f2[1] * (OUTP - 0.14)); ph2B.rotation.y = yawQ + Math.PI;
         ph2B.matrixAutoUpdate = false; ph2B.updateMatrix(); scene.add(ph2B);
         heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2B, kind: 'ped', back: true, axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
       }
