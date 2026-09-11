@@ -402,6 +402,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (ap) {
       for (var g = 0; g < 3 && ap.maneuver === undefined && car.lastNode; g++) extend(car);
       var f = TG.DIR_VEC[ap.d], distStop = (ap.x - car.pos.x) * f[0] + (ap.z - car.pos.z) * f[1], rightTurn = ap.maneuver === 'R';
+      // 멈출 자리는 **앞범퍼**로 잰다(distStop 은 차 중심 기준). 중심으로 재면 차 중심이 정지선 1.3m 앞에 서서
+      // 버스(11m)는 앞머리가 횡단보도를 통째로 덮었고, 그 옆구리에 막힌 보행자와 서로 영원히 기다렸다(v0.9.45 검증에서 43~84초 교착).
+      var dStopF = distStop - car.len / 2 + 0.8;
       car.cooldown -= dt;
       if (distStop > -0.5 && distStop < 60) {
         var st = signals.state(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h');
@@ -411,18 +414,25 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         }
         if (rightTurn && st.s === 'red') {
           if (car.rorNode !== ap.node) {
-            if (distStop < 3 && car.v < 0.2) { car.rorT = (car.rorT || 0) + dt; if (car.rorT > 1.0) car.rorNode = ap.node; } else car.rorT = 0;
-            if (car.rorNode !== ap.node) target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+            if (dStopF < 3 && car.v < 0.2) { car.rorT = (car.rorT || 0) + dt; if (car.rorT > 1.0) car.rorNode = ap.node; } else car.rorT = 0;
+            if (car.rorNode !== ap.node) target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
           }
         } else if (car.running !== ap.node) {
-          var canStop = distStop > car.v * car.v / (2 * cfg.AI_DECEL * 1.25) + 1.5;
-          if (st.s === 'red' || (st.s === 'yellow' && canStop)) target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+          var canStop = dStopF > car.v * car.v / (2 * cfg.AI_DECEL * 1.25) + 1.5;
+          // 적색이 켜진 순간 **급제동으로도 정지선 앞에 못 서는 차**는 멈추지 않고 교차로를 빠져나간다 — 세우면 횡단보도 한가운데 선다
+          // (v0.9.46 검증: 적색에 선 차가 앞범퍼를 횡단보도에 걸치고 긴 적색 내내 서 있었다). 설 수는 있지만 평상 감속으로 넘치면 급제동한다.
+          // 기준을 0.3m 로 잡는다(1.3m 로 잡으면 정지선에 천천히 다가가는 마지막 몇 m 에서 「못 선다」로 뒤집혀 적색에 들어갔다 — 검증에서 대기 표본이 10분의 1로 줄었다).
+          var needD = car.v * car.v / 2, cantStop = car.v > 2 && dStopF - 0.3 < needD / cfg.AI_EMERGENCY;
+          if ((st.s === 'red' && !cantStop) || (st.s === 'yellow' && canStop)) {
+            target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
+            if (dStopF - 1.3 < needD / cfg.AI_DECEL) emergency = true;
+          }
         }
         // 경찰관의 수신호(꼬리 끊기)는 신호기보다 우선한다(도로교통법 제5조) — 녹색이어도 정지선 앞에 선다
         if (self.control && self.control.hand.length) {
           for (var hh = 0; hh < self.control.hand.length; hh++) {
             var H = self.control.hand[hh];
-            if (H.node === ap.node && H.d === ap.d) target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+            if (H.node === ap.node && H.d === ap.d) target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
           }
         }
         // 임시 차단한 바깥 차로: 40m 앞에서 안쪽 차로로 옮긴다(라바콘 구간을 피한다)
@@ -541,12 +551,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     // 앞 횡단보도에 사람이 있으면 **다 건널 때까지** 정지선 앞에 선다(제27조 보행자 보호).
     // 앞만 보는 판정(nearestAhead)으로는 옆 차로로 건너오는 사람을 놓친다.
-    if (!onLink && ap && ap.node && self.peds && self.peds.onCrossing && distStop > -1.5 && distStop < 70 && self.peds.onCrossing(ap.node, ap.d)) {
-      target = Math.min(target, stopProfile(distStop, cfg.AI_DECEL));
+    // 앞범퍼가 이미 정지선을 넘었거나 급제동으로도 못 서는 차는 여기서 세우지 않는다 — 세우면 횡단보도 위에 선다(바로 앞 사람은 아래 nearestAhead 가 막는다).
+    if (!onLink && ap && ap.node && self.peds && self.peds.onCrossing && dStopF > -0.3 && dStopF < 70 && (car.v <= 2 || dStopF - 0.3 > car.v * car.v / (2 * cfg.AI_EMERGENCY)) && self.peds.onCrossing(ap.node, ap.d)) {
+      target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
+      if (dStopF - 1.3 < car.v * car.v / (2 * cfg.AI_DECEL)) emergency = true;
     }
     if (self.peds && !onLink) {
-      var pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, pedIgnore ? 6 : 18, pedIgnore ? 2.2 : 6.5);
-      if (pd !== null) { target = Math.min(target, stopProfile(pd - 2.5, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 6) { emergency = true; if (car.v > 4 && !car.pedHorn && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적
+      // 사람까지 거리도 **앞범퍼**에서 잰다 — 중심에서 재면 긴 차일수록 사람을 차체 안에 두고 선다(앞범퍼 2m 앞에서 선다).
+      var hlP = car.len / 2, pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, (pedIgnore ? 6 : 18) + hlP, pedIgnore ? 2.2 : 6.5);
+      if (pd !== null) { pd -= hlP; target = Math.min(target, stopProfile(pd - 0.7, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 3.7) { emergency = true; if (car.v > 4 && !car.pedHorn && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적
     }
     var lead = leadOf(car, fx, fz);
     // 우측 앞지르기(overtake 습관): 느린 앞차 뒤에서 바깥(우측) 차로로 빠져 속도를 올려 추월한다 → 「앞지르기 위반」(앞지르기는 좌측으로)

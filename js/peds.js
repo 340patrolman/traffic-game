@@ -55,6 +55,15 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   function step(p, dt) {
     var f = TG.DIR_VEC[p.d];
     if (p.state === 'walk' || p.state === 'cross' || p.state === 'jaywalk') { p.pos.x += f[0] * p.speed * dt; p.pos.z += f[1] * p.speed * dt; }
+    // 선 차를 돌아서 지나간 사람은 자기 보도선(횡단 줄)으로 천천히 돌아온다
+    if (p.detour !== undefined && p.state !== 'jaywalk') {
+      p.detour -= dt;
+      if (p.detour <= 0) {
+        var wantL = p.coord + p.side * mySide(p), curL = p.axis === 'v' ? p.pos.x : p.pos.z, dL = wantL - curL;
+        if (Math.abs(dL) < 0.05 || Math.abs(dL) > 12) p.detour = undefined;
+        else { var mvL = (dL > 0 ? 1 : -1) * Math.min(Math.abs(dL), 0.8 * dt); if (p.axis === 'v') p.pos.x += mvL; else p.pos.z += mvL; }
+      }
+    }
     if (p.state === 'warned') { p.waitT += dt; if (p.waitT > 3) p.state = 'walk'; return; }
     if (p.state === 'jaywalk') {
       var cross = p.axis === 'v' ? Math.abs(p.pos.x - p.coord) : Math.abs(p.pos.z - p.coord), sideO = mySide(p);
@@ -166,7 +175,8 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       else { sideStep(a, -1, 0.5); sideStep(b, 1, 0.5); }
     }
   }
-  function pushOutOfCars() {
+  function pushOutOfCars(dt) {
+    dt = dt || 1 / 30;
     var T = self.traffic; if (!T) return;
     var cars = T.cars.slice();
     // **보행 모드에서는 `self.player` 가 사람(walker)이다.** 그것을 차 목록에 넣으면 자기 자신을 차로 보고
@@ -184,7 +194,15 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
         if (Math.abs(al) >= hl || Math.abs(la) >= hw) continue;      // 차체 밖
         // 사각형 안이다 — 빠져나갈 거리가 짧은 쪽으로 민다
         var outL = hl - Math.abs(al), outW = hw - Math.abs(la);
-        if (outW <= outL) { var s = la >= 0 ? 1 : -1; p.pos.x += -fz * s * outW; p.pos.z += fx * s * outW; }
+        if (outW <= outL) {
+          var s = la >= 0 ? 1 : -1; p.pos.x += -fz * s * outW; p.pos.z += fx * s * outW;
+          // 건너는 사람이 **선 차의 옆구리**에 막히면 가까운 끝(앞·뒤)으로 돌아간다. 옆으로만 밀면 매 프레임 같은 자리로 되밀려
+          // 차는 사람을 기다리고 사람은 차에 막혀 **서로 영원히 기다렸다**(v0.9.45 검증 — 43~84초 교착). 사람은 차를 돌아서 간다.
+          if (p !== self.walker && (p.state === 'cross' || p.state === 'jaywalk')) {
+            var pf = TG.DIR_VEC[p.d];
+            if (Math.abs(pf[0] * fx + pf[1] * fz) < 0.5) { var sg = al >= 0 ? 1 : -1, sl = Math.min(outL, 1.4 * dt); p.pos.x += fx * sg * sl; p.pos.z += fz * sg * sl; p.detour = 2.0; }
+          }
+        }
         else { var s2 = al >= 0 ? 1 : -1; p.pos.x += fx * s2 * outL; p.pos.z += fz * s2 * outL; }
       }
     }
@@ -214,7 +232,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (pl && Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) > cfg.PED_DESPAWN) remove(p);
     }
     // 걸음을 다 옮긴 뒤에 겹침을 푼다 — 그래야 밀어낸 자리가 그 프레임에 그대로 그려진다
-    separate(); pushOutOfCars();
+    separate(); pushOutOfCars(dt);
     for (var i2 = peds.length - 1; i2 >= 0; i2--) {
       var q = peds[i2];
       var moving = q.state !== 'wait' && q.state !== 'warned', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
