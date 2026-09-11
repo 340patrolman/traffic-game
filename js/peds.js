@@ -55,14 +55,22 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   function step(p, dt) {
     var f = TG.DIR_VEC[p.d];
     if (p.state === 'walk' || p.state === 'cross' || p.state === 'jaywalk') { p.pos.x += f[0] * p.speed * dt; p.pos.z += f[1] * p.speed * dt; }
-    // 선 차를 돌아서 지나간 사람은 자기 보도선(횡단 줄)으로 천천히 돌아온다
-    if (p.detour !== undefined && p.state !== 'jaywalk') {
-      p.detour -= dt;
-      if (p.detour <= 0) {
+    // **보도선으로 돌아온다 — 걷는 사람은 차도에 있을 수 없다.**
+    // 사람끼리 어깨가 닿으면 옆으로 밀어내는데(separate) 밀린 사람이 돌아올 길이 없어서, 마주 걷는 사람이
+    // 오갈수록 조금씩 차도 쪽으로 밀려 나갔다(실측: 보도선에서 5.3m 안쪽 = 바깥 차로를 3.2m 침범한 채 계속 걸음).
+    // 그러면 차는 그 사람을 보호하려고(제27조) 정지선 앞에 서서 통행이 막힌다 —
+    // 소유자 「보행자들이 자동차가 다니는 차도로 걸어 다니고 있다 에러임」·「차들이 그냥 서있는데」.
+    // 그래서 ① 횡단 중이 아니면 **늘** 자기 보도선으로 돌아오고(차를 돌아간 직후 detour 초 동안만 참는다)
+    // ② 연석 안쪽으로는 한 걸음도 들어가지 않게 막는다.
+    if (p.state !== 'cross' && p.state !== 'jaywalk') {
+      if (p.detour > 0) p.detour -= dt;
+      else {
+        p.detour = undefined;
         var wantL = p.coord + p.side * mySide(p), curL = p.axis === 'v' ? p.pos.x : p.pos.z, dL = wantL - curL;
-        if (Math.abs(dL) < 0.05 || Math.abs(dL) > 12) p.detour = undefined;
-        else { var mvL = (dL > 0 ? 1 : -1) * Math.min(Math.abs(dL), 0.8 * dt); if (p.axis === 'v') p.pos.x += mvL; else p.pos.z += mvL; }
+        if (Math.abs(dL) > 0.03 && Math.abs(dL) < 14) { var mvL = (dL > 0 ? 1 : -1) * Math.min(Math.abs(dL), 1.2 * dt); if (p.axis === 'v') p.pos.x += mvL; else p.pos.z += mvL; }
       }
+      var curb = city.halfOf(p.axis, p.idx) + 0.35, offNow = (p.axis === 'v' ? p.pos.x : p.pos.z) - p.coord;
+      if (offNow * p.side < curb) { if (p.axis === 'v') p.pos.x = p.coord + p.side * curb; else p.pos.z = p.coord + p.side * curb; }
     }
     if (p.state === 'warned') { p.waitT += dt; if (p.waitT > 3) p.state = 'walk'; return; }
     if (p.state === 'jaywalk') {

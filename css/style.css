@@ -45,7 +45,8 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stickBase{position:absolute;left:24px;top:auto;bottom:24px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(20,30,50,.75),rgba(10,14,22,.85));border:3px solid rgba(255,207,63,.75);box-shadow:0 0 0 3px rgba(10,14,22,.6),0 6px 18px rgba(0,0,0,.5);opacity:.8;transition:opacity .15s}
 #stickBase.on{opacity:1;bottom:auto}
 #stickBase.live{opacity:1}
-#minimap{position:fixed;top:calc(96px + var(--sa-t));right:calc(60px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:pointer}
+#minimap{position:fixed;top:calc(96px + var(--sa-t));right:calc(60px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
+#minimap.dragging{cursor:grabbing;opacity:.9;border-color:var(--accent);box-shadow:0 0 0 2px rgba(77,141,255,.5),0 8px 22px rgba(0,0,0,.5)}
 body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-r));width:148px;height:146px}
 #stickBase .ring{position:absolute;inset:30px;border-radius:50%;border:1px dashed rgba(255,255,255,.3)}
 #stickBase .cross{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/1px 100% no-repeat,linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/100% 1px no-repeat;border-radius:50%}
@@ -487,3 +488,23 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
 #endStats .review{margin-top:10px;padding:8px 10px;border-radius:10px;font-size:12.5px;line-height:1.55;
   background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.38);color:#ffd9da;text-align:left}
 #endStats .career{margin-top:6px;font-size:12px;opacity:.85;text-align:left}
+
+/* ---------- 화면 배치(도구·단추 옮기기) ----------
+   소유자: 「도구와 단추들이 움직여질 수 있으면 좋겠어 … 화면을 최대한 가리지 않게.」
+   옮긴 것은 .moved 로 제 자리(position:fixed)에 서고, 배치 모드에서만 끌린다. */
+.tbtn.moved,#minimap.moved,.moved{position:fixed!important;margin:0!important}
+body.layout-edit .tbtn,body.layout-edit #minimap{outline:2px dashed rgba(255,207,63,.9);outline-offset:2px;cursor:grab}
+body.layout-edit .tbtn.dragging,body.layout-edit #minimap.dragging{outline-color:#fff;opacity:.9;cursor:grabbing}
+/* 배치 모드에서는 조이스틱 영역이 단추를 가로채지 않게 — 끌기가 먼저다 */
+body.layout-edit #stickZone{pointer-events:none}
+.layoutbar{position:fixed;top:calc(10px + var(--sa-t));left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;
+  background:rgba(14,18,26,.96);border:1px solid #3b4a66;border-radius:14px;padding:8px 12px;color:#eaf1ff;box-shadow:0 8px 22px rgba(0,0,0,.5);max-width:94vw}
+.layoutbar b{font-size:14px} .layoutbar span{font-size:11.5px;color:var(--dim);word-break:keep-all}
+.layoutbar button{height:38px;min-width:64px;border-radius:10px;border:1px solid #4a5a78;background:#2d3f5e;color:#eaf1ff;font-size:13px;font-weight:800;touch-action:manipulation}
+.layoutbar button.gh{background:#1f2a3d;font-weight:700}
+@media (max-width:520px){ .layoutbar{flex-direction:column;gap:6px;text-align:center} }
+/* ☰ 메뉴는 일시정지 단추 **왼쪽 한 칸**에 둔다 — 세로 줄(일시정지 64 · 시점 112 · ? 160 · 배속 208)을 밀지 않는다 */
+.tbtn.small.menu{right:calc(58px + var(--sa-r));font-size:17px;line-height:1}
+.tbtn.small.menu span{font-size:8.5px;font-weight:700}
+.speedpanel .sp-row.set{margin-top:5px}
+.speedpanel .sp-row.set button{min-width:58px;height:38px;font-size:12.5px}

@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.9.53';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.9.54';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -31,6 +31,7 @@ TG.CONFIG = {
   BUSLANE_VIOLATOR_RATE: 0.14, // 고속도로 승용차 중 버스전용차로로 달리는 비율
   BUSLANE_WITNESS_SEC: 1.5,
   LANE_VIOLATOR_RATE: 0.18,    // 버스전용차로 없는 고속도로에서 화물·대형승합이 왼쪽 차로(1·2차로)로 달리는 비율
+  TWOW_SIGNAL_RATE: 0.22,      // 이륜차·자전거·개인형 이동장치 가운데 적색에 그대로 진입하는 비율(단속 소재 — 소유자 지시로 넣었다)
   LANE_WITNESS_SEC: 3,         // 지정차로 위반을 이만큼 지켜봐야 기록된다
 
   // --- 신호 ---

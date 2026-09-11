@@ -283,6 +283,11 @@
     input.bindTap($('introFull'), goFull);
     var lnkF = $('lnkFull'); if (lnkF) lnkF.addEventListener('click', function (e) { e.preventDefault(); goFull(); });
     $('intro').addEventListener('pointerdown', function () { if (!G.fullTried) { G.fullTried = true; goFull(); } }, true);
+    // **소리는 첫 조작에서 풀린다.** 브라우저는 사용자가 누르기 전에는 오디오를 못 열게 막는데(자동재생 정책),
+    // 인트로는 아무 조작 없이 시작하므로 웅장한 테마가 나올 수 없었다(소유자 「인트로 화면에서 웅장한 소리가 나지 않아」).
+    // 그래서 화면·자판 어디를 눌러도 먼저 오디오를 열어 둔다. 캡처 단계라 다른 처리보다 먼저 돈다.
+    document.addEventListener('pointerdown', function () { TG.audio.resume(); }, true);
+    window.addEventListener('keydown', function () { TG.audio.resume(); }, true);
     window.addEventListener('resize', function () { resize(); });
     input.bindTap($('btnStart'), function () { start(settings.car); });
     // 타이틀: 인트로 다시 보기(홍보용으로 인트로만 보여 줄 때 쓴다)
@@ -335,12 +340,37 @@
     input.onKey('KeyC', function () { if (G.state === 'play') applyView(settings.cam === 'cockpit' ? 'chase' : 'cockpit', true); });
     applyView(settings.cam, false);
     input.bindTap($('introSkip'), endIntro);
-    $('intro').addEventListener('pointerdown', function () { if (intro.t > 1.5) endIntro(); });
+    // 인트로 중 화면을 누르면 건너뛴다 — 다만 **소리를 푸는 첫 터치는 건너뛰지 않는다.**
+    // 전에는 안내 띠가 「화면을 한 번 터치하면 소리가 납니다」라고 적혀 있는데, 그대로 누르면 인트로가 끝나 버렸다.
+    // 그 터치로 오디오가 열렸으면 인트로를 처음으로 되감아 테마의 대타격(12.6초 타이틀)을 화면과 같이 듣게 한다.
+    $('intro').addEventListener('pointerdown', function () {
+      var was = TG.audio.running;
+      TG.audio.resume();
+      if (!was) { if (intro.t > 1.2) startIntro(); return; }   // 소리를 푼 터치 — 건너뛰지 않는다
+      if (intro.t > 1.5) endIntro();
+    });
     input.bindTap($('btnSiren'), toggleSiren);
     input.bindTap($('btnPause'), function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
     input.bindTap($('btnResume'), function () { setPaused(false, 'menu'); });
     input.bindTap($('btnQuit'), function () { endShift('근무 종료(직접 종료)'); setPaused(false, 'menu'); });
     input.bindTap($('btnRecover'), function () { setPaused(false, 'menu'); recoverToRoad('마지막 도로 위치로 복귀'); });
+    // 미니맵을 끌어 옮긴 뒤 처음 자리로 되돌린다(소유자: 기종마다 가리는 곳이 다르다 → 옮길 수 있게 하고, 되돌릴 길도 둔다)
+    // ☰ 메뉴 — 소유자 「메뉴 버튼이 없네 멈춤 버튼이 그 기능을 하고는 있지만」. 여는 창은 같지만 이름이 메뉴다.
+    input.bindTap($('btnMenu'), function () { if (G.state === 'play') setPaused(true, 'menu'); });
+    // 화면 배치 모드: 도구·단추를 끌어 옮긴다. **운전 중에 단추가 따라 움직이면 그게 더 큰 사고**라 이 모드에서만 끌린다.
+    function layoutEdit(on) {
+      var bar = $('layoutBar');
+      if (!TG.hudpos) return;
+      TG.hudpos.edit(on);
+      if (bar) bar.hidden = !on;
+      if (on) { setPaused(false, 'menu'); hud.notice('🧩 화면 배치 — 도구·단추를 끌어 옮기고 「완료」를 누르세요', 'info', 3200); }
+    }
+    G.layoutEdit = layoutEdit;
+    input.bindTap($('btnLayout'), function () { layoutEdit(true); });
+    input.bindTap($('btnLayoutDone'), function () { layoutEdit(false); });
+    input.bindTap($('btnLayoutBack'), function () { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다', 'info', 1600); });
+    input.bindTap($('btnLayoutReset'), function () { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다', 'info', 1600); });
+
     input.bindTap($('btnAgain'), function () { hud.hideEnd(); showTitle(); });
     var optH = $('optHints'), optS = $('optStopbar'), optA = $('optSound');
     if (optH && optS && optA) { optH.checked = settings.hints; optS.checked = settings.stopbar; optA.checked = settings.sound;
@@ -364,7 +394,14 @@
     var bSp = $('btnSpeed'), pSp = $('speedPanel');
     if (bSp && pSp) {
       input.bindTap(bSp, function () { pSp.hidden = !pSp.hidden; });
+      // 늦게 · 보통 · 빨리 — 소유자 「어린이 보행교실 안에서 실제 신호값으로 진행하면 너무 많이 기다리게 되므로
+      // 진행되는 시간을 늦게 보통 빨리 등으로 속도를 조절할 수 있게 해서 빠른 진행도 되게 하자」.
+      var tsSet = pSp.querySelectorAll('[data-tsset]');
+      for (var si = 0; si < tsSet.length; si++) (function (b) {
+        input.bindTap(b, function () { setTimeScale(parseFloat(b.getAttribute('data-tsset'))); });
+      })(tsSet[si]);
       var tsBtns = pSp.querySelectorAll('[data-ts]');
+
       for (var tbi = 0; tbi < tsBtns.length; tbi++) (function (b) {
         input.bindTap(b, function () { var a = b.getAttribute('data-ts'); setTimeScale(a === 'reset' ? 1 : (G.timeScale || 1) + parseFloat(a)); });
       })(tsBtns[tbi]);
@@ -373,6 +410,11 @@
     input.onKey('BracketLeft', function () { setTimeScale((G.timeScale || 1) - ((input.held.ShiftLeft || input.held.ShiftRight) ? 0.5 : 0.1)); });
     input.onKey('Backslash', function () { setTimeScale(1); });
     setTimeScale(1);
+    // 옮길 수 있는 것들 — 소유자가 든 것(미니맵·경광등·단속·앰프·블랙박스·무전)에 방향지시등·작은 단추·하차·손 들기까지 넣었다.
+    // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
+    if (TG.hudpos) TG.hudpos.register(['minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnSigL', 'btnSigR',
+                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox']);
+
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
     var optV = $('optVolume'), optVV = $('optVolumeVal');
@@ -1817,7 +1859,7 @@
     G.sigTick = false;
   }
   function setTimeScale(v) {
-    v = Math.round(TG.clamp(+v || 1, 1, 3) * 10) / 10;
+    v = Math.round(TG.clamp(+v || 1, 0.5, 3) * 10) / 10;   // 0.5 배까지 내린다 — 어린이 교실에서 「늦게」가 필요하다
     G.timeScale = v;
     var b = document.getElementById('btnSpeed'); if (b) { b.textContent = '▶ ' + v.toFixed(1) + '×'; b.classList.toggle('fast', v > 1); }
     var sv = document.getElementById('speedVal'); if (sv) sv.textContent = v.toFixed(1) + '×';

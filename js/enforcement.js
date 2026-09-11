@@ -61,7 +61,9 @@ TG.Enforcement = function (game) {
     var ids = onHighway ? ((car.isCargo || car.isBus) ? ['lane', 'buslane', 'unsafe', 'centerline'] : ['buslane', 'signal', 'unsafe', 'centerline']) : ['signal', 'pedestrian', 'centerline', 'nosignal'];
     if (car.isMoto) ids = ['motorcycle', 'signal', 'pedestrian', 'unsafe'];
     if (car.isBike) ids = ['bicycle', 'bikeCross', 'signal', 'pedestrian'];
-    if (car.isPM) ids = ['pm', 'pmHelmet', 'pmTwo', 'bikeCross'];
+    // 킥보드도 신호를 지켜야 한다 — 보기에 「신호위반」이 없으면 적색을 지나는 킥보드를 세워도 고를 항목이 없었다
+    // (소유자 「킥보드 이륜차 오토바이 신호위반도 단속항목에 있어야 한다」).
+    if (car.isPM) ids = ['pm', 'signal', 'pmHelmet', 'pmTwo'];
     // **비틀거리는 차는 언제나 「음주운전 의심」을 보기에 둔다.** 눈으로 사행 주행을 보고 세웠는데
     // 고를 항목이 없으면 단속을 할 수가 없다(소유자: 「음주의심차량을 단속하려면 단속항목에 있어야 하는데 없다」).
     var forced = false;

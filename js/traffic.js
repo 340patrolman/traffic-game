@@ -185,6 +185,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.isMoto = type === 'moto'; car.isBike = type === 'bike'; car.isPM = type === 'pm';
     if (car.isMoto || car.isBike || car.isPM) {
       car.laneIdx = 1; car.trait = null; car.noSignalViolator = false;
+      // **맨 우측 차로로 간다**(제13조③ · 시행규칙 별표9) — 소유자 「킥보드는 도로의 맨 우측 즉 오토바이 이륜차처럼 다녀야 한다」.
+      // 전에는 laneIdx 1(=2차로)에 고정돼 편도 4차로 반포대로에서 가운데를 달렸다. 실제 차로 수는 도로마다 달라서
+      // 숫자를 여기서 못 박지 않고 rightLane 표만 달아 두고, 도로에 들어갈 때마다 그 도로의 맨 오른쪽으로 잡는다(drive).
+      car.rightLane = true;
+      // 신호위반 성향: 이륜차·자전거·PM 도 **차마**여서 신호를 지켜야 한다. 전에는 자전거·PM 의 violator 를 꺼 버려
+      // 적색을 그냥 지나가는 장면이 아예 없었다 — 소유자 「킥보드 이륜차 오토바이 신호위반도 단속항목에 있어야 한다」.
+      car.sigRunner = rng() < (cfg.TWOW_SIGNAL_RATE || 0.22);
       // 보도 통행은 드물게(대부분 차도 우측). 아래 두 줄이 주석에 먹혀 있어서 edgeOff·edgeT 가 undefined 였고,
       // 그 값이 계산에 섞여 이륜차·자전거·PM 의 heading 과 좌표가 NaN 이 됐다(차가 사라지거나 화면이 검게 나오던 원인).
       car.edgeRider = rng() < (car.isPM ? 0.26 : car.isBike ? 0.24 : 0.14);
@@ -455,7 +462,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (car.sigSeenNode !== ap.node) { if (st.s === 'red' && csNow) car.noFlagNode = ap.node; }
         else if (car.sigSeenS === 'green' && st.s === 'red') car.noFlagNode = ap.node;
         car.sigSeenNode = ap.node; car.sigSeenS = st.s;
-        if (!rightTurn && car.running !== ap.node && car.violator && car.cooldown <= 0 && st.s === 'red' && st.remain > 2.0 && distStop < 38 && car.mode === 'drive') {
+        if (!rightTurn && car.running !== ap.node && (car.violator || car.sigRunner) && car.cooldown <= 0 && st.s === 'red' && st.remain > 2.0 && distStop < 38 && car.mode === 'drive') {
           var lead0 = leadOf(car, fx, fz);
           if (!lead0 || lead0.along > distStop + 2) { car.running = ap.node; car.cooldown = cfg.VIOLATOR_COOLDOWN; }
         }
@@ -540,7 +547,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     else if (car.signalT <= 0 && !(ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop < 40)) car.signal = null;
     if (car.prevApRef && car.prevApRef !== ap) car.lcShift = 0;   // 교차로를 지나면 새 경로가 새 차로에 있다
     car.prevApRef = ap;
-    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
+    // 이륜차·자전거·개인형 이동장치: **이 도로의 맨 오른쪽 차로**로 붙는다(도로마다 차로 수가 다르므로 도로에 들어갈 때 잡는다).
+    // 보도로 올라가 달리는 차(edgeRider)는 그 계산이 edgeOff 로 따로 있으니 건드리지 않는다.
+    if (car.rightLane && !onLink && ap && !car.edgeRider && car.mode === 'drive') {
+      var rdW = city.roadOf(ap.node, ap.d), nW = city.lanesOf(rdW.axis, rdW.idx), wantW = nW - 1;
+      if (car.laneIdx !== wantW) {
+        car.lcShift += city.laneOff(rdW.axis, rdW.idx, wantW) - city.laneOff(rdW.axis, rdW.idx, TG.clamp(car.laneIdx, 0, nW - 1));
+        car.laneIdx = wantW;
+      }
+    }
+    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
       var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
       if (nL >= 2) {
@@ -748,14 +764,53 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (!isFinite(c.pos.x) || !isFinite(c.pos.z) || !isFinite(c.v) || !isFinite(c.heading)) remove(c);
     }
   };
+  // 차끼리 겹침은 **차체 사각형**으로 본다(4축 SAT). 전에는 원 하나(car.radius)로 봤는데
+  // 버스 3.96m + 승용 1.67m = 5.63m 가 **차로 폭 3.5m 보다 넓어서**, 옆 차로에서 나란히 달리는 차가
+  // 매 프레임 「겹쳤다」로 잡혀 서로 속도를 반으로 깎았다. 6m/s 가 몇 초면 0 이 되고, 멈춘 차는
+  // 차로를 막아 그 뒤로 줄이 섰다 — 소유자 「차들이 그냥 서있는데 이것도 버그」(실측: 180초 동안
+  // 녹색인데도 두 대가 176초를 멈춘 채, v 가 매 프레임 절반씩 6→3→1.5→…→0.05).
+  // 속도는 **뒤에서 파고든 쪽만** 깎는다. 스쳐 지나가는 차까지 세우면 같은 교착이 다시 난다.
+  function obbHit(a, b) {
+    var ax = Math.sin(a.heading), az = Math.cos(a.heading), bx = Math.sin(b.heading), bz = Math.cos(b.heading);
+    var A = [[ax, az], [-az, ax]], B = [[bx, bz], [-bz, bx]];
+    var ea = [(a.len || 4.4) / 2 + 0.10, (a.wid || 1.8) / 2 + 0.08], eb = [(b.len || 4.4) / 2 + 0.10, (b.wid || 1.8) / 2 + 0.08];
+    var dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z;
+    if (!(dx * dx + dz * dz < 64) || !(dx * dx + dz * dz >= 0)) return null;   // 8m 밖은 볼 필요가 없다 + NaN 방어
+    var axes = [A[0], A[1], B[0], B[1]], best = 1e9, bax = 0, baz = 0;
+    for (var i = 0; i < 4; i++) {
+      var L = axes[i], dist = dx * L[0] + dz * L[1];
+      var ra = ea[0] * Math.abs(A[0][0] * L[0] + A[0][1] * L[1]) + ea[1] * Math.abs(A[1][0] * L[0] + A[1][1] * L[1]);
+      var rb = eb[0] * Math.abs(B[0][0] * L[0] + B[0][1] * L[1]) + eb[1] * Math.abs(B[1][0] * L[0] + B[1][1] * L[1]);
+      var pen = ra + rb - Math.abs(dist);
+      if (!(pen > 0)) return null;
+      if (pen < best) { best = pen; var sgn = dist >= 0 ? 1 : -1; bax = L[0] * sgn; baz = L[1] * sgn; }
+    }
+    return { pen: best, ax: bax, az: baz };   // a → b 방향
+  }
+  var jamT = {};   // 오래 겹쳐 있는 짝(차로 변경으로 올라탄 경우 등) — 교착이면 풀어 준다
   this.separate = function () {
     self.sweepNaN();
+    var drop = [];
     for (var i = 0; i < cars.length; i++) for (var j = i + 1; j < cars.length; j++) {
-      var a = cars[i], b = cars[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, rr = a.radius + b.radius, d2 = dx * dx + dz * dz;
-      if (!(d2 < rr * rr) || !(d2 >= 1e-6)) continue;   // NaN 방어(위와 같은 이유)
-      var d = Math.sqrt(d2), ov = (rr - d) / 2;
-      a.pos.x -= dx / d * ov; a.pos.z -= dz / d * ov; b.pos.x += dx / d * ov; b.pos.z += dz / d * ov; a.v *= 0.5; b.v *= 0.5;
+      var a = cars[i], b = cars[j], key = a.id + '-' + b.id;
+      var hit = obbHit(a, b);
+      if (!hit) { if (jamT[key] !== undefined) delete jamT[key]; continue; }
+      var half = hit.pen / 2;
+      a.pos.x -= hit.ax * half; a.pos.z -= hit.az * half; b.pos.x += hit.ax * half; b.pos.z += hit.az * half;
+      var afx = Math.sin(a.heading), afz = Math.cos(a.heading), bfx = Math.sin(b.heading), bfz = Math.cos(b.heading);
+      if (afx * hit.ax + afz * hit.az > 0.5) a.v *= 0.5;            // a 가 b 쪽으로 달려 들어갔다
+      if (bfx * -hit.ax + bfz * -hit.az > 0.5) b.v *= 0.5;
+      jamT[key] = (jamT[key] || 0) + 1 / 60;
+      // 3초 넘게 겹친 채 둘 다 서 있으면 교착이다 — 옆으로 벌려 주고, 그래도 안 풀리면 멀리 있는 한 대를 지운다
+      if (jamT[key] > 3 && a.v < 0.6 && b.v < 0.6) {
+        a.pos.x -= -afz * 0.35; a.pos.z -= afx * 0.35; b.pos.x += -afz * 0.35; b.pos.z += afx * 0.35;
+        if (jamT[key] > 8) { var pl0 = self.player, far = b; 
+          if (pl0) far = (Math.hypot(a.pos.x - pl0.pos.x, a.pos.z - pl0.pos.z) > Math.hypot(b.pos.x - pl0.pos.x, b.pos.z - pl0.pos.z)) ? a : b;
+          if (!pl0 || Math.hypot(far.pos.x - pl0.pos.x, far.pos.z - pl0.pos.z) > 40) { drop.push(far); delete jamT[key]; }
+        }
+      }
     }
+    for (var k = 0; k < drop.length; k++) if (cars.indexOf(drop[k]) >= 0 && drop[k].mode === 'drive' && !drop[k].chase) remove(drop[k]);
   };
   this.spawn = spawn; this.remove = remove;
   this.setYield = function (car, on) {
