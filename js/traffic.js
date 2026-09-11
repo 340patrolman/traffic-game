@@ -73,7 +73,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (exit && !car.isBus && !car.isMoto && !car.isBike && !car.isPM) opts.push(['X', 0.5]);   // 이륜차·자전거·PM 은 고속도로로 나가지 않는다
     var rdN = city.roadOf(N, d), nLn = city.lanesOf(rdN.axis, rdN.idx);
     if (city.nodeFrom(N, (d + 3) % 4) && (!car || nLn === 1 || car.laneIdx >= nLn - 1)) opts.push(['R', 0.28]);  // 우회전은 가장 바깥 차로에서만
-    if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', opts.length ? 0.0 : 1]);
+    // 보호 좌회전이 있는 접근로(v0.9.49): 1차로 차의 일부가 좌회전 화살표에 맞춰 돈다(1차로 = 좌회전 전용). 다른 차로는 좌회전하지 않는다.
+    var protL = !!(signals.hasLeft && signals.hasLeft(N, rdN.axis)) && nLn >= 2;
+    var wL = protL ? (car && car.laneIdx === 0 && !car.isBus && !car.isMoto && !car.isBike && !car.isPM ? 0.55 : 0) : (opts.length ? 0.0 : 1);
+    if (city.nodeFrom(N, (d + 1) % 4)) opts.push(['L', wL]);
     if (!opts.length) {   // 모퉁이(직진 불가)에서 안쪽 차로 차량: 우회전·좌회전 허용(차로 바꿔 돈다)
       if (city.nodeFrom(N, (d + 3) % 4)) return 'R';
       if (city.nodeFrom(N, (d + 1) % 4)) return 'L';
@@ -441,7 +444,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var dStopF = distStop - car.len / 2 + 0.8;
       car.cooldown -= dt;
       if (distStop > -0.5 && distStop < 60) {
-        var st = signals.state(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h');
+        // 보호 좌회전 교차로에서 좌회전 차는 **좌회전 화살표**를 따른다(v0.9.49). 직진·우회전은 직진 신호.
+        var axS = (ap.d === 0 || ap.d === 2) ? 'v' : 'h', st = ap.maneuver === 'L' ? signals.leftState(ap.node, axS) : signals.state(ap.node, axS);
         if (!rightTurn && car.running !== ap.node && car.violator && car.cooldown <= 0 && st.s === 'red' && st.remain > 2.0 && distStop < 38 && car.mode === 'drive') {
           var lead0 = leadOf(car, fx, fz);
           if (!lead0 || lead0.along > distStop + 2) { car.running = ap.node; car.cooldown = cfg.VIOLATOR_COOLDOWN; }
@@ -482,11 +486,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
             car.laneIdx = tgtL; car.signal = 'L'; car.signalT = 2;
           }
         }
+        // 보호 좌회전 접근로의 1차로는 좌회전 전용 — 직진 차는 2차로로 옮긴다(좌회전 신호를 기다리는 차 뒤에 막히지 않게)
+        if (ap.maneuver !== 'L' && car.laneIdx === 0 && distStop < 60 && distStop > 8 && car.mode === 'drive' && signals.hasLeft(ap.node, axS)) {
+          var rdP = city.roadOf(ap.node, ap.d);
+          if (city.lanesOf(rdP.axis, rdP.idx) >= 2) { car.lcShift += city.laneOff(rdP.axis, rdP.idx, 1) - city.laneOff(rdP.axis, rdP.idx, 0); car.laneIdx = 1; car.signal = 'R'; car.signalT = 2; }
+        }
         // 보행자 보호 무시 성향: 횡단보도 앞 정지를 건너뛴다(정면 3m 급제동만)
         if (car.pedViolator && car.mode === 'drive' && distStop < 30 && car.cooldown <= 0) pedIgnore = true;
       }
       if (car.prevDistStop !== undefined && car.prevDistStop > 0 && distStop <= 0 && car.prevAp === ap) {
-        var st2 = signals.state(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h');
+        var st2 = ap.maneuver === 'L' ? signals.leftState(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h') : signals.state(ap.node, (ap.d === 0 || ap.d === 2) ? 'v' : 'h');
         if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn) { self.stats.violations++; flag(car, 'signal', ap.node, self.witness(car)); }
         car.running = null;
         // 횡단보도 진입 시 보행자가 걷고 있으면 보행자 보호의무 위반

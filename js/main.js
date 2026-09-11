@@ -1478,7 +1478,8 @@
       if (node && Math.abs(frame.lateral) < frame.half) {
         var dist = (node.x - player.pos.x) * f[0] + (node.z - player.pos.z) * f[1] - city.stopDist(node, d);
         if (rules.prevNode === node && rules.prevDist > 0 && dist <= 0 && player.vF > 1.5) {
-          var st = signals.state(node, (d === 0 || d === 2) ? 'v' : 'h');
+          // 좌회전 깜빡이를 켜고 보호 좌회전 교차로를 지나면 좌회전 화살표로 판정한다(v0.9.49)
+          var axP = (d === 0 || d === 2) ? 'v' : 'h', st = (player.signal === 'L' && signals.hasLeft(node, axP)) ? signals.leftState(node, axP) : signals.state(node, axP);
           if (st.s === 'red' && st.elapsed > 0.6 && !exempt) { penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red'); }
           else if (st.s === 'red' && exempt) hud.hint('긴급 출동: 교차로는 서행하며 좌우를 확인한다');
         }
@@ -1812,9 +1813,12 @@
       if (nd) {
         var f = TG.DIR_VEC[d], dist = (nd.x - player.pos.x) * f[0] + (nd.z - player.pos.z) * f[1] - city.stopDist(nd, d);
         if (dist > -2 && dist < 180) {
-          var st = signals.state(nd, (d === 0 || d === 2) ? 'v' : 'h'), man = signals.isManual && signals.isManual(nd);
-          txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
-          cls = 'sigwait ' + st.s;
+          var axC = (d === 0 || d === 2) ? 'v' : 'h', st = signals.state(nd, axC), man = signals.isManual && signals.isManual(nd);
+          var lt = signals.hasLeft && signals.hasLeft(nd, axC) ? signals.leftState(nd, axC) : null, leftOn = !!(lt && st.s === 'red' && lt.s !== 'red' && !man);
+          // 보호 좌회전 현시 동안은 「⬅ 좌회전 녹색 N초 · 직진 적색」 — 직진 차가 화살표를 보고 출발하지 않게(v0.9.49)
+          if (leftOn) txt = '⬅ 좌회전 ' + (lt.s === 'green' ? '녹색 ' : '황색 ') + Math.max(0, Math.ceil(lt.remain)) + '초 · 직진 적색 · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
+          else txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
+          cls = 'sigwait ' + (leftOn ? lt.s : st.s);
         }
       }
     }
