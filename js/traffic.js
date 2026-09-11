@@ -447,6 +447,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         // 보호 좌회전 교차로에서 좌회전 차는 **좌회전 화살표**를 따른다(v0.9.49). 직진·우회전은 직진 신호.
         // 실측 현시가 있는 교차로는 그 접근로의 이동류 신호를 따른다(v0.9.50) — 서측 직좌 현시에 동측 차는 선다
         var axS = (ap.d === 0 || ap.d === 2) ? 'v' : 'h', st = signals.moveState(ap.node, ap.d, ap.maneuver === 'L' ? 'L' : 'S');
+        // **황색 없이 바로 적색**(수동 전환 · 녹색 편집 · 실측 자료 적용으로 신호 시각이 건너뛰었다)을 본 차는 그 교차로에서 위반으로 기록하지 않는다.
+        // 진짜 신호기는 황색을 건너뛰지 않는다 — 준법 차가 「신호위반」으로 단속되면 틀린 것을 가르친다(v0.9.51 검증: 적색 37초·123초째에 9m/s 로 통과한 준법 차).
+        // 처음 본 신호가 **이미 적색인데 못 설 거리**인 차도 같다 — 정지선 바로 앞에 생겨났거나(스폰) 경로가 늦게 이어진 것이지 운전자가 신호를 무시한 것이 아니다
+        // (v0.9.51 검증: 정지선 0.3~3.4m 앞에서 적색 18~131초째에 처음 신호를 본 준법 차 4대가 「신호위반」으로 기록됐다).
+        var csNow = car.v > 2 && dStopF - 0.3 < car.v * car.v / (2 * cfg.AI_EMERGENCY);
+        if (car.sigSeenNode !== ap.node) { if (st.s === 'red' && csNow) car.noFlagNode = ap.node; }
+        else if (car.sigSeenS === 'green' && st.s === 'red') car.noFlagNode = ap.node;
+        car.sigSeenNode = ap.node; car.sigSeenS = st.s;
         if (!rightTurn && car.running !== ap.node && car.violator && car.cooldown <= 0 && st.s === 'red' && st.remain > 2.0 && distStop < 38 && car.mode === 'drive') {
           var lead0 = leadOf(car, fx, fz);
           if (!lead0 || lead0.along > distStop + 2) { car.running = ap.node; car.cooldown = cfg.VIOLATOR_COOLDOWN; }
@@ -465,6 +473,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
           // (v0.9.46 검증: 적색에 선 차가 앞범퍼를 횡단보도에 걸치고 긴 적색 내내 서 있었다). 설 수는 있지만 평상 감속으로 넘치면 급제동한다.
           // 기준을 0.3m 로 잡는다(1.3m 로 잡으면 정지선에 천천히 다가가는 마지막 몇 m 에서 「못 선다」로 뒤집혀 적색에 들어갔다 — 검증에서 대기 표본이 10분의 1로 줄었다).
           var needD = car.v * car.v / 2, cantStop = car.v > 2 && dStopF - 0.3 < needD / cfg.AI_EMERGENCY;
+          // 검증용 기록: 적색에 「못 서서 진행」한 순간 · 황색에 「진행」을 고른 순간의 [경과초, 속도, 앞범퍼~정지선 m]
+          if (st.s === 'red' && cantStop && car.cantStopNode !== ap.node) { car.cantStopNode = ap.node; car.cantStopInfo = [+st.elapsed.toFixed(1), +car.v.toFixed(1), +dStopF.toFixed(1)]; }
+          if (st.s === 'yellow' && !canStop && car.yGoNode !== ap.node) { car.yGoNode = ap.node; car.yGoInfo = [+st.elapsed.toFixed(1), +car.v.toFixed(1), +dStopF.toFixed(1)]; }
           if ((st.s === 'red' && !cantStop) || (st.s === 'yellow' && canStop)) {
             target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
             if (dStopF - 1.3 < needD / cfg.AI_DECEL) emergency = true;
@@ -497,7 +508,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       if (car.prevDistStop !== undefined && car.prevDistStop > 0 && distStop <= 0 && car.prevAp === ap) {
         var st2 = signals.moveState(ap.node, ap.d, ap.maneuver === 'L' ? 'L' : 'S');
-        if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn) { self.stats.violations++; flag(car, 'signal', ap.node, self.witness(car)); }
+        if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn && car.noFlagNode !== ap.node) {
+          // 기록이 붙는 순간의 사정(검증이 읽는다) — 준법 차에 신호위반이 붙는 원인을 찾으려고 남긴다
+          car.sigDiag = { k: ap.node.i + ',' + ap.node.j, real: !!(signals.realInfo && signals.realInfo(ap.node)), m: ap.maneuver, d: ap.d, el: +st2.elapsed.toFixed(1), v: +car.v.toFixed(1),
+                          viol: !!car.violator, run: car.running === ap.node, lane: car.laneIdx, cs: car.cantStopNode === ap.node ? car.cantStopInfo : null, yg: car.yGoNode === ap.node ? car.yGoInfo : null };
+          self.stats.violations++; flag(car, 'signal', ap.node, self.witness(car));
+        }
         car.running = null;
         // 횡단보도 진입 시 보행자가 걷고 있으면 보행자 보호의무 위반
         if (!car.violation && car.v > 1.5 && pedOnCrosswalk(ap)) { self.stats.violations++; flag(car, 'pedestrian', ap.node, self.witness(car)); car.cooldown = cfg.VIOLATOR_COOLDOWN; }

@@ -1485,10 +1485,14 @@
       var node = city.nodeAhead(player.pos.x, player.pos.z, d, -16);
       if (node && Math.abs(frame.lateral) < frame.half) {
         var dist = (node.x - player.pos.x) * f[0] + (node.z - player.pos.z) * f[1] - city.stopDist(node, d);
+        // 황색 없이 바로 적색이 되면(신호 시각이 건너뛰었다 — 수동 전환·편집·자료 적용) 그 교차로에서는 신호위반으로 보지 않는다(교통 AI 와 같은 규칙)
+        var stSeen = signals.moveState(node, d, (player.signal === 'L' && signals.hasLeftFor(node, d)) ? 'L' : 'S');
+        if (rules.sigNode === node && rules.sigS === 'green' && stSeen.s === 'red') rules.noFlagNode = node;
+        rules.sigNode = node; rules.sigS = stSeen.s;
         if (rules.prevNode === node && rules.prevDist > 0 && dist <= 0 && player.vF > 1.5) {
           // 좌회전 깜빡이를 켜고 보호 좌회전 교차로를 지나면 좌회전 화살표로 판정한다(v0.9.49)
           var st = signals.moveState(node, d, (player.signal === 'L' && signals.hasLeftFor(node, d)) ? 'L' : 'S');
-          if (st.s === 'red' && st.elapsed > 0.6 && !exempt) { penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red'); }
+          if (st.s === 'red' && st.elapsed > 0.6 && !exempt && rules.noFlagNode !== node) { penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red'); }
           else if (st.s === 'red' && exempt) hud.hint('긴급 출동: 교차로는 서행하며 좌우를 확인한다');
         }
         rules.prevNode = node; rules.prevDist = dist;
