@@ -307,6 +307,43 @@ TG.audio = (function () {
   }
   function ui() { blip(880, 0.06, 'square', 0.08); }
   function bell() { blip(1480, 0.12, 'triangle', 0.09); }   // 철길건널목 경보종
+  // ---- 👶 영아 교통안전교실 효과음(4세) ----
+  // 파일은 여전히 0개다. 아이들이 좋아하는 소리는 **맑고 짧고 통통 튀는** 소리다 — 무서운 소리는 쓰지 않는다.
+  function totIce() {   // 🧊 얼음! — 위에서 아래로 미끄러지며 「얼어붙는」 소리
+    if (!ready) return; var t0 = ctx.currentTime;
+    tone(1320, t0, 0.005, 0.28, 'triangle', 0.13, 330);
+    noiseHit(t0 + 0.02, 0.20, 0.05, 2600, 6);
+  }
+  function totGo() {    // 🚶 땡! — 통통 튀어 오르는 두 음
+    if (!ready) return; var t0 = ctx.currentTime;
+    tone(523, t0, 0.005, 0.12, 'triangle', 0.14, 784);
+    tone(784, t0 + 0.11, 0.005, 0.16, 'triangle', 0.13, 1046);
+  }
+  function totDing() {  // ✨ 잘했어요 — 맑은 종 두 번
+    if (!ready) return; var t0 = ctx.currentTime;
+    tone(1568, t0, 0.004, 0.30, 'sine', 0.11); tone(2093, t0 + 0.10, 0.004, 0.34, 'sine', 0.08);
+  }
+  function totBoing() { // 😀 장난스런 통통(손 들기·조끼 갈아입기)
+    if (!ready) return; var t0 = ctx.currentTime;
+    tone(392, t0, 0.005, 0.10, 'triangle', 0.13, 880); tone(880, t0 + 0.09, 0.005, 0.12, 'triangle', 0.10, 523);
+  }
+  function totClap(n) { // 👏 박수 — 노이즈 짧게 여러 번(사람 박수처럼 살짝 어긋나게)
+    if (!ready) return; var t0 = ctx.currentTime, k = n || 8;
+    for (var i = 0; i < k; i++) { var t = t0 + i * 0.085 + (i % 3) * 0.012; noiseHit(t, 0.06, 0.09, 1800 + (i % 4) * 260, 1.2); }
+  }
+  function totFanfare() {   // 🎉 마무리 팡파르(짧게)
+    if (!ready) return; var t0 = ctx.currentTime, seq = [523, 659, 784, 1046];
+    for (var i = 0; i < seq.length; i++) { tone(seq[i], t0 + i * 0.12, 0.008, 0.28, 'triangle', 0.15); tone(seq[i] * 2, t0 + i * 0.12, 0.008, 0.16, 'sine', 0.05); }
+    totClap(10);
+  }
+  function totCar() {   // 🚗 차가 스르르 멈추는 소리(무섭지 않게 — 경적은 쓰지 않는다)
+    if (!ready) return; var t0 = ctx.currentTime;
+    noiseHit(t0, 0.5, 0.05, 420, 0.7); tone(180, t0, 0.02, 0.45, 'sine', 0.05, 90);
+  }
+  function totBelt() {  // 🔒 딸깍 — 안전벨트
+    if (!ready) return; var t0 = ctx.currentTime;
+    noiseHit(t0, 0.05, 0.10, 3200, 3); tone(1046, t0 + 0.03, 0.004, 0.10, 'square', 0.06);
+  }
   function good() { blip(660, 0.12, 'triangle', 0.2); setTimeout(function () { blip(990, 0.18, 'triangle', 0.2); }, 110); }
   function bad() { blip(220, 0.25, 'sawtooth', 0.18); }
   function alert() { blip(1200, 0.1, 'square', 0.12); setTimeout(function () { blip(1200, 0.1, 'square', 0.12); }, 140); }
@@ -549,6 +586,6 @@ TG.audio = (function () {
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
   return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
-           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
+           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

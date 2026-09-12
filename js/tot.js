@@ -16,15 +16,30 @@ TG.Tot = function (game) {
   var st = null;
 
   // 마당 표(순서대로). sec = 저절로 넘어가는 시간, btn = 큰 단추에 적히는 말
+  // 소유자가 준 참고자료(2026-09-12)를 그대로 담았다 — **보행 3원칙(멈추기·좌우 살피기·손 들기)**,
+  // 「초록불이어도 **차가 완전히 멈췄는지** 확인하고 건넌다」, **안전벨트**, 「걸을 때 스마트폰·장난감 금지」.
+  // 출처는 행정안전부 안전배움터 · 도로교통공단 · 어린이집안전공제회 영상 등으로 소유자가 알려 준 것이고, **원문 대조는 아직 안 했다**(laws.json totClass.sourceNote).
   var STAGES = [
-    { id: 'ice',   name: '얼음땡 놀이',   emoji: '🧊', btn: '얼음! 땡!',  sec: 52 },
-    { id: 'hold',  name: '손 잡고',       emoji: '🤝', btn: '손 잡기',    sec: 42 },
-    { id: 'hand',  name: '손 들고',       emoji: '✋', btn: '손 들기',    sec: 42 },
-    { id: 'bright',name: '밝은 옷',       emoji: '🌈', btn: '밝은 옷 입기', sec: 46 },
+    { id: 'ice',   name: '얼음땡 놀이',   emoji: '🧊', btn: '얼음! 땡!',    sec: 46 },
+    { id: 'three', name: '멈춰 살펴 손들어', emoji: '🛑', btn: '하나 더!',   sec: 54 },
+    { id: 'check', name: '차 멈췄나 확인',  emoji: '👀', btn: '차 보기',     sec: 44 },
+    { id: 'hold',  name: '손 잡고',       emoji: '🤝', btn: '손 잡기',      sec: 38 },
+    { id: 'belt',  name: '안전벨트 딸깍',  emoji: '🔒', btn: '딸깍!',       sec: 38 },
+    { id: 'bright',name: '밝은 옷',       emoji: '🌈', btn: '밝은 옷 입기',  sec: 44 },
   ];
   // 아주 쉬운 말. 한 문장에 한 가지만 말한다(4세).
   var SAY = {
-    open:   '안녕! 오늘은 길을 건너는 놀이를 할 거예요',
+    open:   '안녕! 나는 꼬마 친구예요. 오늘은 길 건너기 놀이를 해요',
+    three:  '하나, 멈춰요! 둘, 살펴요! 셋, 손 들어요!',
+    stop:   '하나! 멈춰요',
+    look:   '둘! 오른쪽 왼쪽 살펴요',
+    up:     '셋! 손을 번쩍 들어요',
+    threeOk:'와! 멈춰요, 살펴요, 손 들어요. 참 잘했어요',
+    check:  '초록불이어도 차가 멈췄는지 꼭 봐요',
+    checkOk:'차가 멈췄어요. 이제 건너요',
+    phone:  '걸을 때는 장난감도 휴대폰도 보지 않아요',
+    belt:   '차를 타면 딸깍! 안전벨트를 매요',
+    beltOk: '딸깍! 안전벨트 맸어요. 참 잘했어요',
     ice:    '빨간불에는 얼음! 초록불에는 땡! 하고 걸어요',
     red:    '빨간불! 얼음!',
     green:  '초록불! 땡! 걸어요',
@@ -34,7 +49,7 @@ TG.Tot = function (game) {
     handOk: '와, 차가 멈췄어요. 손을 들어 줘서 고마워요',
     dark:   '밤에는 어두운 옷이 잘 안 보여요',
     bright: '밝은 옷을 입으면 멀리서도 반짝 보여요',
-    end:    '참 잘했어요! 빨간불 얼음, 초록불 땡, 손 잡고 손 들고!',
+    end:    '참 잘했어요! 다 같이 외쳐요. 멈춰요! 살펴요! 손 들어요!',
   };
   var COATS = [
     { name: '노랑', color: 0xffd93d, bright: true },
@@ -120,11 +135,14 @@ TG.Tot = function (game) {
     var S = STAGES[st.i];
     st.t = 0; st.sayCd = 0;
     dots();
-    setBig(S.emoji + ' ' + S.name, ['빨간불에 얼음, 초록불에 땡!', '어른 손을 꼭 잡아요', '손을 번쩍 들어요', '밝은 옷을 입어요'][st.i] || '');
+    setBig(S.emoji + ' ' + S.name, { ice: '빨간불에 얼음, 초록불에 땡!', three: '하나 멈춰요 · 둘 살펴요 · 셋 손 들어요',
+      check: '초록불이어도 차를 봐요', hold: '어른 손을 꼭 잡아요', belt: '차에 타면 딸깍!', bright: '밝은 옷을 입어요' }[S.id] || '');
     setButton(S.btn);
-    if (S.id === 'ice') { st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); }
+    if (S.id === 'ice') { st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); }
+    if (S.id === 'three') { st.three = 0; say('three', true); TG.audio.totDing(); }
+    if (S.id === 'check') { st.checked = false; say('check', true); }
     if (S.id === 'hold') { st.held = false; say('hold', true); }
-    if (S.id === 'hand') { st.handT = 0; say('hand', true); }
+    if (S.id === 'belt') { st.belt = false; say('belt', true); }
     if (S.id === 'bright') {
       st.night = true; if (G.weather) G.weather.set('night');
       say('dark', true);
@@ -134,9 +152,9 @@ TG.Tot = function (game) {
   function finish() {
     st.done = true;
     hideSignal(); setButton('🔁 다시 하기');
-    setBig('🎉 참 잘했어요!', '빨간불 얼음 · 초록불 땡 · 손 잡고 · 손 들고');
+    setBig('🎉 참 잘했어요!', '멈춰요 · 살펴요 · 손 들어요 · 차 보고 건너요');
     say('end', true);
-    TG.audio.jingle(4);
+    TG.audio.totFanfare();
     stars(4);
     if (G.hud && G.hud.burst) G.hud.burst('⭐');
   }
@@ -170,35 +188,53 @@ TG.Tot = function (game) {
     TG.audio.ui(); TG.haptic(TG.HAPTIC.tap);
     if (!S) { restart(); return true; }   // 끝난 뒤에 누르면 처음부터 다시(한 번으로 안 끝난다)
     if (S.id === 'ice') { toggleIce(); return true; }
+    if (S.id === 'three') { threeStep(); return true; }
+    if (S.id === 'check') { checkCar(); return true; }
     if (S.id === 'hold') { holdHands(); return true; }
-    if (S.id === 'hand') { raiseHand(); return true; }
+    if (S.id === 'belt') { beltClick(); return true; }
     if (S.id === 'bright') { wearBright(); return true; }
     return false;
   };
   function toggleIce() {
     st.ice.green = !st.ice.green; st.ice.t = 0;
-    if (st.ice.green) { say('green', true); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
-    else { say('red', true); if (G.hud && G.hud.burst) G.hud.burst('🧊'); }
-    TG.audio.jingle(st.ice.green ? 2 : 1);
+    if (st.ice.green) { say('green', true); if (G.hud && G.hud.burst) G.hud.burst('🚶'); TG.audio.totGo(); }
+    else { say('red', true); if (G.hud && G.hud.burst) G.hud.burst('🧊'); TG.audio.totIce(); }
+  }
+  // 🛑 보행 3원칙 — 단추를 누를 때마다 하나씩(멈춰요 → 살펴요 → 손 들어요). 아이들이 같이 외친다.
+  function threeStep() {
+    var W = G.walker; st.three = (st.three || 0) + 1;
+    if (st.three === 1) { if (W) { W.v = 0; W.moving = false; } say('stop', true); TG.audio.totIce(); if (G.hud && G.hud.burst) G.hud.burst('🛑'); }
+    else if (st.three === 2) { if (W) W.lookScan = true; say('look', true); TG.audio.totBoing(); if (G.hud && G.hud.burst) G.hud.burst('👀'); }
+    else { if (W) { W.raiseHand(10); W.lookScan = false; } say('up', true); TG.audio.totDing(); if (G.hud && G.hud.burst) G.hud.burst('✋');
+      st.stars = Math.max(st.stars, 2); stars(st.stars); st.three = 0; setTimeout(function () { if (st) say('threeOk', true); }, 900); TG.audio.totClap(6); }
+  }
+  // 👀 초록불이어도 **차가 멈췄는지** 확인하고 건넌다(소유자 자료의 핵심 한 줄)
+  function checkCar() {
+    st.checked = true; st.checkT = 3.4;
+    var W = G.walker; if (W) { W.lookScan = true; W.raiseHand(8); }
+    TG.audio.totCar(); say('checkOk', true);
+    st.stars = Math.max(st.stars, 3); stars(st.stars);
+    if (G.hud && G.hud.burst) G.hud.burst('🚗');
+  }
+  // 🔒 안전벨트 딸깍 — 차에 타면 반드시
+  function beltClick() {
+    st.belt = true; st.beltT = 3.2;
+    TG.audio.totBelt(); say('beltOk', true);
+    st.stars = Math.max(st.stars, 4); stars(st.stars);
+    if (G.hud && G.hud.burst) G.hud.burst('🔒');
   }
   function holdHands() {
     st.held = true; st.stars = Math.max(st.stars, 2); stars(st.stars);
     var W = G.walker; if (W) W.raiseHand(6);
-    say('holdOk', true); TG.audio.jingle(2);
+    say('holdOk', true); TG.audio.totDing(); TG.audio.totClap(5);
     if (G.hud && G.hud.burst) G.hud.burst('🤝');
-  }
-  function raiseHand() {
-    var W = G.walker; if (W) W.raiseHand(8);
-    st.handT = 3.2; st.stars = Math.max(st.stars, 3); stars(st.stars);
-    say('handOk', true); TG.audio.jingle(3);
-    if (G.hud && G.hud.burst) G.hud.burst('✋');
   }
   function wearBright() {
     var c = COATS[(st.coat++) % COATS.length];
     setCoat(c.color);
     st.stars = Math.max(st.stars, 4); stars(st.stars);
     setBig('🌈 ' + c.name + ' 옷', '밝은 옷은 멀리서도 반짝 보여요');
-    say('bright', true); TG.audio.jingle(3);
+    say('bright', true); TG.audio.totBoing();
   }
 
   // ---------- 매 프레임 ----------
@@ -231,20 +267,30 @@ TG.Tot = function (game) {
       // 얼음땡: 6초 빨강 → 7초 초록을 저절로 오간다(단추로 바로 바꿀 수도 있다)
       st.ice.t += dt;
       var span = st.ice.green ? 7 : 6;
-      if (st.ice.t > span) { st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++; say(st.ice.green ? 'green' : 'red', true); }
+      if (st.ice.t > span) { st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++; say(st.ice.green ? 'green' : 'red', true);
+        if (st.ice.green) TG.audio.totGo(); else TG.audio.totIce(); }
       setSignal(st.ice.green, span - st.ice.t);
       setBig(st.ice.green ? '🚶 땡! 걸어요' : '🧊 얼음! 멈춰요', st.ice.green ? '초록불' : '빨간불');
       if (W) { W.tot = { frozen: !st.ice.green }; if (!st.ice.green) { W.v = 0; W.moving = false; } }
       if (st.ice.round >= 2 && st.stars < 1) { st.stars = 1; stars(1); }
+    } else if (S.id === 'three') {
+      hideSignal();
+      setBig('🛑 ' + ['하나! 멈춰요', '둘! 살펴요', '셋! 손 들어요'][st.three || 0], '단추를 누르면 하나씩');
+      if (st.sayCd <= 0 && st.t > 8) say('three');
+    } else if (S.id === 'check') {
+      setSignal(true, null);                                  // 초록불인데도 차를 본다 — 그것이 이 마당이다
+      st.checkT = (st.checkT || 0) - dt;
+      setBig(st.checkT > 0 ? '👀 차가 멈췄어요' : '👀 차를 봐요', st.checkT > 0 ? '이제 건너요' : '초록불이어도 꼭!');
+      if (st.sayCd <= 0 && st.t > 9) say(st.t > 22 ? 'phone' : 'check');   // 걸을 때 장난감·휴대폰 금지도 한 번 말한다
+    } else if (S.id === 'belt') {
+      hideSignal();
+      st.beltT = (st.beltT || 0) - dt;
+      setBig(st.beltT > 0 ? '🔒 딸깍! 맸어요' : '🔒 안전벨트 매요', '차에 타면 꼭!');
+      if (st.sayCd <= 0 && st.t > 8) say('belt');
     } else if (S.id === 'hold') {
       hideSignal();
       if (!st.held && st.t > 6 && st.sayCd <= 0) say('hold');
       if (st.held) setBig('🤝 손 잡고 걸어요', '어른 손을 꼭!');
-    } else if (S.id === 'hand') {
-      hideSignal();
-      st.handT -= dt;
-      if (st.handT > 0) setBig('✋ 손을 들었어요', '차가 멈췄어요');
-      else if (st.sayCd <= 0 && st.t > 6) say('hand');
     } else if (S.id === 'bright') {
       hideSignal();
       if (st.coat === 0 && st.t > 7 && st.sayCd <= 0) say('dark');
