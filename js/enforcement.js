@@ -209,12 +209,12 @@ TG.Enforcement = function (game) {
     var pl = me();
     if (scn) { sceneUpdate(dt); return; }   // 하차 장면 중에는 다른 판정을 멈춘다
     if (self.state === 'idle' || self.state === 'quiz') return;
-    if (self.state === 'yielding' || self.state === 'stopped') {
+    if (self.state === 'yielding' || self.state === 'stopped' || self.state === 'await') {
       if (distToTarget() > 130) { cancel('대상을 놓쳤습니다 — 정차 유도 취소'); game.hud.setTarget(null); return; }
       if (!onFoot()) { if (!pl.siren) { sirenOffT += dt; if (sirenOffT > 3) { cancel('경광등을 꺼서 정차 유도가 취소되었습니다'); game.hud.setTarget(null); return; } } else sirenOffT = 0; }
       var c2 = self.target;
       if (c2.mode === 'stopped') {
-        if (self.state !== 'stopped') { self.state = 'stopped'; game.hud.setTarget(onFoot() ? '대상 정차 — 운전석 옆(3m 안)으로 가세요' : '대상 정차 — 그 뒤 우측 가장자리에 정차하세요'); }
+        if (self.state !== 'stopped' && self.state !== 'await') { self.state = 'stopped'; game.hud.setTarget(onFoot() ? '대상 정차 — 운전석 옆(3m 안)으로 가세요' : '대상 정차 — 그 뒤 우측 가장자리에 정차하세요'); }
         if (onFoot()) { if (distToTarget() < 3.6 && pl.telemetry.speed < 0.5) { completePullover(c2); self.target = null; } return; }
         if (pl.telemetry.speed < 0.3) {
           var cf = [Math.sin(c2.heading), Math.cos(c2.heading)], crx = -cf[1], crz = cf[0];
@@ -223,8 +223,11 @@ TG.Enforcement = function (game) {
           var behind = along <= -cfg.STOP_BEHIND_MIN && along >= -cfg.STOP_BEHIND_MAX && Math.abs(lat) < 3.5;
           var shoulder = frame.lateral >= frame.shoulderMin;
           if (behind && shoulder) {
-            if (sceneStart(c2)) return;              // 하차 장면이 끝나면 그 안에서 고지한다
-            completePullover(c2); self.target = null; return;
+            // 소유자 지시(2026-09-12): 단속 **장면**은 보여주지 않는다. 세운 뒤 **하차해서 운전석 옆으로 가면** 고지가 끝난다.
+            if (cfg.ENF_SCENE && sceneStart(c2)) return;
+            if (cfg.ENF_SCENE) { completePullover(c2); self.target = null; return; }
+            if (self.state !== 'await') { self.state = 'await'; game.hud.setTarget('✅ 정차 완료 — 🚶 하차해서 운전석 옆(3m 안)으로'); game.hud.hintNow('하차 단추를 누르고(후방 확인) 운전석 약간 뒤 측면으로 갑니다'); }
+            return;
           }
           warnT -= dt;
           if (warnT <= 0) { warnT = 2.5; if (!behind) game.hud.notice('대상 차량 바로 뒤(3~15m)에 정차하세요', 'warn', 2200); else game.hud.notice('안전 확보 안 됨 — 차로 위입니다. 우측 가장자리로 이동하세요', 'warn', 2200); }
