@@ -633,10 +633,15 @@ body.toticy::after{content:'';position:fixed;inset:0;z-index:14;pointer-events:n
   width:auto;min-width:210px;height:88px;padding:0 26px;border-radius:26px;background:rgba(255,207,63,.94);border:3px solid #fff;
   color:#1b1b1b;font-size:26px;font-weight:900;box-shadow:0 8px 26px rgba(0,0,0,.45)}
 body.totmode .tbtn.totbtn{display:flex}
+/* 🎮 해보기 마당에서만 스틱과 걷기·뛰기 단추가 나온다 — 아이가 직접 걸어 보는 마당이다(소유자 2026-09-12) */
+body.totmode .tbtn.runbtn{display:none!important}
+body.totmode.totfree .tbtn.runbtn{display:flex!important}
+body.totmode #stickZone{display:none!important}
+body.totmode.totfree #stickZone{display:block!important}
 .tbtn.totbtn span{font-size:26px;font-weight:900}
 /* 영아 교실에서는 계기·단속·조작을 감춘다 — 아이들이 볼 것은 신호등과 캐릭터뿐이다 */
 body.totmode #hudbar,body.totmode #minimap,body.totmode .cluster.right,body.totmode #stickZone,body.totmode .sigs,
-body.totmode .tbtn.hand,body.totmode .tbtn.runbtn,body.totmode .tbtn.footbtn,body.totmode .tbtn.revbtn,
+body.totmode .tbtn.hand,body.totmode .tbtn.footbtn,body.totmode .tbtn.revbtn,
 body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.view,body.totmode #target{display:none!important}
 /* 마당 점(①②③④) · 다음 마당 단추 — 선생님이 진행 상황을 보고 앞으로 넘긴다 */
 /* 🛣 여기는 어디? — 바닥 색과 **같은 색 칩**을 화면 아래에 둔다(3D 글자판은 카메라 밖으로 나간다 · 실측) */

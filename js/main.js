@@ -1360,7 +1360,8 @@
     // 그래서 어린이 교실에서만 연석에서 막는다: 갈 수 있는 곳은 ① 보도·도로 밖 ② 보행 녹색인 횡단보도
     // ③ **이미 건너던 횡단보도**(다 건너기 전에 신호가 바뀌어도 갇히면 안 된다).
     // 보행자 체험(walk)은 그대로 둔다 — 어른은 무단횡단을 할 수 있고 그것이 위반으로 기록되는 것이 배움이다.
-    if (kid) {
+    var totFree = !!(G.mode === 'tot' && G.tot && G.tot.freeControl && G.tot.freeControl());
+    if (kid && !totFree) {                                  // 🎮 해보기 마당에서는 막지 않는다 — 그 대신 아찔한 순간을 보여 주고 되돌린다
       walk.curbCd = (walk.curbCd || 0) - dt;
       var crossing = walk.cross && p.node && walk.cross.node === p.node && walk.cross.d === p.d;
       var okHere = p.where === 'sidewalk' || p.where === 'off' || (p.where === 'crosswalk' && (p.walk || crossing));
@@ -1414,7 +1415,10 @@
       if (walk.cross) {
         var moved = Math.hypot(walker.pos.x - walk.cross.x0, walker.pos.z - walk.cross.z0), rd = city.roadOf(walk.cross.node, walk.cross.d), half = city.halfOf(rd.axis, rd.idx);
         if (moved > half * 1.2 && walk.cross.legal) {
-          if (kid) {
+          // 👶 영아 교실은 **점수·별이 없다**(소유자 지시) — 칭찬·하트는 tot 모듈의 crossDone 이 맡는다.
+          //    v0.9.81 전까지는 아이가 차도를 제대로 건너지 않아 이 갈래가 터지지 않았다 — 진짜로 건너게 되면서 드러났다.
+          if (G.mode === 'tot') { walk.cross = null; }
+          else if (kid) {
             // 별 3개 = 멈춤 + 초록불 + 걷기(뛰지 않음). 손 들기는 **꼭 해야 하는 것이 아니다**(소유자 지시) — 하면 칭찬과 작은 점수만.
             // 별 = 초록불(이 분기 자체) + 멈춤 + 걷기. 깜빡일 때 들어섰으면 하나 뺀다.
             var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) + (walk.cross.carOk === false ? -1 : 0) - (walk.cross.blink ? 1 : 0), 1, 3);
@@ -1580,7 +1584,8 @@
   }
   function walkUpdate(dt) {
     var mv = input.readMove(); if (G.testMove) mv = G.testMove;
-    if (G.mode === 'tot') { if (G.tot) G.tot.update(dt); mv = totMove(dt); }   // 영아 교실: 화면이 이끈다
+    // 영아 교실: 보통은 화면이 이끌지만, 🎮 해보기 마당에서는 **조작을 아이에게 넘긴다**(소유자: 「화살표를 움직여서 동작을」).
+    if (G.mode === 'tot') { if (G.tot) G.tot.update(dt); if (!(G.tot && G.tot.freeControl && G.tot.freeControl())) mv = totMove(dt); }
     if (exitScn) mv = exitSceneMove(dt);   // 하차 연출 중에는 조작을 받지 않는다
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);

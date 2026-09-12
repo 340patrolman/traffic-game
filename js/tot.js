@@ -25,6 +25,7 @@ TG.Tot = function (game) {
     { id: 'ice',   name: '얼음땡 놀이',        emoji: '🧊', btn: '얼음! 땡!',    sec: 58 },
     { id: 'hold',  name: '토수니 손 잡기',     emoji: '🐻', btn: '손 잡기',     sec: 34 },
     { id: 'cross', name: '다섯 걸음으로 건너기', emoji: '🚸', btn: '하나 더!',    sec: 96 },
+    { id: 'tryme', name: '해보기 — 만약에',  emoji: '🎮', btn: '🤝 손 잡기',   sec: 150 },
     { id: 'alley', name: '골목길',             emoji: '🏘', btn: '어디로 걸을까?', sec: 52 },
     { id: 'belt',  name: '안전벨트 딸깍',      emoji: '🔒', btn: '딸깍!',       sec: 34 },
     { id: 'bright',name: '밝은 옷',           emoji: '🌈', btn: '밝은 옷 입기', sec: 42 },
@@ -75,6 +76,11 @@ TG.Tot = function (game) {
     hold:    '길을 건널 때는 어른 손을, 보호자 손을 꼭 잡아요',
     holdOk:  '어른 손을 꼭 잡았어요. 참 잘했어요',
     notYet:  '아직이야. 어른 손을 먼저 잡아요',
+    tooFar:  '선생님 곁에서 걸어요. 너무 멀리 가면 안 돼요',
+    letGo:   '손을 놓았어요. 혼자 건너면 위험해요',
+    miss:    '아찔했어요! 차가 급하게 멈췄어요. 손을 놓고 뛰면 운전하는 사람이 나를 못 봐요',
+    safe:    '안전하게 건넜어요. 서다, 보다, 걷다를 지켰어요',
+    tryme:   '이제 내가 해볼까요? 화살표로 걸어 보세요. 손을 잡고 천천히 걸어요',
     crossing: '차를 보면서 천천히 걸어요. 다 건널 때까지 멈추지 않아요',
     crossOk: '다 건넜어요! 참 잘했어요',
     back:    '신호를 기다릴 때는 한 발 뒤로 물러나요. 차에서 멀리 떨어져서 기다려요',
@@ -218,7 +224,7 @@ TG.Tot = function (game) {
     document.body.classList.add('totmode');
     st = { i: -1, t: 0, sayCd: 0, hearts: 0, done: false, coat: 0, night: false,
            held: false, five: 0, crossed: false, walkT: 0, belt: false, beltT: 0,
-           ice: { on: false, t: 0, green: false, round: 0 } };
+           ice: { on: false, t: 0, green: false, round: 0 }, missCd: 0, missN: 0 };
     self.state = st;
     st.heading0 = W.heading;                         // **고정 방향** — 카메라·조작이 같은 값을 본다(되먹임으로 아이가 돌지 않게)
     st.home = { x: W.pos.x, z: W.pos.z };
@@ -233,7 +239,7 @@ TG.Tot = function (game) {
     return true;
   };
   self.dispose = function () {
-    document.body.classList.remove('totmode'); document.body.classList.remove('toticy');
+    document.body.classList.remove('totmode'); document.body.classList.remove('toticy'); document.body.classList.remove('totfree');
     var bg = el('totBig'); if (bg) bg.classList.remove('shiver');
     whereHide();
     if (G.walker && G.walker.setUmbrella) G.walker.setUmbrella(false);
@@ -250,7 +256,7 @@ TG.Tot = function (game) {
     st = null; self.state = null;
   };
   self.on = function () { return !!st; };
-  self.heading = function () { return st ? st.heading0 : null; };
+  self.heading = function () { return (st && !st.freeCtl) ? st.heading0 : null; };   // 🎮 해보기는 아이 헤딩을 쓴다(카메라가 따라 돈다)
 
   function restart() {
     var W = G.walker;
@@ -261,6 +267,9 @@ TG.Tot = function (game) {
   }
   function next() {
     if (!st) return;
+    // 마당을 넘길 때 아이가 **차도 위**이면 선생님이 손을 잡고 인도로 데려온다 — 길 가운데 남겨 두고 화면을 바꾸지 않는다
+    var W0 = G.walker, pg0 = crossProgress();
+    if (W0 && st.stand && pg0 > 0.8 && pg0 < (st.crossLen || 32) - 0.8) { W0.teleport(st.stand.x, st.stand.z, st.heading0); W0.v = 0; }
     st.i++;
     if (st.i >= STAGES.length) { finish(); return; }
     var S = STAGES[st.i]; st.t = 0; st.sayCd = 0;
@@ -271,6 +280,8 @@ TG.Tot = function (game) {
     if (S.id === 'where') { st.where = 0; whereShow(0); }
     if (S.id !== 'where') whereHide();
     if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); iceLook(false); syncSignal(false); }
+    freeCtlOn(S.id === 'tryme');                       // 🎮 해보기에서만 조작을 아이에게 넘긴다
+    if (S.id === 'tryme') { st.held = true; st.safeShown = false; st.tryHint = false; st.missCd = 0; crossSetup(); setButton('✋ 손 놓기', false); }
     if (S.id === 'alley') { iceLook(true); st.alley = 0; alleyShow(0); say('alley', true); }
     if (S.id === 'hold') { iceLook(true); say('hold', true); }
     stopCarsForCross(S.id === 'cross');
@@ -315,6 +326,7 @@ TG.Tot = function (game) {
     if (S.id === 'ice') { toggleIce(); return true; }
     if (S.id === 'hold') { holdHands(); return true; }
     if (S.id === 'cross') { fiveStep(); return true; }
+    if (S.id === 'tryme') { tryButton(); return true; }
     if (S.id === 'alley') { alleyNext(); return true; }
     if (S.id === 'belt') { beltClick(); return true; }
     if (S.id === 'bright') { wearBright(); return true; }
@@ -489,6 +501,64 @@ TG.Tot = function (game) {
     if (G.hud && G.hud.burst) G.hud.burst('🤝');
   }
   // 🚸 **원문 5단계**. 단추를 누를 때마다 한 걸음. **손을 안 잡았으면 잠긴다**(혼자 건너기 엔딩 없음).
+  // ---------- 🎮 해보기(만약에) ----------
+  // 소유자(2026-09-12): 「**화살표를 움직여서** 동작을 할 수 있게도 하고 걷기·뛰기·손 놓기 등 한 번씩 체험을 해서,
+  // 만약 **손 놓고 뛰어갔다면 위험할 수도 있는 상황**을 보여주고, **안전을 확인해서 위험한 경우를 넘겼을 수도**를 보여줘야 함.
+  // 게임 같지만 **스토리와 시뮬레이션이 결합**된 것임.」
+  //  → 이 마당에서만 조작을 아이(선생님·아이 손가락)에게 넘긴다. 같은 자리에서 **두 갈래**를 보여 준다.
+  //    ⓐ 손 놓고 뛰어 들어가면 → 차가 **끼익** 급제동해 멈춰 선다(아찔했다). **사고는 나지 않고 하트도 깎이지 않는다.**
+  //    ⓑ 손 잡고 서다·보다 뒤 걸어서 건너면 → 차가 미리 **완전히 멈춰** 있다. 「위험할 수도 있었던 걸 우리가 피했어요.」
+  function freeCtlOn(on) {
+    st.freeCtl = !!on;
+    document.body.classList.toggle('totfree', !!on);
+    if (G.input) { G.input.runToggle = false; }
+    var rb = el('btnRun');
+    if (rb) { rb.classList.remove('on'); var ic = rb.querySelector('.ico'); if (ic) ic.textContent = '🚶'; }
+  }
+  function tryButton() {                                   // 큰 단추 = 손 잡기 ↔ 손 놓기
+    var W = G.walker;
+    st.held = !st.held;
+    if (st.held) { if (W) W.raiseHand(6); say('holdOk', true); TG.audio.totDing(); if (G.hud && G.hud.burst) G.hud.burst('🤝'); }
+    else { say('letGo', true); TG.audio.totBoing(); if (G.hud && G.hud.burst) G.hud.burst('✋'); }
+    setButton(st.held ? '✋ 손 놓기' : '🤝 손 잡기', false);
+  }
+  // 아찔한 순간 — **부딪히지 않는다.** 차는 급제동해서 아이 앞에 선다(2차로 안쪽까지 들어오지 않는다).
+  function nearMiss() {
+    if (st.missCd > 0) return;
+    st.missCd = 7; st.missN = (st.missN || 0) + 1;
+    var W = G.walker, TR = G.traffic, nd = st.node;
+    var car = null, best = 1e9;
+    (TR && TR.cars ? TR.cars : []).forEach(function (c) {
+      var d = Math.hypot(c.pos.x - W.pos.x, c.pos.z - W.pos.z);
+      var cf = [Math.sin(c.heading), Math.cos(c.heading)];
+      if ((W.pos.x - c.pos.x) * cf[0] + (W.pos.z - c.pos.z) * cf[1] < 0) return;   // 멀어지는 차는 뺀다
+      if (d < best) { best = d; car = c; }
+    });
+    if (car) {
+      car.v = Math.min(car.v, 3); car.brakeHard = 1.2;
+      if (G.vfx) for (var k = -1; k <= 1; k += 2) G.vfx.puff(car.pos.x + k * 0.8, 0.25, car.pos.z, 0, 0.5, 0, 1.6, 1.2);
+    }
+    TG.audio.skidBurst && TG.audio.skidBurst();
+    TG.audio.horn && TG.audio.horn(false);
+    G.slowmo = 1.1; G.punch = 0.9; G.shake = 0.5;
+    if (G.hud) { if (G.hud.vignette) G.hud.vignette(0.55); if (G.hud.burst) G.hud.burst('⚠️', 5); }
+    st.vigT = 1.4;   // 붉은 테두리는 1.4초만 — 겁을 주는 것이 아니라 「아찔했다」를 알리는 것이다
+    setBig('😨 아찔했어요!', '손을 놓고 뛰면 운전하는 사람이 나를 못 봐요');
+    say('miss', true);
+    if (G.game && G.game.buzz) G.game.buzz([180, 70, 180]);
+    // 아이를 인도로 되돌린다(사고는 나지 않는다) — 하트는 그대로
+    if (W && st.stand) { W.teleport(st.stand.x, st.stand.z, st.heading0); W.v = 0; }
+    st.held = false; setButton('🤝 손 잡기', false);
+  }
+  function safePass() {
+    if (st.safeShown) return;
+    st.safeShown = true;
+    setBig('😊 안전하게 건넜어요', '위험할 수도 있었던 걸 우리가 피한 거예요');
+    say('safe', true); TG.audio.totFanfare(); TG.audio.totClap(6); heart(5);
+    if (G.hud && G.hud.burst) { G.hud.burst('⭐', 5); G.hud.burst('🎉', 3); }
+    G.slowmo = 0.8; st.waveT = 3.0;
+  }
+
   // ---------- 🚸 실제 횡단(개연성) ----------
   // 소유자(2026-09-12): 「초록불이 나오면 **땡 하며 횡단보도를 건너야** 하는데 … 현실성을 높이자.」
   // 그래서 얼음땡의 초록불과 다섯 걸음의 ⑤ 는 **정말로 횡단보도를 건넌다**.
@@ -500,15 +570,24 @@ TG.Tot = function (game) {
     var W = G.walker; if (!W || !st.stand || !st.fwd) return 0;
     return (W.pos.x - st.stand.x) * st.fwd[0] + (W.pos.z - st.stand.z) * st.fwd[1];
   }
-  function crossSetup() {                                  // 지금 선 자리를 기준으로 횡단 길이를 잡는다
+  //  ⚠ 방향을 heading0 에서 그대로 받아 쓰면 **길 밖으로 「건너는」 일**이 생긴다(v0.9.81 실측):
+  //     제자리 왕복(1.6m) 규칙이 아이를 돌려세운 채 다음 마당이 시작되면 횡단 방향이 도로 반대쪽을 향하고,
+  //     아이는 28m 를 **인도와 블록 안쪽으로** 걸어갔다(건넌 거리 26.5m 로 검사도 통과했다 — 애들이 웃을 장면이다).
+  //     그래서 **건너는 쪽은 기하로 정한다** — 늘 차도 중심을 향해, 건너편 보도까지.
+  function crossSetup() {                                  // 지금 선 자리를 기준으로 횡단 방향·길이를 잡는다
     var W = G.walker, nd = st.node, C = G.city;
     st.stand = { x: W.pos.x, z: W.pos.z };
-    st.fwd = [Math.sin(st.heading0), Math.cos(st.heading0)];
-    var vert = Math.abs(st.fwd[0]) > Math.abs(st.fwd[1]);   // 앞이 x 방향이면 남북 도로를 건넌다
+    var f0 = [Math.sin(st.heading0), Math.cos(st.heading0)];
+    var vert = Math.abs(f0[0]) > Math.abs(f0[1]);           // 앞이 x 방향이면 남북(v) 도로를 건넌다
     var axis = vert ? 'v' : 'h', idx = vert ? (nd ? nd.i : 0) : (nd ? nd.j : 0);
-    var back = nd ? Math.abs((st.stand.x - nd.x) * st.fwd[0] + (st.stand.z - nd.z) * st.fwd[1]) : 16;
+    var lat = nd ? (vert ? st.stand.x - nd.x : st.stand.z - nd.z) : 16;   // 건너는 축에서 도로 중심까지
+    var sgn = lat > 0 ? -1 : 1;                             // **차도를 가로질러** 건너편 보도로
+    st.fwd = vert ? [sgn, 0] : [0, sgn];
+    st.heading0 = Math.atan2(st.fwd[0], st.fwd[1]);         // 아이·카메라도 건널 쪽을 본다
+    if (W && !st.freeCtl) W.heading = st.heading0;
+    var back = Math.abs(lat);
     st.crossLen = (C && C.sideOff ? back + C.sideOff(axis, idx) + 1.0 : 32);   // 이 보도 → 건너편 보도
-    st.crossAxis = vert ? 'v' : 'h';
+    st.crossAxis = axis;
   }
   function crossDone() {
     heart(5); say('crossOk', true); TG.audio.totFanfare(); TG.audio.totClap(6);
@@ -590,7 +669,7 @@ TG.Tot = function (game) {
     //   앞으로 걷자마자 연석(적색 횡단보도)에 막혀 **제자리에서 꼼짝 못 했다**(소유자 신고 「전혀 움직이지를 않네」).
     //   그래서 ① 자리를 4m 뒤로 물리고 ② 왕복 폭을 1.6m 로 줄이고(화면 구도도 흔들리지 않는다) ③ **막히면 곧바로 돌아선다**(아래 stuck 감지).
     var S0 = STAGES[st.i] || null;
-    var crossStage = !!(S0 && (S0.id === 'ice' || S0.id === 'cross'));   // 건널 마당에서는 **앞으로 곧게** 간다(왕복·막힘 반전 없음)
+    var crossStage = !!(S0 && (S0.id === 'ice' || S0.id === 'cross')) || !!st.freeCtl;   // 🎮 해보기: 조작이 아이 손에 있으니 방향을 잡아 주지 않는다   // 건널 마당에서는 **앞으로 곧게** 간다(왕복·막힘 반전 없음)
     if (W && st.home && !crossStage) {
       if (!(st.walkT > 0)) {
         var dxh = W.pos.x - st.home.x, dzh = W.pos.z - st.home.z;
@@ -609,7 +688,7 @@ TG.Tot = function (game) {
         } else { st.stuckT = 0; st.lastPos = { x: W.pos.x, z: W.pos.z }; }
       }
     }
-    if (W) W.heading = st.heading0;                                      // 방향은 늘 고정(카메라·조작이 같은 값을 본다)
+    if (W && !st.freeCtl) W.heading = st.heading0;                        // 방향 고정(카메라·조작이 같은 값을 본다) — 🎮 해보기에서는 아이가 직접 돈다
     // 곰돌이 토수니: 아이 옆에 붙어 따라 걷는다(손을 잡으면 더 가까이)
     var frozen = !!(S && S.id === 'ice' && st.ice && !st.ice.green);   // 얼음! — 토수니도 같이 멈춘다(실감)
     if (st.bear && W && !frozen) {
@@ -649,6 +728,32 @@ TG.Tot = function (game) {
         if (st.ice.round >= 2) heart(1);
         if (!st.ice.green && st.ice.round >= 1 && st.sayCd <= 0 && st.ice.t > 2.5) say('back');   // 기다릴 때는 한 발 뒤로(소유자 제공 자료)
       }
+    } else if (S.id === 'tryme') {
+      // 🎮 해보기: 조작은 아이 손에 있다. 같은 자리에서 두 갈래를 **몸으로** 겪는다.
+      setSignal(true, null); syncSignal(true);              // 이 마당은 초록불로 둔다 — 배울 것은 「손 잡고 천천히」다
+      st.missCd = Math.max(0, (st.missCd || 0) - dt);
+      if (st.vigT > 0) { st.vigT -= dt; if (st.vigT <= 0 && G.hud && G.hud.vignette) G.hud.vignette(0); }
+      var pl = W ? TG.walkerPlace(G.city, G.signals, W.pos.x, W.pos.z) : null;
+      var onCross = !!(pl && pl.where === 'crosswalk'), onRoad2 = !!(pl && (pl.where === 'road' || pl.where === 'box'));
+      var running = !!(W && W.running && W.v > 1.9);
+      var nearNode = !!(st.node && W && Math.hypot(W.pos.x - st.node.x, W.pos.z - st.node.z) < 45);
+      if (nearNode && (onCross || onRoad2) && (!st.held || running)) nearMiss();          // ⓐ 손 놓고 · 뛰어서 들어갔다 → 아찔한 순간
+      else if (onCross && st.held && !running) {                              // ⓑ 손 잡고 걸어서 건넌다
+        if (crossProgress() >= (st.crossLen || 32) * 0.55) safePass();
+      }
+      if (W && st.stand) {                                  // 교실 울타리 — 선생님 눈앞을 벗어나지 않는다
+        var dxf = W.pos.x - st.stand.x, dzf = W.pos.z - st.stand.z, df = Math.hypot(dxf, dzf);
+        if (df > 14) {
+          W.teleport(st.stand.x + dxf / df * 14, st.stand.z + dzf / df * 14, W.heading); W.v = Math.min(W.v, 0.6);
+          if (st.farCd === undefined || st.farCd <= 0) { st.farCd = 6; say('tooFar', true); setBig('🧑‍🏫 선생님 곁에서', '너무 멀리 가지 않아요'); }
+        }
+        st.farCd = (st.farCd || 0) - dt;
+      }
+      if (!st.tryHint && st.t > 1.0) { st.tryHint = true; say('tryme', true); }
+      if (st.missCd <= 0 && !st.safeShown && st.sayCd <= 0 && st.t > 14) say(st.held ? 'crossing' : 'letGo');
+      if (st.missCd > 3.2) { /* 아찔한 자막을 그대로 둔다 */ }
+      else if (!st.safeShown) setBig(st.held ? '🤝 손 잡고 천천히' : '✋ 손을 놓았어요', st.held ? '화살표로 걸어서 건너요 · 뛰지 않아요' : '혼자 뛰어가면 위험해요 — 다시 손을 잡아요');
+
     } else if (S.id === 'alley') {
       hideSignal();
       if (st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
@@ -685,8 +790,14 @@ TG.Tot = function (game) {
       hideSignal();
       if (st.coat === 0) { setBig('🌈 밝은 옷', '밤에는 어두운 옷이 잘 안 보여요'); if (st.t > 7 && st.sayCd <= 0) say('dark'); }
     }
-    // 건너는 중(손 잡고 다섯 걸음)에는 시간이 지나도 넘기지 않는다 — 아이가 다 건너는 것을 보여 준다
-    if (st.t > S.sec && !(S.id === 'cross' && st.held && !st.crossed)) next();
+    // 건너는 중(손 잡고 다섯 걸음)에는 시간이 지나도 넘기지 않는다 — 아이가 다 건너는 것을 보여 준다.
+    // 그리고 **차도 위에 아이를 세워 둔 채로 마당을 바꾸지 않는다** — 화면이 바뀌면 아이가 길 가운데 남는다.
+    //  · 얼음땡·다섯 걸음: 다 건널 때까지 기다린다(초록을 붙잡고 걷는 중이다 — 시행규칙 별표2)
+    //  · 그 밖의 마당: 선생님이 손을 잡고 **인도로 데려온 뒤** 넘어간다
+    if (st.t > S.sec && !(S.id === 'cross' && st.held && !st.crossed)) {
+      var pg = crossProgress(), midRoad = pg > 0.8 && pg < (st.crossLen || 32) - 0.8;
+      if (!midRoad || (S.id !== 'ice' && S.id !== 'cross')) next();
+    }
   };
 
   // 걷는 때: 얼음땡의 초록불 · 다섯 걸음의 ⑤(건너는 중). 그 밖에는 제자리.
@@ -699,6 +810,7 @@ TG.Tot = function (game) {
     if (S.id === 'ice') return !!(st.ice && st.ice.green);
     return false;
   };
+  self.freeControl = function () { return !!(st && st.freeCtl); };   // 🎮 해보기 — 조작이 아이 손에 있다
   self.crossing = function () { if (!st) return false; var p = crossProgress(); return p > 0.8 && p < (st.crossLen || 32) - 0.8; };
   self.stageName = function () { var S = STAGES[st && st.i]; return S ? S.emoji + ' ' + S.name : ''; };
   self.stageCount = STAGES.length;

@@ -278,6 +278,19 @@ TG.audio = (function () {
   // 점수 팝 · 메뉴 전환 휙 · 경적 · 카메라 셔터(위반 포착)
   function pop() { if (!ready) return; var t0 = ctx.currentTime; tone(880, t0, 0.005, 0.09, 'triangle', 0.14, 1320); }
   function whoosh() { if (!ready) return; noiseHit(ctx.currentTime, 0.22, 0.12, 1200, 0.6); }
+  // 🚗💨 **한 번의 급제동 소리** — 「아찔했던 순간」을 보여 줄 때만 쓴다(영아 교실 🎮 해보기).
+  // 평소 교실에서는 경적·급제동 소리를 아예 끈다(traffic.quiet) — 아이에게 겁을 주지 않기 위해서다.
+  function skidBurst() {
+    if (!ready) return;
+    var t0 = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = noiseBuffer(0.9);
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1700; f.Q.value = 1.4;
+    var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.8);
+    f.frequency.setValueAtTime(1700, t0); f.frequency.exponentialRampToValueAtTime(700, t0 + 0.7);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t0); s.stop(t0 + 0.85);
+  }
+
   function horn(long) { if (!ready) return; var t0 = ctx.currentTime, d = long ? 0.5 : 0.18; tone(440, t0, 0.02, d, 'sawtooth', 0.09); tone(554, t0, 0.02, d, 'square', 0.06); }
   function shutter() { if (!ready) return; var t0 = ctx.currentTime; noiseHit(t0, 0.03, 0.2, 3000, 2); noiseHit(t0 + 0.05, 0.05, 0.14, 1800, 2); }
   // 비 소리(필터 노이즈 루프) — 날씨가 비일 때만
@@ -586,6 +599,6 @@ TG.audio = (function () {
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
   return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
-           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
+           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, skidBurst: skidBurst, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

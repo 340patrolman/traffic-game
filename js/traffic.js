@@ -501,7 +501,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
           // 기준을 0.3m 로 잡는다(1.3m 로 잡으면 정지선에 천천히 다가가는 마지막 몇 m 에서 「못 선다」로 뒤집혀 적색에 들어갔다 — 검증에서 대기 표본이 10분의 1로 줄었다).
           // 앞범퍼가 **이미 정지선을 넘어** 움직이고 있는 차(대열 끝에서 느리게 빠지던 버스 등)도 적색이 돼도 빠져나간다 — 세우면 횡단보도 위에 선다
           // (v0.9.52 검증: 2m/s 미만이라 「못 선다」로 안 잡혀, 정지선을 1.2m 넘은 채 적색 내내 섰다). 정지선 앞에서 기다리던 차(앞범퍼 0.5m 앞)는 그대로 선다.
-          var needD = car.v * car.v / 2, cantStop = (car.v > 2 && dStopF - 0.3 < needD / cfg.AI_EMERGENCY) || (car.v > 0.3 && dStopF < 0.5);
+          var needD = car.v * car.v / 2, cantStop = (car.v > 2 && dStopF - 0.3 < needD / cfg.AI_EMERGENCY) || (car.v > 0.3 && dStopF < 0.1);
           // 검증용 기록: 적색에 「못 서서 진행」한 순간 · 황색에 「진행」을 고른 순간의 [경과초, 속도, 앞범퍼~정지선 m]
           if (st.s === 'red' && cantStop && car.cantStopNode !== ap.node) { car.cantStopNode = ap.node; car.cantStopInfo = [+st.elapsed.toFixed(1), +car.v.toFixed(1), +dStopF.toFixed(1)]; }
           if (st.s === 'yellow' && !canStop && car.yGoNode !== ap.node) { car.yGoNode = ap.node; car.yGoInfo = [+st.elapsed.toFixed(1), +car.v.toFixed(1), +dStopF.toFixed(1)]; }
