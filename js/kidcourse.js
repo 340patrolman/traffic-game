@@ -21,6 +21,9 @@ TG.KidCourse = function (game) {
       why: '몸에 맞는 자전거를 타고, 좌우를 살펴요. 자전거는 보도로 다니는 것이 아니에요.' },
     { id: 'pm',    icon: '🛴', name: '킥보드', want: '지나가는 킥보드·오토바이 보기', from: 'rideSafe',
       why: '전동킥보드는 면허가 있어야 타요. 발로 미는 킥보드도 보호장구를 꼭 써요.' },
+    { id: 'rain',  icon: '🌂', name: '비 오는 날', want: '투명 우산 쓰고 6초 걷기',
+      why: '비 오는 날에는 앞이 잘 보이는 투명 우산을 쓰고, 눈에 잘 띄는 밝은 색 옷을 입어요. 우산을 눈앞까지 내리면 차가 안 보여요.' },
+
     { id: 'jungle', icon: '🌳', name: '서로 조심', want: '앞의 다섯 가지 모두',
       why: '길에는 차도 오토바이도 킥보드도 다녀요. 달리는 기쁨에 취해 주변을 못 보면 위험해요 — 서로 조심해요.' }
   ];
@@ -28,7 +31,7 @@ TG.KidCourse = function (game) {
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   self.start = function () {
-    S = { done: {}, order: [], sidewalkT: 0, cardCd: 0, lastNote: '' };
+    S = { done: {}, order: [], sidewalkT: 0, rainT: 0, cardCd: 0, lastNote: '' };
     self.state = S;
   };
   self.reset = function () { S = null; self.state = null; };
@@ -62,6 +65,7 @@ TG.KidCourse = function (game) {
     if (kind === 'car') { finish('car'); return; }
     if (kind === 'bike') { finish('bike'); return; }
     if (kind === 'pm' || kind === 'moto') { finish('pm'); return; }
+    if (kind === 'rain') { S.rainT += (dt || 0); if (S.rainT >= 6) finish('rain'); return; }   // 우산 쓰고 걷기
   };
 
   // HUD 한 줄: 지금 무엇을 배우는 중인가
@@ -71,7 +75,7 @@ TG.KidCourse = function (game) {
       var st = STAGES[i];
       if (!S.done[st.id]) return '📚 ' + (S.order.length + 1) + '/' + STAGES.length + ' ' + st.icon + ' ' + st.name + ' — ' + st.want;
     }
-    return '📚 여섯 가지 모두 배웠어요!';
+    return '📚 다 배웠어요!';
   };
   // 배지 줄(결과 카드)
   self.badges = function () {
@@ -80,7 +84,7 @@ TG.KidCourse = function (game) {
   };
   // 학습 화면에 넣을 표 — 무엇을 가르치는지 한눈에
   self.html = function () {
-    var h = '<h2 style="margin-top:22px">🧒 어린이 교통안전 교실 — 여섯 가지</h2>';
+    var h = '<h2 style="margin-top:22px">🧒 어린이 교통안전 교실 — 일곱 가지</h2>';
     h += '<div class="dim small">횡단보도만이 아니라 걷기·타기·차 안까지 다룹니다. 무엇을 가르칠지는 서초구 실제 사고 자료가 정했습니다.</div>';
     h += '<div class="cards">';
     STAGES.forEach(function (st, i) {

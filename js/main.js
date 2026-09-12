@@ -834,7 +834,7 @@
     // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
-    hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     if (layers && layers.hourBrief && (G.mode === 'patrol' || G.mode === 'duty')) {
       var hb = layers.hourBrief();
@@ -875,12 +875,13 @@
       // 영아 교실: 어린이 보행 교실과 같은 무대(서초역 사거리)지만 **목적지도 시간 제한도 없다**.
       // 아이는 보도 위 한 자리에 서고, 화면이 마당을 차례로 넘긴다(선생님이 큰 단추 하나로 진행).
       var TB = kidStageBlock(), tn = city.nodes[TB.i][TB.j];
-      walker.teleport(tn.x + city.sideOff('v', TB.i), tn.z + city.halfH[TB.j] + 5.5, Math.PI);   // 횡단보도 앞 1~2m — 「한 발 뒤로」와 횡단보도가 같은 화면에 든다(v0.9.77)
+      walker.teleport(tn.x + city.sideOff('v', TB.i), tn.z + city.halfH[TB.j] + 15.0, Math.PI);   // 횡단보도에서 11m — 지하철 출입구·기둥을 피하고 왔다 갔다 할 자리를 남긴다(실측)
       walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1, tot: true };
       walk.safe = { x: walker.pos.x, z: walker.pos.z };
       G.timeLeft = 1e9;                                   // 시간 제한 없음 — 교육이 끝나면 선생님이 닫는다
       C.TRAFFIC_MAX = Math.max(6, Math.round(BASE_TRAFFIC * 0.35));   // 차는 적게(무섭지 않게)
       C.PED_MAX = Math.max(6, Math.round(BASE_PED * 0.4));
+      if (weather) weather.set('clear');   // 교실은 낮에 한다(어린이집 방문 교육) — 🌈 마당에서만 밤·비로 바뀐다
       if (TG.Tot) { G.tot = new TG.Tot(G); G.tot.start(); }
       return;
     }
@@ -895,7 +896,9 @@
       walk = { dests: [corner(nA, 1, 1, '🚇 서초역 2번 출구'), corner(nB, 1, -1, '🛝 놀이터(공원)'), corner(nC, -1, -1, '✏️ 문방구'), corner(nD, 1, 1, '🏠 우리 집')], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1 };
       walk.safe = { x: walker.pos.x, z: walker.pos.z };   // 처음부터 「돌아갈 인도」를 들고 시작한다(아래 연석 막기가 쓴다)
       walk.officer = TG.Character.actor(scene, terrain, 'officer', walker.pos.x - 1.2, walker.pos.z + 1.4, Math.PI);   // 동행 교통경찰관(안내 목소리의 주인)
-      walker.setMarker(walk.dests[0]); kidVoice('멈춘다, 좌우를 본다, 손을 든다, 걷는다. 이렇게 네 가지예요');
+      if (weather) weather.set('clear');   // 어린이 교실도 낮에 시작한다 — 한 번 건너면 비가 와서 우산을 배운다
+      walker.setUmbrella && walker.setUmbrella(false);
+      walker.setMarker(walk.dests[0]); kidVoice('서다, 보다, 걷다. 멈추고, 좌우를 보고, 손을 들고, 걸어서 건너요');
       return;
     }
     walker.teleport(xs[2] + city.sideOff('v', 2), zs[2] + 43, Math.PI);
@@ -1274,6 +1277,11 @@
     kidOk: ['네!', '알겠어요!', '손 들었어요!', '초록불이다!'],
     norun: ['뛰지 말고 걸어요', '횡단보도에서는 걷는 거예요', '천천히 걸어도 돼요. 뛰지 않아요'],
     blink: ['초록불이 깜빡여요. 지금은 건너지 않아요', '깜빡이면 기다려요. 다음 초록불에 건너요', '급해도 뛰어가지 않아요. 다음 신호를 기다려요'],
+    back: ['신호를 기다릴 땐 한 발 뒤로 물러서요', '차에서 한 발 떨어져서 기다리자', '조금만 뒤로 물러서요. 차가 가까워요'],
+    phone: ['걸을 때는 스마트폰도 이어폰도 안 돼요', '길에서는 휴대폰을 주머니에 넣어요. 소리도 들어야 해요'],
+    play: ['길가에서 공놀이도 장난도 안 돼요', '주차한 차 옆에서 놀면 운전자가 우리를 못 봐요', '갑자기 도로로 뛰어 나가지 않아요'],
+    carStop: ['차가 아직 멈추지 않았어요. 기다려요', '차가 완전히 멈췄는지 보고 건너요'],
+    umbrella: ['비 오는 날에는 투명 우산을 써요. 우산을 내리면 앞이 안 보여요', '우산을 조금 올려서 앞을 봐요'],
   };
   var lastLine = {};
   function pickLine(key) { var arr = LINES[key] || [key], i = Math.floor(Math.random() * arr.length); if (arr.length > 1 && i === lastLine[key]) i = (i + 1) % arr.length; lastLine[key] = i; return arr[i]; }
@@ -1298,12 +1306,12 @@
   function paSay(text) { TG.audio.resume(); TG.audio.alert(); TG.audio.pa(text); hud.notice('📢 앰프 — ' + text, 'info', 2600); }
   G.officerSay = officerSay; G.paSay = paSay;
   // 어린이 교실 단계 표시: 0 멈춰요 · 1 손 들어요 · 2 초록불 기다려요 · 3 건너요 · -1 보도로 걸어요
-  // 어린이 횡단 4단계(소유자 지시): 🛑 멈춘다 → 👀 본다 → ✋ 손을 든다 → 🚶 걷는다.
+  // 어린이 횡단 4단계 — 한국도로교통공단 「서다 · 보다 · 걷다」 낱말로: 🛑 서다(한 발 뒤로) → 👀 보다(3초 좌우) → ✋ 손 들기 → 🚶 걷다(뛰지 않기).
   // 자전거·PM 은 이 4단계가 아니다 — 내려서 끌고 걸어야 보행자가 된다(제13조의2 제6항, traffic.js).
   function kidStep(i, label) {
     if (walk.step === i && !label) return; walk.step = i;
     var chips = document.querySelectorAll('#kidSteps .chip'); for (var k = 0; k < chips.length; k++) chips[k].classList.toggle('on', k === i);
-    var lbl = document.getElementById('kidNow'); if (lbl) lbl.textContent = label || (i < 0 ? '보도로 걸어요 🚶' : ['🛑 멈춘다', '👀 좌우를 본다', '✋ 손을 든다', '🚶 손 들고 걸어서 건넌다'][i]);
+    var lbl = document.getElementById('kidNow'); if (lbl) lbl.textContent = label || (i < 0 ? '보도로 걸어요 🚶' : ['🛑 서다 — 한 발 뒤로', '👀 보다 — 좌우를 살펴요', '✋ 손을 들어요', '🚶 걷다 — 뛰지 않고 건너요'][i]);
   }
   function walkGuide() {
     if (G.mode === 'duty' || (walk && walk.afoot)) return;   // 교차로 근무·하차 근무는 목적지 안내를 쓰지 않는다
@@ -1320,6 +1328,24 @@
     return v ? (v.article ? '도로교통법 ' + v.article : '') + (v.verified === false ? ' (확인 중)' : '') : fallback || '';
   }
   // 보행 규칙 + 목적지 + 차량 접촉. 횡단보도는 진입 순간의 보행 신호로 판정한다(녹색에 들어섰으면 끝나기 전에 못 건너도 위반 아님).
+  // 🚗 건널 횡단보도로 **아직 달려오는 차**가 있는가(어린이 교실의 「초록불이라도 자동차가 완전히 멈추었는지 확인 후 건너기」).
+  // 축·차로를 따지지 않는다 — 횡단보도로 향해 움직이는 차면 그것이 곧 가르칠 거리다.
+  function movingCarNear(node, d, m) {
+    if (!node || d === null || d === undefined || !traffic) return null;
+    var f = TG.DIR_VEC[d], mid = city.crossNear(node, d) + 1.75;
+    var cx = node.x + f[0] * mid, cz = node.z + f[1] * mid;
+    for (var i = 0; i < traffic.cars.length; i++) {
+      var c = traffic.cars[i];
+      if (!c || c.v < 0.8) continue;
+      var dx = cx - c.pos.x, dz = cz - c.pos.z, dist = Math.hypot(dx, dz);
+      if (dist > m) continue;
+      var cf = [Math.sin(c.heading), Math.cos(c.heading)];
+      if (dx * cf[0] + dz * cf[1] < 0) continue;            // 횡단보도를 이미 지나쳐 멀어지는 차는 뺀다
+      return { car: c, dist: dist, v: c.v };
+    }
+    return null;
+  }
+
   function walkRules(dt) {
     var p = TG.walkerPlace(city, signals, walker.pos.x, walker.pos.z), sec = '', kid = walker.kid;
     walk.hintCd -= dt; walk.voiceCd -= dt;
@@ -1345,7 +1371,7 @@
     }
     if (p.where === 'crosswalk') {
       if (!walk.cross || walk.cross.node !== p.node || walk.cross.d !== p.d) {
-        walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 0.8, hand: walker.hand > 0 };
+        walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 1.0, hand: walker.hand > 0, carOk: !(walk.carMoving > 0) };   // carOk = 들어서기 직전에 달려오는 차가 없었다
         var blinkIn = p.walk && !!p.flash;                            // 녹색 점멸에 들어섰다(점멸은 횡단 거리에 비례해 길다 — v0.9.48)
         walk.cross.blink = blinkIn;
         if (kid) {
@@ -1385,12 +1411,13 @@
           if (kid) {
             // 별 3개 = 멈춤 + 초록불 + 걷기(뛰지 않음). 손 들기는 **꼭 해야 하는 것이 아니다**(소유자 지시) — 하면 칭찬과 작은 점수만.
             // 별 = 초록불(이 분기 자체) + 멈춤 + 걷기. 깜빡일 때 들어섰으면 하나 뺀다.
-            var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) - (walk.cross.blink ? 1 : 0), 1, 3);
+            var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) + (walk.cross.carOk === false ? -1 : 0) - (walk.cross.blink ? 1 : 0), 1, 3);
             walk.stars += st; walk.crossings++; addScore(st * 10, null);
             if (walk.cross.hand) { walk.handCross = (walk.handCross || 0) + 1; addScore(5, null); }
             if (G.kidCourse) G.kidCourse.note('crossed');   // 어린이 교실 ②「건널 자리」
             hud.burst('⭐', st * 4); TG.audio.jingle(st); walk.smileT = 4; walk.waveT = 3.5;
-            hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춘다 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 본다 ✓ · 손을 든다 ' + (walk.cross.hand ? '✓' : '✗') + ' · 걷는다 ' + (walk.cross.ran ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
+            if (st >= 3) { G.slowmo = 0.8; G.punch = 0.7; hud.burst('🎉', 4); if (vfx) vfx.puff(walker.pos.x, 1.2, walker.pos.z, 0, 1.2, 0, 1.1, 1.4); }   // 별 셋 = 오늘의 자랑거리
+            hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춘다 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 본다 ✓ · 손을 든다 ' + (walk.cross.hand ? '✓' : '✗') + ' · 걷는다 ' + (walk.cross.ran ? '✗' : '✓') + ' · 차 멈춤 ' + (walk.cross.carOk === false ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
             kidVoice(st === 3 ? 'good3' : st === 2 ? 'good2' : 'good1', true);
           } else { addScore(C.SCORE.safeCross, null); walk.crossings++; hud.notice('안전 횡단 (+' + C.SCORE.safeCross + ')', 'good', 2000); TG.audio.good(); }
         }
@@ -1412,7 +1439,8 @@
         // ③「차에 탈 때」: 순찰차 6m 안으로 가면 안전띠·유아보호용 장구를 배운다
         if (player && Math.hypot(walker.pos.x - player.pos.x, walker.pos.z - player.pos.z) < 6) G.kidCourse.note('car');
       }
-      // 어린이 교실 4단계(소유자 지시): 🛑 멈춘다(0.8초) → 👀 본다(1.6초) → ✋ 손을 든다 → 🚶 걷는다(초록불).
+      // 어린이 4단계를 소유자 제공 자료의 낱말로 맞췄다 — 한국도로교통공단 **「서다 · 보다 · 걷다」**
+      //   서다 = 신호를 기다릴 땐 **한 발 뒤로 물러서요** · 보다 = 신호가 바뀌면 **좌우를 살펴요**(3초 동안) · 걷다 = **뛰지 않고 천천히**
       // 「멈추고 손 들고」는 어린이 보행 교육이다. 자전거·PM 은 손을 드는 것이 아니라 내려서 끌고 걸어야 보행자가 된다.
       if (kid) {
         var nearX = best !== null && bd < 4.5;
@@ -1420,9 +1448,10 @@
         var wk = nearX && signals.pedWalk(node, crossAxK), rem = nearX ? signals.pedRemain(node, crossAxK) : 99;
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
         if (!nearX) { kidStep(-1); walk.handHeld = false; }
-        else if (walk.stopT < 0.8) { kidStep(0); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
-        else if (walk.stopT < 1.6) {   // 👀 본다: 멈춰 선 채로 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
-          kidStep(1); if (walk.voiceCd <= 0) kidVoice('look');
+        else if (walk.stopT < 1.0) { kidStep(0, '🛑 서다 — 멈춘다'); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
+        else if (walk.stopT < 4.0) {   // 👀 보다: 멈춰 선 채로 **3초 동안** 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
+          kidStep(1, '👀 보다 — ' + Math.max(1, Math.ceil(4.0 - walk.stopT)) + '초');
+          if (walk.voiceCd <= 0) kidVoice('look');
           if ((walk.zipCd || 0) <= 0 && !wk) { walk.zipCd = 30; kidZip(node, best); }   // 차량 녹색(보행 적색) 때만 — 적색에 스폰하면 정지선에 서 버린다
           if ((walk.compCd || 0) <= 0) { walk.compCd = 30; kidCompanions(node, best); }
         }
@@ -1437,9 +1466,37 @@
           // 전에는 raiseHand(4) 의 4초가 지나면 대기 중에 팔이 내려가 「손을 바로 내리네」로 보였다(소유자 신고).
           walk.handHeld = true;
           walker.hand = Math.max(walker.hand, 1.0);
-          kidStep(wk ? 3 : 2, wk ? null : '🔴 손 들고 초록불을 기다린다');
+          if (wk && walk.step !== 3) { G.punch = 0.45; TG.audio.tick(true); }   // 초록불! — 화각 펀치로 신호가 바뀐 것을 알린다
+          kidStep(wk ? 3 : 2, wk ? '🚶 걷다 — 걸어서 건넌다' : '🔴 손 들고 초록불을 기다린다');
           if (walk.voiceCd <= 0) kidVoice(wk ? 'go' : 'wait');
           if (wk && walk.step !== 3) kidSay('kidOk');
+        }
+        // 🛑 서다 = **한 발 뒤로**. 연석(횡단보도 띠)에 1.2m 안으로 붙어 기다리면 뒤로 물러서라고 가르친다(감점 없음).
+        if (nearX && !wk && bd < 1.2 && (walk.backCd || 0) <= 0) {
+          walk.backCd = 8; kidVoice('back', true);
+          hud.notice('🛑 신호를 기다릴 땐 한 발 뒤로 물러서요 — 차가 가까워요', 'warn', 2800);
+        }
+        walk.backCd = (walk.backCd || 0) - dt;
+        // 🚗 「초록불이라도 **자동차가 완전히 멈추었는지** 확인 후 건너기」 — 아직 움직이는 차가 있으면 알려 준다.
+        if (nearX && wk && walk.hintCd <= 0) {
+          var mv = movingCarNear(node, best, 18);
+          if (mv) { walk.hintCd = 3; walk.carMoving = 1.6; kidVoice('carStop', true); hud.notice('🚗 차가 아직 멈추지 않았어요 — 완전히 멈춘 뒤에 건너요', 'warn', 2800); }
+        }
+        walk.carMoving = Math.max(0, (walk.carMoving || 0) - dt);
+        // 🌂 비 오는 날: 한 번 건너 보면 비가 오고 **투명 우산**을 든다(소유자 제공 자료 — 경기도교육청 등·하굣길).
+        if (walk.crossings >= 1 && !walk.rainOn) {
+          walk.rainOn = true;
+          if (weather) weather.set('rain');
+          if (walker.setUmbrella) walker.setUmbrella(true);
+          kidVoice('umbrella', true);
+          hud.notice('🌂 비가 와요 — 투명 우산을 썼어요. 우산을 눈앞까지 내리면 차가 안 보여요. 밝은 색 옷도 멀리서 잘 보여요', 'info', 4600);
+        }
+        if (walk.rainOn && p.where === 'sidewalk' && walker.v > 0.3 && G.kidCourse) G.kidCourse.note('rain', dt);
+
+        // 걸을 때: 스마트폰·이어폰 금지 · 길가에서 공놀이·장난 금지(소유자 제공 자료의 ❌ 항목)
+        if (!nearX && p.where === 'sidewalk' && walker.v > 0.3) {
+          walk.tipCd = (walk.tipCd || 18) - dt;
+          if (walk.tipCd <= 0) { walk.tipCd = 26; kidVoice(((walk.tipN = (walk.tipN || 0) + 1) % 2) ? 'phone' : 'play', true); }
         }
       }
     }
@@ -1473,14 +1530,14 @@
     }
   }
   function walkCamera(dt, look) {
-    // 👶 영아 교실: 아이 **옆 3/4**에서 본다 — 얼굴과 손을 보여 줘야 하고(어린이집 20명이 화면을 본다),
+    // 👶 영아 교실: 아이 **어깨 뒤 3/4**에서 본다 — 얼굴과 손을 보여 줘야 하고(어린이집 20명이 화면을 본다),
     // **차도·횡단보도도 같은 화면에 들어야** 한다(소유자 2026-09-12: 「어디가 차도이고 어디가 인도인지 위치를 잘 설명해 주지 않았어」).
     // 뒤에서 보면 뒤통수만, 앞에서 보면 길이 안 보인다 — 그래서 옆이다.
     if (G.mode === 'tot' && walker) {
       var w2 = walker, h2 = (G.tot && G.tot.heading && G.tot.heading() !== null) ? G.tot.heading() : w2.heading;
       var f2 = [Math.sin(h2), Math.cos(h2)], r2 = [-f2[1], f2[0]];
-      var tx2 = w2.pos.x + f2[0] * 1.7 + r2[0] * 2.7, tz2 = w2.pos.z + f2[1] * 1.7 + r2[1] * 2.7, ty2 = w2.y + 1.9;
-      var lx2 = w2.pos.x + f2[0] * 1.1 - r2[0] * 0.45, lz2 = w2.pos.z + f2[1] * 1.1 - r2[1] * 0.45, ly2 = w2.y + 0.9;
+      var tx2 = w2.pos.x - f2[0] * 3.6 + r2[0] * 2.3, tz2 = w2.pos.z - f2[1] * 3.6 + r2[1] * 2.3, ty2 = w2.y + 2.5;
+      var lx2 = w2.pos.x + f2[0] * 3.6 - r2[0] * 1.4, lz2 = w2.pos.z + f2[1] * 3.6 - r2[1] * 1.4, ly2 = w2.y + 1.0;
       if (!camInit) { camPos.set(tx2, ty2, tz2); camLook.set(lx2, ly2, lz2); camInit = true; }
       var k2 = 1 - Math.exp(-4 * dt);
       camPos.x += (tx2 - camPos.x) * k2; camPos.y += (ty2 - camPos.y) * k2; camPos.z += (tz2 - camPos.z) * k2;

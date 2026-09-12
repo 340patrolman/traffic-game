@@ -159,6 +159,55 @@ TG.Tot = function (game) {
   }
 
 
+  // 🎬 교실 무대(개연성) — 소유자: 「상용 게임 정도의 퀄리티와 느낌, 박진감, 개연성 등 모두 표현되게」.
+  // ① 아이 혼자가 아니라 **또래 셋**이 같이 서고, ② **선생님(교통경찰관)**이 길 쪽에 서서 수신호를 하고,
+  // ③ 얼음땡은 **실제 신호기를 움직여** 화면(신호등·차)과 말이 어긋나지 않게 한다.
+  function stageCast() {
+    var W = G.walker; if (!W || !TG.Character || !scene) return;
+    var f = [Math.sin(st.heading0), Math.cos(st.heading0)], r = [-f[1], f[0]];
+    st.mates = [];
+    var spots = [[-1.6, 1.0], [-2.8, 0.2], [-1.2, 2.2]];            // (옆, 앞) — 어깨 뒤 카메라가 다 담는 자리          // (옆, 뒤) — 카메라(+r 쪽)를 가리지 않게 **왼쪽·뒤**로만
+    for (var i = 0; i < spots.length; i++) {
+      var mx = W.pos.x + r[0] * spots[i][0] + f[0] * spots[i][1];
+      var mz = W.pos.z + r[1] * spots[i][0] + f[1] * spots[i][1];
+      var a = TG.Character.actor(scene, terrain, 'kid', mx, mz, st.heading0);
+      if (a) { if (a.rig && a.rig.group) a.rig.group.scale.setScalar(0.82); a.home = { x: mx, z: mz }; st.mates.push(a); }
+    }
+    // 선생님은 **길 쪽**(카메라 반대편)에 서서 아이들을 본다 — 카메라를 막지 않고, 수신호가 차도 쪽으로 보인다
+    st.officer = TG.Character.actor(scene, terrain, 'officer', W.pos.x - r[0] * 1.7 + f[0] * 3.6, W.pos.z - r[1] * 1.7 + f[1] * 3.6, st.heading0 + Math.PI * 0.9);   // 앞에서 아이들을 마죽 보고 선다
+  }
+  function castUpdate(dt, S) {
+    var W = G.walker; if (!W) return;
+    var walking = !!(S && ((S.id === 'ice' && st.ice && st.ice.green) || (S.id === 'cross' && st.walkT > 0)));
+    for (var i = 0; i < (st.mates || []).length; i++) {
+      var m = st.mates[i]; if (!m) continue;
+      if (walking) {                                                  // 초록불·건널 때는 또래도 같이 걷는다(제자리 걸음)
+        st.bob = (st.bob || 0) + dt;
+        var fb = [Math.sin(st.heading0), Math.cos(st.heading0)], amt = Math.sin(st.bob * 1.6 + i) * 0.5;
+        m.goTo(m.home.x + fb[0] * amt, m.home.z + fb[1] * amt, 0.5);
+      } else { m.target = null; m.v = 0; }                            // 얼음! — 또래도 딱 멈춘다
+      m.lookAtPos(W.pos); m.smile = true;
+      if (st.waveT > 0) m.gesture = 'wave'; else m.gesture = null;
+      m.update(dt, false);
+    }
+    if (st.officer) {
+      var o = st.officer;
+      o.gesture = (S && S.id === 'cross' && st.walkT > 0) ? 'stop' : ((S && S.id === 'ice' && !(st.ice && st.ice.green)) ? 'stop' : null);
+      o.lookAtPos(W.pos); o.smile = true;
+      o.update(dt, TG.audio.speaking === 'narrator');
+    }
+    st.waveT = Math.max(0, (st.waveT || 0) - dt);
+  }
+  // 실제 신호기를 우리 놀이에 맞춘다 — 「초록불」이라고 말하면 신호등도 초록이고 차도 선다(개연성).
+  function syncSignal(walkGreen) {
+    var nd = st.node, C = G.city, S2 = G.signals;
+    if (!nd || !C || !S2 || !S2.set) return;
+    var sv = sideDir(), vert = sv[1] !== 0;
+    var crossAxis = vert ? 'v' : 'h';                                 // 아이가 건너는 도로
+    S2.set(nd, walkGreen ? (vert ? 'h' : 'v') : crossAxis, 'green');  // 보행 초록 = 직각 도로 차량 녹색
+    st.crossAxis = crossAxis;
+  }
+
   // ---------- 시작 ----------
   self.start = function () {
     var W = G.walker; if (!W) return false;
@@ -173,6 +222,7 @@ TG.Tot = function (game) {
     st.node = G.city && G.city.nearestNode ? G.city.nearestNode(W.pos.x, W.pos.z) : null;   // 인도·차도·횡단보도를 짚을 기준
     st.bear = TG.Character.actor(scene, terrain, 'civilian', W.pos.x - 1.25, W.pos.z + 0.2, W.heading);
     bearify(st.bear);
+    stageCast();
     hearts(0); say('open', true); next();
     return true;
   };
@@ -180,10 +230,12 @@ TG.Tot = function (game) {
     document.body.classList.remove('totmode'); document.body.classList.remove('toticy');
     var bg = el('totBig'); if (bg) bg.classList.remove('shiver');
     whereHide();
+    if (G.walker && G.walker.setUmbrella) G.walker.setUmbrella(false);
     if (st) stopCarsForCross(false);
     if (st && st.rainOn && G.weather) G.weather.set('clear');
     if (G.walker && G.walker.setMarker) { G.walker.setMarker(null); G.walker.markerKeep = false; }
     if (st && st.bear && st.bear.dispose) st.bear.dispose();
+    if (st) { (st.mates || []).forEach(function (m) { if (m && m.dispose) m.dispose(); }); if (st.officer && st.officer.dispose) st.officer.dispose(); }
     hideSignal(); setCaption(''); setBig(''); setButton('');
     var e = el('totStars'); if (e) e.style.display = 'none';
     var d = el('totDots'); if (d) d.style.display = 'none';
@@ -211,10 +263,11 @@ TG.Tot = function (game) {
     setButton(S.btn, S.id === 'cross' && !st.held);
     if (S.id === 'where') { st.where = 0; whereShow(0); }
     if (S.id !== 'where') whereHide();
-    if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); iceLook(false); }
+    if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); iceLook(false); syncSignal(false); }
     if (S.id === 'alley') { iceLook(true); st.alley = 0; alleyShow(0); say('alley', true); }
     if (S.id === 'hold') { iceLook(true); say('hold', true); }
-    stopCarsForCross(S.id === 'cross');                 // 다섯 걸음 마당에서만 차를 세운다
+    stopCarsForCross(S.id === 'cross');
+    if (S.id === 'cross') syncSignal(true);           // 초록불에서 다섯 걸음을 배운다(수신호로 차도 세운다)
     if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; st.stopT = 0; st.stopCnt = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
     if (S.id === 'bright') { st.night = true; if (G.weather) G.weather.set('night'); setCoat(null); say('dark', true); }
@@ -415,8 +468,9 @@ TG.Tot = function (game) {
     st.ice.green = !st.ice.green; st.ice.t = 0; st.ice.round++;
     if (st.ice.green) { say('green', true); TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
     else { say('red', true); TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
-    iceLook(st.ice.green);
-    if (st.ice.round >= 2) heart(1);
+    iceLook(st.ice.green); syncSignal(st.ice.green);
+    G.punch = st.ice.green ? 0.35 : 0.6;                 // 화각 펀치 — 신호가 바뀌는 순간이 몸에 온다
+    if (st.ice.round >= 2) { heart(1); st.waveT = 2.2; }
     if (st.ice.round >= 4) { heart(2); if (st.sayCd <= 0) say('iceGood', true); }
   }
 
@@ -473,25 +527,9 @@ TG.Tot = function (game) {
     TG.audio.totBelt(); say('beltOk', true);
     if (G.hud && G.hud.burst) G.hud.burst('🔒');
   }
-  // 🌂 **투명 우산** — 소유자 제공 자료(경기도교육청 등·하굣길 자료): 「비 오는 날에는 앞이 잘 보이게 투명 우산을 사용하고
-  // 눈에 잘 띄도록 밝은 색 옷을 입어요.」 우산도 우리가 코드로 만든다(외부 이미지 0). 비닐이 비쳐 보이게 반투명이다.
-  function makeUmbrella() {
-    var W = G.walker; if (!W || !W.rig || st.umb) return;
-    var g = new THREE.Group();
-    var canopy = new THREE.Mesh(new THREE.SphereGeometry(0.52, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: 0xeaf6ff, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }));
-    canopy.position.set(0, 1.62, 0); g.add(canopy);
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.016, 6, 20), new THREE.MeshLambertMaterial({ color: 0x7fd0ff }));
-    rim.rotation.x = Math.PI / 2; rim.position.set(0, 1.62, 0); g.add(rim);
-    var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.78, 6), new THREE.MeshLambertMaterial({ color: 0x5a6a86 }));
-    shaft.position.set(0, 1.26, 0); g.add(shaft);
-    g.position.set(0.22, 0, 0.04);                      // 오른손 쪽
-    g.visible = false; W.rig.group.add(g); st.umb = g;
-  }
   function wearBright() {
     if (st.coat >= COATS.length) {                      // 옷을 다 입어 보면 **비 오는 날 · 투명 우산**
-      makeUmbrella();
-      if (st.umb) st.umb.visible = true;
+      var Wu = G.walker; st.umb = !!(Wu && Wu.setUmbrella && Wu.setUmbrella(true));   // 우산은 walker 가 만든다(어린이 교실과 같은 것)
       if (!st.rainOn && G.weather) { G.weather.set('rain'); st.rainOn = true; }
       setBig('🌂 투명 우산', '비 오는 날에는 앞이 잘 보이는 투명 우산');
       say('umbrella', true); TG.audio.totDing(); heart(5);
@@ -510,14 +548,26 @@ TG.Tot = function (game) {
     if (!st) return;
     st.t += dt; st.sayCd -= dt;
     var S = STAGES[st.i] || null, W = G.walker;
-    // 아이는 보도 위를 왔다 갔다 한다(7m 넘으면 돌아선다). **건너는 중에는 돌아서지 않는다.**
+    // 아이는 보도 위를 **좁게** 왔다 갔다 한다(집에서 1.6m 넘으면 돌아선다 — 교실 얼음땡은 제자리걸음에 가깝다). **건너는 중에는 돌아서지 않는다.**
+    // ⚠ v0.9.77 에서 아이를 횡단보도 앞 1.4m 로 당겨 놓고 왕복 폭을 7m 로 두었더니
+    //   앞으로 걷자마자 연석(적색 횡단보도)에 막혀 **제자리에서 꼼짝 못 했다**(소유자 신고 「전혀 움직이지를 않네」).
+    //   그래서 ① 자리를 4m 뒤로 물리고 ② 왕복 폭을 1.6m 로 줄이고(화면 구도도 흔들리지 않는다) ③ **막히면 곧바로 돌아선다**(아래 stuck 감지).
     if (W && st.home) {
       if (!(st.walkT > 0)) {
         var dxh = W.pos.x - st.home.x, dzh = W.pos.z - st.home.z;
-        if (Math.hypot(dxh, dzh) > 7) {
+        if (Math.hypot(dxh, dzh) > 1.6) {
           var away = dxh * Math.sin(st.heading0) + dzh * Math.cos(st.heading0);
           if (away > 0) st.heading0 = TG.wrapAngle(st.heading0 + Math.PI);
         }
+        // 막힘 감지: 걸어야 하는데 0.5초 동안 5cm 도 못 갔으면 돌아선다(연석·시설물에 코를 박고 서 있지 않게)
+        if (self.walking()) {
+          st.stuckT = (st.stuckT || 0) + dt;
+          if (st.stuckT > 0.5) {
+            var lp = st.lastPos || { x: W.pos.x, z: W.pos.z };
+            if (Math.hypot(W.pos.x - lp.x, W.pos.z - lp.z) < 0.05) st.heading0 = TG.wrapAngle(st.heading0 + Math.PI);
+            st.lastPos = { x: W.pos.x, z: W.pos.z }; st.stuckT = 0;
+          }
+        } else { st.stuckT = 0; st.lastPos = { x: W.pos.x, z: W.pos.z }; }
       }
       W.heading = st.heading0;
     }
@@ -530,6 +580,7 @@ TG.Tot = function (game) {
       st.bear.lookAtPos(W.pos); st.bear.smile = true;
       st.bear.update(dt, TG.audio.speaking === 'kid');
     }
+    castUpdate(dt, S);
     if (!S) return;
     if (S.id === 'where') {
       hideSignal();
@@ -542,7 +593,7 @@ TG.Tot = function (game) {
         say(st.ice.green ? 'green' : 'red', true);
         if (st.ice.green) { TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
         else { TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
-        iceLook(st.ice.green);
+        iceLook(st.ice.green); syncSignal(st.ice.green); G.punch = st.ice.green ? 0.3 : 0.55;
       }
       setSignal(st.ice.green, span - st.ice.t);
       var cnt = st.ice.round > 0 ? ' · ' + st.ice.round + '번' : '';
@@ -569,7 +620,12 @@ TG.Tot = function (game) {
       if (st.stopT > 0 && st.stopCnt !== Math.ceil(st.stopT)) { st.stopCnt = Math.ceil(st.stopT); TG.audio.totDing(); }
       if (st.walkT > 0) {                             // ⑤ 손 잡고 천천히 — 실제로 함께 건넌다
         st.walkT -= dt;
-        if (!st.crossed && st.walkT <= 0) { st.crossed = true; say('crossOk', true); TG.audio.totFanfare(); heart(5); setButton('🎉 잘했어요!', false); }
+        if (!st.crossed && st.walkT <= 0) {
+          st.crossed = true; say('crossOk', true); TG.audio.totFanfare(); heart(5); setButton('🎉 잘했어요!', false);
+          G.slowmo = 0.9; G.punch = 0.8; st.waveT = 3.2;                 // 슬로모션 한 박자 + 또래들이 손을 흔든다
+          if (G.hud && G.hud.burst) { G.hud.burst('⭐', 6); G.hud.burst('🎉', 4); }
+          if (G.vfx && G.walker) G.vfx.puff(G.walker.pos.x, 1.2, G.walker.pos.z, 0, 1.2, 0, 1.1, 1.4);
+        }
       }
       if (!st.held && st.sayCd <= 0 && st.t > 12) say('run');                       // 혼자 뛰어나가지 않아요(소유자)
       else if (st.sayCd <= 0 && st.t > 26 && !st.crossed) say(st.t > 40 ? 'play' : 'phone');   // 스마트폰·이어폰 · 공놀이·장난

@@ -29,6 +29,26 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   };
 
 
+  // 🌂 **투명 우산** — 비 오는 날에는 앞이 잘 보이는 투명 우산을 쓴다(소유자 제공 자료: 경기도교육청 등·하굣길).
+  // 우산도 코드로 만든다(외부 이미지 0). 비닐이 비쳐 보이게 반투명이고, 오른손 쪽에 든다.
+  this.setUmbrella = function (on) {
+    if (on && !this.umbrella) {
+      var g = new THREE.Group();
+      var canopy = new THREE.Mesh(new THREE.SphereGeometry(0.52, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshLambertMaterial({ color: 0xeaf6ff, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }));
+      canopy.position.set(0, 1.62, 0); g.add(canopy);
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.016, 6, 20), new THREE.MeshLambertMaterial({ color: 0x7fd0ff }));
+      rim.rotation.x = Math.PI / 2; rim.position.set(0, 1.62, 0); g.add(rim);
+      var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.78, 6), new THREE.MeshLambertMaterial({ color: 0x5a6a86 }));
+      shaft.position.set(0, 1.26, 0); g.add(shaft);
+      g.position.set(0.22, 0, 0.04);
+      if (this.rig && this.rig.group) this.rig.group.add(g); else this.mesh.add(g);
+      this.umbrella = g;
+    }
+    if (this.umbrella) this.umbrella.visible = !!on;
+    return !!(this.umbrella && this.umbrella.visible);
+  };
+
   this.forward = function () { return [Math.sin(this.heading), Math.cos(this.heading)]; };
   this.speedKmh = function () { return this.v * 3.6; };
   this.teleport = function (x, z, h) { this.pos.x = x; this.pos.z = z; if (h !== undefined) this.heading = h; this.v = 0; this.jumped = true; this.sync(); };   // jumped: 카메라를 즉시 따라오게
