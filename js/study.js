@@ -48,6 +48,11 @@ TG.study = (function () {
     if (TOT) {
       html += '<h2 style="margin-top:22px">' + esc(TOT.title) + '</h2>';
       html += '<div class="dim small">' + esc(TOT.note) + '</div>';
+      if (TOT.copyright) html += '<div class="dim small">' + esc(TOT.copyright) + '</div>';
+      if (TOT.sourceNote) html += '<div class="dim small">' + esc(TOT.sourceNote) + '</div>';
+      if (TOT.rules) { html += '<div class="badge" style="margin:14px 0 6px">이 교실의 규칙</div>';
+        html += '<div class="sitem"><div class="num">🚫</div><div class="body"><div class="sit">' +
+          TOT.rules.map(function (t) { return '• ' + esc(t); }).join('<br>') + '</div></div></div>'; }
       html += '<div class="badge" style="margin:14px 0 6px">시작 전</div>';
       html += '<div class="sitem"><div class="num">✔</div><div class="body"><div class="sit">' +
         (TOT.before || []).map(function (t) { return '• ' + esc(t); }).join('<br>') + '</div></div></div>';

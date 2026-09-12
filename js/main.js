@@ -2195,10 +2195,10 @@
   // 영아 교실의 걸음: **얼음땡**을 그대로 따른다 — 초록불이면 천천히 앞으로, 빨간불이면 선다.
   // 조작은 큰 단추 하나뿐이라(4세·20명 앞) 스틱 입력은 받지 않는다.
   function totMove(dt) {
-    var s = G.tot && G.tot.state;
-    var go = !!(s && s.ice && s.ice.on && s.ice.green);
-    if (walker) { walker.gesture = null; }
-    return { x: 0, y: go ? 0.5 : 0, run: false };
+    var go = !!(G.tot && G.tot.walking && G.tot.walking());
+    var slow = !!(G.tot && G.tot.state && G.tot.state.walkT > 0);   // 다섯 걸음의 ⑤ — 「차를 보면서 천천히」
+    if (walker) walker.gesture = null;
+    return { x: 0, y: go ? (slow ? 0.34 : 0.5) : 0, run: false };
   }
   // 위험도 쌓기(T5). **이 기기에서 달린 결과**다 — 급제동과 보행자 근접을 가까운 교차로(70m 안)에 적는다.
   // 가중·문턱은 게임 설계값이다(법령·통계값이 아니다): 급제동 = 미끄러짐 0.35 넘거나 제동 중 4m/s² 넘게 줄어든 순간.

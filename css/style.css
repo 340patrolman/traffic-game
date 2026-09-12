@@ -636,3 +636,5 @@ body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.v
 .tbtn.totnext{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(46px + var(--sa-b));width:64px;height:64px;
   border-radius:20px;background:rgba(255,255,255,.9);border:3px solid #ffd93d;color:#1b1b1b;font-size:26px;font-weight:900}
 body.totmode .tbtn.totnext{display:flex}
+/* 잠긴 큰 단추 — 토수니 손을 잡기 전에는 건너기를 누를 수 없다(스펙: 혼자 건너기 엔딩 없음) */
+.tbtn.totbtn.locked{background:rgba(255,255,255,.55);border-color:#cfd6e2;color:#6b7280}
