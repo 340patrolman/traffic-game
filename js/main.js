@@ -574,6 +574,13 @@
         return;
       }
       if (r.why === 'air') { hud.notice('🪝 에어가 빠진 대형차는 끌지 않습니다 — 바퀴가 잠깁니다. 견인차를 기다립니다', 'bad', 4200); hud.hint((L && L.tow && L.tow.air) || ''); return; }
+      if (r.why === 'hooked') {
+        hud.notice('🪝 견인고리를 트렁크에서 꺼내 **앞 범퍼 홀**에 돌려 끼웠습니다 — 이제 순찰차를 앞에 대고 다시 누르세요', 'good', 4200);
+        hud.hint(r.msg || ''); addScore(C.SCORE.towHook || 6, null);
+        TG.audio.say('견인고리를 범퍼에 끼웠습니다', { kind: 'officer', queue: true });
+        return;
+      }
+      if (r.why === 'far') { hud.notice('🪝 고장차 가까이(12m 안)에서 눌러야 트렁크에서 견인고리를 꺼냅니다', 'warn', 2800); return; }
       if (r.why === 'place') { hud.notice('🪝 순찰차를 고장차 **앞** 3~8m 에 같은 방향으로 대고 멈춘 뒤 누르세요', 'warn', 3200); return; }
       if (r.why === 'already') { hud.notice('🪝 이미 연결돼 있습니다 — 천천히 갓길로', 'info', 2000); return; }
       hud.notice('🪝 이 자리에서는 견인할 수 없습니다', 'warn', 2200);

@@ -173,23 +173,57 @@ TG.IncidentScene = function (game) {
              ok: behind > 2.5 && behind < 9 && Math.abs(lat) < 3.2 && sameWay > 0.72 && pl.speedKmh() < 4 };
   };
   // 🪝 단추: ① 대형차면 에어를 먼저 묻는다 ② 연결 ③ 끌어서 갓길·안전지대까지
+  // 견인고리 하나 — **나사(수나사) + 고리**. 소유자가 보내 준 실물 사진 그대로다.
+  // 「어떤 차량이라도 트렁크에 있다」 · 「범퍼 홀(마개를 연 자리)에 끼워서 쓴다」.
+  function hookMesh(x, z, hd) {
+    var gb = new TG.GeoBuilder();
+    gb.cylinder(0, 0, 0.10, 0.022, 0.022, 0.20, 6, 0x23262b, true);        // 나사부(범퍼 안으로 들어간다)
+    gb.cylinder(0, 0, -0.02, 0.026, 0.026, 0.10, 6, 0x2a2e33, true);        // 목
+    var R = 0.09;
+    for (var a = 0; a < 12; a++) {                                          // 고리(작은 상자 12개로 만든 둥근 링)
+      var th = a / 12 * Math.PI * 2;
+      gb.box(Math.cos(th) * R, R + Math.sin(th) * R, -0.08, 0.030, 0.030, 0.030, 0x2a2e33, {});
+    }
+    var m = new THREE.Mesh(gb.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    m.position.set(x, 0.42, z); m.rotation.y = hd;
+    return m;
+  }
+  // 고장차 **앞 범퍼 홀** 자리(견인고리가 끼워지는 곳)
+  function hookSpot(car) {
+    var f = [Math.sin(car.heading), Math.cos(car.heading)], r = [-f[1], f[0]];
+    return { x: car.pos.x + f[0] * (car.len / 2 + 0.06) + r[0] * (car.wid * 0.28),
+             z: car.pos.z + f[1] * (car.len / 2 + 0.06) + r[1] * (car.wid * 0.28), h: car.heading };
+  }
+  // 🪝 단추는 **세 걸음**을 차례로 밟는다(소유자 실물 사진대로):
+  //   ① 대형차면 **에어(압축공기) 확인** → ② **트렁크에서 견인고리를 꺼내 범퍼 홀에 돌려 끼운다**
+  //   → ③ 순찰차를 **앞에** 대고 **견인줄 연결** → 20km/h 이하로 갓길·안전지대까지.
   self.towAct = function (car) {
     var L = laws(), pl = game.player;
     if (!car) return { ok: false, why: 'no-car' };
     if (TOW && TOW.car === car && TOW.connected) return { ok: false, why: 'already' };
+    if (!TOW || TOW.car !== car) TOW = { car: car, asked: false, hooked: false, connected: false, rope: null, hook: null, len: 4.2 };
     var big = bigOf(car);
-    if (big && (!TOW || TOW.car !== car || !TOW.asked)) {
-      TOW = { car: car, asked: true, connected: false, rope: null, len: 4.2 };
+    // ① 에어 확인(대형차)
+    if (big && !TOW.asked) {
+      TOW.asked = true;
       if (car.airLost === undefined) car.airLost = Math.random() < 0.35;
       return { ok: false, why: 'ask', air: !car.airLost, msg: (L && L.tow && L.tow.air) || '' };
     }
     if (big && car.airLost) return { ok: false, why: 'air', msg: (L && L.tow && L.tow.air) || '' };
+    // ② 견인고리 끼우기 — 차 옆 6m 안에서(트렁크를 열고 범퍼로 가는 거리)
+    if (!TOW.hooked) {
+      var near = pl ? Math.hypot(car.pos.x - pl.pos.x, car.pos.z - pl.pos.z) : 99;
+      if (near > 12) return { ok: false, why: 'far' };
+      var hs = hookSpot(car);
+      TOW.hook = hookMesh(hs.x, hs.z, hs.h); scene.add(TOW.hook);
+      TOW.hooked = true;
+      return { ok: false, why: 'hooked', msg: (L && L.tow && L.tow.hook) || '' };
+    }
+    // ③ 견인줄 연결 — 순찰차가 고장차 **앞**에 같은 방향으로 서 있어야 한다
     var h = self.hitchOf(car);
     if (!h || !h.ok) return { ok: false, why: 'place', h: h };
-    if (!TOW || TOW.car !== car) TOW = { car: car, asked: true, connected: false, rope: null, len: 4.2 };
     TOW.connected = true; TOW.len = Math.max(3.4, h.behind);
-    // 견인줄: 순찰차 뒤 ↔ 고장차 앞을 잇는 얇은 원기둥(매 프레임 자리·길이를 고친다)
-    var gb = new TG.GeoBuilder(); gb.box(0, 0, 0, 0.06, 0.06, 1, 0x2a2e33, {});
+    var gb = new TG.GeoBuilder(); gb.box(0, 0, 0, 0.075, 0.075, 1, 0x1f2328, {});   // 견인줄(로프) — 게임에서 보이라고 실물보다 조금 굵다
     TOW.rope = new THREE.Mesh(gb.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
     scene.add(TOW.rope);
     car.towing = true;
@@ -211,8 +245,11 @@ TG.IncidentScene = function (game) {
       if (car.mesh) { car.mesh.position.set(car.pos.x, car.y || 0, car.pos.z); car.mesh.rotation.y = car.heading; }
     }
     // 줄 그리기
-    var mx = (hx + car.pos.x) / 2, mz = (hz + car.pos.z) / 2, len = Math.max(0.2, Math.hypot(car.pos.x - hx, car.pos.z - hz));
-    TOW.rope.position.set(mx, 0.34, mz); TOW.rope.scale.set(1, 1, len); TOW.rope.rotation.y = Math.atan2(car.pos.x - hx, car.pos.z - hz);
+    // 줄은 **견인고리(범퍼 홀)** 에서 나온다 — 차 중심이 아니다
+    var hk = hookSpot(car);
+    if (TOW.hook) { TOW.hook.position.set(hk.x, 0.42, hk.z); TOW.hook.rotation.y = car.heading; }
+    var mx = (hx + hk.x) / 2, mz = (hz + hk.z) / 2, len = Math.max(0.2, Math.hypot(hk.x - hx, hk.z - hz));
+    TOW.rope.position.set(mx, 0.40, mz); TOW.rope.scale.set(1, 1, len); TOW.rope.rotation.y = Math.atan2(hk.x - hx, hk.z - hz);
     // 끌고 갈 수 있는 속도(과속하면 줄이 끊긴다 — 20km/h)
     if (pl.speedKmh() > 22) { self.towCut(); return { cut: true }; }
     // 갓길·안전지대에 닿았는가
@@ -223,6 +260,7 @@ TG.IncidentScene = function (game) {
   self.towCut = function () {
     if (!TOW) return;
     if (TOW.rope) { scene.remove(TOW.rope); TOW.rope = null; }
+    if (TOW.hook) { scene.remove(TOW.hook); TOW.hook = null; }
     if (TOW.car) TOW.car.towing = false;
     TOW.connected = false;
   };

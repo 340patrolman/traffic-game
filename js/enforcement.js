@@ -142,6 +142,50 @@ TG.Enforcement = function (game) {
     game.hud.setTarget('정차 유도 중');
   }
   // 고지 완료: 플레이어가 대상 뒤 갓길에 안전하게 섰을 때(도보: 운전석 옆에 섰을 때). MDT 면허 조회 — 무면허가 드러나면 추가 조치(+15, 「무면허 운전」 조문)
+  // ---------- 단속 하차 장면 ----------
+  // 소유자: 「단속시 자연스럽게 하차하고 단속하는 장면을 넣는다.」 · 「일단 단순하게. 첫번째 목적은 위반사항이 뭔지를 알리는 것.」
+  // 그래서 장면은 셋뿐이다 — **내린다 → 운전석 약간 뒤 측면으로 간다 → 위반사항을 말한다.**
+  // 접근 위치는 T-Book 하차 근무 기본수칙: 「대상 차량은 운전석 약간 뒤 측면에서 접근(정면·진행경로 금지)」.
+  var scn = null;
+  function sceneStart(car) {
+    if (scn || onFoot() || !TG.Character || !game.scene) return false;
+    var pl = me(); if (!pl) return false;
+    var pf = [Math.sin(pl.heading), Math.cos(pl.heading)], plx = -pf[1], plz = pf[0];
+    var sx = pl.pos.x - plx * (pl.wid / 2 + 0.55), sz = pl.pos.z - plz * (pl.wid / 2 + 0.55);   // 운전석(왼쪽) 문 옆
+    var cf = [Math.sin(car.heading), Math.cos(car.heading)], clx = -cf[1], clz = cf[0];
+    // 운전석 창 옆, **0.8m 뒤**(정면·진행경로에 서지 않는다)
+    var tx = car.pos.x - cf[0] * 0.8 - clx * (car.wid / 2 + 0.85), tz = car.pos.z - cf[1] * 0.8 - clz * (car.wid / 2 + 0.85);
+    var a = TG.Character.actor(game.scene, game.terrain, 'officer', sx, sz, pl.heading);
+    scn = { car: car, a: a, t: 0, phase: 'go', sx: sx, sz: sz, tx: tx, tz: tz };
+    a.goTo(tx, tz, 1.35);
+    game.hud.setTarget('🚶 하차 — 운전석 약간 뒤 측면으로 접근합니다');
+    game.hud.hint('차 흐름을 등지지 않는다 · 정면·진행경로에 서지 않는다');
+    return true;
+  }
+  function sceneUpdate(dt) {
+    if (!scn) return;
+    var w = scn; w.t += dt;
+    w.a.update(dt, w.phase === 'tell');
+    if (w.phase === 'go') {
+      w.a.lookAtPos(w.car.pos);
+      if (Math.hypot(w.a.pos.x - w.tx, w.a.pos.z - w.tz) < 0.8 || w.t > 8) {
+        w.phase = 'tell'; w.t = 0;
+        w.a.face(Math.atan2(w.car.pos.x - w.a.pos.x, w.car.pos.z - w.a.pos.z));   // 운전자를 바라본다
+        w.a.lookAtPos(w.car.pos);
+        // **위반사항을 알린다** — 이것이 이 장면의 첫째 목적이다
+        var nm = w.car.violation ? self.nameOf(w.car.violation.type) : '안전 운전 의무';
+        game.hud.notice('🚶 「안녕하십니까, 교통경찰입니다. ' + nm + '으로 정차를 요구했습니다. 면허증 제시해 주십시오」', 'alert', 5200);
+        TG.audio.say('안녕하십니까 교통경찰입니다. ' + nm + '으로 정차를 요구했습니다. 면허증 제시해 주십시오', { kind: 'officer' });
+      }
+      return;
+    }
+    if (w.phase === 'tell') {
+      if (w.t > 2.8) { w.phase = 'back'; w.t = 0; w.a.goTo(w.sx, w.sz, 1.35); completePullover(w.car); self.target = null; }
+      return;
+    }
+    if (Math.hypot(w.a.pos.x - w.sx, w.a.pos.z - w.sz) < 1.0 || w.t > 8) { if (w.a.dispose) w.a.dispose(); scn = null; }
+  }
+  self.sceneOn = function () { return !!scn; };
   function completePullover(car) {
     var bonus = 10;
     game.addScore(bonus, null);
@@ -163,6 +207,7 @@ TG.Enforcement = function (game) {
 
   this.update = function (dt) {
     var pl = me();
+    if (scn) { sceneUpdate(dt); return; }   // 하차 장면 중에는 다른 판정을 멈춘다
     if (self.state === 'idle' || self.state === 'quiz') return;
     if (self.state === 'yielding' || self.state === 'stopped') {
       if (distToTarget() > 130) { cancel('대상을 놓쳤습니다 — 정차 유도 취소'); game.hud.setTarget(null); return; }
@@ -177,7 +222,10 @@ TG.Enforcement = function (game) {
           var frame = city.frameAt(pl.pos.x, pl.pos.z, pl.heading);
           var behind = along <= -cfg.STOP_BEHIND_MIN && along >= -cfg.STOP_BEHIND_MAX && Math.abs(lat) < 3.5;
           var shoulder = frame.lateral >= frame.shoulderMin;
-          if (behind && shoulder) { completePullover(c2); self.target = null; return; }
+          if (behind && shoulder) {
+            if (sceneStart(c2)) return;              // 하차 장면이 끝나면 그 안에서 고지한다
+            completePullover(c2); self.target = null; return;
+          }
           warnT -= dt;
           if (warnT <= 0) { warnT = 2.5; if (!behind) game.hud.notice('대상 차량 바로 뒤(3~15m)에 정차하세요', 'warn', 2200); else game.hud.notice('안전 확보 안 됨 — 차로 위입니다. 우측 가장자리로 이동하세요', 'warn', 2200); }
         }
@@ -192,5 +240,5 @@ TG.Enforcement = function (game) {
     if (ticket.t <= 0 && ticket.onChoice) ticket.onChoice('timeout');
   };
   this.cancel = cancel;
-  this.reset = function () { if (ticket) { ticket = null; game.hud.hideTicket(); } self.state = 'idle'; self.target = null; };
+  this.reset = function () { if (ticket) { ticket = null; game.hud.hideTicket(); } if (scn) { if (scn.a.dispose) scn.a.dispose(); scn = null; } self.state = 'idle'; self.target = null; };
 };
