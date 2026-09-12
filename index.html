@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.62">
+<link rel="stylesheet" href="css/style.css?v=0.9.63">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -281,53 +281,60 @@
 <div id="loadfail">게임 파일을 불러오지 못했습니다. 폴더째로 열거나 정적 서버로 열어 주세요.</div>
 
 <script>
+// 파일이 진짜 안 붙었는지 본다 — **상태(state)로 판단하지 않는다.**
+// v0.9.59 의 시작 화면(부트 게이트)은 손가락을 기다리며 state 를 'boot' 로 두는데,
+// 그것을 「못 불러왔다」로 읽어 **정상인 게임에 빨간 띠가 떴다**(소유자 폰 실기 2026-09-12 · 배포판 전부 200 확인).
+// 그리고 한 번 뜨면 다시 안 사라져서, 타이틀이 멀쩡히 떠 있는데도 띠가 남았다 — 다시 붙으면 걷는다.
 window.addEventListener('load', function () {
+  var box = document.getElementById('loadfail');
+  function ready() { return !!(window.TG && window.THREE && window.TG.game); }
   setTimeout(function () {
-    if (window.TG && window.THREE && TG.game && TG.game.state !== 'boot') return;
-    document.getElementById('loadfail').style.display = 'block';
+    if (ready()) return;
+    box.style.display = 'block';
+    var t = setInterval(function () { if (ready()) { box.style.display = 'none'; clearInterval(t); } }, 1000);
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.62"></script>
-<script src="js/config.js?v=0.9.62"></script>
-<script src="js/rng.js?v=0.9.62"></script>
-<script src="js/save.js?v=0.9.62"></script>
-<script src="js/perf.js?v=0.9.62"></script>
-<script src="js/emblem.js?v=0.9.62"></script>
-<script src="js/textures.js?v=0.9.62"></script>
-<script src="js/audio.js?v=0.9.62"></script>
-<script src="js/city.js?v=0.9.62"></script>
-<script src="js/world.js?v=0.9.62"></script>
-<script src="js/terrain.js?v=0.9.62"></script>
-<script src="js/weather.js?v=0.9.62"></script>
-<script src="js/signals.js?v=0.9.62"></script>
-<script src="js/vehmesh.js?v=0.9.62"></script>
-<script src="js/vehicle.js?v=0.9.62"></script>
-<script src="js/traffic.js?v=0.9.62"></script>
-<script src="js/peds.js?v=0.9.62"></script>
-<script src="js/character.js?v=0.9.62"></script>
-<script src="js/vfx.js?v=0.9.62"></script>
-<script src="js/response.js?v=0.9.62"></script>
-<script src="js/junction.js?v=0.9.62"></script>
-<script src="js/chase.js?v=0.9.62"></script>
-<script src="js/incident.js?v=0.9.62"></script>
-<script src="js/dispatch.js?v=0.9.62"></script>
-<script src="js/intro.js?v=0.9.62"></script>
-<script src="js/walker.js?v=0.9.62"></script>
-<script src="js/rail.js?v=0.9.62"></script>
-<script src="js/enforcement.js?v=0.9.62"></script>
-<script src="js/signaltod.js?v=0.9.62"></script>
-<script src="js/facil.js?v=0.9.62"></script>
-<script src="js/layers.js?v=0.9.62"></script>
-<script src="js/study.js?v=0.9.62"></script>
-<script src="js/drunkproc.js?v=0.9.62"></script>
-<script src="js/kidcourse.js?v=0.9.62"></script>
-<script src="js/career.js?v=0.9.62"></script>
-<script src="js/hudpos.js?v=0.9.62"></script>
-<script src="js/hud.js?v=0.9.62"></script>
-<script src="js/minimap.js?v=0.9.62"></script>
-<script src="js/input.js?v=0.9.62"></script>
-<script src="js/main.js?v=0.9.62"></script>
+<script src="lib/three.min.js?v=0.9.63"></script>
+<script src="js/config.js?v=0.9.63"></script>
+<script src="js/rng.js?v=0.9.63"></script>
+<script src="js/save.js?v=0.9.63"></script>
+<script src="js/perf.js?v=0.9.63"></script>
+<script src="js/emblem.js?v=0.9.63"></script>
+<script src="js/textures.js?v=0.9.63"></script>
+<script src="js/audio.js?v=0.9.63"></script>
+<script src="js/city.js?v=0.9.63"></script>
+<script src="js/world.js?v=0.9.63"></script>
+<script src="js/terrain.js?v=0.9.63"></script>
+<script src="js/weather.js?v=0.9.63"></script>
+<script src="js/signals.js?v=0.9.63"></script>
+<script src="js/vehmesh.js?v=0.9.63"></script>
+<script src="js/vehicle.js?v=0.9.63"></script>
+<script src="js/traffic.js?v=0.9.63"></script>
+<script src="js/peds.js?v=0.9.63"></script>
+<script src="js/character.js?v=0.9.63"></script>
+<script src="js/vfx.js?v=0.9.63"></script>
+<script src="js/response.js?v=0.9.63"></script>
+<script src="js/junction.js?v=0.9.63"></script>
+<script src="js/chase.js?v=0.9.63"></script>
+<script src="js/incident.js?v=0.9.63"></script>
+<script src="js/dispatch.js?v=0.9.63"></script>
+<script src="js/intro.js?v=0.9.63"></script>
+<script src="js/walker.js?v=0.9.63"></script>
+<script src="js/rail.js?v=0.9.63"></script>
+<script src="js/enforcement.js?v=0.9.63"></script>
+<script src="js/signaltod.js?v=0.9.63"></script>
+<script src="js/facil.js?v=0.9.63"></script>
+<script src="js/layers.js?v=0.9.63"></script>
+<script src="js/study.js?v=0.9.63"></script>
+<script src="js/drunkproc.js?v=0.9.63"></script>
+<script src="js/kidcourse.js?v=0.9.63"></script>
+<script src="js/career.js?v=0.9.63"></script>
+<script src="js/hudpos.js?v=0.9.63"></script>
+<script src="js/hud.js?v=0.9.63"></script>
+<script src="js/minimap.js?v=0.9.63"></script>
+<script src="js/input.js?v=0.9.63"></script>
+<script src="js/main.js?v=0.9.63"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
