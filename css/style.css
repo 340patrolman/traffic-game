@@ -58,9 +58,9 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stickBase{position:absolute;left:24px;top:auto;bottom:24px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(20,30,50,.75),rgba(10,14,22,.85));border:3px solid rgba(255,207,63,.75);box-shadow:0 0 0 3px rgba(10,14,22,.6),0 6px 18px rgba(0,0,0,.5);opacity:.8;transition:opacity .15s}
 #stickBase.on{opacity:1;bottom:auto}
 #stickBase.live{opacity:1}
-#minimap{position:fixed;top:calc(96px + var(--sa-t));right:calc(60px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
+#minimap{position:fixed;top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
 #minimap.dragging{cursor:grabbing;opacity:.9;border-color:var(--accent);box-shadow:0 0 0 2px rgba(77,141,255,.5),0 8px 22px rgba(0,0,0,.5)}
-body.portrait #minimap{top:calc(150px + var(--sa-t));right:calc(60px + var(--sa-r));width:148px;height:146px}
+body.portrait #minimap{top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:148px;height:146px}
 #stickBase .ring{position:absolute;inset:30px;border-radius:50%;border:1px dashed rgba(255,255,255,.3)}
 #stickBase .cross{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/1px 100% no-repeat,linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) center/100% 1px no-repeat;border-radius:50%}
 #stickBase .arrow{position:absolute;display:flex;align-items:center;gap:2px;color:#ffe9a8;font-size:11px;font-weight:800;text-shadow:0 1px 2px #000;line-height:1}
@@ -90,13 +90,13 @@ body.portrait .tbtn.enf{width:64px;height:64px}
 body.portrait .tbtn.pa{width:56px;height:56px}
 label.opt input[type=range]{width:auto;height:auto;margin:0 8px}
 .tbtn.siren.active{background:rgba(255,93,93,.5);border-color:#fff;animation:blink .6s steps(2) infinite}
-.tbtn.small{position:fixed;top:calc(64px + var(--sa-t));right:calc(10px + var(--sa-r));width:40px;height:40px;font-size:13px;border-radius:10px}
+.tbtn.small{position:fixed;top:calc(196px + var(--sa-t));right:calc(10px + var(--sa-r));width:40px;height:40px;font-size:13px;border-radius:10px}
 body.portrait #stickZone{width:52vw;height:38vh}
 body.portrait .cluster.right{display:grid;grid-template-columns:auto auto;justify-items:end;align-items:end;gap:10px;bottom:calc(26px + var(--sa-b))}
 body.portrait .tbtn.gas{width:88px;height:88px} body.portrait .tbtn.brake{width:78px;height:78px}
 body.portrait .tbtn.rev{width:60px;height:60px} body.portrait .tbtn.siren{width:60px;height:60px}
-body.portrait .tbtn.small{top:calc(120px + var(--sa-t))}
-body.portrait .notice{top:calc(110px + var(--sa-t));max-width:94vw;white-space:normal;font-size:13px}
+body.portrait .tbtn.small{top:calc(164px + var(--sa-t))}
+body.portrait .notice{top:calc(var(--hudh,97px) + 178px + var(--sa-t));max-width:94vw;white-space:normal;font-size:13px}   /* 계기 칸·지도·작은 단추 아래로 — 전에는 단추 위에 얹혔다 */
 body.portrait #target{top:calc(152px + var(--sa-t))}
 body.portrait #hint{top:calc(182px + var(--sa-t));max-width:94vw;white-space:normal}
 
@@ -141,18 +141,18 @@ h2{font-size:26px;letter-spacing:2px}
 .overlay.study button.small{padding:5px 10px;font-size:12px;margin-top:6px;width:auto}
 @media (min-width:640px){.overlay.study .cards{grid-template-columns:1fr 1fr}}
 .viewpick.sel,.wpick.sel,.mpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
-.tbtn.small.view{top:calc(112px + var(--sa-t));font-size:12px;width:46px}
-.tbtn.small.speed{top:calc(208px + var(--sa-t));font-size:11px;width:54px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-body.portrait .tbtn.small.speed{top:calc(264px + var(--sa-t))}
+.tbtn.small.view{top:calc(244px + var(--sa-t));font-size:12px;width:46px}
+.tbtn.small.speed{top:calc(340px + var(--sa-t));font-size:11px;width:54px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+body.portrait .tbtn.small.speed{top:calc(308px + var(--sa-t))}
 .tbtn.small.speed.fast{background:rgba(255,196,0,.88);color:#1b1b1b;border-color:#ffd23f}
-.speedpanel{position:fixed;top:calc(200px + var(--sa-t));right:calc(72px + var(--sa-r));z-index:40;background:rgba(14,18,26,.95);border:1px solid #3b4a66;border-radius:12px;padding:8px 9px;color:#eaf1ff;box-shadow:0 6px 18px rgba(0,0,0,.45)}
-body.portrait .speedpanel{top:calc(256px + var(--sa-t))}
+.speedpanel{position:fixed;top:calc(332px + var(--sa-t));right:calc(72px + var(--sa-r));z-index:40;background:rgba(14,18,26,.95);border:1px solid #3b4a66;border-radius:12px;padding:8px 9px;color:#eaf1ff;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+body.portrait .speedpanel{top:calc(300px + var(--sa-t))}
 .speedpanel .sp-val{font-size:20px;font-weight:800;text-align:center;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .speedpanel .sp-row{display:flex;gap:5px}
 .speedpanel button{min-width:46px;height:42px;border-radius:9px;border:1px solid #4a5a78;background:#1f2a3d;color:#eaf1ff;font-size:14px;font-weight:700;touch-action:manipulation}
 .speedpanel button[data-ts="reset"]{background:#2d3f5e}
 .speedpanel .sp-note{font-size:10.5px;color:var(--dim);text-align:center;margin-top:5px}
-body.portrait .tbtn.small.view{top:calc(168px + var(--sa-t))}
+body.portrait .tbtn.small.view{top:calc(212px + var(--sa-t))}
 button.primary{pointer-events:auto;display:block;width:100%;margin:12px auto 0;padding:14px;border-radius:12px;border:2px solid var(--accent);background:rgba(255,207,63,.14);color:#fff;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation}
 button.primary:active{background:rgba(255,207,63,.3)}
 button.ghost{pointer-events:auto;display:block;width:100%;margin:10px auto 0;padding:12px;border-radius:12px;border:1px solid var(--edge);background:transparent;color:var(--dim);font-size:15px;cursor:pointer;font-family:inherit}
@@ -219,8 +219,8 @@ body.portrait .dpad,body.portrait .face{width:160px;height:160px;bottom:calc(60p
 body.portrait .dpad .up,body.portrait .dpad .down,body.portrait .face .tri,body.portrait .face .x{left:55px} body.portrait .dpad .left,body.portrait .dpad .right,body.portrait .face .sq,body.portrait .face .cir{top:55px}
 body.portrait .dpad .dp-center{left:55px;top:55px;width:50px;height:50px}
 body.portrait .pad-shoulder{bottom:calc(236px + var(--sa-b))}
-.tbtn.small.help{top:calc(160px + var(--sa-t));font-size:15px;font-weight:800;width:40px}
-body.portrait .tbtn.small.help{top:calc(216px + var(--sa-t))}
+.tbtn.small.help{top:calc(292px + var(--sa-t));font-size:15px;font-weight:800;width:40px}
+body.portrait .tbtn.small.help{top:calc(260px + var(--sa-t))}
 .cpick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit}
 .cpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
 .cpick.more{border-style:dashed}
@@ -248,15 +248,16 @@ body.onfoot .tbtn.hand{display:flex}
 body.onfoot .tbtn.siren,body.onfoot .sigs,body.onfoot .pad-shoulder{display:none}
 body.kidmode .tbtn.enf,body.kidmode .tbtn.pa,body.kidmode .face .tri,body.kidmode .face .sq,body.kidmode .face .cir,body.kidmode .pad-mid{display:none}
 body.kidmode .tbtn.hand{width:96px;height:96px;bottom:calc(150px + var(--sa-b))} body.kidmode .tbtn.hand .ico{font-size:40px}
-#kidSteps{display:none;position:fixed;top:calc(62px + var(--sa-t));left:50%;transform:translateX(-50%);pointer-events:none;text-align:center}
+#kidSteps{display:none;position:fixed;top:calc(var(--hudh,97px) + 8px + var(--sa-t));left:50%;transform:translateX(-50%);pointer-events:none;text-align:center}
 body.kidmode #kidSteps{display:block}
-#kidSteps .chips{display:flex;gap:6px;justify-content:center}
+#kidSteps{max-width:96vw}
+#kidSteps .chips{display:flex;gap:6px;justify-content:center;flex-wrap:nowrap}
+#kidSteps .chip{white-space:nowrap}
 #kidSteps .chip{font-size:12px;padding:4px 9px;border-radius:12px;background:rgba(10,14,22,.55);border:1px solid var(--edge);color:var(--dim)}
 #kidSteps .chip.on{background:rgba(255,210,63,.9);color:#111;font-weight:800;transform:scale(1.08)}
 #kidNow{margin-top:6px;font-size:20px;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 body.kidmode .notice{font-size:16px}
 body.kidmode #hint{font-size:14px}
-body.portrait #kidSteps{top:calc(150px + var(--sa-t))}
 body.portrait .tbtn.hand{bottom:calc(230px + var(--sa-b))}
 /* 폰 가로(낮은 화면)에서 인트로 글씨가 위로 잘렸다 — 글자 크기는 그대로 두고 줄 간격과 아래 여백만 줄인다 */
 @media (orientation:landscape) and (max-height:480px){
@@ -290,12 +291,12 @@ h1{background-size:200% 200%;animation:shimmer 6s ease-in-out infinite}
 .tbtn.runbtn .ico{font-size:24px}
 .tbtn.runbtn.on{background:rgba(90,211,122,.35);border-color:rgba(90,211,122,.9)}
 body.onfoot .tbtn.runbtn{display:flex}
-body.portrait .tbtn.runbtn{bottom:calc(290px + var(--sa-b))}
+body.portrait .tbtn.runbtn{bottom:calc(195px + var(--sa-b))}
 /* 📹 블랙박스 · 📡 무전 — 추격 대신 쓰는 두 버튼 */
 .tbtn.cam{width:60px;height:60px;background:rgba(120,220,255,.16);border-color:rgba(120,220,255,.75);margin-bottom:8px}
 .tbtn.radio{width:60px;height:60px;background:rgba(180,150,255,.16);border-color:rgba(180,150,255,.75);margin-bottom:8px}
 .tbtn.cam .ico,.tbtn.radio .ico{font-size:20px}
-body.portrait .tbtn.cam,body.portrait .tbtn.radio{width:54px;height:54px}
+body.portrait .tbtn.cam,body.portrait .tbtn.radio,body.portrait .tbtn.tow{width:54px;height:54px}
 body.onfoot .tbtn.cam{display:none}
 /* ---------- 교차로 근무(하차 근무): 신호제어기 조작판 ---------- */
 .tbtn.boxbtn{display:none;position:fixed;left:calc(24px + var(--sa-l));bottom:calc(330px + var(--sa-b));width:64px;height:64px;background:rgba(255,176,32,.18);border-color:rgba(255,176,32,.85)}
@@ -304,7 +305,7 @@ body.onfoot .tbtn.cam{display:none}
 .tbtn.boxbtn.off{opacity:.4}
 body.dutymode .tbtn.boxbtn{display:flex}
 body.dutymode .tbtn.hand{background:rgba(255,120,120,.22);border-color:rgba(255,120,120,.9)}
-body.portrait .tbtn.boxbtn{bottom:calc(370px + var(--sa-b))}
+body.portrait .tbtn.boxbtn{bottom:calc(339px + var(--sa-b))}
 #dutyPanel{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sa-b));width:min(96vw,430px);z-index:9;
   background:rgba(10,14,22,.92);border:1px solid var(--edge);border-radius:14px;padding:10px 12px;pointer-events:auto;box-shadow:0 8px 28px rgba(0,0,0,.5)}
 body.dutyopen #dutyPanel{display:block}
@@ -534,3 +535,62 @@ body.scene-near .tbtn.tow{display:flex}
 .bootcard .primary.big{margin-top:20px;width:100%;min-height:64px;font-size:19px;border-radius:16px}
 .bootcard .dim.small{margin-top:10px;font-size:12px;line-height:1.5;word-break:keep-all}
 .bootcard .ghost{margin-top:10px;width:100%;min-height:44px;font-size:13px}
+
+/* ---------- 기본 배치와 좁은 화면 대응 ----------
+   소유자: 「미니맵은 오른쪽 상단 윗부분이 기본값 · 필요시 이동」 · 「조작버튼도 최대한 가려지지 않게」 ·
+   「좁은 스마트폰에서 어떻게 보일지 잘 모름, 기종에 따라 달라질 수 있으니까」.
+   → 다섯 기종 크기(320x640 · 360x740 · 375x812 · 412x915 · 844x390)에서 **요소 15개의 겹침을 픽셀로 재서** 값을 정했다.
+   세로 화면: 계기 칸이 위를 가로지르므로 지도는 **그 바로 아래 오른쪽 끝**, 작은 단추는 지도 아래 한 줄.
+   가로 화면: 위가 비므로 지도는 **오른쪽 맨 위**, 작은 단추는 지도 **아래 가로 한 줄**(아래쪽 큰 단추와 겹치지 않게).
+   그래도 가리면 **길게 눌러** 옮긴다(hudpos). */
+body.portrait #minimap{top:calc(var(--hudh,97px) + 20px + var(--sa-t));right:calc(8px + var(--sa-r));width:148px;height:146px}
+/* 작은 단추 다섯은 계기 칸 바로 아래 **왼쪽 두 줄**로 모은다 — 오른쪽 위는 지도, 오른쪽 아래는 단속·앰프 무리가 쓴다.
+   전에는 오른쪽에 세로로 세웠더니 320x640 에서 맨 아래 것이 단속 단추와 겹쳤다(실측 34x2px). */
+body.portrait .tbtn.small{top:calc(var(--hudh,97px) + 20px + var(--sa-t));left:calc(8px + var(--sa-l));right:auto}
+body.portrait .tbtn.small.menu{left:calc(56px + var(--sa-l))}
+body.portrait .tbtn.small.view{top:calc(var(--hudh,97px) + 20px + var(--sa-t));left:calc(104px + var(--sa-l))}
+body.portrait .tbtn.small.help{top:calc(var(--hudh,97px) + 68px + var(--sa-t));left:calc(8px + var(--sa-l))}
+body.portrait .tbtn.small.speed{top:calc(var(--hudh,97px) + 68px + var(--sa-t));left:calc(56px + var(--sa-l))}
+body.portrait .speedpanel{top:calc(var(--hudh,97px) + 116px + var(--sa-t));left:calc(8px + var(--sa-l));right:auto}
+/* 세로 화면 왼쪽 아래는 **세 층**이다 — 위에서부터 후진 · 하차 · 방향지시등, 그 아래가 조이스틱.
+   전에는 하차가 방향지시등 위에 그대로 얹혀 있었다(실측 52x44px 겹침). */
+body.portrait .tbtn.footbtn{right:auto;left:calc(16px + var(--sa-l));bottom:calc(267px + var(--sa-b))}
+body.portrait .tbtn.revbtn{right:auto;left:calc(18px + var(--sa-l));bottom:calc(339px + var(--sa-b))}
+@media (max-width:380px){
+  body.portrait #minimap{width:130px;height:128px}
+  body.portrait .notice{top:calc(var(--hudh,97px) + 160px + var(--sa-t))}
+}
+@media (orientation:landscape){            /* 눕힌 폰 — 지도는 오른쪽 맨 위, 작은 단추는 그 아래 가로 한 줄 */
+  #minimap{top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r))}
+  .tbtn.small{top:calc(196px + var(--sa-t));right:calc(10px + var(--sa-r))}
+  .tbtn.small.menu{top:calc(196px + var(--sa-t));right:calc(58px + var(--sa-r))}
+  .tbtn.small.view{top:calc(196px + var(--sa-t));right:calc(112px + var(--sa-r))}
+  .tbtn.small.help{top:calc(196px + var(--sa-t));right:calc(166px + var(--sa-r))}
+  .tbtn.small.speed{top:calc(196px + var(--sa-t));right:calc(214px + var(--sa-r))}
+  .speedpanel{top:calc(244px + var(--sa-t));right:calc(72px + var(--sa-r))}
+}
+@media (orientation:landscape) and (max-height:430px){   /* 낮은 가로 화면 — 지도를 줄이고 줄을 올린다 */
+  #minimap{width:130px;height:128px}
+  .tbtn.small,.tbtn.small.menu,.tbtn.small.view,.tbtn.small.help,.tbtn.small.speed{top:calc(146px + var(--sa-t))}
+  .speedpanel{top:calc(194px + var(--sa-t))}
+}
+@media (orientation:landscape){   /* 눕힌 폰 — 하차·후진은 오른쪽 가운데 띠(지도·작은 단추 줄 아래, 큰 단추 줄 위).
+   왼쪽은 계기 칸(위) · 방향지시등 · 조이스틱이 이미 세 층으로 차 있다 — 거기에 두면 방향지시등과 겹친다. */
+  .tbtn.footbtn{right:calc(16px + var(--sa-r));left:auto;bottom:calc(100px + var(--sa-b))}
+  .tbtn.revbtn{right:calc(88px + var(--sa-r));left:auto;bottom:calc(100px + var(--sa-b))}
+}
+/* 어린이 교실 — 단계 칩이 계기 칸 바로 아래 한 줄을 차지하므로 세로 화면에서는 지도·작은 단추를 그만큼 내린다 */
+body.kidmode.portrait #minimap{top:calc(var(--hudh,97px) + 78px + var(--sa-t))}
+body.kidmode.portrait .tbtn.hand{bottom:calc(180px + var(--sa-b))}   /* 큰 ✋ 단추(96px)가 지도 아래에 선다 — 320x640 에서 9px 겹쳤다 */
+body.kidmode.portrait .tbtn.small,body.kidmode.portrait .tbtn.small.menu,body.kidmode.portrait .tbtn.small.view{top:calc(var(--hudh,97px) + 78px + var(--sa-t))}
+body.kidmode.portrait .tbtn.small.help,body.kidmode.portrait .tbtn.small.speed{top:calc(var(--hudh,97px) + 126px + var(--sa-t))}
+body.kidmode.portrait .speedpanel{top:calc(var(--hudh,97px) + 174px + var(--sa-t))}
+@media (max-width:420px){   /* 좁은 폰 — 단계 칩이 줄바꿈되면 두 줄이 되어 지도를 밀어낸다 */
+  #kidSteps .chip{font-size:11px;padding:3px 6px}
+  #kidSteps .chips{gap:4px}
+  #kidNow{font-size:18px;margin-top:4px}
+}
+@media (orientation:landscape){   /* 눕힌 폰 — 도보 근무 단추(걷기·제어함)도 계기 칸을 피한다 */
+  .tbtn.runbtn{bottom:calc(190px + var(--sa-b))}
+  .tbtn.boxbtn{left:auto;right:calc(88px + var(--sa-r));bottom:calc(100px + var(--sa-b))}
+}

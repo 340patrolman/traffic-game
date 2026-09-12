@@ -19,6 +19,7 @@
   var DIRN_KO = ['남행', '동행', '북행', '서행'];   // 방위 0..3
   var junction = null, duty = null, chase = null;   // 교차로 근무(하차 근무): junction = 대기·꼬리물기 측정과 채점(js/junction.js), duty = 제어함·상황 상태
   var walker = null, walk = null, rail = null;   // 보행자 모드(walk/kid): walker = 도보 경찰관/어린이, walk = 규칙·목적지 상태. rail = 철길건널목
+  var exitScn = null;   // 하차 연출(후방 확인 → 문 열고 → 비켜 서기). 연출 동안에는 조작을 받지 않는다
   function actor() { return walker || player; }   // 화면의 「나」: 보행자 모드면 걷는 경찰관, 아니면 순찰차
   // 도보 상태: 보행 모드·어린이 교실·교차로 근무는 처음부터 도보, 순찰·자유 주행에서는 하차(G.afoot)하면 도보가 된다.
   // 교차로 근무는 **하차 근무**다 — 순찰차로 와서 갓길에 세우고 내린다(소유자: 「하차근무가 좋을지 싶네」).
@@ -213,8 +214,18 @@
       camR.aspect = L.sw / h; camR.fov = L.v; camR.updateProjectionMatrix();
       qL.setFromAxisAngle(Y_AXIS, L.yaw); qR.setFromAxisAngle(Y_AXIS, -L.yaw);
     } else { pano.on = false; renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h); }
+    hudHeightVar();
   }
 
+
+  // 계기 칸(#hudbar)의 실제 높이를 css 로 넘긴다 — 글이 두 줄·세 줄로 접히는 높이가 기종마다 달라서,
+  // 그 아래에 서는 지도·작은 단추 자리를 픽셀로 못 박으면 좁은 폰에서 겹친다(320px 에서 실측 3px 겹침).
+  function hudHeightVar() {
+    var bar = document.getElementById('hudbar');
+    var hh = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+    if (hh > 0) document.documentElement.style.setProperty('--hudh', hh + 'px');
+  }
+  G.hudHeightVar = hudHeightVar;
   // ---------- 시작 화면(부트 게이트) ----------
   // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
   function bootGate() {
@@ -786,7 +797,7 @@
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (walker) { if (walk && walk.officer) walk.officer.dispose(); walker.dispose(); walker = null; walk = null; peds.walker = null; }
-    G.afoot = false; document.body.classList.remove('afoot');
+    G.afoot = false; exitScn = null; document.body.classList.remove('afoot');
     if (junction) { junction.dispose(); junction = null; duty = null; G.junction = null; }
     if (chase) { chase.dispose(); chase = null; G.chase = null; }
     document.body.classList.remove('dutyopen');
@@ -874,9 +885,67 @@
     b.querySelector('.ico').textContent = afoot ? '🚓' : '🚶';
     b.querySelector('span:last-child').textContent = afoot ? '승차' : '하차';
   }
+  // 후방에서 다가오는 차 — 하차 전에 반드시 본다(소유자: 「후방 안전을 확인하며 하차해야 함」).
+  // 순찰차 뒤 45m 안, 옆으로 5m 안, 2m/s 넘게 달려 4.5초 안에 문 앞에 닿는 차를 「위험」으로 본다.
+  function rearHazard() {
+    if (!player || !traffic || !traffic.cars) return null;
+    var f = player.forward(), best = null;
+    for (var i = 0; i < traffic.cars.length; i++) {
+      var c = traffic.cars[i];
+      if (!c || !c.pos || !isFinite(c.pos.x)) continue;
+      var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z;
+      var along = dx * f[0] + dz * f[1], lat = Math.abs(-dx * f[1] + dz * f[0]);
+      if (along > -1 || along < -45 || lat > 5) continue;          // 뒤에 있고, 옆으로 5m 안(같은 차로·옆 차로)
+      var v = c.v || 0; if (v < 2) continue;                        // 이미 서 있는 차는 위험이 아니다
+      var gap = -along - (player.len * 0.5 + 1.2);
+      if (gap / v > 4.5) continue;
+      if (!best || gap < best.gap) best = { car: c, gap: Math.max(0, gap), v: v, ttc: gap / v };
+    }
+    return best;
+  }
+  G.rearHazard = rearHazard;
+  // 하차 연출: ① 뒤를 본다(위험하면 아예 안 내린다) → ② 문을 열고 몸을 내민다 → ③ 옆으로 비켜 선다.
+  // 어느 단계에서든 뒤에서 차가 오면 문 앞에 멈춰 기다린다. 연출 동안에는 조작을 받지 않는다.
+  function exitSceneMove(dt) {
+    var s = exitScn; if (!s || !walker) return { x: 0, y: 0, run: false };
+    s.t += dt;
+    var f = player.forward(), r = [-f[1], f[0]];
+    var hz = rearHazard();
+    if (hz && hz.ttc < 3.2) {                                        // 문 앞에서 기다린다 — 문을 더 열지 않는다
+      if (s.warnT === undefined || s.t - s.warnT > 2.4) { s.warnT = s.t; hud.notice('🚗 뒤에서 차가 옵니다 — 지나간 뒤에 움직입니다 · ' + Math.round(hz.gap) + 'm', 'warn', 2200); TG.haptic(TG.HAPTIC.warn); }
+      s.lookSet = Math.PI * 0.8 * (s.side || 1); walker.moving = false;
+      return { x: 0, y: 0, run: false };
+    }
+    if (s.phase === 'door') {
+      s.lookSet = Math.PI * 0.8 * (s.side || 1);                      // 어깨 너머로 뒤를 본다
+      if (s.t > 1.0) { s.phase = 'step'; s.t = 0; hud.notice('🚶 하차 — 뒤차가 보이는 자리로 비켜 섭니다', 'info', 2400); }
+      return { x: 0, y: 0, run: false };
+    }
+    // 'step' — 차 옆(문에서 0.9m 바깥, 조금 뒤)으로 걸어 나간다
+    var tx = player.pos.x + r[0] * (player.wid * 0.5 + 0.95) - f[0] * 0.5;
+    var tz = player.pos.z + r[1] * (player.wid * 0.5 + 0.95) - f[1] * 0.5;
+    var ddx = tx - walker.pos.x, ddz = tz - walker.pos.z, dd = Math.hypot(ddx, ddz);
+    s.lookSet = Math.PI * 0.8 * (s.side || 1) * Math.max(0, 1 - s.t / 0.9);
+    if (dd < 0.25 || s.t > 2.2) { exitScn = null; exitDone(); return { x: 0, y: 0, run: false }; }
+    var cy = walk && walk.camYaw !== undefined ? walk.camYaw : walker.heading;
+    var cf = [Math.sin(cy), Math.cos(cy)];
+    return { x: (-ddx * cf[1] + ddz * cf[0]) / dd, y: (ddx * cf[0] + ddz * cf[1]) / dd, run: false };
+  }
+  function exitDone() {
+    hud.notice('🚶 하차 — 걸어서 현장을 확인합니다. 다시 타려면 운전석 옆에서 「승차」', 'info', 4200);
+    hud.hint('차도에 오래 서 있지 않는다. 뒤차가 보이는 위치에서 움직인다');
+    if (G.mode === 'duty') dutyAfterExit();   // 교차로 근무는 내리는 순간부터가 근무다
+  }
   function exitCar() {
     if (G.state !== 'play' || !player || G.afoot || onFoot()) return false;
     if (player.speedKmh() > 3) { hud.notice('완전히 정차한 뒤 내립니다', 'warn', 2000); return false; }
+    var hz0 = rearHazard();
+    if (hz0) {   // **후방 안전 확인** — 뒤에서 차가 오면 문을 열지 않는다
+      hud.notice('🚗 뒤에서 차가 옵니다 — ' + Math.round(hz0.gap) + 'm · 지나간 뒤에 내립니다', 'warn', 2800);
+      hud.hint('💭 문을 열기 전에 뒤를 본다 — 열린 문에 차가 걸리면 그것이 2차 사고다');
+      TG.haptic(TG.HAPTIC.warn); TG.audio.ui();
+      return false;
+    }
     // 교차로 근무는 **그 교차로 가까이**에서 내려야 근무가 된다 — 멀리서 내리면 걸어갈 수 없다
     if (G.mode === 'duty' && duty && Math.hypot(player.pos.x - duty.node.x, player.pos.z - duty.node.z) > 70) {
       hud.notice('교차로에서 멉니다 — 교차로 가까운 갓길까지 이동한 뒤 내립니다', 'warn', 2600); return false;
@@ -884,7 +953,7 @@
     var fr = city.frameAt(player.pos.x, player.pos.z, player.heading);
     if (!player.siren) hud.hint('💭 내리기 전에 경광등을 켠다 — 뒤차에 내가 보여야 한다');
     var pf = player.forward(), pr = [-pf[1], pf[0]];
-    var dx = player.pos.x + pr[0] * (player.wid * 0.5 + 0.75), dz = player.pos.z + pr[1] * (player.wid * 0.5 + 0.75);
+    var dx = player.pos.x + pr[0] * (player.wid * 0.5 + 0.35), dz = player.pos.z + pr[1] * (player.wid * 0.5 + 0.35);   // 문 바로 옆 — 연출이 여기서 걸어 나간다
     walker = new TG.Walker(scene, city, terrain, C, {}); G.walker = walker;
     walker.teleport(dx, dz, player.heading + Math.PI / 2);
     traffic.player = walker; peds.player = walker; peds.walker = walker;
@@ -893,14 +962,14 @@
     document.body.classList.add('onfoot'); document.body.classList.add('afoot');
     footBtnLabel(true);
     document.getElementById('stopbarWrap').style.display = 'none';
-    hud.notice('🚶 하차 — 걸어서 현장을 확인합니다. 다시 타려면 운전석 옆에서 「승차」', 'info', 4200);
-    hud.hint('차도에 오래 서 있지 않는다. 뒤차가 보이는 위치에서 움직인다');
-    TG.audio.ui(); officerSay('하차합니다');
-    if (G.mode === 'duty') dutyAfterExit();   // 교차로 근무는 내리는 순간부터가 근무다
+    exitScn = { t: 0, phase: 'door', side: 1 };   // 운전석은 왼쪽이지만 게임의 하차는 차체 오른쪽(보도 쪽)이다
+    hud.notice('👀 후방 확인 — 뒤에서 오는 차가 없다', 'info', 2200);
+    TG.audio.ui(); officerSay('후방 확인, 하차합니다');
     return true;
   }
   function enterCar() {
     if (!G.afoot || !walker || !player) return false;
+    if (exitScn) return false;   // 내리는 중에는 다시 못 탄다
     var d = Math.hypot(walker.pos.x - player.pos.x, walker.pos.z - player.pos.z);
     if (d > 3.2) { hud.notice('순찰차 운전석 옆(3m 안)으로 가서 탑니다 — ' + Math.round(d) + 'm', 'warn', 2200); return false; }
     walker.dispose(); walker = null; G.walker = null; walk = null;
@@ -913,7 +982,7 @@
     hud.notice('🚓 승차 — 순찰을 계속합니다', 'info', 2400); TG.audio.ui(); officerSay('승차합니다');
     return true;
   }
-  G.exitCar = exitCar; G.enterCar = enterCar;
+  G.exitCar = exitCar; G.enterCar = enterCar; G.exitScene = function () { return exitScn; };
   // 하차 근무 중 규칙: 차량 접촉은 그대로 위험하고, 차도에 서 있으면 경고한다(감점은 없다 — 근무 중이다)
   function afootRules(dt) {
     var p = TG.walkerPlace(city, signals, walker.pos.x, walker.pos.z);
@@ -1394,6 +1463,7 @@
   }
   function walkUpdate(dt) {
     var mv = input.readMove(); if (G.testMove) mv = G.testMove;
+    if (exitScn) mv = exitSceneMove(dt);   // 하차 연출 중에는 조작을 받지 않는다
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
     if (walker.jumped) { walker.jumped = false; camInit = false; walk.camYaw = walker.heading; walk.cyaw = walker.heading; G.lookYaw = 0; }   // 순간이동 뒤에는 카메라·이동 기준을 바로 맞춘다
@@ -1403,6 +1473,7 @@
     walker.gesture = (es === 'yielding' || es === 'stopped') ? 'stop' : es === 'release' ? 'go' : null;
     var lookAt = enforcement.target || (G.selected && G.selected.kind === 'car' ? G.selected.car : null);
     walker.look = lookAt ? TG.wrapAngle(Math.atan2(lookAt.pos.x - walker.pos.x, lookAt.pos.z - walker.pos.z) - walker.heading) * 0.9 : 0;
+    if (exitScn) walker.look = exitScn.lookSet || 0;   // 하차 연출: 어깨 너머로 뒤를 본다(연출이 이긴다)
     if (G.mode === 'duty' && junction && junction.hand) walker.gesture = 'stop';   // 꼬리 끊기 수신호는 계속 유지한다
     else if (G.mode === 'duty' && duty && duty.open && junction.nearBox(walker.pos.x, walker.pos.z) < 3.2) walker.gesture = 'operate';   // 제어함 앞에서는 조작 자세
     walker.lookScan = !!(walk && walker.kid && (walk.step === 2 || walk.step === 3));
@@ -2125,6 +2196,8 @@
     if (G.state === 'play') {
       if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); playStep(dt); }
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
+      G.hudhT = (G.hudhT || 0) + dt;
+      if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
     } else if (G.state === 'intro') {
       var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = TG.audio.running ? 'none' : 'block';
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;
