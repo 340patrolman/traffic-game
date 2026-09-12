@@ -172,10 +172,28 @@
       roofs.box(cx - w * 0.25, b.h + 1.3, cz - dd * 0.2, Math.min(4, w * 0.3), 2.2, Math.min(3, dd * 0.3), 0x9aa0a6, {});
       roofs.cylinder(cx + w * 0.25, b.h + 0.4, cz + dd * 0.2, 1.1, 1.1, 2.4, 8, 0xd9d9d0, true);
       for (var a = 0; a < 3; a++) roofs.box(cx - w * 0.3 + a * w * 0.25, b.h + 0.65, cz + dd * 0.35, 0.9, 0.7, 0.5, 0xc9ccd0, {});
-      if (b.style === 'shop') { strips[b.seed % 3].box(cx, 3.6, cz, w + 0.3, 1.1, dd + 0.3, 0xffffff, { sidesOnly: true, uvScale: [16, 1.1] }); glass.box(cx, 1.5, cz, w + 0.05, 2.4, dd + 0.05, 0x3a5470, { sidesOnly: true }); }
+      if (b.style === 'shop') {
+        // 상가 간판 띠. 전에는 벽 길이와 상관없이 **16m 마다 반복**해서 건물이 끝나는 자리에서 글자가 반쪽으로
+        // 잘렸고, 앞면(가로 w)과 옆면(가로 dd)의 길이가 달라 **글자 크기도 벽마다 달랐다** —
+        // 소유자 「글씨들이 일정한 규칙으로 써져야 하는데 가로쓰기인지 모를 정도로 규칙적이지 않아」.
+        // 규칙 세 가지: ① 낱말 한 칸 = **4.2m 고정**(어느 벽에서도 글자 크기가 같다) ② 벽에는 **온전한 칸만** 붙인다
+        // ③ 남는 자리는 흰 띠로 둔다(가게 사이 여백처럼 보인다). 글자는 늘 칸 가운데에 가로로 앉는다.
+        var SBW = 4.2, SBU = SBW * 4, sb = strips[b.seed % 3];   // 텍스처 한 장 = 낱말 4칸
+        roofs.box(cx, 3.6, cz, w + 0.28, 1.1, dd + 0.28, 0xffffff, { sidesOnly: true });   // 띠 몸통(흰색)
+        var bandW = w + 0.32, bandD = dd + 0.32, OB = 0.16;   // 띠 몸통(0.14) 바로 바깥에 글자 판을 붙인다
+        [[cx, b.z1 + OB, bandW, 0], [cx, b.z0 - OB, bandW, Math.PI],
+         [b.x1 + OB, cz, bandD, Math.PI / 2], [b.x0 - OB, cz, bandD, -Math.PI / 2]].forEach(function (F) {
+          var n = Math.floor(F[2] / SBW); if (n < 1) return;
+          sb.vquad(F[0], 3.6, F[1], n * SBW, 1.1, F[3], 0xffffff, [SBU, 1.1]);
+        });
+        glass.box(cx, 1.5, cz, w + 0.05, 2.4, dd + 0.05, 0x3a5470, { sidesOnly: true });
+      }
+
       if (b.style === 'apt') {
         for (var fl = 1; fl * 3 < b.h - 1; fl++) roofs.box(cx, fl * 3 + 0.2, cz, w + 1.2, 0.18, dd + 1.2, 0xd6d3cb, { noBottom: true });
-        labels.vquad(cx, b.h - 2.2, b.z0 - 0.05, Math.min(6, w * 0.6), 1.6, Math.PI, 0xffffff, null); labels.vquad(cx, b.h - 2.2, b.z1 + 0.05, Math.min(6, w * 0.6), 1.6, 0, 0xffffff, null);
+        // 동 이름표는 텍스처가 4:1 이다 — 판도 4:1 로 잡아야 글자가 늘어나지 않는다(전에는 폭만 건물에 맞춰 세로로 눌렸다)
+        var lw = Math.min(5.6, w * 0.8), lh = lw / 4;
+        labels.vquad(cx, b.h - 2.2, b.z0 - 0.05, lw, lh, Math.PI, 0xffffff, null); labels.vquad(cx, b.h - 2.2, b.z1 + 0.05, lw, lh, 0, 0xffffff, null);
       }
     });
     // 랜드마크(강남·서초 축약): 무역센터형 계단식 유리 타워 + 전시장 / 법원(백색 열주) / 예술의전당형 돔 / 강남대로 쌍둥이 타워 / 종합운동장형 원형 경기장

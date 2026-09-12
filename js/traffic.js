@@ -178,6 +178,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
+    // 시내 도로에서도 **대형승합·화물은 오른쪽 차로군**으로 간다(시행규칙 별표9 — 편도 3차로 이상 일반도로).
+    // 전에는 버스도 2차로에 고정돼 편도 4차로 반포대로 가운데를 달렸다 — 정류장은 오른쪽에 있는데 눈에 어색했다.
+    car.rightGroup = (type === 'bus' || type === 'truck' || car.isCargo);
     // 거치대(내비게이션 지도) — 적법. 손에 든 휴대전화(phone 습관)와 가려 보게 한다
     // (소유자: 「거치대를 사용한다면 별문제가 없지만 스마트폰을 들고 문자나 카톡을 보거나 만진 경우에도 해당」)
     car.mount = opts.mount !== undefined ? !!opts.mount : (car.trait !== 'phone' && type !== 'bus' && type !== 'truck' && type !== 'moto' && type !== 'bike' && type !== 'pm' && rng() < 0.3);
@@ -549,6 +552,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.prevApRef = ap;
     // 이륜차·자전거·개인형 이동장치: **이 도로의 맨 오른쪽 차로**로 붙는다(도로마다 차로 수가 다르므로 도로에 들어갈 때 잡는다).
     // 보도로 올라가 달리는 차(edgeRider)는 그 계산이 edgeOff 로 따로 있으니 건드리지 않는다.
+    if (car.rightGroup && !onLink && ap && car.mode === 'drive') {
+      var rdG = city.roadOf(ap.node, ap.d), nG = city.lanesOf(rdG.axis, rdG.idx);
+      var loG = nG >= 3 ? minCargoLane(nG) : nG - 1, wantG = car.isBus ? nG - 1 : TG.clamp(loG + (car.id % 2), loG, nG - 1);
+      if (car.laneIdx !== wantG) {
+        car.lcShift += city.laneOff(rdG.axis, rdG.idx, wantG) - city.laneOff(rdG.axis, rdG.idx, TG.clamp(car.laneIdx, 0, nG - 1));
+        car.laneIdx = wantG;
+      }
+    }
     if (car.rightLane && !onLink && ap && !car.edgeRider && car.mode === 'drive') {
       var rdW = city.roadOf(ap.node, ap.d), nW = city.lanesOf(rdW.axis, rdW.idx), wantW = nW - 1;
       if (car.laneIdx !== wantW) {
@@ -556,7 +567,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         car.laneIdx = wantW;
       }
     }
-    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
+    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
       var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
       if (nL >= 2) {

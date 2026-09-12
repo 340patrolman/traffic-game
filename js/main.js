@@ -680,6 +680,16 @@
   var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '보행자 체험', kid: '어린이 보행 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
   // ---------- 보행자 모드 ----------
   // 순찰차는 강남대로 갓길에 세워 두고, 경찰관이 내려 걷는다. 목적지(사거리 모퉁이) 8곳을 차례로. 차량·행인 AI 는 걷는 경찰관을 보행자로 본다.
+  // 어린이 교실 무대 블록 — 서초역 사거리를 왼쪽 위 모퉁이로 하는 한 블록.
+  // 격자 끝이면 한 칸 당겨 네 모퉁이가 모두 있게 한다(nodes[i+1][j+1] 까지 쓴다).
+  function kidStageBlock() {
+    var want = null;
+    for (var i = 0; i < city.xs.length && !want; i++) for (var j = 0; j < city.zs.length; j++) {
+      if (city.nodeName && String(city.nodeName(city.nodes[i][j])).indexOf('서초역') === 0) { want = { i: i, j: j }; break; }
+    }
+    if (!want) want = { i: city.schoolBlock.i, j: city.schoolBlock.j };
+    return { i: Math.min(want.i, city.xs.length - 2), j: Math.min(want.j, city.zs.length - 2) };
+  }
   function startWalk() {
     var xs = city.xs, zs = city.zs, rng = TG.makeRNG((Date.now() & 0xffff) + 7);
     player.teleport(xs[2] + city.shoulderOff('v', 2), zs[2] + 48, Math.PI); player.setSiren(false);
@@ -688,11 +698,15 @@
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
     if (kid) {
-      // 어린이 보행 교실: 학교 블록(방배로·효령로 어린이보호구역) 둘레. 학교 정문 → 놀이터 → 문방구 → 우리 집
-      var SB = city.schoolBlock, nA = city.nodes[SB.i][SB.j], nB = city.nodes[SB.i + 1][SB.j], nC = city.nodes[SB.i][SB.j + 1], nD = city.nodes[SB.i + 1][SB.j + 1];
+      // 어린이 보행 교실 무대 = **서초역 사거리**(소유자: 「어린이교통교실의 배경을 서초역으로 해줘」).
+      // 자리는 이름으로 찾는다 — 지도 파일이 격자를 바꿔도 서초역을 따라간다. 없으면 학교 블록으로 물러선다.
+      var SB = kidStageBlock();
+      var nA = city.nodes[SB.i][SB.j], nB = city.nodes[SB.i + 1][SB.j], nC = city.nodes[SB.i][SB.j + 1], nD = city.nodes[SB.i + 1][SB.j + 1];
+      // 목적지는 **보도 위**(연석에서 1.6m 안쪽 = 보도 한가운데)다. 어린이는 늘 인도에서 기다린다.
       function corner(n, sx, sz, name) { return { x: n.x + sx * (city.halfV[n.i] + 1.6), z: n.z + sz * (city.halfH[n.j] + 1.6), name: name }; }
       walker.teleport(xs[SB.i] + city.sideOff('v', SB.i), (nA.z + nC.z) / 2 + 10, Math.PI);
-      walk = { dests: [corner(nA, 1, 1, '🏫 학교 정문'), corner(nB, 1, -1, '🛝 놀이터(공원)'), corner(nC, -1, -1, '✏️ 문방구'), corner(nD, 1, 1, '🏠 우리 집')], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1 };
+      walk = { dests: [corner(nA, 1, 1, '🚇 서초역 2번 출구'), corner(nB, 1, -1, '🛝 놀이터(공원)'), corner(nC, -1, -1, '✏️ 문방구'), corner(nD, 1, 1, '🏠 우리 집')], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1 };
+      walk.safe = { x: walker.pos.x, z: walker.pos.z };   // 처음부터 「돌아갈 인도」를 들고 시작한다(아래 연석 막기가 쓴다)
       walk.officer = TG.Character.actor(scene, terrain, 'officer', walker.pos.x - 1.2, walker.pos.z + 1.4, Math.PI);   // 동행 교통경찰관(안내 목소리의 주인)
       walker.setMarker(walk.dests[0]); kidVoice('멈춘다, 좌우를 본다, 손을 든다, 걷는다. 이렇게 네 가지예요');
       return;
@@ -1064,6 +1078,26 @@
   function walkRules(dt) {
     var p = TG.walkerPlace(city, signals, walker.pos.x, walker.pos.z), sec = '', kid = walker.kid;
     walk.hintCd -= dt; walk.voiceCd -= dt;
+    // **어린이는 횡단보도를 건너기 전에 늘 인도 위에 있어야 한다**(소유자 지시).
+    // 교실은 보여 주는 자리다 — 아이가 차도로 걸어 들어가는 장면 자체가 나오면 안 된다.
+    // 그래서 어린이 교실에서만 연석에서 막는다: 갈 수 있는 곳은 ① 보도·도로 밖 ② 보행 녹색인 횡단보도
+    // ③ **이미 건너던 횡단보도**(다 건너기 전에 신호가 바뀌어도 갇히면 안 된다).
+    // 보행자 체험(walk)은 그대로 둔다 — 어른은 무단횡단을 할 수 있고 그것이 위반으로 기록되는 것이 배움이다.
+    if (kid) {
+      walk.curbCd = (walk.curbCd || 0) - dt;
+      var crossing = walk.cross && p.node && walk.cross.node === p.node && walk.cross.d === p.d;
+      var okHere = p.where === 'sidewalk' || p.where === 'off' || (p.where === 'crosswalk' && (p.walk || crossing));
+      if (okHere) walk.safe = { x: walker.pos.x, z: walker.pos.z };
+      else if (walk.safe) {
+        walker.pos.x = walk.safe.x; walker.pos.z = walk.safe.z; walker.v = 0; walker.sync();
+        if (walk.curbCd <= 0) {
+          walk.curbCd = 2.6;
+          hud.notice(p.where === 'crosswalk' ? '🔴 빨간불이에요 — 인도에서 기다려요' : '🚸 차도로 내려가지 않아요 — 인도로 걸어요', 'warn', 2400);
+          kidVoice(p.where === 'crosswalk' ? 'red' : 'road', true);
+        }
+        p = TG.walkerPlace(city, signals, walker.pos.x, walker.pos.z);
+      }
+    }
     if (p.where === 'crosswalk') {
       if (!walk.cross || walk.cross.node !== p.node || walk.cross.d !== p.d) {
         walk.cross = { node: p.node, d: p.d, legal: p.walk, x0: walker.pos.x, z0: walker.pos.z, stopped: walk.stopT > 0.8, hand: walker.hand > 0 };
