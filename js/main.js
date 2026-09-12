@@ -875,7 +875,7 @@
       // 영아 교실: 어린이 보행 교실과 같은 무대(서초역 사거리)지만 **목적지도 시간 제한도 없다**.
       // 아이는 보도 위 한 자리에 서고, 화면이 마당을 차례로 넘긴다(선생님이 큰 단추 하나로 진행).
       var TB = kidStageBlock(), tn = city.nodes[TB.i][TB.j];
-      walker.teleport(tn.x + city.sideOff('v', TB.i), tn.z + city.halfH[TB.j] + 9, Math.PI);
+      walker.teleport(tn.x + city.sideOff('v', TB.i), tn.z + city.halfH[TB.j] + 5.5, Math.PI);   // 횡단보도 앞 1~2m — 「한 발 뒤로」와 횡단보도가 같은 화면에 든다(v0.9.77)
       walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1, tot: true };
       walk.safe = { x: walker.pos.x, z: walker.pos.z };
       G.timeLeft = 1e9;                                   // 시간 제한 없음 — 교육이 끝나면 선생님이 닫는다
@@ -1473,13 +1473,14 @@
     }
   }
   function walkCamera(dt, look) {
-    // 👶 영아 교실: 아이 **앞쪽 비스듬히**에서 본다 — 어린이집 20명이 화면으로 볼 때 **얼굴과 손**이 보여야 한다.
-    // 뒤에서 보면 뒤통수와 신호등 기둥만 크게 나온다(첫 시험에서 그랬다).
+    // 👶 영아 교실: 아이 **옆 3/4**에서 본다 — 얼굴과 손을 보여 줘야 하고(어린이집 20명이 화면을 본다),
+    // **차도·횡단보도도 같은 화면에 들어야** 한다(소유자 2026-09-12: 「어디가 차도이고 어디가 인도인지 위치를 잘 설명해 주지 않았어」).
+    // 뒤에서 보면 뒤통수만, 앞에서 보면 길이 안 보인다 — 그래서 옆이다.
     if (G.mode === 'tot' && walker) {
       var w2 = walker, h2 = (G.tot && G.tot.heading && G.tot.heading() !== null) ? G.tot.heading() : w2.heading;
       var f2 = [Math.sin(h2), Math.cos(h2)], r2 = [-f2[1], f2[0]];
-      var tx2 = w2.pos.x + f2[0] * 3.1 + r2[0] * 1.9, tz2 = w2.pos.z + f2[1] * 3.1 + r2[1] * 1.9, ty2 = w2.y + 1.75;
-      var lx2 = w2.pos.x + f2[0] * 0.15, lz2 = w2.pos.z + f2[1] * 0.15, ly2 = w2.y + 0.85;
+      var tx2 = w2.pos.x + f2[0] * 1.7 + r2[0] * 2.7, tz2 = w2.pos.z + f2[1] * 1.7 + r2[1] * 2.7, ty2 = w2.y + 1.9;
+      var lx2 = w2.pos.x + f2[0] * 1.1 - r2[0] * 0.45, lz2 = w2.pos.z + f2[1] * 1.1 - r2[1] * 0.45, ly2 = w2.y + 0.9;
       if (!camInit) { camPos.set(tx2, ty2, tz2); camLook.set(lx2, ly2, lz2); camInit = true; }
       var k2 = 1 - Math.exp(-4 * dt);
       camPos.x += (tx2 - camPos.x) * k2; camPos.y += (ty2 - camPos.y) * k2; camPos.z += (tz2 - camPos.z) * k2;

@@ -31,13 +31,21 @@ TG.Tot = function (game) {
   ];
 
   // **원문 5단계**(순서를 바꾸지 않는다). 아이가 따라 외칠 수 있게 짧게.
+  // 소유자 제공 자료(2026-09-12)로 낱말을 맞췄다 — 한국도로교통공단 **「서다 · 보다 · 걷다」**
+  //  서다: 신호를 기다릴 땐 **한발 뒤로 물러서요** · 보다: 신호가 바뀌면 **좌우를 살펴요** · 걷다: 횡단보도는 **뛰지 않고 천천히 걸어요**.
+  // 대구광역시·대구경찰청·도로교통공단·한국교통안전공단 수칙(「초록불이라도 자동차가 완전히 멈추었는지 확인 후 건너기」)도 같이 담았다.
+  // 그림·글꼴은 쓰지 않고 **수칙·구호 문구만** 우리 말로 재구성했다.
   var FIVE = [
-    { big: '① 멈춰요',         sub: '초록불이어도 먼저 멈춰요',  say: '하나! 먼저 멈춰요. 초록불이어도 바로 건너지 않아요', burst: '🛑' },
-    { big: '② 차를 봐요',       sub: '오른쪽 왼쪽 · 차가 멈췄나?', say: '둘! 오른쪽 왼쪽을 봐요. 차가 멈췄는지 봐요',        burst: '👀' },
-    { big: '③ 손 번쩍',         sub: '운전하는 사람이 나를 봐요',  say: '셋! 손을 번쩍 들어요',                              burst: '✋' },
-    { big: '④ 다시 한 번',      sub: '차가 또 오지 않나?',        say: '넷! 초록불이어도 차가 오는지 다시 봐요',            burst: '🔁' },
-    { big: '⑤ 손 잡고 천천히',  sub: '차를 보면서 · 장난 없이',    say: '다섯! 토수니 손을 잡고 차를 보면서 천천히 건너요',  burst: '🐻' },
+    { big: '① 서다',        sub: '한 발 뒤로 물러서요 · 3초 동안',        say: '하나! 서다! 한 발 뒤로 물러서서 멈춰요. 셋을 세요', burst: '🛑' },
+    { big: '② 보다',        sub: '좌우를 살펴요 — 자동차 · 오토바이 · 자전거', say: '둘! 보다! 오른쪽 왼쪽을 살펴요. 자동차도 오토바이도 자전거도 멈췄는지 봐요', burst: '👀' },
+    { big: '③ 손 번쩍',     sub: '운전하는 사람이 나를 봐요',            say: '셋! 손을 번쩍 들어요',                              burst: '✋' },
+    { big: '④ 다시 한 번',  sub: '차가 완전히 멈췄나?',                  say: '넷! 초록불이어도 차가 완전히 멈췄는지 다시 봐요',    burst: '🔁' },
+    { big: '⑤ 걷다',        sub: '어른 손 잡고 · 뛰지 않고 천천히',       say: '다섯! 걷다! 어른 손을 잡고 뛰지 않고 천천히 걸어서 건너요', burst: '🐻' },
   ];
+  // 구호(소유자 제공 자료) — 선생님이 아이들과 같이 외친다.
+  var CHANT = '서다 · 보다 · 걷다';
+  var CHANT2 = '1단 멈춤 · 2쪽 저쪽 · 3초 동안 · 4고 예방';
+
   // 🛣 여기는 어디? — 노란 빛기둥으로 **자리를 짚어 가며** 세 길을 가르친다(아이들이 손가락으로 같이 가리킨다).
   var WHERE = [
     { big: '🚶 인도',     sub: '사람이 걷는 길 — 우리는 여기!', say: '여기는 인도예요. 사람이 걷는 길이에요. 우리는 여기로 걸어요', burst: '🚶' },
@@ -64,16 +72,21 @@ TG.Tot = function (game) {
     alley:   '골목길에는 인도가 없어요. 어디로 걸을까요?',
     run:     '혼자 뛰어가면 위험해요. 손 잡고 천천히 걸어요',
 
-    hold:    '길을 건널 때는 토수니 손을 꼭 잡아요',
-    holdOk:  '손을 꼭 잡았어요. 참 잘했어요',
-    notYet:  '아직이야. 토수니 손을 먼저 잡아요',
+    hold:    '길을 건널 때는 어른 손을, 보호자 손을 꼭 잡아요',
+    holdOk:  '어른 손을 꼭 잡았어요. 참 잘했어요',
+    notYet:  '아직이야. 어른 손을 먼저 잡아요',
     crossOk: '다 건넜어요! 참 잘했어요',
-    phone:   '걸을 때는 장난감도 휴대폰도 보지 않아요',
+    back:    '신호를 기다릴 때는 한 발 뒤로 물러나요. 차에서 멀리 떨어져서 기다려요',
+
+    count:   '조금만 더, 셋을 세요. 하나, 둘, 셋',
+    phone:   '길을 걸을 때는 스마트폰도 이어폰도 안 돼요. 소리도 들어야 해요',
+    play:    '길가에서 공놀이도 몸장난도 안 돼요. 갑자기 도로로 뛰어 나가면 위험해요',
     belt:    '차를 타면 딸깍! 안전벨트를 매요',
     beltOk:  '딸깍! 안전벨트 맸어요. 참 잘했어요',
     dark:    '밤에는 어두운 옷이 잘 안 보여요',
+    umbrella: '비 오는 날에는 앞이 잘 보이는 투명 우산을 써요. 우산을 내리면 앞이 안 보여요',
     bright:  '밝은 옷을 입으면 멀리서도 반짝 보여요',
-    end:     '참 잘했어요! 다 같이 외쳐요. 멈춰요! 차를 봐요! 손 들어요!',
+    end:     '참 잘했어요! 다 같이 외쳐요. 서다! 보다! 걷다!',
   };
   var COATS = [
     { name: '노랑', color: 0xffd93d }, { name: '주황', color: 0xff9f45 },
@@ -166,6 +179,9 @@ TG.Tot = function (game) {
   self.dispose = function () {
     document.body.classList.remove('totmode'); document.body.classList.remove('toticy');
     var bg = el('totBig'); if (bg) bg.classList.remove('shiver');
+    whereHide();
+    if (st) stopCarsForCross(false);
+    if (st && st.rainOn && G.weather) G.weather.set('clear');
     if (G.walker && G.walker.setMarker) { G.walker.setMarker(null); G.walker.markerKeep = false; }
     if (st && st.bear && st.bear.dispose) st.bear.dispose();
     hideSignal(); setCaption(''); setBig(''); setButton('');
@@ -194,16 +210,18 @@ TG.Tot = function (game) {
       cross: '① 멈춰요 ② 차를 봐요 ③ 손 번쩍 ④ 다시 ⑤ 천천히', belt: '차에 타면 딸깍!', bright: '밝은 옷을 입어요' }[S.id]);
     setButton(S.btn, S.id === 'cross' && !st.held);
     if (S.id === 'where') { st.where = 0; whereShow(0); }
+    if (S.id !== 'where') whereHide();
     if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); iceLook(false); }
     if (S.id === 'alley') { iceLook(true); st.alley = 0; alleyShow(0); say('alley', true); }
     if (S.id === 'hold') { iceLook(true); say('hold', true); }
-    if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
+    stopCarsForCross(S.id === 'cross');                 // 다섯 걸음 마당에서만 차를 세운다
+    if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; st.stopT = 0; st.stopCnt = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
     if (S.id === 'bright') { st.night = true; if (G.weather) G.weather.set('night'); setCoat(null); say('dark', true); }
   }
   function finish() {
     st.done = true; hideSignal(); setButton('🔁 다시 하기');
-    setBig('🎉 참 잘했어요!', '멈춰요 · 차를 봐요 · 손 번쩍 · 다시 · 천천히');
+    setBig('🎉 참 잘했어요!', CHANT + ' · ' + CHANT2);
     say('end', true); TG.audio.totFanfare(); heart(5);
     if (G.hud && G.hud.burst) G.hud.burst('💛');
   }
@@ -248,6 +266,83 @@ TG.Tot = function (game) {
   // 아이가 선 보도가 어느 도로를 따라 뻗는지 — **가로 거리와 그 도로의 보도선(sideOff)을 견줘** 고른다.
   // 「둘 중 큰 쪽」으로 고르면 8차로 도로 보도(18m)와 4차로 도로(13m) 사이에서 뒤집힌다(실측에서 뒤집혔다).
   // 돌려주는 것은 **교차로에서 멀어지는 쪽** 단위벡터다.
+  // 🛣 차도·인도·횡단보도를 **바닥 색과 글자로** 보여 준다.
+  // 소유자(2026-09-12): 「차도와 인도 설명이 부실해 — 어디가 자동차가 다니는 차도이고 어디가 보행자가 다니는 인도인지 **위치를 잘 설명해 주지 않았어**.」
+  // → 빛기둥 하나로는 「자리」를 못 가르친다. 인도는 **초록 바닥**, 차도는 **빨간 바닥**, 횡단보도는 **노란 바닥**으로 칠하고
+  //    그 위에 큰 글자를 띄운다. 지금 가리키는 곳은 진하게, 나머지는 옅게.
+  var WHERE_COLOR = [0x3fd06a, 0xff5a5a, 0xffd23d];
+  function whereAreas() {
+    var W = G.walker, nd = st.node, C = G.city;
+    if (!W || !nd || !C) return null;
+    var sv = sideDir(), vert = sv[1] !== 0;                                     // 보도가 z 로 뻗으면 남북 도로 옆이다
+    var axis = vert ? 'v' : 'h', idx = vert ? nd.i : nd.j;
+    var half = C.halfOf ? C.halfOf(axis, idx) : (vert ? C.halfV[nd.i] : C.halfH[nd.j]);
+    var outer = C.sideOff(axis, idx), sw = Math.max(3.2, outer + 1.2 - half);         // 보도 폭(연석 ~ 보도 바깥선)
+    var L = 26;                                                                  // 길이 26m — 아이 앞뒤로 넉넉히
+    var fwd = [Math.sin(st.heading0), Math.cos(st.heading0)];                 // 아이가 보는 쪽(교차로·횡단보도 쪽) — 옆 3/4 카메라가 이 방향을 담는다
+    var fsg = vert ? (fwd[1] >= 0 ? 1 : -1) : (fwd[0] >= 0 ? 1 : -1);
+    var cAlong = vert ? W.pos.z + fsg * 4 : W.pos.x + fsg * 4;
+    var lAlong = vert ? W.pos.z + fsg * 5 : W.pos.x + fsg * 5;                  // 글자는 띠 가운데 근처(옆 3/4 카메라가 다 담는다)
+    var side = vert ? ((W.pos.x - nd.x) >= 0 ? 1 : -1) : ((W.pos.z - nd.z) >= 0 ? 1 : -1);
+    var roadC = vert ? nd.x : nd.z;                                              // 차도 가운데(도로 중심선)
+    var walkC = roadC + side * (half + sw / 2);                                  // 보도 가운데
+    // 횡단보도: 아이가 있는 쪽 접근로의 횡단보도 띠
+    var d = vert ? (W.pos.z > nd.z ? 0 : 2) : (W.pos.x > nd.x ? 1 : 3);
+    var f = TG.DIR_VEC[d], cn = C.crossNear(nd, d), cf = C.crossFar(nd, d);
+    var crossMid = (cn + cf) / 2, crossLen = Math.max(3, cf - cn);
+    var A = [];
+    if (vert) {
+      A.push({ x: walkC, z: cAlong, w: sw, l: L, name: '인도', lx: walkC, lz: lAlong });
+      A.push({ x: roadC, z: cAlong, w: half * 2, l: L, name: '차도', lx: roadC, lz: lAlong });
+      A.push({ x: roadC, z: nd.z + f[1] * crossMid, w: half * 2, l: crossLen, name: '횡단보도' });
+    } else {
+      A.push({ x: cAlong, z: walkC, w: L, l: sw, name: '인도', lx: lAlong, lz: walkC });
+      A.push({ x: cAlong, z: roadC, w: L, l: half * 2, name: '차도', lx: lAlong, lz: roadC });
+      A.push({ x: nd.x + f[0] * crossMid, z: roadC, w: crossLen, l: half * 2, name: '횡단보도' });
+    }
+    return A;
+  }
+  // 글자는 **3D 가 아니라 화면(HUD) 띠**로 보여 준다 — 3D 글자판은 옆 3/4 카메라에서 화면 밖으로 나가거나
+  // 아이 앞을 덮었다(실측 3회). 바닥 색과 **같은 색 칩**을 화면 아래에 두면 폰에서도 늘 읽힌다.
+  function whereLegend(k) {
+    var e = el('totWhere'); if (!e) return;
+    var s = '';
+    for (var i = 0; i < WHERE.length; i++) {
+      s += '<span class="w' + i + (i === k ? ' on' : '') + '">' + WHERE[i].big + '</span>';
+    }
+    e.innerHTML = s; e.style.display = 'flex';
+  }
+  function whereLegendHide() { var e = el('totWhere'); if (e) e.style.display = 'none'; }
+  function whereBuild() {
+    if (st.whereGrp || !scene) return;
+    var A = whereAreas(); if (!A) return;
+    var grp = new THREE.Group(); st.whereItems = [];
+    for (var i = 0; i < A.length; i++) {
+      var a = A[i];
+      var mat = new THREE.MeshBasicMaterial({ color: WHERE_COLOR[i], transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
+      var pl = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.l), mat);
+      pl.rotation.x = -Math.PI / 2;
+      var y = terrain ? terrain.heightAt(a.x, a.z) : 0;
+      pl.position.set(a.x, y + 0.22 + i * 0.02, a.z);   // **연석보다 높게** — 0.08 은 보도 메시 밑으로 들어가 안 보였다(실측)
+      grp.add(pl);
+      st.whereItems.push({ pl: pl, mat: mat });
+    }
+    scene.add(grp); st.whereGrp = grp;
+  }
+  function whereHighlight(k) {
+    if (!st.whereItems) return;
+    for (var i = 0; i < st.whereItems.length; i++) {
+      var it = st.whereItems[i], on = (i === k);
+      it.mat.opacity = on ? 0.5 : 0.2;
+    }
+  }
+  function whereHide() {
+    whereLegendHide();
+    if (!st.whereGrp || !scene) return;
+    scene.remove(st.whereGrp);
+    st.whereItems = null; st.whereGrp = null;
+  }
+
   function sideDir() {
     var W = G.walker, nd = st.node, C = G.city;
     if (!W || !nd || !C || !C.sideOff) return [0, 1];
@@ -273,6 +368,7 @@ TG.Tot = function (game) {
   }
   function whereShow(k) {
     var W = G.walker, sp = whereSpot(k), F = WHERE[Math.min(k, 2)];
+    whereBuild(); whereHighlight(k); whereLegend(k);
     if (W && sp) W.setMarker(sp);
     setBig(F.big, F.sub); say(F.say, true);
     TG.audio.totDing();
@@ -331,12 +427,36 @@ TG.Tot = function (game) {
     if (G.hud && G.hud.burst) G.hud.burst('🤝');
   }
   // 🚸 **원문 5단계**. 단추를 누를 때마다 한 걸음. **손을 안 잡았으면 잠긴다**(혼자 건너기 엔딩 없음).
+  // 🚗 「초록불이라도 자동차가 **완전히 멈추었는지 확인 후** 건너기」(소유자 제공 어린이 교통안전수칙).
+  // 보여 주려면 **멈춰 선 차**가 실제로 있어야 한다 — 경찰 수신호와 같은 장치(traffic.control.hand)로
+  // 그 접근로의 차를 정지선 앞에 세운다(수신호는 신호기보다 우선 · 도로교통법 제5조). 급제동도 경적도 없다(traffic.quiet).
+  function stopCarsForCross(on) {
+    var C = G.city, nd = st.node, TR = G.traffic;
+    if (!TR || !nd || !C) return;
+    if (!TR.control) TR.control = { closed: [], hand: [] };
+    if (!on) { TR.control.hand = []; return; }
+    var sv = sideDir(), vert = sv[1] !== 0;
+    var ds = vert ? [0, 2] : [1, 3];                       // 아이가 건너는 도로를 달리는 두 접근로
+    TR.control.hand = [{ node: nd, d: ds[0] }, { node: nd, d: ds[1] }];
+    if (!st.stopCar && TR.spawn) {                         // 교통량을 3분의 1로 줄여 두어 마침 아무도 없을 수 있다 — 한 대는 우리가 세운다
+      var d0 = ds[0], f = TG.DIR_VEC[d0], sd = C.stopDist ? C.stopDist(nd, d0) : 12;
+      st.stopCar = TR.spawn({ at: { x: nd.x - f[0] * (sd + 24), z: nd.z - f[1] * (sd + 24), d: d0, node: nd },
+                              v: 5, cruise: 5, straight: true, type: 'sedan', trait: null, violator: false, laneIdx: 0 });
+    }
+  }
+
   function fiveStep() {
     var W = G.walker;
     if (!st.held) { say('notYet', true); TG.audio.totBoing(); setButton('손 잡기가 먼저!', true); return; }
     if (st.crossed) { say('crossOk', true); return; }
+    if (st.stopT > 0) { say('count', true); TG.audio.totBoing(); return; }   // **3초 동안** 멈춘다 — 다 세기 전에는 다음으로 안 간다(구호 「3초 동안」)
     var step = st.five, F = FIVE[Math.min(step, 4)];
-    if (step === 0) { if (W) { W.v = 0; W.moving = false; } TG.audio.totIce(); }
+    if (step === 0) {                                   // ① 멈춤 = **한 발 뒤로 물러나** 3초를 센다(소유자 제공 자료 「신호를 기다릴 땐 한 발 뒤로 물러나기」)
+      if (W) { W.v = 0; W.moving = false; }
+      if (W && !st.backDone && st.node) { var nb = st.node, bx = W.pos.x - nb.x, bz = W.pos.z - nb.z, bl = Math.hypot(bx, bz) || 1;
+        W.teleport(W.pos.x + bx / bl * 0.5, W.pos.z + bz / bl * 0.5, W.heading); st.backDone = true; }
+      st.stopT = 3; TG.audio.totIce();
+    }
     else if (step === 1) { if (W) W.lookScan = true; TG.audio.totCar(); }
     else if (step === 2) { if (W) W.raiseHand(16); TG.audio.totDing(); }
     else if (step === 3) { if (W) W.lookScan = true; TG.audio.totCar(); }
@@ -347,17 +467,43 @@ TG.Tot = function (game) {
     if (st.five >= 3) heart(3);
     setButton(st.five >= 5 ? '건너는 중…' : '하나 더!', false);
   }
+
   function beltClick() {
     st.belt = true; st.beltT = 3.2; heart(4);
     TG.audio.totBelt(); say('beltOk', true);
     if (G.hud && G.hud.burst) G.hud.burst('🔒');
   }
+  // 🌂 **투명 우산** — 소유자 제공 자료(경기도교육청 등·하굣길 자료): 「비 오는 날에는 앞이 잘 보이게 투명 우산을 사용하고
+  // 눈에 잘 띄도록 밝은 색 옷을 입어요.」 우산도 우리가 코드로 만든다(외부 이미지 0). 비닐이 비쳐 보이게 반투명이다.
+  function makeUmbrella() {
+    var W = G.walker; if (!W || !W.rig || st.umb) return;
+    var g = new THREE.Group();
+    var canopy = new THREE.Mesh(new THREE.SphereGeometry(0.52, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: 0xeaf6ff, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }));
+    canopy.position.set(0, 1.62, 0); g.add(canopy);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.016, 6, 20), new THREE.MeshLambertMaterial({ color: 0x7fd0ff }));
+    rim.rotation.x = Math.PI / 2; rim.position.set(0, 1.62, 0); g.add(rim);
+    var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.78, 6), new THREE.MeshLambertMaterial({ color: 0x5a6a86 }));
+    shaft.position.set(0, 1.26, 0); g.add(shaft);
+    g.position.set(0.22, 0, 0.04);                      // 오른손 쪽
+    g.visible = false; W.rig.group.add(g); st.umb = g;
+  }
   function wearBright() {
+    if (st.coat >= COATS.length) {                      // 옷을 다 입어 보면 **비 오는 날 · 투명 우산**
+      makeUmbrella();
+      if (st.umb) st.umb.visible = true;
+      if (!st.rainOn && G.weather) { G.weather.set('rain'); st.rainOn = true; }
+      setBig('🌂 투명 우산', '비 오는 날에는 앞이 잘 보이는 투명 우산');
+      say('umbrella', true); TG.audio.totDing(); heart(5);
+      if (G.hud && G.hud.burst) G.hud.burst('🌂');
+      return;
+    }
     var c = COATS[(st.coat++) % COATS.length];
     setCoat(c.color); heart(5);
     setBig('🌈 ' + c.name + ' 옷', '밝은 옷은 멀리서도 반짝 보여요');
     say('bright', true); TG.audio.totBoing();
   }
+
 
   // ---------- 매 프레임 ----------
   self.update = function (dt) {
@@ -403,6 +549,7 @@ TG.Tot = function (game) {
       setBig(st.ice.green ? '🚶 땡! 걸어요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? '초록불' : '빨간불 — 발도 손도 멈춰요') + cnt);
       if (W && !st.ice.green) { W.v = 0; W.moving = false; }
       if (st.ice.round >= 2) heart(1);
+      if (!st.ice.green && st.ice.round >= 1 && st.sayCd <= 0 && st.ice.t > 2.5) say('back');   // 기다릴 때는 한 발 뒤로(소유자 제공 자료)
     } else if (S.id === 'alley') {
       hideSignal();
       if (st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
@@ -414,14 +561,19 @@ TG.Tot = function (game) {
     } else if (S.id === 'cross') {
       setSignal(true, null);                          // **초록불이어도** 다섯 걸음을 지킨다 — 이 마당의 요점
       var F2 = FIVE[Math.min(st.five, 4)];
-      if (!st.held) setBig('🐻 아직이야', '토수니 손을 먼저 잡아요');
-      else if (st.crossed) setBig('🎉 다 건넜어요', '참 잘했어요');
+      if (st.stopT > 0) st.stopT -= dt;
+      if (!st.held) setBig('🐻 아직이야', '어른 손을 먼저 잡아요');
+      else if (st.crossed) setBig('🎉 다 건넜어요', CHANT);
+      else if (st.stopT > 0) setBig('🛑 ' + Math.ceil(st.stopT) + '초', '하나 · 둘 · 셋 — 멈춰서 세어요');
       else setBig('🚸 ' + F2.big, F2.sub);
+      if (st.stopT > 0 && st.stopCnt !== Math.ceil(st.stopT)) { st.stopCnt = Math.ceil(st.stopT); TG.audio.totDing(); }
       if (st.walkT > 0) {                             // ⑤ 손 잡고 천천히 — 실제로 함께 건넌다
         st.walkT -= dt;
         if (!st.crossed && st.walkT <= 0) { st.crossed = true; say('crossOk', true); TG.audio.totFanfare(); heart(5); setButton('🎉 잘했어요!', false); }
       }
-      if (st.sayCd <= 0 && st.t > 26 && !st.crossed) say('phone');
+      if (!st.held && st.sayCd <= 0 && st.t > 12) say('run');                       // 혼자 뛰어나가지 않아요(소유자)
+      else if (st.sayCd <= 0 && st.t > 26 && !st.crossed) say(st.t > 40 ? 'play' : 'phone');   // 스마트폰·이어폰 · 공놀이·장난
+
     } else if (S.id === 'belt') {
       hideSignal();
       st.beltT -= dt;
