@@ -540,7 +540,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn && car.noFlagNode !== ap.node) {
           // 기록이 붙는 순간의 사정(검증이 읽는다) — 준법 차에 신호위반이 붙는 원인을 찾으려고 남긴다
           car.sigDiag = { k: ap.node.i + ',' + ap.node.j, real: !!(signals.realInfo && signals.realInfo(ap.node)), m: ap.maneuver, d: ap.d, el: +st2.elapsed.toFixed(1), v: +car.v.toFixed(1),
-                          viol: !!car.violator, run: car.running === ap.node, lane: car.laneIdx, cs: car.cantStopNode === ap.node ? car.cantStopInfo : null, yg: car.yGoNode === ap.node ? car.yGoInfo : null };
+                          viol: !!car.violator, sr: !!car.sigRunner, run: car.running === ap.node, lane: car.laneIdx, cs: car.cantStopNode === ap.node ? car.cantStopInfo : null, yg: car.yGoNode === ap.node ? car.yGoInfo : null };
           self.stats.violations++; flag(car, 'signal', ap.node, self.witness(car));
         }
         car.running = null;
