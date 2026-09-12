@@ -1638,14 +1638,21 @@
       h += '<div class="pl-min">지도 목록(data/maps/index.json)을 읽지 못했습니다 — 코드 안 기본 지도로 돌고 있습니다.</div>';
       el.innerHTML = h; return;
     }
+    if (idx.tracks) h += '<div class="pl-min">' + esc(idx.tracks) + '</div>';   // 두 갈래를 분리한다(소유자 결정)
     h += '<div class="pl-cams">';
     idx.maps.forEach(function (m) {
-      h += '<div class="pl-cam"><span>' + esc(m.name) + (m.beta ? ' <span class="pl-beta">베타</span>' : '') + '</span>' +
+      var tag = m.kind === 'twin' ? '🛰 디지털 트윈' : '🎮 놀이·교육';
+      h += '<div class="pl-cam"><span>' + esc(m.name) + ' <span class="pl-beta">' + tag + '</span></span>' +
            '<button class="pl-tog' + (m.id === cur ? ' on' : '') + '" data-map="' + esc(m.id) + '"' + (m.id === cur ? ' disabled' : '') + '>' +
            (m.id === cur ? '사용 중' : '이 지도로') + '</button>' +
            '<span class="pl-min">' + esc(m.note || '') + '</span></div>';
     });
     h += '</div>';
+    // 트윈을 쓰고 있으면 **무엇이 실측이고 무엇이 아직 아닌지**를 화면에 그대로 보인다 — 시뮬레이션은 그 경계가 분명해야 한다
+    var rl = TG.MAP && TG.MAP.realness;
+    if (rl) { h += '<h4>🛰 이 지도의 값</h4>';
+      ['실측', '설계값', '미구현'].forEach(function (k) { if (!rl[k]) return;
+        h += '<div class="pl-min"><b>' + k + '</b> — ' + esc(rl[k].join(' · ')) + '</div>'; }); }
     h += '<div class="pl-min">새 지역을 넣는 방법 · ' + esc(idx.howtoAddMap || '') + '</div>';
     el.innerHTML = h;
     el.querySelectorAll('[data-map]').forEach(function (b) {
@@ -2305,7 +2312,9 @@
     fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
       TG.MAPS = idx;
       var pick = null;
-      (idx.maps || []).forEach(function (m) { if (m.id === want) pick = m; });
+      // 옛 이름으로 저장해 둔 기기가 있다(seocho-real → seocho-twin). alias 를 같이 본다.
+      (idx.maps || []).forEach(function (m) { if (m.id === want || (m.alias || []).indexOf(want) >= 0) pick = m; });
+      if (pick && want && pick.id !== want) TG.save.set('map', pick.id);
       if (!pick) (idx.maps || []).forEach(function (m) { if (m.id === (idx['default'] || 'seocho')) pick = m; });
       if (!pick) throw new Error('지도 목록이 비어 있습니다');
       TG.MAP_ENTRY = pick;

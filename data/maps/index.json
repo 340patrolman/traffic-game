@@ -1,13 +1,15 @@
 {
-  "schema": "tg-maps/1",
+  "schema": "tg-maps/2",
   "notice": "지도 목록. 게임은 네트워크 요청을 하지 않는다 — 지도는 이 폴더의 파일에서만 읽는다. ?map=<id> 로 열거나 교통시설 화면에서 고른다.",
+  "tracks": "소유자 결정(2026-09-12) — **두 갈래를 분리한다.** ① 기본 지도(seocho): 놀이·교육·홍보용 축약 지도. 재미와 배움이 먼저이고, 확인 안 된 실제값을 억지로 넣지 않는다. ② 디지털 트윈(seocho-twin): 시간이 걸려도 **실제값만** 쌓아 시뮬레이션 공간으로 만든다. 무엇이 실측이고 무엇이 설계값인지 지도 파일의 realness 에 적는다. 기본값은 ①이고, ②는 교통시설 화면에서 골라 들어간다.",
   "default": "seocho",
   "maps": [
     {
       "id": "seocho",
       "name": "서울 서초구",
+      "kind": "game",
       "beta": true,
-      "note": "첫 지도(베타). 5×5 축약 격자 + 순환도로(경부고속도로·올림픽대로) + 한강 3개 다리. 실제 도로 곡선·블록 크기까지는 담지 않는다.",
+      "note": "기본 지도(놀이·교육). 5×5 축약 격자(간격 80m) + 순환도로(경부고속도로·올림픽대로) + 한강 3개 다리. 실제 도로 곡선·블록 크기는 담지 않는다 — 그것은 디지털 트윈이 맡는다.",
       "file": "data/maps/seocho.json",
       "taas": "data/taas.json",
       "taasNodes": "data/taas-nodes-seocho.json",
@@ -16,11 +18,14 @@
       "region": { "siDo": "11", "guGun": "650" }
     },
     {
-      "id": "seocho-real",
-      "name": "서울 서초구 (실측 간격)",
+      "id": "seocho-twin",
+      "alias": ["seocho-real"],
+      "name": "서초구 디지털 트윈 (개발 중)",
+      "kind": "twin",
       "beta": true,
-      "note": "도로 간격을 OpenStreetMap 실측값으로 바꾼 지도. 베타의 균일 격자(80m)와 달리 간격이 제각각이다. 도로의 곡선·비스듬한 교차각은 아직 담지 않는다.",
-      "file": "data/maps/seocho-real.json",
+      "note": "시뮬레이션 공간(개발 중). 도로 간격은 OpenStreetMap 실측값, 신호 주기는 경찰청 계획값, 사고는 TAAS 실제 자료다. 아직 없는 것 — 도로 곡선·비스듬한 교차각·일방통행·시간대별 실제 교통량. 무엇이 실측이고 무엇이 설계값인지는 지도 파일 realness 에 적혀 있다.",
+      "file": "data/maps/seocho-twin.json",
+      "signalTod": "data/signal-tod-seocho.json",
       "taas": "data/taas.json",
       "taasNodes": "data/taas-nodes-seocho.json",
       "taasFatal": "data/taas-fatal-seocho.json",
@@ -28,5 +33,5 @@
       "region": { "siDo": "11", "guGun": "650" }
     }
   ],
-  "howtoAddMap": "새 지역을 넣으려면 ① data/maps/<id>.json 을 seocho.json 을 본떠 만든다(도로명·교차로명·랜드마크·지하철역·어린이보호구역 블록). ② 그 지역 TAAS CSV 를 받아 data/taas-<id>.json 으로 옮기고 maps 항목의 taas 에 적는다. ③ index.json 의 maps 에 한 줄 추가한다. 도로 격자 자체(개수·간격·차로 수)는 지금은 config.js 의 ROAD_XS·ROAD_ZS·LANES_V·LANES_H 로 고정돼 있어 모든 지도가 같은 5×5 축약 격자를 쓴다 — 지역마다 다른 격자를 쓰는 것은 다음 단계다."
+  "howtoAddMap": "새 지역을 넣으려면 ① data/maps/<id>.json 을 seocho.json 을 본떠 만든다(격자 grid + 도로명·교차로명·랜드마크·지하철역·어린이보호구역 블록). ② 그 지역 TAAS CSV 를 받아 data/taas-<id>.json 으로 옮기고 maps 항목의 taas 에 적는다. ③ index.json 의 maps 에 한 줄 추가한다. 격자(개수·간격·차로 수)는 v0.9.36 부터 지도 파일이 정한다 — 5×5 가 아니어도 된다."
 }
