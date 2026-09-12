@@ -109,7 +109,10 @@
     // **시작 화면**(부트 게이트) — 브라우저는 사용자가 누르기 전에는 오디오를 열어 주지 않는다(자동재생 정책).
     // 그래서 인트로를 **터치 뒤에** 시작한다. 그 한 번의 터치가 소리(웅장한 테마)와 진동(햅틱)을 같이 연다.
     // 소유자: 「인트로에서 사운드가 안 나오네. 스마트폰에서도 멋있는 사운드가 나와야 하고 햅틱 반응 및 충돌 진동이 울려야 함.」
-    if (noIntro || isTest) { var bg0 = $('boot'); if (bg0) bg0.style.display = 'none'; showTitle(); }
+    // ⚠ $ 는 bindUI() 안 지역 도우미다 — 여기서 쓰면 ReferenceError 가 나고,
+    //    그 밑의 requestAnimationFrame(loop) 가 아예 안 돌아 **?test=1 · ?nointro=1 에서는 게임 루프가 안 돈다**.
+    //    검사는 T.step() 으로 손수 감아 돌리므로 이것을 한 판도 잡지 못했다(v0.9.84 브라우저 페인에서 발견).
+    if (noIntro || isTest) { var bg0 = document.getElementById('boot'); if (bg0) bg0.style.display = 'none'; showTitle(); }
     else bootGate();
 
     requestAnimationFrame(loop);
@@ -799,7 +802,7 @@
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode,
             sec: [null, null, null], secCls: ['', '', ''], scT: 0, sc: 0, trace: [], bestTrace: null,
             bestSec: TG.save.get('bestsec_' + G.mode, [null, null, null]), hold: 0, lights: -1, goT: 0 };
-    document.body.classList.toggle('laptime', G.mode === 'circuit' || G.mode === 'free');   // 🏁 랩·섹터 패널은 기록을 재는 두 모드에서만
+    document.body.classList.toggle('laptime', G.mode === 'circuit' || G.mode === 'free'); hudHeightVar();   // 🏁 랩·섹터 패널은 기록을 재는 두 모드에서만
     coach = { cd: 0, lastCorner: -1, apexDone: -1, cin: false, cmin: 0, ckap: 0, coff: false, stars: 0, corners: 0 }; G.coach = coach;   // 🏁 코너 별점(검증과 근무 결과가 본다)
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
@@ -827,9 +830,9 @@
     G.pauseReasons = {}; G.paused = false; G.lastCrash = null; G.lead = null; camInit = false;
     TG.audio.stopTitleTheme(0.5);   // 출동 — 타이틀 테마를 끈다
     hud.hideTitle(); hud.hideEnd(); hud.showHud(true); hud.setScore(0); hud.setStops(0); hud.setTimer(G.timeLeft); hud.setSiren(false); hud.setTarget(null); hud.setGear('D');
-    G.state = 'play'; TG.perf.reset();
+    G.state = 'play'; TG.perf.reset(); hudHeightVar();   // 계기 칸을 띄운 즉시 높이를 잰다 — 안 재면 첫 0.5초 동안 지도·단추가 기본값(97px)으로 서서 겹친다
     if (G.mode === 'duty' || G.mode === 'chase') hud.setSiren(true);   // 하차 근무는 경광등을 켜 둔 채로 내리고, 추격전은 경광등부터 켠다
-    if (G.mode === 'free' || G.mode === 'circuit') hud.setTimerText(G.mode === 'circuit' ? '출발선을 지나면 랩 시작' : '∞ 자유 주행');
+    if (G.mode === 'free' || G.mode === 'circuit') hud.setTimerText(G.mode === 'circuit' ? '—' : '∞');
     var dmEl = document.getElementById('driveMode'); if (dmEl) dmEl.style.display = onFoot() ? 'none' : '';   // 도보 근무에는 기어가 없다
     var tlEl = document.getElementById('timerLbl');
     if (tlEl) tlEl.textContent = G.mode === 'circuit' ? '랩 타임' : (G.mode === 'free' ? '주행' : '남은 시간');   // 서킷·자유 주행은 남은 시간이 없다
@@ -840,7 +843,8 @@
     // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
-    hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    // 서킷은 출발 신호등이 화면 가운데를 쓰니 알림은 **출발 뒤에** 넣는다(startLightUpdate)
+    if (G.mode !== 'circuit') hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     if (layers && layers.hourBrief && (G.mode === 'patrol' || G.mode === 'duty')) {
       var hb = layers.hourBrief();
@@ -1071,14 +1075,12 @@
     if (!chase.car && chase.retry > 0) { chase.retry -= dt; if (chase.retry <= 0) { chase.spawn(); chase.retry = chase.car ? 0 : 3; } }
     chase.update(dt);
     chase.panel(camera);                    // 🚨 거리·검거 게이지·화면 밖 화살표(상용 감각)
+    // 패널이 이름·사유·거리·검거·칩을 모두 보이므로 **같은 말을 구간 줄과 목표 줄에 또 쓰지 않는다**(v0.9.84).
+    // 세 군데가 같은 값을 말하면 화면이 시끄럽고, 좁은 폰에서는 그 줄들이 지도·단추와 겹친다.
+    // 구간 줄은 도로 정보(시내 · 제한 50)로 돌려주고, 대상 줄은 대상을 아직 못 찾았을 때만 쓴다.
     var line = chase.line();
-    if (line) {
-      hud.setSectionText(line); var se = el('section'); if (se) se.className = 'section walk ' + (line.indexOf('⚠') >= 0 ? 'stop' : 'go');
-      if (chase.car) {
-        var cd = Math.round(Math.hypot(chase.car.pos.x - player.pos.x, chase.car.pos.z - player.pos.z));
-        hud.setTarget('🚨 ' + chase.kind.name + ' 추적 — ' + cd + 'm' + (chase.car.fleeBrake ? ' · 급제동(먼지)' : ''));
-      } else hud.setTarget('🚨 대상 확인 중');
-    }
+    if (line && chase.state !== 'follow') { hud.setSectionText(line); var se = el('section'); if (se) se.className = 'section walk ' + (line.indexOf('⚠') >= 0 ? 'stop' : 'go'); }
+    hud.setTarget(chase.state === 'follow' && !chase.car ? '🚨 대상 확인 중' : null);
     if (chase.state === 'stopped' || chase.state === 'break' || chase.state === 'lost') {
       chase.endT = (chase.endT || 0) + dt;
       if (chase.endT > 4) endShift(chase.state === 'stopped' ? '대상 검거 — 원칙대로 따라갔습니다' : chase.state === 'break' ? '추격 중단 — 무전·영상으로 처리' : '대상 놓침 — 무전 전파로 인계');
@@ -1689,7 +1691,7 @@
       dv = null;
     }
     lap.prevI = i;
-    hud.setTimerText(lap.on ? '랩 ' + fmtLap(lap.t) + (lap.best ? ' · 최고 ' + fmtLap(lap.best) : '') : (lap.best ? '최고 ' + fmtLap(lap.best) : '출발선을 지나면 랩 시작'));
+    hud.setTimerText(lap.on ? fmtLap(lap.t) : '—');   // 자세한 것은 랩 패널이 보인다 — 시간 칸은 값만(칸 이름이 이미 「랩 타임」이다)
     lapPaint(dv);
   }
   // 🏁 출발 신호등 — 적색 다섯이 하나씩 켜지고 **한꺼번에 꺼지면** 출발이다. 그동안 차는 출발선에 붙잡혀 있다.

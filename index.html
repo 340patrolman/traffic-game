@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.83">
+<link rel="stylesheet" href="css/style.css?v=0.9.84">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -30,26 +30,26 @@
       <span id="sirenState"></span>
     </div>
     <div class="hb-bot"><span id="section" class="section">시내 · 제한 50</span><span id="sigWait" class="sigwait" hidden></span></div>
+    <!-- 🚨 추격 패널(추격전에서만) — 거리 바·검거 게이지·상태 칩. 소유자: 「상용 퀄리티 높은 게임처럼」 -->
+    <div id="chaseHud">
+      <div class="ch-top"><span class="ch-name">대상 확인 중</span><span class="ch-why"></span></div>
+      <div class="ch-bar"><div class="ch-zone"></div><div class="ch-mark"></div><div class="ch-num">0m</div></div>
+      <div class="ch-prog"><div class="ch-fill"></div><div class="ch-ptxt">검거까지</div></div>
+      <div class="ch-chips"><span class="ch-siren">경광등</span><span class="ch-coop">단독</span><span class="ch-dist">적정</span></div>
+    </div>
+    <!-- 🏁 연습 서킷: 출발 신호등(3·2·1) · 랩·섹터 패널. 소유자: 「연습 서킷을 제대로 해보자」 -->
+    <div id="lapPanel">
+      <div class="lp-top"><span class="lp-cur">0:00.00</span><span class="lp-delta"></span></div>
+      <div class="lp-secs"><span class="lp-s">S1 —</span><span class="lp-s">S2 —</span><span class="lp-s">S3 —</span></div>
+      <div class="lp-foot"><span class="lp-best">최고 —</span><span class="lp-last"></span></div>
+    </div>
     <div id="stopbarWrap"><div class="lbl">정지거리 <span id="stopdist">—</span></div><div class="bar"><div id="stopbar"></div></div></div>
     <div id="gap" class="gap"></div>
   </div>
   <canvas id="minimap" width="360" height="354" title="미니맵 — 누르면 확대(1→2→4배), 끌면 자리를 옮깁니다(기기마다 가리는 곳이 달라서)"></canvas>
   <div id="notice" class="notice"></div>
-  <!-- 🚨 추격 패널(추격전에서만) — 거리 바·검거 게이지·상태 칩. 소유자: 「상용 퀄리티 높은 게임처럼」 -->
-  <div id="chaseHud">
-    <div class="ch-top"><span class="ch-name">대상 확인 중</span><span class="ch-why"></span></div>
-    <div class="ch-bar"><div class="ch-zone"></div><div class="ch-mark"></div><div class="ch-num">0m</div></div>
-    <div class="ch-prog"><div class="ch-fill"></div><div class="ch-ptxt">검거까지</div></div>
-    <div class="ch-chips"><span class="ch-siren">경광등</span><span class="ch-coop">단독</span><span class="ch-dist">적정</span></div>
-  </div>
   <div id="chaseArrow"><span>◀</span></div>
-  <!-- 🏁 연습 서킷: 출발 신호등(3·2·1) · 랩·섹터 패널. 소유자: 「연습 서킷을 제대로 해보자」 -->
   <div id="startLights"><i></i><i></i><i></i><i></i><i></i><b class="sl-txt">준비</b></div>
-  <div id="lapPanel">
-    <div class="lp-top"><span class="lp-cur">0:00.00</span><span class="lp-delta"></span></div>
-    <div class="lp-secs"><span class="lp-s">S1 —</span><span class="lp-s">S2 —</span><span class="lp-s">S3 —</span></div>
-    <div class="lp-foot"><span class="lp-best">최고 —</span><span class="lp-last"></span></div>
-  </div>
   <div id="target"></div>
   <div id="hint"></div>
   <div id="vignette"></div>
@@ -320,47 +320,47 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.83"></script>
-<script src="js/config.js?v=0.9.83"></script>
-<script src="js/rng.js?v=0.9.83"></script>
-<script src="js/save.js?v=0.9.83"></script>
-<script src="js/perf.js?v=0.9.83"></script>
-<script src="js/emblem.js?v=0.9.83"></script>
-<script src="js/textures.js?v=0.9.83"></script>
-<script src="js/audio.js?v=0.9.83"></script>
-<script src="js/city.js?v=0.9.83"></script>
-<script src="js/world.js?v=0.9.83"></script>
-<script src="js/terrain.js?v=0.9.83"></script>
-<script src="js/weather.js?v=0.9.83"></script>
-<script src="js/signals.js?v=0.9.83"></script>
-<script src="js/vehmesh.js?v=0.9.83"></script>
-<script src="js/vehicle.js?v=0.9.83"></script>
-<script src="js/traffic.js?v=0.9.83"></script>
-<script src="js/peds.js?v=0.9.83"></script>
-<script src="js/character.js?v=0.9.83"></script>
-<script src="js/vfx.js?v=0.9.83"></script>
-<script src="js/response.js?v=0.9.83"></script>
-<script src="js/junction.js?v=0.9.83"></script>
-<script src="js/chase.js?v=0.9.83"></script>
-<script src="js/incident.js?v=0.9.83"></script>
-<script src="js/dispatch.js?v=0.9.83"></script>
-<script src="js/intro.js?v=0.9.83"></script>
-<script src="js/walker.js?v=0.9.83"></script>
-<script src="js/rail.js?v=0.9.83"></script>
-<script src="js/enforcement.js?v=0.9.83"></script>
-<script src="js/signaltod.js?v=0.9.83"></script>
-<script src="js/facil.js?v=0.9.83"></script>
-<script src="js/layers.js?v=0.9.83"></script>
-<script src="js/study.js?v=0.9.83"></script>
-<script src="js/drunkproc.js?v=0.9.83"></script>
-<script src="js/kidcourse.js?v=0.9.83"></script>
-<script src="js/tot.js?v=0.9.83"></script>
-<script src="js/career.js?v=0.9.83"></script>
-<script src="js/hudpos.js?v=0.9.83"></script>
-<script src="js/hud.js?v=0.9.83"></script>
-<script src="js/minimap.js?v=0.9.83"></script>
-<script src="js/input.js?v=0.9.83"></script>
-<script src="js/main.js?v=0.9.83"></script>
+<script src="lib/three.min.js?v=0.9.84"></script>
+<script src="js/config.js?v=0.9.84"></script>
+<script src="js/rng.js?v=0.9.84"></script>
+<script src="js/save.js?v=0.9.84"></script>
+<script src="js/perf.js?v=0.9.84"></script>
+<script src="js/emblem.js?v=0.9.84"></script>
+<script src="js/textures.js?v=0.9.84"></script>
+<script src="js/audio.js?v=0.9.84"></script>
+<script src="js/city.js?v=0.9.84"></script>
+<script src="js/world.js?v=0.9.84"></script>
+<script src="js/terrain.js?v=0.9.84"></script>
+<script src="js/weather.js?v=0.9.84"></script>
+<script src="js/signals.js?v=0.9.84"></script>
+<script src="js/vehmesh.js?v=0.9.84"></script>
+<script src="js/vehicle.js?v=0.9.84"></script>
+<script src="js/traffic.js?v=0.9.84"></script>
+<script src="js/peds.js?v=0.9.84"></script>
+<script src="js/character.js?v=0.9.84"></script>
+<script src="js/vfx.js?v=0.9.84"></script>
+<script src="js/response.js?v=0.9.84"></script>
+<script src="js/junction.js?v=0.9.84"></script>
+<script src="js/chase.js?v=0.9.84"></script>
+<script src="js/incident.js?v=0.9.84"></script>
+<script src="js/dispatch.js?v=0.9.84"></script>
+<script src="js/intro.js?v=0.9.84"></script>
+<script src="js/walker.js?v=0.9.84"></script>
+<script src="js/rail.js?v=0.9.84"></script>
+<script src="js/enforcement.js?v=0.9.84"></script>
+<script src="js/signaltod.js?v=0.9.84"></script>
+<script src="js/facil.js?v=0.9.84"></script>
+<script src="js/layers.js?v=0.9.84"></script>
+<script src="js/study.js?v=0.9.84"></script>
+<script src="js/drunkproc.js?v=0.9.84"></script>
+<script src="js/kidcourse.js?v=0.9.84"></script>
+<script src="js/tot.js?v=0.9.84"></script>
+<script src="js/career.js?v=0.9.84"></script>
+<script src="js/hudpos.js?v=0.9.84"></script>
+<script src="js/hud.js?v=0.9.84"></script>
+<script src="js/minimap.js?v=0.9.84"></script>
+<script src="js/input.js?v=0.9.84"></script>
+<script src="js/main.js?v=0.9.84"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

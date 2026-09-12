@@ -215,6 +215,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     // 매 프레임 자기를 밀어낸다 — 교차로 근무 경찰관이 1초에 37m 를 미끄러져 벌판으로 나갔다(소유자: 「벌판에 서있다」).
     if (self.player && self.player.mesh && self.player !== self.walker && self.player.wid && self.player.len) cars.push(self.player);
     var list = bodies();
+    for (var z0 = 0; z0 < list.length; z0++) { list[z0].__inCar = false; list[z0].__jamCar = null; }
 
     for (var i = 0; i < cars.length; i++) {
       var c = cars[i], h = c.heading || 0, fx = Math.sin(h), fz = Math.cos(h);
@@ -224,6 +225,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
         var dx = p.pos.x - c.pos.x, dz = p.pos.z - c.pos.z;
         var al = dx * fx + dz * fz, la = dx * -fz + dz * fx;         // 차체 국소 좌표(앞뒤, 좌우)
         if (Math.abs(al) >= hl || Math.abs(la) >= hw) continue;      // 차체 밖
+        p.__inCar = true; p.__jamCar = c;
         // 사각형 안이다 — 빠져나갈 거리가 짧은 쪽으로 민다
         var outL = hl - Math.abs(al), outW = hw - Math.abs(la);
         // 건너는 사람이 **선 차에 막히면**(밀려나는 방향이 자기가 가려는 방향의 반대) 차를 돌아서 간다. 되밀리기만 하면 매 프레임 같은 자리로 돌아와
@@ -241,6 +243,29 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
           if (blocked && (fx * s2 * pf[0] + fz * s2 * pf[1]) < -0.3) { var tu = pf[0] * -fz + pf[1] * fx, sgl = Math.abs(tu) > 0.2 ? (tu > 0 ? 1 : -1) : (la >= 0 ? 1 : -1), slw = Math.min(Math.max(hw - la * sgl, 0), sl); p.pos.x += -fz * sgl * slw; p.pos.z += fx * sgl * slw; p.detour = 2.0; }
         }
       }
+    }
+    // 🚧 교착 탈출 — 선 차 안에 갇힌 채 되밀리기만 하면 **차는 사람을 기다리고 사람은 차에 막혀** 둘이 영원히 선다.
+    // v0.9.45·v0.9.47 에서 43~84초·35초 교착을 잡았는데 v0.9.84 검증에서 **121초**가 또 나왔다
+    // (실측: 선 해치백 1.9m · 제자리 112.5초 · 보행 신호는 적색 · 사람 평균 0.12m/s).
+    // 위의 「돌아 가기」는 밀린 방향과 가려는 방향이 마주 볼 때만 돈다 — 직각으로 끼면 조건에 안 걸린다.
+    // 그래서 **1.2초 넘게 차 안에 갇히면 방향을 한 번 골라 못 박고**(jamDir) 차의 앞뒤 축으로 빠져나간다.
+    // 매 프레임 방향을 다시 고르면 모서리에서 좌우로 진동해 제자리가 된다 — 못 박는 것이 핵심이다.
+    for (var z1 = 0; z1 < list.length; z1++) {
+      var q = list[z1];
+      if (!q.__inCar) { q.jamFree = (q.jamFree || 0) + dt; if (q.jamFree > 1.5) { q.jamT = 0; q.jamDir = 0; } continue; }
+      q.jamFree = 0;
+      if (q === self.walker || (q.state !== 'cross' && q.state !== 'jaywalk')) continue;
+      q.jamT = (q.jamT || 0) + dt;
+      if (q.jamT < 1.2) continue;
+      var cj = q.__jamCar; if (!cj) continue;
+      var hj = cj.heading || 0, fxj = Math.sin(hj), fzj = Math.cos(hj), pfj = TG.DIR_VEC[q.d] || [0, 1];
+      if (!q.jamDir) {
+        var alongF = pfj[0] * fxj + pfj[1] * fzj;                                  // 가려는 쪽이 차의 앞뒤 축과 맞는 정도
+        var alj = (q.pos.x - cj.pos.x) * fxj + (q.pos.z - cj.pos.z) * fzj;
+        q.jamDir = alongF > 0.15 ? 1 : alongF < -0.15 ? -1 : (alj >= 0 ? 1 : -1);   // 애매하면 가까운 끝(앞 또는 뒤)으로
+      }
+      var esc = 1.6 * dt;                                                          // 사람 걸음보다 조금 느리게 비껴 나간다
+      q.pos.x += fxj * q.jamDir * esc; q.pos.z += fzj * q.jamDir * esc; q.detour = 2.0;
     }
   }
 

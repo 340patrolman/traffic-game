@@ -97,8 +97,12 @@ body.portrait .tbtn.gas{width:88px;height:88px} body.portrait .tbtn.brake{width:
 body.portrait .tbtn.rev{width:60px;height:60px} body.portrait .tbtn.siren{width:60px;height:60px}
 body.portrait .tbtn.small{top:calc(164px + var(--sa-t))}
 body.portrait .notice{top:calc(var(--hudh,97px) + 178px + var(--sa-t));max-width:94vw;white-space:normal;font-size:13px}   /* 계기 칸·지도·작은 단추 아래로 — 전에는 단추 위에 얹혔다 */
-body.portrait #target{top:calc(152px + var(--sa-t))}
-body.portrait #hint{top:calc(182px + var(--sa-t));max-width:94vw;white-space:normal}
+/* 계기 칸 키가 모드마다 다르다(추격·서킷은 패널 한 줄이 더 붙는다) —
+   목표·안내 줄도 **재어 놓은 높이(--hudh)**를 보고 선다. 픽셀로 못 박아 두면 패널 위에 겹쳐 글이 글을 덮는다(v0.9.84 실측).
+   기존 값(152px·182px)은 --hudh 가 97px 일 때와 같다 — 다른 모드의 모습은 바뀌지 않는다. */
+body.portrait #target{top:calc(var(--hudh,97px) + 55px + var(--sa-t))}
+body.portrait #hint{top:calc(var(--hudh,97px) + 85px + var(--sa-t));max-width:94vw;white-space:normal}
+body.portrait.chasing #hint{top:calc(var(--hudh,97px) + 270px + var(--sa-t))}   /* 추격전은 알림 아래로 — 지도와 겹치지 않게 */
 
 /* ---------- 오버레이 ---------- */
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,rgba(20,30,50,.9),rgba(6,8,14,.96));z-index:10;padding:16px}
@@ -665,11 +669,14 @@ body.totmode .tbtn.totnext{display:flex}
 
 /* 🚨 추격 패널 — 상용 추격전의 감각: **거리 게이지**와 **검거 게이지**를 눈으로 본다(소유자 2026-09-12 「상용 퀄리티 높은 게임처럼」).
    추격전에서만 뜬다(body.chasing). 숫자만 있던 줄로는 「지금 너무 붙었나」를 0.5초에 읽을 수 없었다. */
-#chaseHud{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hudh,97px) + 14px + var(--sa-t));z-index:24;
-  width:min(88vw,372px);background:rgba(9,14,26,.74);border:1px solid rgba(255,96,96,.48);border-radius:14px;padding:8px 10px 9px;
-  box-shadow:0 6px 22px rgba(0,0,0,.45)}
-body.chasing #chaseHud{display:block}
+/* ⚠ 자리 — 처음에는 화면 가운데 위에 띄웠는데 **미니맵과 ☰ 메뉴·시점·배속 단추를 덮었다**(소유자 폰 크기 375x812 실측:
+   HUD 막대 y 8~142 · 단추 두 줄 y 154~242 · 미니맵 x 237~367 · 알림 y 294~381 — 위쪽에 빈 자리가 없다).
+   그래서 **계기 칸(#hudbar) 안의 한 줄**로 넣는다. 계기 칸 높이는 0.5초마다 다시 재어 `--hudh` 로 넘기고,
+   지도·단추·알림이 모두 그 값을 보고 서므로 **패널이 뜨면 아래 것들이 스스로 내려간다**(겹침이 구조적으로 불가능해진다). */
+#chaseHud{display:none;margin-top:6px;background:rgba(26,8,12,.55);border:1px solid rgba(255,96,96,.42);border-radius:10px;padding:6px 8px 7px}
+#lapPanel{display:none;margin-top:6px;background:rgba(10,16,30,.5);border:1px solid rgba(160,190,255,.28);border-radius:10px;padding:6px 8px 7px}
 #chaseHud .ch-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+body.chasing #chaseHud{display:block}
 #chaseHud .ch-name{font-size:15px;font-weight:900;color:#ffdada;letter-spacing:.2px;white-space:nowrap}
 #chaseHud .ch-why{font-size:11px;font-weight:700;color:#ffb9b9;opacity:.92;text-align:right;word-break:keep-all}
 #chaseHud .ch-bar{position:relative;height:17px;margin-top:7px;border-radius:9px;overflow:hidden;
@@ -703,21 +710,20 @@ body.sirenlit::before{content:'';position:fixed;inset:0;z-index:11;pointer-event
 @media (prefers-reduced-motion:reduce){
   body.sirenlit::before{animation:none;box-shadow:inset 42px 0 72px -34px rgba(64,124,255,.45), inset -42px 0 72px -34px rgba(255,64,64,.45)}
   #chaseArrow{animation:none}}
-@media (max-width:380px){#chaseHud{width:94vw;padding:7px 8px 8px}#chaseHud .ch-name{font-size:14px}#chaseHud .ch-why{font-size:10px}}
+@media (max-width:380px){#chaseHud{padding:5px 7px 6px}#chaseHud .ch-name{font-size:14px}#chaseHud .ch-why{font-size:10px}}
 
 /* 🏁 연습 서킷 — 출발 신호등과 랩·섹터 패널. 상용 레이싱이 늘 두는 둘이다(소유자 2026-09-12 「연습 서킷을 제대로」).
    서킷·자유 주행에서만 뜬다(body.laptime). 랩 시계 한 줄로는 「지금 빠른가」를 알 수 없다 — 섹터와 델타가 그것을 말한다. */
-#startLights{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hudh,97px) + 26px + var(--sa-t));z-index:26;
-  gap:8px;align-items:center;flex-direction:column}
+/* 가로 한 줄로 다섯(세로로 쌓여 기둥처럼 보였다) · 화면 가운데의 빈 곳에 둔다(지도 아래) */
+#startLights{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hudh,97px) + 230px + var(--sa-t));z-index:26;pointer-events:none;
+  justify-content:center;align-items:center;flex-wrap:wrap;gap:0}
+#startLights b{flex:0 0 100%;text-align:center}
 body.startlit #startLights{display:flex}
 #startLights i{display:inline-block;width:26px;height:26px;margin:0 5px;border-radius:50%;background:rgba(255,255,255,.10);
   border:2px solid rgba(255,255,255,.30);vertical-align:middle}
 #startLights i.on{background:#e12d2d;border-color:#ff8a8a;box-shadow:0 0 16px rgba(255,60,60,.85)}
 #startLights i.go{background:#2ed06a;border-color:#b8f7cf;box-shadow:0 0 18px rgba(46,208,106,.9)}
 #startLights b{display:block;margin-top:6px;font-size:20px;font-weight:900;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8);letter-spacing:1px}
-#lapPanel{display:none;position:fixed;left:calc(8px + var(--sa-l));top:calc(var(--hudh,97px) + 12px + var(--sa-t));z-index:23;
-  min-width:150px;background:rgba(9,14,26,.70);border:1px solid rgba(160,190,255,.30);border-radius:12px;padding:7px 9px 8px;
-  box-shadow:0 5px 18px rgba(0,0,0,.4)}
 body.laptime #lapPanel{display:block}
 #lapPanel .lp-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 #lapPanel .lp-cur{font-size:19px;font-weight:900;color:#eaf1ff;font-variant-numeric:tabular-nums;letter-spacing:.3px}
@@ -731,4 +737,6 @@ body.laptime #lapPanel{display:block}
 #lapPanel .lp-s.up{background:#7d2b2b;color:#ffe9e9}
 #lapPanel .lp-s.best{background:#6b3fa0;color:#f3e9ff}
 #lapPanel .lp-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:10.5px;font-weight:700;color:#b9c6de;font-variant-numeric:tabular-nums}
-@media (max-width:380px){#lapPanel{min-width:132px;padding:6px 7px 7px}#lapPanel .lp-cur{font-size:17px}#startLights i{width:22px;height:22px;margin:0 4px}}
+@media (max-width:380px){#lapPanel{padding:5px 7px 6px}#lapPanel .lp-cur{font-size:17px}#startLights i{width:22px;height:22px;margin:0 4px}}
+
+@media (max-height:520px){#startLights{top:calc(var(--hudh,97px) + 56px + var(--sa-t))}}   /* 눕힌 폰: 아래가 짧다 */

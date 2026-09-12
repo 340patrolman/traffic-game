@@ -43,7 +43,7 @@ TG.Chase = function (game) {
       if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
       game.slowmo = 0.85; game.punch = 1.0; if (game.hud.vignette) game.hud.vignette(0.3);   // 대상 발견 순간 연출(짧게)
       if (TG.audio.chaseTheme) TG.audio.chaseTheme();   // 추격 음악 시작 — 대상과 가까울수록 밝고 크게(chaseTension)
-      document.body.classList.add('chasing');
+      chasingClass(true);
       return car;
     }
     return null;
@@ -80,6 +80,8 @@ TG.Chase = function (game) {
   this.hidePanel = function () {
     var arrow = document.getElementById('chaseArrow'); if (arrow) arrow.className = '';
   };
+  // 패널은 계기 칸(#hudbar) 안의 한 줄이다 — 막대가 커지면 --hudh 를 곧바로 다시 잰다(아래 지도·단추가 그 값을 보고 선다)
+  function chasingClass(on) { document.body.classList.toggle('chasing', !!on); if (game.hudHeightVar) game.hudHeightVar(); }
   function dist() {
     var pl = game.player, c = self.car; if (!c) return 1e9;
     return Math.hypot(c.pos.x - pl.pos.x, c.pos.z - pl.pos.z);
@@ -104,7 +106,7 @@ TG.Chase = function (game) {
   function breakOff(why, bonus) {
     self.state = 'break'; self.log.result = 'break';
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.4);
-    document.body.classList.remove('chasing');
+    chasingClass(false);
     if (self.car) { self.car.flee = false; self.car.chase = false; self.car.cruise = 12; }
     game.player.setSiren(false); TG.audio.setSiren(false); game.hud.setSiren(false);
     game.addScore(bonus, null); game.stats.chaseBreak = (game.stats.chaseBreak || 0) + 1;
@@ -118,7 +120,7 @@ TG.Chase = function (game) {
   function caught(coop) {
     self.state = 'stopped'; self.log.result = 'caught'; self.log.coop = !!coop;
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.6);
-    document.body.classList.remove('chasing');
+    chasingClass(false);
     game.slowmo = 1.1; game.punch = 1.2;   // 검거 순간: 짧은 슬로모션 + 화각 펀치(재미)
     var c = self.car; if (c) { c.flee = false; c.chase = false; c.cruise = 0; c.violation = c.violation || { type: self.kind.id === 'drunk' ? 'drunk' : 'license', seen: true }; }
     var bonus = S.chaseCatch + (coop ? 20 : 0);
@@ -131,7 +133,7 @@ TG.Chase = function (game) {
   this.update = function (dt) {
     var pl = game.player, c = self.car;
     if (self.state !== 'follow' || !c) return;
-    if (traffic.cars.indexOf(c) < 0) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); document.body.classList.remove('chasing'); game.hud.notice('대상 차량을 놓쳤습니다 — 📡 무전 전파로 인접 순찰차에 인계됩니다', 'warn', 4200); return; }
+    if (traffic.cars.indexOf(c) < 0) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); chasingClass(false); game.hud.notice('대상 차량을 놓쳤습니다 — 📡 무전 전파로 인접 순찰차에 인계됩니다', 'warn', 4200); return; }
     var d = dist(), bh = behind(), siren = pl.siren, radioed = !!(c.radioed || c.pursuitOk);
     self.log.radioed = self.log.radioed || radioed;
     self.t.follow += dt;
@@ -194,7 +196,7 @@ TG.Chase = function (game) {
       }
       self.t.warn -= dt;
     }
-    if (d > 220) { self.t.lost += dt; if (self.t.lost > 12) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); document.body.classList.remove('chasing'); game.hud.notice('대상을 시야에서 놓쳤습니다 — 📡 전파된 수배로 인접 순찰차가 처리합니다', 'warn', 4600); } }
+    if (d > 220) { self.t.lost += dt; if (self.t.lost > 12) { self.state = 'lost'; self.log.result = 'lost'; if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.2); chasingClass(false); game.hud.notice('대상을 시야에서 놓쳤습니다 — 📡 전파된 수배로 인접 순찰차가 처리합니다', 'warn', 4600); } }
   };
   // HUD 한 줄
   this.line = function () {
@@ -207,7 +209,7 @@ TG.Chase = function (game) {
   this.dispose = function () {
     self.hidePanel();
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(0.6);
-    document.body.classList.remove('chasing');
+    chasingClass(false);
     if (self.car) { self.car.flee = false; self.car.chase = false; }
     self.car = null; self.state = 'idle';
   };
