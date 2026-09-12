@@ -398,6 +398,14 @@ TG.Layers = function (game, city, cfg, scene) {
     } else {
       h += '<div class="pl-note">data/taas.json 을 읽지 못했습니다 — file:// 로 열면 브라우저가 막습니다. 정적 서버나 GitHub Pages 로 여세요.</div>';
     }
+    // T2(차로 수·일방통행): 자료가 막혀 있다는 사실을 화면에 그대로 적는다 — 「확인 중」을 숨기지 않는다.
+    var rd = self.raw('twinRoads');
+    if (rd && rd.t2_lanes) {
+      h += '<div class="pl-note">🛰 차로 수·일방통행(T2) — ' + (rd.t2_lanes.verified ? '확인됨' : '확인 중') + '</div>';
+      h += '<div class="pl-min">' + lesc(rd.t2_lanes.status) + '</div>';
+      h += '<div class="pl-min">' + lesc(rd.t2_lanes.why) + '</div>';
+      h += '<div class="pl-min">' + lesc(rd.t2_lanes.askList) + '</div>';
+    }
     // T5: 실제 ↔ 시뮬 비교. 표본이 적으면 순위를 말하지 않는다.
     var cmp = self.compare(6);
     if (cmp) {
