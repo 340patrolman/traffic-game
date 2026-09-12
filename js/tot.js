@@ -75,6 +75,7 @@ TG.Tot = function (game) {
     hold:    '길을 건널 때는 어른 손을, 보호자 손을 꼭 잡아요',
     holdOk:  '어른 손을 꼭 잡았어요. 참 잘했어요',
     notYet:  '아직이야. 어른 손을 먼저 잡아요',
+    crossing: '차를 보면서 천천히 걸어요. 다 건널 때까지 멈추지 않아요',
     crossOk: '다 건넜어요! 참 잘했어요',
     back:    '신호를 기다릴 때는 한 발 뒤로 물러나요. 차에서 멀리 떨어져서 기다려요',
 
@@ -166,7 +167,7 @@ TG.Tot = function (game) {
     var W = G.walker; if (!W || !TG.Character || !scene) return;
     var f = [Math.sin(st.heading0), Math.cos(st.heading0)], r = [-f[1], f[0]];
     st.mates = [];
-    var spots = [[-1.6, 1.0], [-2.8, 0.2], [-1.2, 2.2]];            // (옆, 앞) — 어깨 뒤 카메라가 다 담는 자리          // (옆, 뒤) — 카메라(+r 쪽)를 가리지 않게 **왼쪽·뒤**로만
+    var spots = [[1.0, 1.2], [-0.9, 1.6], [1.3, -0.4]];             // (옆, 앞) — 횡단보도 앞에 나란히 선다(보도 폭 3m 안)          // (옆, 뒤) — 카메라(+r 쪽)를 가리지 않게 **왼쪽·뒤**로만
     for (var i = 0; i < spots.length; i++) {
       var mx = W.pos.x + r[0] * spots[i][0] + f[0] * spots[i][1];
       var mz = W.pos.z + r[1] * spots[i][0] + f[1] * spots[i][1];
@@ -174,14 +175,19 @@ TG.Tot = function (game) {
       if (a) { if (a.rig && a.rig.group) a.rig.group.scale.setScalar(0.82); a.home = { x: mx, z: mz }; st.mates.push(a); }
     }
     // 선생님은 **길 쪽**(카메라 반대편)에 서서 아이들을 본다 — 카메라를 막지 않고, 수신호가 차도 쪽으로 보인다
-    st.officer = TG.Character.actor(scene, terrain, 'officer', W.pos.x - r[0] * 1.7 + f[0] * 3.6, W.pos.z - r[1] * 1.7 + f[1] * 3.6, st.heading0 + Math.PI * 0.9);   // 앞에서 아이들을 마죽 보고 선다
+    st.officer = TG.Character.actor(scene, terrain, 'officer', W.pos.x - r[0] * 1.2 + f[0] * 2.6, W.pos.z - r[1] * 1.2 + f[1] * 2.6, st.heading0 - Math.PI * 0.5);   // 횡단보도 연석에서 차도를 보고 수신호
   }
   function castUpdate(dt, S) {
     var W = G.walker; if (!W) return;
-    var walking = !!(S && ((S.id === 'ice' && st.ice && st.ice.green) || (S.id === 'cross' && st.walkT > 0)));
+    var crossingNow = self.crossing();
+    var walking = crossingNow || !!(S && ((S.id === 'ice' && st.ice && st.ice.green) || (S.id === 'cross' && st.walkGo)));
     for (var i = 0; i < (st.mates || []).length; i++) {
       var m = st.mates[i]; if (!m) continue;
-      if (walking) {                                                  // 초록불·건널 때는 또래도 같이 걷는다(제자리 걸음)
+      if (crossingNow) {                                              // 건널 때는 **아이를 따라 함께 건넌다**
+        var fc = [Math.sin(st.heading0), Math.cos(st.heading0)], rc = [-fc[1], fc[0]];
+        var off = [[-1.2, -1.0], [1.1, -1.4], [-0.2, -2.2]][i] || [0, -1.5];
+        m.goTo(W.pos.x + rc[0] * off[0] + fc[0] * off[1], W.pos.z + rc[1] * off[0] + fc[1] * off[1], 1.25);
+      } else if (walking) {                                           // 초록불에 제자리 걸음
         st.bob = (st.bob || 0) + dt;
         var fb = [Math.sin(st.heading0), Math.cos(st.heading0)], amt = Math.sin(st.bob * 1.6 + i) * 0.5;
         m.goTo(m.home.x + fb[0] * amt, m.home.z + fb[1] * amt, 0.5);
@@ -192,7 +198,7 @@ TG.Tot = function (game) {
     }
     if (st.officer) {
       var o = st.officer;
-      o.gesture = (S && S.id === 'cross' && st.walkT > 0) ? 'stop' : ((S && S.id === 'ice' && !(st.ice && st.ice.green)) ? 'stop' : null);
+      o.gesture = (crossingNow || (S && S.id === 'ice' && !(st.ice && st.ice.green))) ? 'stop' : null;   // 건널 때·기다릴 때 정지 수신호
       o.lookAtPos(W.pos); o.smile = true;
       o.update(dt, TG.audio.speaking === 'narrator');
     }
@@ -202,10 +208,8 @@ TG.Tot = function (game) {
   function syncSignal(walkGreen) {
     var nd = st.node, C = G.city, S2 = G.signals;
     if (!nd || !C || !S2 || !S2.set) return;
-    var sv = sideDir(), vert = sv[1] !== 0;
-    var crossAxis = vert ? 'v' : 'h';                                 // 아이가 건너는 도로
-    S2.set(nd, walkGreen ? (vert ? 'h' : 'v') : crossAxis, 'green');  // 보행 초록 = 직각 도로 차량 녹색
-    st.crossAxis = crossAxis;
+    var cross = st.crossAxis || 'h';                                  // 아이가 건너는 도로는 crossSetup 이 정한다
+    S2.set(nd, walkGreen ? (cross === 'v' ? 'h' : 'v') : cross, 'green');   // 보행 초록 = **직각 도로 차량 녹색**
   }
 
   // ---------- 시작 ----------
@@ -222,6 +226,8 @@ TG.Tot = function (game) {
     st.node = G.city && G.city.nearestNode ? G.city.nearestNode(W.pos.x, W.pos.z) : null;   // 인도·차도·횡단보도를 짚을 기준
     st.bear = TG.Character.actor(scene, terrain, 'civilian', W.pos.x - 1.25, W.pos.z + 0.2, W.heading);
     bearify(st.bear);
+    if (G.signals && G.signals.setRealOff && st.node) G.signals.setRealOff(st.node, true);   // 교실 동안은 화면이 신호를 잡는다
+    crossSetup();
     stageCast();
     hearts(0); say('open', true); next();
     return true;
@@ -232,6 +238,7 @@ TG.Tot = function (game) {
     whereHide();
     if (G.walker && G.walker.setUmbrella) G.walker.setUmbrella(false);
     if (st) stopCarsForCross(false);
+    if (st && st.node && G.signals && G.signals.restoreReal) G.signals.restoreReal(st.node);   // 실측 현시를 되돌린다
     if (st && st.rainOn && G.weather) G.weather.set('clear');
     if (G.walker && G.walker.setMarker) { G.walker.setMarker(null); G.walker.markerKeep = false; }
     if (st && st.bear && st.bear.dispose) st.bear.dispose();
@@ -268,7 +275,7 @@ TG.Tot = function (game) {
     if (S.id === 'hold') { iceLook(true); say('hold', true); }
     stopCarsForCross(S.id === 'cross');
     if (S.id === 'cross') syncSignal(true);           // 초록불에서 다섯 걸음을 배운다(수신호로 차도 세운다)
-    if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; st.stopT = 0; st.stopCnt = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
+    if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; st.walkGo = false; st.stopT = 0; st.stopCnt = 0; crossSetup(); say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
     if (S.id === 'bright') { st.night = true; if (G.weather) G.weather.set('night'); setCoat(null); say('dark', true); }
   }
@@ -396,13 +403,14 @@ TG.Tot = function (game) {
     st.whereItems = null; st.whereGrp = null;
   }
 
+  // 아이가 선 보도가 어느 쪽으로 뻗는지 — **건널 도로(st.crossAxis)**에서 바로 나온다.
+  // 예전에는 「가로 거리와 보도선을 견줘」 골랐는데, 교실 자리가 **모퉁이**(두 보도가 만나는 곳)로 옮겨지면서
+  // 0.25m 차이로 축이 뒤집혔다 — 그러면 신호도 반대 축을 켜서 보행 초록이 안 들어온다(실측).
   function sideDir() {
-    var W = G.walker, nd = st.node, C = G.city;
-    if (!W || !nd || !C || !C.sideOff) return [0, 1];
-    var dV = Math.abs(Math.abs(W.pos.x - nd.x) - C.sideOff('v', nd.i));
-    var dH = Math.abs(Math.abs(W.pos.z - nd.z) - C.sideOff('h', nd.j));
-    if (dV <= dH) return [0, (W.pos.z - nd.z) >= 0 ? 1 : -1];      // 남북 도로 보도 → 보도는 z 로 뻗는다
-    return [(W.pos.x - nd.x) >= 0 ? 1 : -1, 0];
+    var W = G.walker, nd = st.node;
+    if (!W || !nd) return [0, 1];
+    if ((st.crossAxis || 'h') === 'h') return [(W.pos.x - nd.x) >= 0 ? 1 : -1, 0];   // 동서 도로를 건넌다 → 보도는 x 로 뻗는다
+    return [0, (W.pos.z - nd.z) >= 0 ? 1 : -1];
   }
 
   function whereSpot(k) {
@@ -481,6 +489,36 @@ TG.Tot = function (game) {
     if (G.hud && G.hud.burst) G.hud.burst('🤝');
   }
   // 🚸 **원문 5단계**. 단추를 누를 때마다 한 걸음. **손을 안 잡았으면 잠긴다**(혼자 건너기 엔딩 없음).
+  // ---------- 🚸 실제 횡단(개연성) ----------
+  // 소유자(2026-09-12): 「초록불이 나오면 **땡 하며 횡단보도를 건너야** 하는데 … 현실성을 높이자.」
+  // 그래서 얼음땡의 초록불과 다섯 걸음의 ⑤ 는 **정말로 횡단보도를 건넌다**.
+  //  ① 앞(heading0)이 곧 횡단 방향이다 — 아이는 횡단보도 띠 가운데 x 에 서 있으므로 앞으로 걸으면 줄무늬 위를 간다.
+  //  ② **건너는 동안 보행 초록을 붙잡는다**(syncSignal(true) 을 매 프레임) — 중간에 적색이 되면 아이를 길에 세우게 된다.
+  //     시행규칙 별표2 도 「이미 건너는 사람은 신속히 건넌다」다. 절대 길 위에서 얼음하지 않는다.
+  //  ③ 다 건너면 하트·박수 → **돌아선다**(다음 초록불에 되돌아 건넌다).
+  function crossProgress() {
+    var W = G.walker; if (!W || !st.stand || !st.fwd) return 0;
+    return (W.pos.x - st.stand.x) * st.fwd[0] + (W.pos.z - st.stand.z) * st.fwd[1];
+  }
+  function crossSetup() {                                  // 지금 선 자리를 기준으로 횡단 길이를 잡는다
+    var W = G.walker, nd = st.node, C = G.city;
+    st.stand = { x: W.pos.x, z: W.pos.z };
+    st.fwd = [Math.sin(st.heading0), Math.cos(st.heading0)];
+    var vert = Math.abs(st.fwd[0]) > Math.abs(st.fwd[1]);   // 앞이 x 방향이면 남북 도로를 건넌다
+    var axis = vert ? 'v' : 'h', idx = vert ? (nd ? nd.i : 0) : (nd ? nd.j : 0);
+    var back = nd ? Math.abs((st.stand.x - nd.x) * st.fwd[0] + (st.stand.z - nd.z) * st.fwd[1]) : 16;
+    st.crossLen = (C && C.sideOff ? back + C.sideOff(axis, idx) + 1.0 : 32);   // 이 보도 → 건너편 보도
+    st.crossAxis = vert ? 'v' : 'h';
+  }
+  function crossDone() {
+    heart(5); say('crossOk', true); TG.audio.totFanfare(); TG.audio.totClap(6);
+    G.slowmo = 0.9; G.punch = 0.8; st.waveT = 3.2;
+    if (G.hud && G.hud.burst) { G.hud.burst('⭐', 6); G.hud.burst('🎉', 4); }
+    if (G.vfx && G.walker) G.vfx.puff(G.walker.pos.x, 1.2, G.walker.pos.z, 0, 1.2, 0, 1.1, 1.4);
+    st.heading0 = TG.wrapAngle(st.heading0 + Math.PI);      // 돌아선다 — 다음 초록불에 되돌아 건넌다
+    crossSetup();
+  }
+
   // 🚗 「초록불이라도 자동차가 **완전히 멈추었는지 확인 후** 건너기」(소유자 제공 어린이 교통안전수칙).
   // 보여 주려면 **멈춰 선 차**가 실제로 있어야 한다 — 경찰 수신호와 같은 장치(traffic.control.hand)로
   // 그 접근로의 차를 정지선 앞에 세운다(수신호는 신호기보다 우선 · 도로교통법 제5조). 급제동도 경적도 없다(traffic.quiet).
@@ -489,8 +527,7 @@ TG.Tot = function (game) {
     if (!TR || !nd || !C) return;
     if (!TR.control) TR.control = { closed: [], hand: [] };
     if (!on) { TR.control.hand = []; return; }
-    var sv = sideDir(), vert = sv[1] !== 0;
-    var ds = vert ? [0, 2] : [1, 3];                       // 아이가 건너는 도로를 달리는 두 접근로
+    var ds = (st.crossAxis || 'h') === 'v' ? [0, 2] : [1, 3];         // 아이가 건너는 도로를 달리는 두 접근로
     TR.control.hand = [{ node: nd, d: ds[0] }, { node: nd, d: ds[1] }];
     if (!st.stopCar && TR.spawn) {                         // 교통량을 3분의 1로 줄여 두어 마침 아무도 없을 수 있다 — 한 대는 우리가 세운다
       var d0 = ds[0], f = TG.DIR_VEC[d0], sd = C.stopDist ? C.stopDist(nd, d0) : 12;
@@ -514,7 +551,7 @@ TG.Tot = function (game) {
     else if (step === 1) { if (W) W.lookScan = true; TG.audio.totCar(); }
     else if (step === 2) { if (W) W.raiseHand(16); TG.audio.totDing(); }
     else if (step === 3) { if (W) W.lookScan = true; TG.audio.totCar(); }
-    else { st.walkT = 11; if (W) W.lookScan = false; TG.audio.totGo(); heart(4); }
+    else { st.walkGo = true; crossSetup(); if (W) W.lookScan = false; TG.audio.totGo(); heart(4); }   // **다 건널 때까지** 걷는다(시간이 아니라 거리)
     say(F.say, true);
     if (G.hud && G.hud.burst) G.hud.burst(F.burst);
     st.five = Math.min(5, step + 1);
@@ -552,7 +589,9 @@ TG.Tot = function (game) {
     // ⚠ v0.9.77 에서 아이를 횡단보도 앞 1.4m 로 당겨 놓고 왕복 폭을 7m 로 두었더니
     //   앞으로 걷자마자 연석(적색 횡단보도)에 막혀 **제자리에서 꼼짝 못 했다**(소유자 신고 「전혀 움직이지를 않네」).
     //   그래서 ① 자리를 4m 뒤로 물리고 ② 왕복 폭을 1.6m 로 줄이고(화면 구도도 흔들리지 않는다) ③ **막히면 곧바로 돌아선다**(아래 stuck 감지).
-    if (W && st.home) {
+    var S0 = STAGES[st.i] || null;
+    var crossStage = !!(S0 && (S0.id === 'ice' || S0.id === 'cross'));   // 건널 마당에서는 **앞으로 곧게** 간다(왕복·막힘 반전 없음)
+    if (W && st.home && !crossStage) {
       if (!(st.walkT > 0)) {
         var dxh = W.pos.x - st.home.x, dzh = W.pos.z - st.home.z;
         if (Math.hypot(dxh, dzh) > 1.6) {
@@ -569,8 +608,8 @@ TG.Tot = function (game) {
           }
         } else { st.stuckT = 0; st.lastPos = { x: W.pos.x, z: W.pos.z }; }
       }
-      W.heading = st.heading0;
     }
+    if (W) W.heading = st.heading0;                                      // 방향은 늘 고정(카메라·조작이 같은 값을 본다)
     // 곰돌이 토수니: 아이 옆에 붙어 따라 걷는다(손을 잡으면 더 가까이)
     var frozen = !!(S && S.id === 'ice' && st.ice && !st.ice.green);   // 얼음! — 토수니도 같이 멈춘다(실감)
     if (st.bear && W && !frozen) {
@@ -586,21 +625,30 @@ TG.Tot = function (game) {
       hideSignal();
       if (st.sayCd <= 0 && st.t > 9) say(WHERE[Math.min(st.where || 0, 2)].say);
     } else if (S.id === 'ice') {
-      st.ice.t += dt;
-      var span = st.ice.green ? 7 : 6;
-      if (st.ice.t > span) {                             // 선생님이 안 눌러도 저절로 바뀐다(놀이가 끊기지 않게)
-        st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++;
-        say(st.ice.green ? 'green' : 'red', true);
-        if (st.ice.green) { TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
-        else { TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
-        iceLook(st.ice.green); syncSignal(st.ice.green); G.punch = st.ice.green ? 0.3 : 0.55;
+      var prog = crossProgress(), onRoad = prog > 0.8 && prog < st.crossLen - 0.8;   // 횡단보도 위에 있다
+      if (onRoad) {                                        // **건너는 중에는 초록을 붙잡는다** — 길 위에서 얼음하지 않는다(별표2)
+        syncSignal(true); st.ice.green = true; iceLook(true);
+        setSignal(true, null);
+        setBig('🚸 손 잡고 건너요', '다 건널 때까지 걸어요 · 뛰지 않아요');
+        if (st.sayCd <= 0) say('crossing');
+        if (prog >= st.crossLen - 1.0) { st.ice.t = 0; crossDone(); }
+      } else {
+        st.ice.t += dt;
+        var span = st.ice.green ? 9 : 6;
+        if (st.ice.t > span) {                             // 선생님이 안 눌러도 저절로 바뀐다(놀이가 끊기지 않게)
+          st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++;
+          say(st.ice.green ? 'green' : 'red', true);
+          if (st.ice.green) { TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
+          else { TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
+          iceLook(st.ice.green); syncSignal(st.ice.green); G.punch = st.ice.green ? 0.3 : 0.55;
+        }
+        setSignal(st.ice.green, span - st.ice.t);
+        var cnt = st.ice.round > 0 ? ' · ' + st.ice.round + '번' : '';
+        setBig(st.ice.green ? '🚶 땡! 건너요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? '초록불 — 손 잡고 걸어서' : '빨간불 — 한 발 뒤로 물러서서') + cnt);
+        if (W && !st.ice.green) { W.v = 0; W.moving = false; }
+        if (st.ice.round >= 2) heart(1);
+        if (!st.ice.green && st.ice.round >= 1 && st.sayCd <= 0 && st.ice.t > 2.5) say('back');   // 기다릴 때는 한 발 뒤로(소유자 제공 자료)
       }
-      setSignal(st.ice.green, span - st.ice.t);
-      var cnt = st.ice.round > 0 ? ' · ' + st.ice.round + '번' : '';
-      setBig(st.ice.green ? '🚶 땡! 걸어요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? '초록불' : '빨간불 — 발도 손도 멈춰요') + cnt);
-      if (W && !st.ice.green) { W.v = 0; W.moving = false; }
-      if (st.ice.round >= 2) heart(1);
-      if (!st.ice.green && st.ice.round >= 1 && st.sayCd <= 0 && st.ice.t > 2.5) say('back');   // 기다릴 때는 한 발 뒤로(소유자 제공 자료)
     } else if (S.id === 'alley') {
       hideSignal();
       if (st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
@@ -618,13 +666,11 @@ TG.Tot = function (game) {
       else if (st.stopT > 0) setBig('🛑 ' + Math.ceil(st.stopT) + '초', '하나 · 둘 · 셋 — 멈춰서 세어요');
       else setBig('🚸 ' + F2.big, F2.sub);
       if (st.stopT > 0 && st.stopCnt !== Math.ceil(st.stopT)) { st.stopCnt = Math.ceil(st.stopT); TG.audio.totDing(); }
-      if (st.walkT > 0) {                             // ⑤ 손 잡고 천천히 — 실제로 함께 건넌다
-        st.walkT -= dt;
-        if (!st.crossed && st.walkT <= 0) {
-          st.crossed = true; say('crossOk', true); TG.audio.totFanfare(); heart(5); setButton('🎉 잘했어요!', false);
-          G.slowmo = 0.9; G.punch = 0.8; st.waveT = 3.2;                 // 슬로모션 한 박자 + 또래들이 손을 흔든다
-          if (G.hud && G.hud.burst) { G.hud.burst('⭐', 6); G.hud.burst('🎉', 4); }
-          if (G.vfx && G.walker) G.vfx.puff(G.walker.pos.x, 1.2, G.walker.pos.z, 0, 1.2, 0, 1.1, 1.4);
+      if (st.walkGo || self.crossing()) {              // ⑤ 손 잡고 천천히 — **실제로** 횡단보도를 건넌다
+        syncSignal(true);                              // 건너는 동안 보행 초록을 붙잡는다(길 위에서 적색이 되면 안 된다)
+        if (!st.crossed && crossProgress() >= (st.crossLen || 32) - 1.0) {
+          st.crossed = true; st.walkGo = false; setButton('🎉 잘했어요!', false);
+          crossDone();
         }
       }
       if (!st.held && st.sayCd <= 0 && st.t > 12) say('run');                       // 혼자 뛰어나가지 않아요(소유자)
@@ -647,10 +693,13 @@ TG.Tot = function (game) {
   self.walking = function () {
     if (!st) return false;
     var S = STAGES[st.i] || null; if (!S) return false;
-    if (S.id === 'cross') return st.walkT > 0;
+    var prog = crossProgress(), onRoad = prog > 0.8 && prog < (st.crossLen || 32) - 0.8;
+    if (onRoad) return true;                                   // **길 위에서는 멈추지 않는다**(별표2 · 시행규칙)
+    if (S.id === 'cross') return st.walkGo === true;
     if (S.id === 'ice') return !!(st.ice && st.ice.green);
     return false;
   };
+  self.crossing = function () { if (!st) return false; var p = crossProgress(); return p > 0.8 && p < (st.crossLen || 32) - 0.8; };
   self.stageName = function () { var S = STAGES[st && st.i]; return S ? S.emoji + ' ' + S.name : ''; };
   self.stageCount = STAGES.length;
   self.fiveCount = FIVE.length;

@@ -132,6 +132,9 @@ TG.Signals = function (city, world, cfg) {
     return n;
   }
   function restoreReal(node) { ctrl[keyOf(node)].realOff = false; }
+  // 한 교차로만 **실측 현시를 끄고 일반형**으로 돌린다 — 영아·어린이 교실은 화면이 신호를 직접 잡아야 하기 때문이다.
+  // (실측 현시는 도면의 보행 표시를 근사로만 옮겨 두어 `set(…,'green')` 으로도 보행 초록이 안 켜지는 교차로가 있다 · v0.9.50)
+  function setRealOff(node, off) { var c = ctrl[keyOf(node)]; if (c) c.realOff = !!off; }
   function realInfo(node) {
     var c = ctrl[keyOf(node)]; if (!realOn(c)) return null;
     var rp = c.realPlan;
@@ -429,5 +432,5 @@ TG.Signals = function (city, world, cfg) {
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
            greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod,
            leftState: leftState, hasLeft: hasLeft, leftExtra: leftExtra,
-           moveState: moveState, hasLeftFor: hasLeftFor, applyReal: applyReal, restoreReal: restoreReal, realInfo: realInfo };
+           moveState: moveState, hasLeftFor: hasLeftFor, applyReal: applyReal, restoreReal: restoreReal, setRealOff: setRealOff, realInfo: realInfo };
 };

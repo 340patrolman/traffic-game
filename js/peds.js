@@ -192,6 +192,21 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       else { sideStep(a, -1, 0.5); sideStep(b, 1, 0.5); }
     }
   }
+  // 🚇 **보도 위 시설물을 통과하지 않는다** — 지하철 출입구(계단 옹벽 3.6×2.6m + 난간)가 보도 위에 서 있어
+  // 행인이 그 안을 그대로 지나갔다(소유자 2026-09-12: 「사람이 물리적으로 겹쳐져서 성의가 없어 보여」).
+  // 사람은 둥글게 밀어내면 충분하다(반지름 2.3m = 옹벽 반대각). 출입구 목록은 city 가 가진 것을 그대로 쓴다.
+  function pushOutOfProps() {
+    var list = city.subways || []; if (!list.length) return;
+    for (var i = 0; i < peds.length; i++) {
+      var p = peds[i];
+      for (var s = 0; s < list.length; s++) {
+        var S = list[s], dx = p.pos.x - S.x, dz = p.pos.z - S.z, d = Math.hypot(dx, dz);
+        if (d > 2.3 || d < 1e-4) continue;
+        p.pos.x = S.x + dx / d * 2.3; p.pos.z = S.z + dz / d * 2.3;
+      }
+    }
+  }
+
   function pushOutOfCars(dt) {
     dt = dt || 1 / 30;
     var T = self.traffic; if (!T) return;
@@ -253,7 +268,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (pl && Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) > cfg.PED_DESPAWN) remove(p);
     }
     // 걸음을 다 옮긴 뒤에 겹침을 푼다 — 그래야 밀어낸 자리가 그 프레임에 그대로 그려진다
-    separate(); pushOutOfCars(dt);
+    separate(); pushOutOfCars(dt); pushOutOfProps();
     for (var i2 = peds.length - 1; i2 >= 0; i2--) {
       var q = peds[i2];
       var moving = q.state !== 'wait' && q.state !== 'warned', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
