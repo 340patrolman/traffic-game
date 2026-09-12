@@ -34,7 +34,15 @@ TG.buildTerrain = function (scene, city, cfg) {
   function riverZ(x) { return -112 + 18 * Math.sin(x / 230 + 0.6); }   // 도시(z 0) 와 올림픽대로(z 약 -245) 사이
   function riverX(z) { return 99999; }
   // 양재천(축약): 도시 남쪽(남부순환로 아래)을 동서로 흐르는 얕은 하천. 경부고속도로·양재IC·수서IC 연결로가 다리로 건넌다. 비가 오면 setFlood 로 수위가 올라 산책로가 잠긴다.
-  function yjZ(x) { return 356 + 5 * Math.sin(x / 120); }
+  // 자리는 **지도의 격자 남쪽 끝에서 잰다** — z 356 에 못 박아 두면 격자가 더 남쪽까지 내려간 지도에서
+  // 하천 도랑(−2.8m)이 **도로 밑을 판다**. 서초구 실측 간격 지도(남부순환로 z 364.6)에서 실제로 그랬고,
+  // 반포대로를 달리던 순찰차가 2.9m 아래로 빠졌다가 솟구쳤다(소유자 실기 2026-09-12 · 포장 위 2,755점이 −2.8m).
+  // 필요한 여유 = 보도 바깥선 + 도랑 가장자리 17m + 사행 5m + 2m.
+  var YJ_Z = (function () {
+    var last = city.zs.length - 1, edge = city.sideOff ? city.sideOff('h', last) : 20;
+    return Math.max(356, city.zs[last] + edge + 24);
+  })();
+  function yjZ(x) { return YJ_Z + 5 * Math.sin(x / 120); }
   function river(x, z) {
     var d = Math.abs(z - riverZ(x)), rv = -4.6 * (1 - sstep(44, 62, d));   // 한강: 반폭 44m(가장자리 62m) — 전 24/34
     var d2 = Math.abs(z - yjZ(x)); rv += -2.8 * (1 - sstep(11, 17, d2)) * sstep(-90, -50, x) * (1 - sstep(390, 430, x));   // 양재천: 반폭 11m(가장자리 17m)
@@ -724,7 +732,9 @@ TG.buildTerrain = function (scene, city, cfg) {
     }
 
     // ④ 양재시민의숲: 경부고속도로 동쪽 숲(잔디·산책로·나무 무리 + 매헌 기념관 형태의 작은 전시동)
-    var YJ = { x0: 206, z0: 396, x1: 322, z1: 486 };
+    // 숲은 **양재천 남쪽에서 시작한다** — 잔디밭은 한 높이의 평판이라 하천 도랑 위에 걸치면 허공에 뜬다.
+    // (실제 양재시민의숲도 양재천 남안에 있다. 격자가 남쪽으로 내려간 지도에서는 하천이 이 자리까지 내려온다.)
+    var YJ = { x0: 206, z0: Math.max(396, yjZ(264) + 22), x1: 322, z1: 486 };
     if (farFromRoad((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2, 26)) {
       var gy = groundAt((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2);
       props.box((YJ.x0 + YJ.x1) / 2, gy + 0.06, (YJ.z0 + YJ.z1) / 2, YJ.x1 - YJ.x0, 0.12, YJ.z1 - YJ.z0, 0x6f9a4c, {});
