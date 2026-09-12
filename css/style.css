@@ -704,3 +704,31 @@ body.sirenlit::before{content:'';position:fixed;inset:0;z-index:11;pointer-event
   body.sirenlit::before{animation:none;box-shadow:inset 42px 0 72px -34px rgba(64,124,255,.45), inset -42px 0 72px -34px rgba(255,64,64,.45)}
   #chaseArrow{animation:none}}
 @media (max-width:380px){#chaseHud{width:94vw;padding:7px 8px 8px}#chaseHud .ch-name{font-size:14px}#chaseHud .ch-why{font-size:10px}}
+
+/* 🏁 연습 서킷 — 출발 신호등과 랩·섹터 패널. 상용 레이싱이 늘 두는 둘이다(소유자 2026-09-12 「연습 서킷을 제대로」).
+   서킷·자유 주행에서만 뜬다(body.laptime). 랩 시계 한 줄로는 「지금 빠른가」를 알 수 없다 — 섹터와 델타가 그것을 말한다. */
+#startLights{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hudh,97px) + 26px + var(--sa-t));z-index:26;
+  gap:8px;align-items:center;flex-direction:column}
+body.startlit #startLights{display:flex}
+#startLights i{display:inline-block;width:26px;height:26px;margin:0 5px;border-radius:50%;background:rgba(255,255,255,.10);
+  border:2px solid rgba(255,255,255,.30);vertical-align:middle}
+#startLights i.on{background:#e12d2d;border-color:#ff8a8a;box-shadow:0 0 16px rgba(255,60,60,.85)}
+#startLights i.go{background:#2ed06a;border-color:#b8f7cf;box-shadow:0 0 18px rgba(46,208,106,.9)}
+#startLights b{display:block;margin-top:6px;font-size:20px;font-weight:900;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8);letter-spacing:1px}
+#lapPanel{display:none;position:fixed;left:calc(8px + var(--sa-l));top:calc(var(--hudh,97px) + 12px + var(--sa-t));z-index:23;
+  min-width:150px;background:rgba(9,14,26,.70);border:1px solid rgba(160,190,255,.30);border-radius:12px;padding:7px 9px 8px;
+  box-shadow:0 5px 18px rgba(0,0,0,.4)}
+body.laptime #lapPanel{display:block}
+#lapPanel .lp-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#lapPanel .lp-cur{font-size:19px;font-weight:900;color:#eaf1ff;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+#lapPanel .lp-delta{font-size:12.5px;font-weight:900;font-variant-numeric:tabular-nums}
+#lapPanel .lp-delta.up{color:#ff7a7a}
+#lapPanel .lp-delta.dn{color:#6ce89a}
+#lapPanel .lp-secs{display:flex;gap:5px;margin-top:6px}
+#lapPanel .lp-s{flex:1 1 0;text-align:center;font-size:10.5px;font-weight:800;padding:3px 0;border-radius:7px;
+  background:rgba(255,255,255,.10);color:#d8e2f5;font-variant-numeric:tabular-nums}
+#lapPanel .lp-s.dn{background:#1f6b3c;color:#e8ffef}
+#lapPanel .lp-s.up{background:#7d2b2b;color:#ffe9e9}
+#lapPanel .lp-s.best{background:#6b3fa0;color:#f3e9ff}
+#lapPanel .lp-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:10.5px;font-weight:700;color:#b9c6de;font-variant-numeric:tabular-nums}
+@media (max-width:380px){#lapPanel{min-width:132px;padding:6px 7px 7px}#lapPanel .lp-cur{font-size:17px}#startLights i{width:22px;height:22px;margin:0 4px}}

@@ -772,7 +772,7 @@
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
-    document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit');   // 속도선·경광등 테두리는 내리고 시작한다
+    document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit');   // 속도선·경광등 테두리는 내리고 시작한다
     hud.clearHint(); hud.setTarget(null); setTimeScale(1);   // 배속은 근무를 새로 시작하면 1배로 돌아간다
 
     if (player) scene.remove(player.mesh);
@@ -796,8 +796,11 @@
     if (G.kidCourse) { if (G.mode === 'kid') G.kidCourse.start(); else G.kidCourse.reset(); }
     if (G.iscene) G.iscene.clear();   // 지난 근무의 라바콘·불꽃신호기를 치운다
     C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
-    lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
-    coach = { cd: 0, lastCorner: -1, apexDone: -1 };
+    lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode,
+            sec: [null, null, null], secCls: ['', '', ''], scT: 0, sc: 0, trace: [], bestTrace: null,
+            bestSec: TG.save.get('bestsec_' + G.mode, [null, null, null]), hold: 0, lights: -1, goT: 0 };
+    document.body.classList.toggle('laptime', G.mode === 'circuit' || G.mode === 'free');   // 🏁 랩·섹터 패널은 기록을 재는 두 모드에서만
+    coach = { cd: 0, lastCorner: -1, apexDone: -1, cin: false, cmin: 0, ckap: 0, coff: false, stars: 0, corners: 0 }; G.coach = coach;   // 🏁 코너 별점(검증과 근무 결과가 본다)
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (G.tot) { G.tot.dispose(); G.tot = null; }
@@ -815,7 +818,9 @@
       player.teleport(gp.x, gp.z, gp.hd); player.resync();
       hud.notice('🛰 ' + city.mapName + ' 에 들어왔습니다 — 순환도로 쪽으로 나가면 도시입니다', 'info', 4200);
     }
-    if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
+    if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz));
+      player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)
+      lap.hold = 3.2; lap.lights = -1; document.body.classList.add('startlit'); paintLights(0, false); }   // 🏁 출발 신호등 3·2·1
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
@@ -1633,21 +1638,79 @@
   }
   function fmtLap(t) { var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
   // 랩 타임: 링크 인덱스 0 을 진행 방향으로 지나면 한 바퀴. 최고 기록은 tg_bestlap_<mode>.
+  // ---------- 🏁 랩 · 섹터 · 델타 (연습 서킷 · 자유 주행) ----------
+  // 소유자(2026-09-12): 「추격전과 연습 서킷을 제대로 해보자.」
+  // 랩 시계 한 줄로는 **지금 빠른지**를 알 수 없다. 상용 레이싱이 두는 셋을 그대로 둔다 —
+  //  ① 섹터 셋(각 섹터 최고 기록은 기기에 남는다)  ② 최고 랩과의 **실시간 델타**(같은 자리에서의 차이)  ③ 출발 신호등.
+  // 델타는 최고 랩의 **자리별 시각**(bestTrace)을 남겨 두고 지금 시각에서 뺀 값이다 — 자리로 맞추므로 길이가 달라도 흔들리지 않는다.
+  function lapEl(cls) { var p = el('lapPanel'); return p ? p.querySelector(cls) : null; }
+  function fmtDelta(d) { return (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2); }
+  function lapPaint(dv) {
+    var c = lapEl('.lp-cur'); if (c) c.textContent = lap.on ? fmtLap(lap.t) : '0:00.00';
+    var dl = lapEl('.lp-delta');
+    if (dl) { if (dv === null || dv === undefined) { dl.textContent = ''; dl.className = 'lp-delta'; } else { dl.textContent = fmtDelta(dv); dl.className = 'lp-delta ' + (dv > 0 ? 'up' : 'dn'); } }
+    var ss = el('lapPanel') ? el('lapPanel').querySelectorAll('.lp-s') : [];
+    for (var k = 0; k < ss.length; k++) {
+      var t = lap.sec[k];
+      ss[k].textContent = 'S' + (k + 1) + ' ' + (t ? t.toFixed(2) : '—');
+      ss[k].className = 'lp-s ' + (t ? (lap.secCls[k] || '') : '');
+    }
+    var b = lapEl('.lp-best'); if (b) b.textContent = lap.best ? '최고 ' + fmtLap(lap.best) : '최고 —';
+    var ls = lapEl('.lp-last'); if (ls) ls.textContent = lap.last ? '직전 ' + fmtLap(lap.last) : '';
+  }
+  function sectorClose(k) {                        // k 섹터를 끝냈다 — 최고 섹터와 맞대 본다
+    var t = lap.t - (lap.scT || 0); lap.scT = lap.t;
+    if (t < 1) return;
+    lap.sec[k] = t;
+    var b = lap.bestSec[k];
+    lap.secCls[k] = (!b || t < b) ? 'best' : (t <= b * 1.02 ? 'dn' : 'up');
+    if (!b || t < b) { lap.bestSec[k] = t; TG.save.set('bestsec_' + lap.name, lap.bestSec); }
+  }
   function lapUpdate(dt) {
     var L = lap.link; if (!L) return;
     var q = terrain.nearest(player.pos.x, player.pos.z, false);
-    if (!q || q.link !== L) { if (lap.on) hud.setTimerText('—'); lap.on = false; lap.prevI = null; return; }
+    if (!q || q.link !== L) { if (lap.on) hud.setTimerText('—'); lap.on = false; lap.prevI = null; lapPaint(null); return; }
     if (lap.on) lap.t += dt;
     var i = q.i, N = L.N;
+    if (lap.on && lap.trace && lap.trace[i] === undefined) lap.trace[i] = lap.t;    // 이번 랩의 자리별 시각
+    var dv = (lap.on && lap.bestTrace && lap.bestTrace[i] !== undefined) ? lap.t - lap.bestTrace[i] : null;
+    var sc = Math.min(2, Math.floor(i * 3 / N));
+    if (lap.on && sc !== lap.sc) { if (sc === lap.sc + 1) sectorClose(lap.sc); lap.sc = sc; }
+    else if (!lap.on) lap.sc = sc;
     if (lap.prevI !== null && lap.prevI > N - 10 && i < 10) {
       if (lap.on && lap.t > 15) {
-        lap.last = lap.t; var isBest = !lap.best || lap.t < lap.best; if (isBest) { lap.best = lap.t; TG.save.set('bestlap_' + lap.name, lap.best); }
-        hud.notice('랩 ' + fmtLap(lap.t) + (isBest ? ' — 최고 기록!' : ' · 최고 ' + fmtLap(lap.best)), 'good', 4000); TG.audio.good();
-      } else if (!lap.on) hud.notice('랩 타임 시작', 'info', 1500);
-      lap.t = 0; lap.on = true;
+        sectorClose(2);
+        lap.last = lap.t; var isBest = !lap.best || lap.t < lap.best;
+        if (isBest) { lap.best = lap.t; TG.save.set('bestlap_' + lap.name, lap.best); lap.bestTrace = lap.trace; }
+        hud.notice('🏁 랩 ' + fmtLap(lap.t) + (isBest ? ' — 최고 기록!' : ' · 최고 ' + fmtLap(lap.best) + ' (' + fmtDelta(lap.t - lap.best) + ')'), 'good', 4000);
+        TG.audio.good(); if (isBest) { hud.pop('🏆 최고 기록', 'good'); TG.audio.jingle(4); G.punch = 0.7; }
+      } else if (!lap.on) hud.notice('랩 타임 시작 — 섹터 셋과 최고 기록 델타가 왼쪽에 나옵니다', 'info', 2600);
+      lap.t = 0; lap.on = true; lap.scT = 0; lap.sc = 0; lap.trace = []; lap.sec = [null, null, null]; lap.secCls = ['', '', ''];
+      dv = null;
     }
     lap.prevI = i;
     hud.setTimerText(lap.on ? '랩 ' + fmtLap(lap.t) + (lap.best ? ' · 최고 ' + fmtLap(lap.best) : '') : (lap.best ? '최고 ' + fmtLap(lap.best) : '출발선을 지나면 랩 시작'));
+    lapPaint(dv);
+  }
+  // 🏁 출발 신호등 — 적색 다섯이 하나씩 켜지고 **한꺼번에 꺼지면** 출발이다. 그동안 차는 출발선에 붙잡혀 있다.
+  function paintLights(n, go) {
+    var box = el('startLights'); if (!box) return;
+    var ls = box.querySelectorAll('i');
+    for (var k = 0; k < ls.length; k++) ls[k].className = go ? 'go' : (k < n ? 'on' : '');
+    var tx = box.querySelector('b'); if (tx) tx.textContent = go ? '출발!' : (n > 0 ? '…' : '준비');
+  }
+  function startLightUpdate(dt) {
+    if (!lap) return;
+    if (lap.hold > 0) {
+      lap.hold -= dt;
+      var n = TG.clamp(Math.ceil((3.2 - lap.hold) / 0.55), 0, 5);
+      if (n !== lap.lights) { lap.lights = n; paintLights(n, false); if (n > 0) TG.audio.ui(); }
+      if (lap.hold <= 0) {
+        lap.hold = 0; paintLights(0, true); TG.audio.jingle(2); G.punch = 0.5;
+        hud.notice('🏁 출발! — 슬로우 인 · 패스트 아웃. 코너 앞 **제동 표지**(파란 바닥 띠)를 보고 줄이세요', 'good', 3400);
+        lap.goT = 1.3;
+      }
+    } else if (lap.goT > 0) { lap.goT -= dt; if (lap.goT <= 0) document.body.classList.remove('startlit'); }
   }
   // 코칭(연습 서킷): 앞 45m 안의 최대 곡률로 권장 진입 속도(√(횡가속 한계·0.9 / κ))를 구해 제동 시점을 알려 준다.
   // 정점에서 가속(패스트 아웃), 언더스티어·오버스티어(카운터 스티어) 안내.
@@ -1664,6 +1727,27 @@
       if (T.speed > vRec * 1.08 && dist < T.stopDist + 12 && coach.cd <= 0) { hud.hint('제동! 이 코너 권장 ' + Math.round(vRec * 3.6) + 'km/h — 직선에서 줄이고 천천히 진입(슬로우 인)'); coach.cd = 4; coach.lastCorner = ki; }
     }
     if (here > 0.018 && coach.apexDone !== i && T.speed < Math.sqrt(s.latMax * 0.9 / here) * 1.05 && coach.cd <= 0 && player.controls.throttle < 0.3) { hud.hint('정점(에이펙스) — 핸들을 풀면서 가속(패스트 아웃)'); coach.apexDone = i; coach.cd = 4; }
+    // 🏁 코너 판정(별점) — 진입 최저 속도가 **권장 속도에 얼마나 붙었나** · 코스를 벗어나지 않았나.
+    // 서킷은 점수·감점이 없는 모드다(소유자 결정) — 별과 한 줄 조언만 준다. 상용 레이싱의 코너 채점과 같은 구실이다.
+    var offTrack = Math.abs(q.lateral || 0) > (q.p ? q.p.half : 7.5) - 0.4;
+    if (here > 0.014) {
+      if (!coach.cin) { coach.cin = true; coach.cmin = 1e9; coach.ckap = 0; coach.coff = false; }
+      coach.cmin = Math.min(coach.cmin, T.speed); coach.ckap = Math.max(coach.ckap, here);
+      if (offTrack) coach.coff = true;
+    } else if (coach.cin && here < 0.009) {
+      coach.cin = false;
+      var vR = Math.sqrt(s.latMax * 0.9 / Math.max(0.004, coach.ckap)), rr = coach.cmin / vR;
+      var star = coach.coff ? 1 : (rr >= 0.9 && rr <= 1.08) ? 3 : (rr >= 0.74 && rr <= 1.2) ? 2 : 1;
+      coach.stars = (coach.stars || 0) + star; coach.corners = (coach.corners || 0) + 1;
+      hud.pop('⭐'.repeat(star) + ' 코너', star >= 3 ? 'good' : star === 2 ? '' : 'bad');
+      if (star >= 3) { TG.audio.ui(); G.punch = Math.max(G.punch || 0, 0.25); }
+      else if (coach.cd <= 0) {
+        hud.hint(coach.coff ? '코스를 벗어났다 — 한 템포 먼저 줄이고 연석 안쪽으로 돈다'
+          : rr < 0.9 ? '너무 줄였다 — 이 코너는 ' + Math.round(vR * 3.6) + 'km/h 까지 붙일 수 있다(패스트 아웃)'
+          : '너무 빨랐다 — 권장 ' + Math.round(vR * 3.6) + 'km/h, 직선에서 줄이고 슬로우 인');
+        coach.cd = 2.5;
+      }
+    }
   }
   // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
   G.startScenario = function (id) {
@@ -1887,6 +1971,9 @@
       if ((st.junction || 0) >= 3) badges.push({ text: '🚦 소통 확보 ' + st.junction + '회', gold: (st.junction || 0) >= 5 });
       if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
       if (walk && walk.crossings >= 4) badges.push({ text: '🚶 모범 보행 ' + walk.crossings + '회' });
+      // 🏁 연습 서킷·자유 주행: 기록과 코너 별점을 근무 결과에도 남긴다(점수는 아니다 — 기록만 보여 준다)
+      if ((G.mode === 'circuit' || G.mode === 'free') && lap && lap.best) badges.push({ text: '🏁 최고 랩 ' + fmtLap(lap.best) });
+      if (G.mode === 'circuit' && coach && (coach.corners || 0) >= 3) badges.push({ text: '⭐ 코너 ' + coach.stars + '별 / ' + coach.corners + '곳', gold: coach.stars >= coach.corners * 2.5 });
     }
     st.badges = badges;
     // 오답 노트·근무 일지를 결과 카드에 얹는다. finishShift 를 먼저 불러 오늘 판까지 센 값을 보인다.
@@ -2175,6 +2262,13 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
+    startLightUpdate(dt);                                  // 🏁 출발 신호등이 켜지는 동안에는 차를 출발선에 붙잡아 둔다
+    // ⚠ 여기서 **제동을 물면 안 된다** — 이 게임은 정지 중 제동을 0.08초 누르면 **후진**으로 간다(실측 뒤로 16km/h).
+    //    그래서 입력을 모두 0 으로 두고 **출발선에 붙잡아** 둔다.
+    if (lap && lap.hold > 0) {
+      player.controls.throttle = 0; player.controls.brake = 0; player.controls.reverse = 0; player.controls.steer = 0;
+      player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.stopT = 0;
+    }
     player.assist = settings.assist !== false; player.easy = settings.easy !== false; player.surfaceFactor = weather.grip; player.windLat = weather.lateralGust(player.heading); player.driveMode = settings.drive || 'normal';
     player.autoBrake = Math.max(0, (player.autoBrake || 0) - dt * 0.4);   // 초보 보조 자동 감속은 안내가 뜰 때 걸리고 서서히 풀린다
     weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain'); if (vfx) vfx.update(dt);

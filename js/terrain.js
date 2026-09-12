@@ -573,6 +573,9 @@ TG.buildTerrain = function (scene, city, cfg) {
         if (p.kappa > 0.012) for (var cs = -1; cs <= 1; cs += 2) ribbon(mark, p, q, cs * (half - 0.3), cs * (half + 0.5), LIFT + 0.02, (i % 2) ? 0xe53935 : 0xffffff);
         if (i === 0) for (var cc = 0; cc < 6; cc++) ribbon(mark, p, q, -half + cc * half / 3, -half + (cc + 1) * half / 3, LIFT + 0.02, (cc % 2) ? WHT : 0x1b1d20);
         if (p.kappa < 0.006 && L.P(i + 10).kappa > 0.018 && L.P(i + 1).kappa < 0.006) for (var co = -1; co <= 1; co += 2) { var cp = Pt(p, co * (half + 1.2), 0); props.cylinder(cp[0], cp[1], cp[2], 0.28, 0.06, 0.75, 6, 0xff7a00); }
+        // 제동 표지(바닥 띠) — 코너 앞 45·30·15m 세 곳. 가장 가까운 것은 주황·나머지는 파랑(상용 서킷의 브레이크 보드와 같은 구실)
+        if (p.kappa < 0.008) for (var bb = 0; bb < 3; bb++) { var ka = 5 + bb * 5;
+          if (L.P(i + ka).kappa > 0.018 && L.P(i + ka - 3).kappa < 0.012) ribbon(mark, p, q, -half + 0.7, half - 0.7, LIFT + 0.015, bb === 0 ? 0xff6a00 : 0x2a6ff0); }
       }
       else if (!hw) {
         ribbon(mark, p, q, -0.3, -0.15, LIFT, YEL); ribbon(mark, p, q, 0.15, 0.3, LIFT, YEL);
