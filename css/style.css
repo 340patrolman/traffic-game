@@ -520,6 +520,11 @@ body.scene-near .tbtn.cone{display:flex}
 .tbtn.cone .ico{font-size:22px}
 .tbtn.cone.done{background:rgba(90,211,122,.25);border-color:rgba(90,211,122,.85)}
 
+/* 🛰 관문 — 순환도로 밖 길 끝에서만 보인다(두 지도를 잇는 유일한 길) */
+.tbtn.gate{width:58px;height:58px;background:rgba(120,160,255,.22);border-color:rgba(150,180,255,.9);margin-bottom:8px;display:none}
+body.gate-near .tbtn.gate{display:flex}
+.tbtn.gate .ico{font-size:20px}
+
 /* 🪝 견인고리·견인줄 — 현장 45m 안에서만 보인다 */
 .tbtn.tow{width:58px;height:58px;background:rgba(120,200,255,.20);border-color:rgba(140,210,255,.9);margin-bottom:8px;display:none}
 body.scene-near .tbtn.tow{display:flex}

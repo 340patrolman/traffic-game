@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.65">
+<link rel="stylesheet" href="css/style.css?v=0.9.66">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -58,6 +58,7 @@
     <div class="tbtn cam" id="btnCam" title="블랙박스 영상 단속(B): 이륜차·자전거·킥보드의 단순 위반은 추격하지 않고 영상으로 기록해 통고처분을 의뢰합니다"><span class="ico">📹</span><span>블랙박스</span></div>
     <div class="tbtn radio" id="btnRadio" title="무전 상황 전파(T): 상황실·인접 순찰차에 알립니다. 번호판 조회도 함께"><span class="ico">📡</span><span>무전</span></div>
     <div class="tbtn cone" id="btnCone" title="현장 안전조치(K): 라바콘으로 차로를 차단하고, 야간·악천후에는 불꽃신호기를 점화합니다"><span class="ico">🚧</span><span>라바콘</span></div>
+    <div class="tbtn gate" id="btnGate" title="관문: 순환도로 밖으로 나가는 길 끝에서 다른 지도로 건너갑니다(놀이용 기본 지도 ↔ 서초구 디지털 트윈)"><span class="ico">🛰</span><span>건너가기</span></div>
     <div class="tbtn tow" id="btnTow" title="견인고리·견인줄(J): 순찰차를 고장차 앞에 대고 연결해 갓길·안전지대까지 끌어냅니다. 대형차는 에어(압축공기)를 먼저 확인합니다"><span class="ico">🪝</span><span>견인</span></div>
   </div>
   <div class="tbtn small" id="btnPause" title="일시정지(Esc)">❚❚</div>
@@ -295,46 +296,46 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.65"></script>
-<script src="js/config.js?v=0.9.65"></script>
-<script src="js/rng.js?v=0.9.65"></script>
-<script src="js/save.js?v=0.9.65"></script>
-<script src="js/perf.js?v=0.9.65"></script>
-<script src="js/emblem.js?v=0.9.65"></script>
-<script src="js/textures.js?v=0.9.65"></script>
-<script src="js/audio.js?v=0.9.65"></script>
-<script src="js/city.js?v=0.9.65"></script>
-<script src="js/world.js?v=0.9.65"></script>
-<script src="js/terrain.js?v=0.9.65"></script>
-<script src="js/weather.js?v=0.9.65"></script>
-<script src="js/signals.js?v=0.9.65"></script>
-<script src="js/vehmesh.js?v=0.9.65"></script>
-<script src="js/vehicle.js?v=0.9.65"></script>
-<script src="js/traffic.js?v=0.9.65"></script>
-<script src="js/peds.js?v=0.9.65"></script>
-<script src="js/character.js?v=0.9.65"></script>
-<script src="js/vfx.js?v=0.9.65"></script>
-<script src="js/response.js?v=0.9.65"></script>
-<script src="js/junction.js?v=0.9.65"></script>
-<script src="js/chase.js?v=0.9.65"></script>
-<script src="js/incident.js?v=0.9.65"></script>
-<script src="js/dispatch.js?v=0.9.65"></script>
-<script src="js/intro.js?v=0.9.65"></script>
-<script src="js/walker.js?v=0.9.65"></script>
-<script src="js/rail.js?v=0.9.65"></script>
-<script src="js/enforcement.js?v=0.9.65"></script>
-<script src="js/signaltod.js?v=0.9.65"></script>
-<script src="js/facil.js?v=0.9.65"></script>
-<script src="js/layers.js?v=0.9.65"></script>
-<script src="js/study.js?v=0.9.65"></script>
-<script src="js/drunkproc.js?v=0.9.65"></script>
-<script src="js/kidcourse.js?v=0.9.65"></script>
-<script src="js/career.js?v=0.9.65"></script>
-<script src="js/hudpos.js?v=0.9.65"></script>
-<script src="js/hud.js?v=0.9.65"></script>
-<script src="js/minimap.js?v=0.9.65"></script>
-<script src="js/input.js?v=0.9.65"></script>
-<script src="js/main.js?v=0.9.65"></script>
+<script src="lib/three.min.js?v=0.9.66"></script>
+<script src="js/config.js?v=0.9.66"></script>
+<script src="js/rng.js?v=0.9.66"></script>
+<script src="js/save.js?v=0.9.66"></script>
+<script src="js/perf.js?v=0.9.66"></script>
+<script src="js/emblem.js?v=0.9.66"></script>
+<script src="js/textures.js?v=0.9.66"></script>
+<script src="js/audio.js?v=0.9.66"></script>
+<script src="js/city.js?v=0.9.66"></script>
+<script src="js/world.js?v=0.9.66"></script>
+<script src="js/terrain.js?v=0.9.66"></script>
+<script src="js/weather.js?v=0.9.66"></script>
+<script src="js/signals.js?v=0.9.66"></script>
+<script src="js/vehmesh.js?v=0.9.66"></script>
+<script src="js/vehicle.js?v=0.9.66"></script>
+<script src="js/traffic.js?v=0.9.66"></script>
+<script src="js/peds.js?v=0.9.66"></script>
+<script src="js/character.js?v=0.9.66"></script>
+<script src="js/vfx.js?v=0.9.66"></script>
+<script src="js/response.js?v=0.9.66"></script>
+<script src="js/junction.js?v=0.9.66"></script>
+<script src="js/chase.js?v=0.9.66"></script>
+<script src="js/incident.js?v=0.9.66"></script>
+<script src="js/dispatch.js?v=0.9.66"></script>
+<script src="js/intro.js?v=0.9.66"></script>
+<script src="js/walker.js?v=0.9.66"></script>
+<script src="js/rail.js?v=0.9.66"></script>
+<script src="js/enforcement.js?v=0.9.66"></script>
+<script src="js/signaltod.js?v=0.9.66"></script>
+<script src="js/facil.js?v=0.9.66"></script>
+<script src="js/layers.js?v=0.9.66"></script>
+<script src="js/study.js?v=0.9.66"></script>
+<script src="js/drunkproc.js?v=0.9.66"></script>
+<script src="js/kidcourse.js?v=0.9.66"></script>
+<script src="js/career.js?v=0.9.66"></script>
+<script src="js/hudpos.js?v=0.9.66"></script>
+<script src="js/hud.js?v=0.9.66"></script>
+<script src="js/minimap.js?v=0.9.66"></script>
+<script src="js/input.js?v=0.9.66"></script>
+<script src="js/main.js?v=0.9.66"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

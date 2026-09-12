@@ -286,7 +286,45 @@ TG.buildTerrain = function (scene, city, cfg) {
   // x 를 460m 동쪽으로 옮겨 가장 가까운 도로 끝에서 56m, 고저차 1.5m 의 평지에 놓았다.
   var circuit = buildLink('circuit', [[660, 400], [760, 400], [778, 428], [752, 456], [715, 455], [698, 486], [726, 514], [702, 536], [660, 532], [644, 502], [656, 470], [640, 436]], 'circuit', true);
 
+  // ---------- 관문: 순환도로 **밖으로 나가는 단 하나의 길** ----------
+  // 소유자 결정(2026-09-12): 「지금 지도와 게임과는 분리하여 선택하거나 **순환도로 넘어 이어지는 길로만** 되도록 하고 체계적으로 진행한다.」
+  // → 놀이용 기본 지도와 서초구 디지털 트윈은 **섞이지 않는다**. 건너가는 길은 이 길 하나뿐이고,
+  //   그 끝 관문에 서면(그리고 거의 멈추면) 지도가 바뀐다. 지도 선택 화면으로도 갈 수 있다(그쪽은 바로 갈아탄다).
+  // 자리: 링 위 각도 **−22°**(동북동). 기존 IC 8곳은 0·±45·±90·±135·180 — 그 사이 빈 자리라 램프·연결로와 겹치지 않는다.
+  //      각도는 **지형을 재서** 골랐다 — 8방향의 최대 경사·끝 높이·물·서킷 근접을 실측해 **경사 3.9% · 끝 높이 0.7m** 인 −22° 를 썼다
+  //      (22° 는 연습 서킷 코앞, 67°·157°·−157° 는 산비탈이라 22~27% 경사가 나왔다).
+  var gate = (function () {
+    var ang = -22 * Math.PI / 180;
+    var j = ringIndexNear(CXC + RA * Math.cos(ang), CZC + RB * Math.sin(ang)), J = ring.pts[j];
+    var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
+    function at(d) { return [J.x + rad[0] * d, J.z + rad[1] * d]; }
+    // 링 **중앙분리대를 넘지 않는다** — 바깥 차로(중앙선 밖)에서 시작해 밖으로 나간다.
+    // 처음에 중앙선(at(-30))부터 그었더니 분리대에 막혀 차가 39km/h 로 달리다 그 자리에서 멈췄다(실측).
+    var L = buildLink('gate', [at(-2), at(6), at(40), at(85), at(120), at(150)], 'suburb', false);   // 150m — 더 길게 빼면 동쪽 바다에 닿는다
+    L.name = '관문 · 순환도로 밖';
+    L.noSpawn = true;                                  // AI 는 ring·conns 에서만 스폰한다 — 막다른 길에 차를 두지 않는다
+    var endP = L.P(L.N - 1);
+    return { link: L, x: endP.x, z: endP.z, hd: Math.atan2(-rad[0], -rad[1]), out: rad, ring: [J.x, J.z] };
+  })();
+  // 관문 광장·표지(외부 이미지 0개 규칙 그대로 — 글은 캔버스 표지로 그린다)
+  function buildGateSigns(isTwin) {
+    var g = gate, y = groundAt(g.x, g.z), o = g.out, rgt = [-o[1], o[0]];
+    props.box(g.x, y + 0.06, g.z, 26, 0.12, 26, 0x9aa2ab, {});                                  // 광장 바닥
+    for (var s2 = -1; s2 <= 1; s2 += 2) {                                                        // 문기둥 둘
+      props.box(g.x + rgt[0] * 9 * s2, y + 2.6, g.z + rgt[1] * 9 * s2, 1.2, 5.2, 1.2, 0x2b3442, {});
+      props.box(g.x + rgt[0] * 9 * s2, y + 5.4, g.z + rgt[1] * 9 * s2, 1.6, 0.5, 1.6, 0x39455a, {});
+    }
+    var txt = isTwin ? '기본 지도로|놀이·교육 서초구' : '서초구 디지털 트윈|실제 자료 시뮬레이션';
+    var sg = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 4.8), new THREE.MeshBasicMaterial({ map: TG.tex.hwSign(txt) }));
+    sg.position.set(g.x - o[0] * 1.2, y + 4.4, g.z - o[1] * 1.2); sg.rotation.y = Math.atan2(-o[0], -o[1]);
+    scene.add(sg);
+    var back = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 4.8), new THREE.MeshBasicMaterial({ color: 0x2b3442 }));
+    back.position.set(g.x - o[0] * 1.28, y + 4.4, g.z - o[1] * 1.28); back.rotation.y = Math.atan2(o[0], o[1]);
+    scene.add(back);
+  }
+
   // ---------- 공간 해시(모든 링크) ----------
+
   var CELL = 24, grid = {};
   links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]); } });
   // 가장 가까운 링크 지점. 램프는 링·연결로보다 우선순위가 낮다(겹치는 곳에서 본선 기준).
@@ -496,7 +534,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 램프가 본선 포장 안을 달리는 구간(가속·감속차로)을 표시한다 — 그 구간에서는 램프의 가장자리선을 그리지 않는다.
   // 그리지 않으면 램프 차로선이 본선 차로를 가로질러 이어져 보였다(소유자: 「연결도로선이 본선도로까지 이어짐」).
   links.forEach(function (Lm) { if (!Lm.oneWay) return; for (var mi = 0; mi < Lm.N; mi++) { var mp = Lm.pts[mi], mq = nearest(mp.x, mp.z, 'no'); mp.inMain = !!(mq && mq.dist <= mq.p.half - 1.5 && Math.abs(mq.y - mp.y) < 1.5); } });
-  var rampPts = []; links.forEach(function (Lr) { if (Lr.oneWay) for (var ri = 0; ri < Lr.N; ri++) rampPts.push(Lr.pts[ri]); });
+  var rampPts = []; links.forEach(function (Lr) { if (Lr.oneWay || Lr.id === 'gate') for (var ri = 0; ri < Lr.N; ri++) rampPts.push(Lr.pts[ri]); });   // 관문 길도 포함 — 순환도로 방호벽이 출구를 막고 있었다
   function rampGap(L, p, side) {
     if (!L.closed) return false;
     // 램프가 본선 옆을 지나거나 합류하는 구간에서는 방호벽·난간을 비운다(실제 IC 도 합류부에 방호벽이 끊긴다).
@@ -768,6 +806,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     });
   })();
 
+  buildGateSigns((city.mapId || '').indexOf('twin') >= 0);   // 관문 광장·표지 — **props.build() 앞에서** 담는다
   mesh(trees.build(), lambertVC, true, false);
   mesh(props.build(), lambertVC, true, false);
   var farm = new G(), frng = TG.makeRNG(55);
@@ -819,7 +858,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
 
   return {
-    links: links, ring: ring, circuit: circuit, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
     heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,

@@ -488,7 +488,7 @@
     // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
     // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
     if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnSigL', 'btnSigR',
-                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'target', 'kidSteps']);
+                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
@@ -598,6 +598,7 @@
     }
     G.towAct = towAct;
     input.bindTap($('btnTow'), towAct); input.onKey('KeyJ', towAct);
+    input.bindTap($('btnGate'), function () { gateCross(); }); input.onKey('KeyG', function () { if (!onFoot()) gateCross(); });   // 관문(G) — 도보에서는 G 가 손 들기다
 
 
     // 미니맵 확대·축소: 미니맵 터치(단계 순환) · +/- 키
@@ -804,6 +805,11 @@
     if (G.mode === 'duty') startDuty(); else if (onFoot()) startWalk();
     if (G.mode === 'chase') startChase();
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
+    if (G.enterGate && terrain.gate && !onFoot()) {   // 관문으로 건너온 판: 순환도로 밖 길 끝에서 도시를 보고 선다
+      var gp = terrain.gate; G.enterGate = false;
+      player.teleport(gp.x, gp.z, gp.hd); player.resync();
+      hud.notice('🛰 ' + city.mapName + ' 에 들어왔습니다 — 순환도로 쪽으로 나가면 도시입니다', 'info', 4200);
+    }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz)); }
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
@@ -2098,6 +2104,11 @@
         setTimeout(function () { if (traffic.clearIncidents) traffic.clearIncidents(); }, 5000);
       }
 
+      var gn = gateNear(), go = gn ? gateOther() : null;
+      document.body.classList.toggle('gate-near', !!gn);
+      if (gn && go) { var gb = document.getElementById('btnGate'); if (gb) { var gt = gb.querySelector('span:last-child'); if (gt) gt.textContent = go.kind === 'twin' ? '트윈으로' : '기본 지도로'; }
+        if (!G.gateHintT || G.gateHintT < 0) { G.gateHintT = 6; hud.hint('🛰 관문 — 여기서 멈추면 ' + go.name + ' 지도로 건너갑니다'); } }
+      G.gateHintT = (G.gateHintT || 0) - dt;
       var scar = G.sceneCar ? G.sceneCar() : null, cb = document.getElementById('btnCone');
       document.body.classList.toggle('scene-near', !!scar);
       var tb = document.getElementById('btnTow');
@@ -2304,11 +2315,41 @@
     log('테스트 훅 설치: TG.test.*');
   }
 
+  // ---------- 관문: 두 지도를 잇는 **유일한 길** ----------
+  // 소유자 결정(2026-09-12): 「지금 지도와 게임과는 분리하여 선택하거나 순환도로 넘어 이어지는 길로만 되도록 하고」.
+  // 순환도로 밖으로 나가는 길(terrain.gate) 끝에 서서 거의 멈추면 「🛰 건너가기」가 나온다.
+  // 건너가면 **판을 새로 연다**(지도는 부팅 때 읽는다) — 그래서 근무는 거기서 끝나고 새 지도에서 다시 시작한다.
+  function gateOther() {
+    var cur = (city.mapId || 'seocho');
+    var list = (TG.MAPS && TG.MAPS.maps) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].id !== cur) return list[i];
+    return null;
+  }
+  function gateNear() {
+    if (!terrain || !terrain.gate || !player || onFoot() || G.state !== 'play') return null;
+    var g = terrain.gate, d = Math.hypot(player.pos.x - g.x, player.pos.z - g.z);
+    return d < 26 ? { d: d, slow: player.speedKmh() < 18 } : null;
+  }
+  function gateCross(dry) {   // dry: 주소만 돌려준다(검증용 — 실제로 판을 새로 열지 않는다)
+    var near = gateNear(); if (!near) { if (!dry) hud.notice('관문은 순환도로 밖으로 나가는 길 끝에 있습니다', 'warn', 2600); return false; }
+    if (!near.slow) { if (!dry) hud.notice('관문 앞에서는 속도를 줄입니다', 'warn', 2200); return false; }
+    var other = gateOther(); if (!other) { if (!dry) hud.notice('건너갈 지도가 목록에 없습니다', 'warn', 2600); return false; }
+    var url = '?map=' + encodeURIComponent(other.id) + '&enter=gate';
+    if (dry) return url;
+    TG.save.set('map', other.id);
+    hud.notice('🛰 ' + other.name + ' 지도로 건너갑니다 — 새 지도에서 근무를 다시 시작합니다', 'info', 3000);
+    TG.haptic(TG.HAPTIC.big); TG.audio.whoosh();
+    setTimeout(function () { location.search = url; }, 700);
+    return true;
+  }
+  G.gateNear = gateNear; G.gateCross = gateCross; G.gateOther = gateOther;
+
   // 지도 선택: ?map=<id> · 저장된 설정 · 목록의 기본값 순. data/maps/<id>.json 을 **init 전에** 읽어 TG.MAP 에 담는다.
   // 파일을 못 읽으면(file:// 등) 코드 안 기본값 = 첫 지도 「서울 서초구(베타)」 로 그대로 시작한다.
   function bootMap(done) {
     if (location.protocol.indexOf('http') !== 0) { log('file:// — 지도 파일을 읽지 않고 기본 지도(서초구)로 시작합니다'); done(); return; }
-    var want = new URLSearchParams(location.search).get('map') || TG.save.get('map', null);
+    var qs = new URLSearchParams(location.search), want = qs.get('map') || TG.save.get('map', null);
+    if (qs.get('enter') === 'gate') G.enterGate = true;   // 관문으로 건너온 판 — 시작 자리를 관문 앞으로
     fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
       TG.MAPS = idx;
       var pick = null;
