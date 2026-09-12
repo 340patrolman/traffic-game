@@ -173,6 +173,37 @@ TG.Layers = function (game, city, cfg, scene) {
   self.sourceNote = function () { return taas ? { source: taas.source, sourceUrl: taas.sourceUrl, attribution: taas.attribution,
     years: taas.years, howto: taas.howto, updated: taas.updated, region: taas.region, criteria: taas.criteria, mapping: taas.mapping } : null; };
 
+  // ---------- T5: 실제 사고 ↔ 시뮬레이션 위험도 비교(디지털 트윈) ----------
+  // 소유자 방향(v0.9.22): 「군대에서 하는 워 게임 같은 것을 실제 도로 데이터들을 받아서 돌리는 것이다.」
+  // 실제로 사람이 다친 곳과, 이 기기에서 달려 본 결과가 위험하다고 말하는 곳이 **같은 곳인가**를 맞대 본다.
+  //  · 실제(real) = TAAS 교차로별 사고. 위험 가중은 **사망 ×6 · 중상 ×0.6**(v0.9.23 원 크기와 같은 가중)
+  //  · 시뮬(sim)  = 이 기기에서 쌓인 급제동·보행자 근접·신호위반. 가중은 **보행자 근접 ×3 · 신호위반 ×2 · 급제동 ×1**
+  //    (사람이 다칠 수 있는 순서다 — 게임 설계값이고 법령·통계에서 온 값이 아니다)
+  // 순위를 비교한다(점수 자체는 단위가 다르다). 표본이 적을 때는 「아직 이르다」고 말한다 — 없는 결론을 만들지 않는다.
+  function realScore(n) { return (n.total || 0) + (n.death || 0) * 6 + (n.serious || 0) * 0.6; }
+  function simScore(r) { return (r.brake || 0) + (r.near || 0) * 3 + (r.red || 0) * 2; }
+  self.compare = function (topN) {
+    topN = topN || 8;
+    if (!nodes || !nodes.nodes) return null;
+    var real = nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: n.name, total: n.total, death: n.death, serious: n.serious, score: realScore(n) }; })
+      .sort(function (a, b) { return b.score - a.score; });
+    var rrank = {}; real.forEach(function (r, i) { rrank[r.key] = i + 1; });
+    var sim = Object.keys(risk).map(function (k) {
+      var r = risk[k], nd = city.nodes[r.i] && city.nodes[r.i][r.j];
+      return { key: k, name: nd ? city.nodeName(nd) : k, brake: r.brake, near: r.near, red: r.red, total: r.total, score: simScore(r) };
+    }).sort(function (a, b) { return b.score - a.score; });
+    var srank = {}; sim.forEach(function (r, i) { srank[r.key] = i + 1; });
+    // 실제 상위 topN 곳이 시뮬 순위에서 어디에 있는가
+    var rows = real.slice(0, topN).map(function (r) {
+      return { key: r.key, name: r.name, realRank: rrank[r.key], real: r.total, death: r.death,
+               simRank: srank[r.key] || null, sim: (risk[r.key] ? simScore(risk[r.key]) : 0) };
+    });
+    var hit = rows.filter(function (r) { return r.simRank && r.simRank <= topN + 2; }).length;
+    var events = self.stats.events;
+    return { rows: rows, simTop: sim.slice(0, topN), realN: real.length, simN: sim.length, events: events,
+             hit: hit, topN: topN, enough: events >= 40 && sim.length >= 5,
+             years: nodes.years || '', weights: { real: '사망×6 · 중상×0.6', sim: '보행자 근접×3 · 신호위반×2 · 급제동×1' } };
+  };
   self.raw = function (id) { for (var i = 0; i < defs.length; i++) if (defs[i].id === id) return defs[i].src || null; return null; };   // 검증용: 그 층의 원자료
   self.toggle = function (id, want) {
     if (!(id in on)) return false;
@@ -366,6 +397,18 @@ TG.Layers = function (game, city, cfg, scene) {
       h += '<div class="pl-min">넣는 방법 · ' + lesc(src.howto) + '</div>';
     } else {
       h += '<div class="pl-note">data/taas.json 을 읽지 못했습니다 — file:// 로 열면 브라우저가 막습니다. 정적 서버나 GitHub Pages 로 여세요.</div>';
+    }
+    // T5: 실제 ↔ 시뮬 비교. 표본이 적으면 순위를 말하지 않는다.
+    var cmp = self.compare(6);
+    if (cmp) {
+      h += '<div class="pl-note">⚖ 실제 사고 ↔ 시뮬레이션 위험도 (' + lesc(cmp.years) + ')</div>';
+      h += '<div class="pl-min">가중 — 실제: ' + lesc(cmp.weights.real) + ' / 시뮬: ' + lesc(cmp.weights.sim) + ' (시뮬 가중은 게임 설계값)</div>';
+      if (!cmp.enough) h += '<div class="pl-min">시뮬 표본이 적습니다(사건 ' + cmp.events + '건 · 교차로 ' + cmp.simN + '곳) — 더 달린 뒤에 견주는 것이 맞습니다. 아래는 실제 순위만 보여 줍니다.</div>';
+      else h += '<div class="pl-min">실제 상위 ' + cmp.topN + '곳 중 <b>' + cmp.hit + '곳</b>이 시뮬 상위 ' + (cmp.topN + 2) + '위 안에 들었습니다 · 시뮬 사건 ' + cmp.events + '건 · 교차로 ' + cmp.simN + '곳</div>';
+      cmp.rows.forEach(function (r) {
+        h += '<div class="pl-min">' + r.realRank + '. ' + lesc(r.name) + ' — 실제 ' + r.real + '건' + (r.death ? '(사망 ' + r.death + ')' : '') +
+             ' · 시뮬 ' + (r.simRank ? r.simRank + '위(' + r.sim + '점)' : '아직 없음') + '</div>';
+      });
     }
     h += '<div class="pl-foot"><button class="pl-btn" data-riskreset="1">위험도 초기화</button>' +
          '<span class="pl-min">시뮬레이션 위험도는 이 기기에서 달린 결과입니다 — 급제동·보행자 근접·신호위반·무인 단속 적발을 교차로별로 쌓습니다. 쌓인 사건 ' + self.stats.events + '건.</span></div>';

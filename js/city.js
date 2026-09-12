@@ -261,6 +261,7 @@ TG.buildCity = function (cfg) {
   }
   function nodeFrom(node, d) { var i = node.i + TG.DIR_VEC[d][0], j = node.j + TG.DIR_VEC[d][1]; if (i < 0 || j < 0 || i >= xs.length || j >= zs.length) return null; return nodes[i][j]; }
   function distToNearestNode(x, z) { return Math.max(Math.abs(x - nearestX(x)), Math.abs(z - nearestZ(z))); }
+  function nearestNode(x, z) { return nodes[nearestIdx(xs, x)][nearestIdx(zs, z)]; }   // 가장 가까운 교차로(위험도 쌓기·자료 붙이기)
   // 가장 가까운 노드의 교차로·횡단보도 영역 안인가(정차 유도 시 피할 곳)
   function nearIntersectionZone(x, z) {
     var i = nearestIdx(xs, x), j = nearestIdx(zs, z);
@@ -356,7 +357,7 @@ TG.buildCity = function (cfg) {
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,
-    axisOfDir: axisOfDir, halfOf: halfOf, lanesOf: lanesOf, roadOf: roadOf, crossHalf: crossHalf, stopDist: stopDist, crossNear: crossNear, crossFar: crossFar,
+    nearestNode: nearestNode, axisOfDir: axisOfDir, halfOf: halfOf, lanesOf: lanesOf, roadOf: roadOf, crossHalf: crossHalf, stopDist: stopDist, crossNear: crossNear, crossFar: crossFar,
     laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff, laneIndexAt: laneIndexAt,
     attachTerrain: function (t) { terrain = t; city.terrain = t; bounds.x0 = t.bounds.x0; bounds.x1 = t.bounds.x1; bounds.z0 = t.bounds.z0; bounds.z1 = t.bounds.z1; for (var i = 0; i < t.walls.length; i++) walls.push(t.walls[i]); },
     exitFor: function (node, dir) { return terrain ? terrain.exitFor(node, dir) : null; },

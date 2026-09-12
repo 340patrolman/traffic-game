@@ -1714,6 +1714,8 @@
     }
     if (kind === 'witness') {
       if (G.mode === 'kid') return;
+      // 위험도(T5): 이 자리에서 **무엇이 실제로 일어났는지**를 교차로에 쌓는다 — 신호위반은 red, 횡단보도 보행자 보호 위반은 near.
+      if (layers && car.violation && car.violation.node) layers.mark(car.violation.node, car.violation.type === 'pedestrian' ? 'near' : car.violation.type === 'signal' ? 'red' : 'brake');
       var name = { buslane: '버스전용차로 위반', pedestrian: '보행자 보호의무 위반(횡단보도)', signal: '신호위반' }[car.violation.type] || (enforcement && enforcement.nameOf ? enforcement.nameOf(car.violation.type) : car.violation.type);
       hud.notice('위반 의심: ' + name + ' — 대상 차량 표시', 'alert', 3200); hud.flash(); TG.audio.shutter(); G.punch = 1;   // 위반 포착: 카메라 셔터·플래시·줌 펀치 TG.audio.alert(); if (G.stats) G.stats.witnessed++;
     }
@@ -2119,6 +2121,7 @@
     }
 
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
+    riskWatch(dt);   // 위험도(T5): 급제동·보행자 근접을 가까운 교차로에 쌓는다
     checkRules(dt, frame);
     sigChip(frame);
     // 하차 근무: 아직 차 안이어도 그 교차로는 돌아가고 있다 — 대기 행렬·꼬리물기를 계속 센다.
@@ -2150,6 +2153,28 @@
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
+  // 위험도 쌓기(T5). **이 기기에서 달린 결과**다 — 급제동과 보행자 근접을 가까운 교차로(70m 안)에 적는다.
+  // 가중·문턱은 게임 설계값이다(법령·통계값이 아니다): 급제동 = 미끄러짐 0.35 넘거나 제동 중 4m/s² 넘게 줄어든 순간.
+  var riskT = { brake: 0, near: 0 };
+  function riskWatch(dt) {
+    if (!layers || !player || onFoot()) return;
+    riskT.brake -= dt; riskT.near -= dt;
+    var d = TG.headingToDir(player.heading), nd = city.nodeAhead(player.pos.x, player.pos.z, d, 0) || null;
+    if (!nd) { var ni = city.nearestNode ? city.nearestNode(player.pos.x, player.pos.z) : null; nd = ni || null; }
+    if (nd && Math.hypot(nd.x - player.pos.x, nd.z - player.pos.z) > 70) nd = null;
+    var T2 = player.telemetry, sp = T2.speed || 0;
+    if (nd && riskT.brake <= 0) {
+      var dec = (riskT.prevSp === undefined ? 0 : (riskT.prevSp - sp) / Math.max(0.001, dt));
+      if (sp > 4 && (T2.skid > 0.35 || (player.controls.brake > 0.6 && dec > 4))) { riskT.brake = 5; layers.mark(nd, 'brake'); }
+    }
+    riskT.prevSp = sp;
+    if (nd && riskT.near <= 0 && sp > 5.5 && peds && peds.peds) {
+      for (var i = 0; i < peds.peds.length; i++) {
+        var p = peds.peds[i]; if (!p || !p.pos) continue;
+        if (Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z) < 2.6) { riskT.near = 4; layers.mark(nd, 'near'); break; }
+      }
+    }
+  }
   // ---- 배속(소유자: 「횡단보도에서 기다리는 시간이 너무 길 수 있어서 … 1부터 3배속으로, 0.1 단위와 0.5 단위로」) ----
   // 한 번에 큰 dt 를 넣으면 주행 물리가 튄다 — 0.034초 이하 조각으로 나눠 update 를 여러 번 돈다.
   // 눌림(pressed) 입력은 첫 조각에서만 받고 지운다(한 번 누른 것이 두 번 처리되지 않게).
