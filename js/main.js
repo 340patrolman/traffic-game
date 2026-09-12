@@ -398,6 +398,33 @@
     input.onKey('BracketRight', function () { setTimeScale((G.timeScale || 1) + ((input.held.ShiftLeft || input.held.ShiftRight) ? 0.5 : 0.1)); });
     input.onKey('BracketLeft', function () { setTimeScale((G.timeScale || 1) - ((input.held.ShiftLeft || input.held.ShiftRight) ? 0.5 : 0.1)); });
     input.onKey('Backslash', function () { setTimeScale(1); });
+    // 목소리 고르기 — 기기에 있는 한국어 목소리를 보여 주고 고른 것을 기억한다(소유자 집사람 지적: 「여자 목소리가 너무 기계음」).
+    // 목록은 브라우저가 늦게 채우므로 voiceschanged 에서 한 번 더 그린다.
+    function fillVoices() {
+      var sel = $('optVoice'); if (!sel || !TG.audio.voices) return;
+      var list = TG.audio.voices(), cur = settings.voice || '';
+      sel.innerHTML = '<option value="">자동(가장 자연스러운 것)</option>';
+      list.forEach(function (v) {
+        var o = document.createElement('option');
+        o.value = v.name; o.textContent = v.name.replace(/\s*-\s*Korean.*$/i, '') + (v.sex === 'f' ? ' · 여성' : v.sex === 'm' ? ' · 남성' : '') + (v.local ? '' : ' · 온라인');
+        sel.appendChild(o);
+      });
+      sel.value = cur;
+      if (cur) TG.audio.setVoice(cur);
+    }
+    fillVoices();
+    try { if (window.speechSynthesis) window.speechSynthesis.addEventListener('voiceschanged', fillVoices); } catch (e) { }
+    if ($('optVoice')) $('optVoice').addEventListener('change', function () {
+      settings.voice = $('optVoice').value || ''; TG.save.set('settings', settings);
+      TG.audio.setVoice(settings.voice);
+      TG.audio.resume(); TG.audio.say('서울교통 순찰근무입니다. 안전 운전 하십시오', { kind: 'officer' });
+    });
+    input.bindTap($('btnVoiceTest'), function () {
+      TG.audio.resume();
+      TG.audio.say('서울교통 순찰근무입니다. 안전 운전 하십시오', { kind: 'officer' });
+      setTimeout(function () { TG.audio.say('초록불이 켜졌어요. 손을 들고 천천히 건너요', { kind: 'kid', queue: true }); }, 2600);
+      hud.notice('🔊 목소리 들어보기 — 경찰관 · 어린이 순서로 말합니다(기기에 목소리가 여럿이면 목록에서 고르세요)', 'info', 4200);
+    });
     setTimeScale(1);
     // 옮길 수 있는 것들 — 소유자가 든 것(미니맵·경광등·단속·앰프·블랙박스·무전)에 방향지시등·작은 단추·하차·손 들기까지 넣었다.
     // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.

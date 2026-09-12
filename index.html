@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.57">
+<link rel="stylesheet" href="css/style.css?v=0.9.58">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -234,6 +234,8 @@
     <label class="opt"><span>조작 배치</span><select id="optCtl" style="flex:1"><option value="stick">🕹 조이스틱 + 버튼</option><option value="pad">🎮 게임패드(십자키 · △○×□)</option></select></label>
     <label class="opt"><span>주행 모드</span><select id="optDrive" style="flex:1"><option value="normal">노멀 (부드럽게)</option><option value="sport">스포츠 (가속·조향 응답 ↑)</option></select></label>
     <label class="opt"><span>날씨·시간</span><select id="optWeather" style="flex:1"><option value="auto">🕒 자동(시계·계절)</option><option value="random">🎲 랜덤</option><option value="clear">☀ 맑음</option><option value="sunset">🌇 석양</option><option value="night">🌙 밤</option><option value="rain">🌧 비 (그립 78%)</option><option value="snow">❄ 눈 (그립 62%)</option><option value="windy">💨 강풍 (옆바람)</option></select></label>
+    <label class="opt"><span>목소리</span><select id="optVoice" style="flex:1"><option value="">자동(가장 자연스러운 것)</option></select></label>
+    <button id="btnVoiceTest" class="ghost">🔊 목소리 들어보기</button>
     <label class="opt"><span>음량</span><input type="range" id="optVolume" min="0" max="100" step="5" style="flex:1"><span id="optVolumeVal">30%</span></label>
     <button id="btnResume" class="primary">계속</button>
     <button id="btnLayoutReset" class="ghost">↩ 화면 배치 처음으로(단추를 길게 누르면 옮길 수 있습니다)</button>
@@ -270,46 +272,46 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.57"></script>
-<script src="js/config.js?v=0.9.57"></script>
-<script src="js/rng.js?v=0.9.57"></script>
-<script src="js/save.js?v=0.9.57"></script>
-<script src="js/perf.js?v=0.9.57"></script>
-<script src="js/emblem.js?v=0.9.57"></script>
-<script src="js/textures.js?v=0.9.57"></script>
-<script src="js/audio.js?v=0.9.57"></script>
-<script src="js/city.js?v=0.9.57"></script>
-<script src="js/world.js?v=0.9.57"></script>
-<script src="js/terrain.js?v=0.9.57"></script>
-<script src="js/weather.js?v=0.9.57"></script>
-<script src="js/signals.js?v=0.9.57"></script>
-<script src="js/vehmesh.js?v=0.9.57"></script>
-<script src="js/vehicle.js?v=0.9.57"></script>
-<script src="js/traffic.js?v=0.9.57"></script>
-<script src="js/peds.js?v=0.9.57"></script>
-<script src="js/character.js?v=0.9.57"></script>
-<script src="js/vfx.js?v=0.9.57"></script>
-<script src="js/response.js?v=0.9.57"></script>
-<script src="js/junction.js?v=0.9.57"></script>
-<script src="js/chase.js?v=0.9.57"></script>
-<script src="js/incident.js?v=0.9.57"></script>
-<script src="js/dispatch.js?v=0.9.57"></script>
-<script src="js/intro.js?v=0.9.57"></script>
-<script src="js/walker.js?v=0.9.57"></script>
-<script src="js/rail.js?v=0.9.57"></script>
-<script src="js/enforcement.js?v=0.9.57"></script>
-<script src="js/signaltod.js?v=0.9.57"></script>
-<script src="js/facil.js?v=0.9.57"></script>
-<script src="js/layers.js?v=0.9.57"></script>
-<script src="js/study.js?v=0.9.57"></script>
-<script src="js/drunkproc.js?v=0.9.57"></script>
-<script src="js/kidcourse.js?v=0.9.57"></script>
-<script src="js/career.js?v=0.9.57"></script>
-<script src="js/hudpos.js?v=0.9.57"></script>
-<script src="js/hud.js?v=0.9.57"></script>
-<script src="js/minimap.js?v=0.9.57"></script>
-<script src="js/input.js?v=0.9.57"></script>
-<script src="js/main.js?v=0.9.57"></script>
+<script src="lib/three.min.js?v=0.9.58"></script>
+<script src="js/config.js?v=0.9.58"></script>
+<script src="js/rng.js?v=0.9.58"></script>
+<script src="js/save.js?v=0.9.58"></script>
+<script src="js/perf.js?v=0.9.58"></script>
+<script src="js/emblem.js?v=0.9.58"></script>
+<script src="js/textures.js?v=0.9.58"></script>
+<script src="js/audio.js?v=0.9.58"></script>
+<script src="js/city.js?v=0.9.58"></script>
+<script src="js/world.js?v=0.9.58"></script>
+<script src="js/terrain.js?v=0.9.58"></script>
+<script src="js/weather.js?v=0.9.58"></script>
+<script src="js/signals.js?v=0.9.58"></script>
+<script src="js/vehmesh.js?v=0.9.58"></script>
+<script src="js/vehicle.js?v=0.9.58"></script>
+<script src="js/traffic.js?v=0.9.58"></script>
+<script src="js/peds.js?v=0.9.58"></script>
+<script src="js/character.js?v=0.9.58"></script>
+<script src="js/vfx.js?v=0.9.58"></script>
+<script src="js/response.js?v=0.9.58"></script>
+<script src="js/junction.js?v=0.9.58"></script>
+<script src="js/chase.js?v=0.9.58"></script>
+<script src="js/incident.js?v=0.9.58"></script>
+<script src="js/dispatch.js?v=0.9.58"></script>
+<script src="js/intro.js?v=0.9.58"></script>
+<script src="js/walker.js?v=0.9.58"></script>
+<script src="js/rail.js?v=0.9.58"></script>
+<script src="js/enforcement.js?v=0.9.58"></script>
+<script src="js/signaltod.js?v=0.9.58"></script>
+<script src="js/facil.js?v=0.9.58"></script>
+<script src="js/layers.js?v=0.9.58"></script>
+<script src="js/study.js?v=0.9.58"></script>
+<script src="js/drunkproc.js?v=0.9.58"></script>
+<script src="js/kidcourse.js?v=0.9.58"></script>
+<script src="js/career.js?v=0.9.58"></script>
+<script src="js/hudpos.js?v=0.9.58"></script>
+<script src="js/hud.js?v=0.9.58"></script>
+<script src="js/minimap.js?v=0.9.58"></script>
+<script src="js/input.js?v=0.9.58"></script>
+<script src="js/main.js?v=0.9.58"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

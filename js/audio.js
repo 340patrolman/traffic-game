@@ -15,35 +15,113 @@ TG.audio = (function () {
     g2.connect(master);
     ambient = { g: g2 };
   }
-  // 앰프(차량 확성기) 안내: 브라우저 내장 음성(오프라인, 파일 없음). 음성이 없으면 차임만.
-  // 음성(speechSynthesis, 오프라인): 한국어 목소리를 고르고 화자별 높낮이·속도. officer(경찰관) · kid(어린이) · pa(확성기)
-  var VOICE = { officer: { pitch: 0.88, rate: 0.98 }, kid: { pitch: 1.45, rate: 1.04 }, pa: { pitch: 0.9, rate: 1.0 }, narrator: { pitch: 1.0, rate: 0.95 } };
-  var koVoice = null, lastSaid = '', speaking = null;
-  function pickVoice() {
-    try {
-      if (!window.speechSynthesis) return null;
-      var vs = window.speechSynthesis.getVoices(), best = null, score = -1;
-      for (var i = 0; i < vs.length; i++) {
-        var v = vs[i], lang = (v.lang || '').toLowerCase(); if (lang.indexOf('ko') !== 0) continue;
-        var s = 1 + (/google|neural|natural|premium|heami|sunhi|injoon|yuna/i.test(v.name) ? 2 : 0) + (v.localService ? 0.5 : 0);
-        if (s > score) { score = s; best = v; }
-      }
-      return best;
-    } catch (e) { return null; }
+  // 앰프(차량 확성기)·사람 말: 브라우저 내장 음성(오프라인, 파일 없음). 음성이 없으면 차임만.
+  //
+  // 소유자(집사람 지적): 「여자 목소리가 너무 기계음이라는데 공을 들여서 사람처럼 말하게 해줘. 자연스럽게 전문 성우처럼.」
+  // 오디오 파일 0개 규칙 안에서 할 수 있는 것은 **세 가지**다 —
+  //   ① **목소리를 잘 고른다**: 같은 한국어라도 신경망 음성(Google 한국의 · SunHi/InJoon · Natural/Neural)과
+  //      옛 포먼트 음성(Heami 등)의 차이가 「기계음」의 절반이다. 화자마다 **다른 목소리**를 쓴다(여성·남성).
+  //      전에는 `localService` 에 가점을 줘서 **일부러 로컬 기계음을 골랐다** — 그 가점을 없앴다.
+  //   ② **높낮이·속도를 사람 범위로**: 어린이를 pitch 1.45 로 올려 두면 다람쥐 소리가 된다(1.22) ·
+  //      경찰관 0.88 → 0.96(너무 낮추면 웅웅거린다) · 문장마다 ±0.02 씩 **흔들어** 같은 톤이 반복되지 않게 한다.
+  //   ③ **읽기 좋은 글로 바꿔서 넘긴다**: 「km/h」·「m」·「§」·「+30」 같은 표기는 엔진이 또박또박 읽어 기계처럼 들린다 →
+  //      「시속 … 킬로미터」·「미터」·「제…조」로 풀고, 「·」·「—」는 **쉼표**로 바꿔 끊어 읽게 한다(쉼표가 억양을 만든다).
+  var VOICE = { officer: { pitch: 0.96, rate: 0.97, sex: 'm' }, kid: { pitch: 1.22, rate: 1.0, sex: 'f' },
+                pa: { pitch: 0.94, rate: 0.95, sex: 'm' }, narrator: { pitch: 1.02, rate: 0.96, sex: 'f' } };
+  var koVoice = null, koFemale = null, koMale = null, lastSaid = '', speaking = null;
+  // 이름으로 성별을 가른다(브라우저가 성별을 알려 주지 않는다). 한국어 음성 이름은 대개 이 안에 든다.
+  var F_NAMES = /heami|sunhi|선희|여성|female|yuna|유나|nari|ji-?min|지민|아라|ara|mi-?jin/i;
+  var M_NAMES = /injoon|인준|남성|male|minsu|민수|gook|국민|jinho|진호|bongjin/i;
+  function voiceScore(v) {
+    var n = v.name || '';
+    var s = 1;
+    if (/google/i.test(n)) s += 3;                       // Google 한국의 — 가장 사람 같다
+    if (/neural|natural|premium|enhanced|online/i.test(n)) s += 3;
+    if (/sunhi|injoon/i.test(n)) s += 2;                 // Microsoft 신경망 한국어
+    if (/heami/i.test(n)) s += 0.5;                      // 옛 포먼트 — 있으면 쓰지만 뒤로
+    if (/compact|espeak|festival/i.test(n)) s -= 2;
+    return s;
   }
-  if (window.speechSynthesis) { try { window.speechSynthesis.onvoiceschanged = function () { koVoice = pickVoice(); }; koVoice = pickVoice(); } catch (e) {} }
+  function pickVoices() {
+    try {
+      if (!window.speechSynthesis) return;
+      var vs = window.speechSynthesis.getVoices(), ko = [];
+      for (var i = 0; i < vs.length; i++) { var lang = (vs[i].lang || '').toLowerCase(); if (lang.indexOf('ko') === 0) ko.push(vs[i]); }
+      ko.sort(function (a, b) { return voiceScore(b) - voiceScore(a); });
+      koVoice = ko[0] || null;
+      koFemale = null; koMale = null;
+      for (var k = 0; k < ko.length; k++) {
+        if (!koFemale && F_NAMES.test(ko[k].name)) koFemale = ko[k];
+        if (!koMale && M_NAMES.test(ko[k].name)) koMale = ko[k];
+      }
+      // 성별을 못 가린 목소리만 있으면 첫째·둘째로 나눠 쓴다 — 두 사람이 같은 소리로 말하는 것이 가장 어색하다.
+      if (!koFemale) koFemale = ko[0] || null;
+      if (!koMale) koMale = (ko.length > 1 && ko[1] !== koFemale) ? ko[1] : (ko[0] || null);
+    } catch (e) { }
+  }
+  if (window.speechSynthesis) { try { window.speechSynthesis.onvoiceschanged = pickVoices; pickVoices(); } catch (e) {} }
+  // 읽기 좋은 글로 — 단위·기호·조문은 풀어서, 구분자는 쉼표로(엔진이 쉼표에서 숨을 쉰다)
+  // 기기에 있는 한국어 목소리 목록·직접 고르기(소유자 집사람 지적 — 기기마다 자연스러운 목소리가 다르다).
+  // 고른 이름은 main 이 설정에 저장하고 다시 켤 때 넣어 준다. null 이면 자동(점수가 가장 높은 것).
+  var forced = null;
+  function voices() {
+    try {
+      if (!window.speechSynthesis) return [];
+      return window.speechSynthesis.getVoices().filter(function (v) { return (v.lang || '').toLowerCase().indexOf('ko') === 0; })
+        .sort(function (a2, b2) { return voiceScore(b2) - voiceScore(a2); })
+        .map(function (v) { return { name: v.name, lang: v.lang, local: !!v.localService, sex: F_NAMES.test(v.name) ? 'f' : M_NAMES.test(v.name) ? 'm' : '' }; });
+    } catch (e) { return []; }
+  }
+  function setVoice(name) {
+    forced = null;
+    if (!name || !window.speechSynthesis) { pickVoices(); return null; }
+    var vs = window.speechSynthesis.getVoices();
+    for (var i = 0; i < vs.length; i++) if (vs[i].name === name) { forced = vs[i]; break; }
+    return forced ? forced.name : null;
+  }
+  function voiceName() { return forced ? forced.name : (koVoice ? koVoice.name : ''); }
+  function sayText(t) {
+    t = String(t);
+    t = t.replace(/km\/h/gi, ' 킬로미터').replace(/(\d)\s*km/gi, '$1 킬로미터').replace(/(\d)\s*m\b/g, '$1 미터');
+    t = t.replace(/시속\s+(\d+)\s*킬로미터/g, '시속 $1킬로미터');
+    t = t.replace(/§\s*(\d+)/g, '제$1조').replace(/제(\d+)조의(\d+)/g, '제$1조의 $2');
+    t = t.replace(/\s*·\s*/g, ', ').replace(/\s*—\s*/g, ', ').replace(/\s*\/\s*/g, ', ');
+    t = t.replace(/[(]\s*[+\-\u2212]\s*\d+\s*[)]/g, ' ');   // 「(+30)」 같은 점수 표기는 읽지 않는다
+    t = t.replace(/[\u2460-\u2473]/g, function (c) { return ' 제' + (c.charCodeAt(0) - 0x245F) + '항 '; });   // ①②③ → 제1항(조문을 또박또박 읽지 않게)
+    t = t.replace(/[⚠️✅🚨🚧🔥📡📢🪝⭐🛑👀✋🚶🟢🟡🔴💭🕯🚸]/g, ' ');
+    t = t.replace(/\(\s*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (t && !/[.!?…]$/.test(t)) t += '.';        // 끝에 마침표가 있으면 문장을 닫아 억양이 내려간다
+    return t;
+  }
   function say(text, opts) {
     opts = opts || {};
     try {
       if (!window.speechSynthesis || !text) return false;
-      var kind = VOICE[opts.kind] || VOICE.officer, u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ko-KR'; u.rate = opts.rate || kind.rate; u.pitch = opts.pitch || kind.pitch; u.volume = muted ? 0 : (opts.volume || 1);
-      if (!koVoice) koVoice = pickVoice(); if (koVoice) u.voice = koVoice;
+      var kind = VOICE[opts.kind] || VOICE.officer;
+      if (!koVoice) pickVoices();
+      var v = forced || (opts.kind === 'kid' || opts.kind === 'narrator' ? (koFemale || koVoice) : (koMale || koVoice));
+      var body = sayText(text);
+      if (!body) return false;
       if (!opts.queue) window.speechSynthesis.cancel();
-      else if (text === lastSaid && window.speechSynthesis.speaking) return false;   // 같은 말이 겹쳐 쌓이지 않게
-      // 말하는 동안 캐릭터 입이 움직이도록 화자 표시(speaking = 'officer'|'kid'|...)
-      u.onstart = function () { speaking = opts.kind || 'officer'; }; u.onend = function () { speaking = null; }; u.onerror = function () { speaking = null; };
-      lastSaid = text; window.speechSynthesis.speak(u);
+      else if (body === lastSaid && window.speechSynthesis.speaking) return false;   // 같은 말이 겹쳐 쌓이지 않게
+      // 긴 문장은 쉼표에서 끊어 **여러 발화**로 보낸다 — 한 번에 던지면 엔진이 한 호흡으로 밀어 기계처럼 들린다.
+      var parts = body.match(/[^,.!?…]+[,.!?…]*\s*/g) || [body];   // 뒤보기 정규식은 쓰지 않는다(옛 사파리는 그 한 줄로 파일 전체가 깨진다)
+      if (parts.length > 3) parts = [parts.slice(0, 2).join(' '), parts.slice(2).join(' ')];
+      var jitter = (Math.random() - 0.5) * 0.04;        // 문장마다 살짝 다른 톤 — 같은 소리의 반복이 기계음의 정체다
+      var first = true;
+      for (var i = 0; i < parts.length; i++) {
+        if (!parts[i]) continue;
+        var u = new SpeechSynthesisUtterance(parts[i]);
+        u.lang = 'ko-KR';
+        u.rate = (opts.rate || kind.rate) + jitter * 0.5;
+        u.pitch = (opts.pitch || kind.pitch) + jitter;
+        u.volume = muted ? 0 : (opts.volume || 1);
+        if (v) u.voice = v;
+        if (first) { u.onstart = function () { speaking = opts.kind || 'officer'; }; first = false; }
+        if (i === parts.length - 1) { u.onend = function () { speaking = null; }; u.onerror = function () { speaking = null; }; }
+        window.speechSynthesis.speak(u);
+      }
+      lastSaid = body;
       return true;
     } catch (e) { return false; }   /* 음성 미지원 브라우저 */
   }
@@ -471,6 +549,6 @@ TG.audio = (function () {
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
   return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
-           footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
+           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, horn: horn, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();
