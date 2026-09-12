@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.58">
+<link rel="stylesheet" href="css/style.css?v=0.9.59">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -182,6 +182,21 @@
   <button id="introSkip" class="skip">건너뛰기 ▸</button>
 </div>
 
+<!-- 시작 화면 — **소리를 여는 한 번의 터치**. 브라우저는 사용자가 누르기 전에는 오디오를 열어 주지 않는다(자동재생 정책).
+     그래서 인트로를 이 터치 뒤에 시작한다. 상용 게임이 다 이렇게 하는 이유다. -->
+<div id="boot" class="overlay boot">
+  <div class="bootcard">
+    <img id="bootEmblem" class="em" alt="">
+    <div class="logo">SEOUL PATROL</div>
+    <div class="sub">서울교통 순찰근무</div>
+    <button id="btnBoot" class="primary big">▶ 눌러서 시작</button>
+    <div class="dim small">웅장한 인트로 음악이 나옵니다 · 폰은 소리·진동을 켜 주세요</div>
+    <button id="btnBootQuiet" class="ghost">🔇 소리 없이 시작</button>
+    <button id="btnBootFresh" class="ghost">🔄 새 판 받기(저장된 옛 파일 지우기)</button>
+    <div id="bootVer" class="dim small"></div>
+  </div>
+</div>
+
 <div id="title" class="overlay">
   <div class="card">
     <div class="badge">SEOUL POLICE · 교통순찰</div>
@@ -229,6 +244,7 @@
     <label class="opt"><input type="checkbox" id="optAssist"> 차선 유지 보조(조향을 놓으면 차로 중앙으로)</label>
     <label class="opt"><input type="checkbox" id="optEasy"> 초보 운전 보조(조향 완화 · 감속 시점에 살짝 자동 제동)</label>
     <label class="opt"><input type="checkbox" id="optVibrate"> 충돌 진동(안드로이드 · 아이폰은 진동 기능이 없어 동작하지 않음)</label>
+    <button id="btnBuzzTest" class="ghost">📳 진동 시험(짧게 · 길게 · 두 번)</button>
     <label class="opt"><input type="checkbox" id="optPano"> 차내 광각 3면(가로 화면 · 실험 기능)</label>
     <label class="opt"><input type="checkbox" id="optHQ"> 고화질(해상도·그림자 올림 — 프레임이 떨어지면 끄세요)</label>
     <label class="opt"><span>조작 배치</span><select id="optCtl" style="flex:1"><option value="stick">🕹 조이스틱 + 버튼</option><option value="pad">🎮 게임패드(십자키 · △○×□)</option></select></label>
@@ -272,50 +288,55 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.58"></script>
-<script src="js/config.js?v=0.9.58"></script>
-<script src="js/rng.js?v=0.9.58"></script>
-<script src="js/save.js?v=0.9.58"></script>
-<script src="js/perf.js?v=0.9.58"></script>
-<script src="js/emblem.js?v=0.9.58"></script>
-<script src="js/textures.js?v=0.9.58"></script>
-<script src="js/audio.js?v=0.9.58"></script>
-<script src="js/city.js?v=0.9.58"></script>
-<script src="js/world.js?v=0.9.58"></script>
-<script src="js/terrain.js?v=0.9.58"></script>
-<script src="js/weather.js?v=0.9.58"></script>
-<script src="js/signals.js?v=0.9.58"></script>
-<script src="js/vehmesh.js?v=0.9.58"></script>
-<script src="js/vehicle.js?v=0.9.58"></script>
-<script src="js/traffic.js?v=0.9.58"></script>
-<script src="js/peds.js?v=0.9.58"></script>
-<script src="js/character.js?v=0.9.58"></script>
-<script src="js/vfx.js?v=0.9.58"></script>
-<script src="js/response.js?v=0.9.58"></script>
-<script src="js/junction.js?v=0.9.58"></script>
-<script src="js/chase.js?v=0.9.58"></script>
-<script src="js/incident.js?v=0.9.58"></script>
-<script src="js/dispatch.js?v=0.9.58"></script>
-<script src="js/intro.js?v=0.9.58"></script>
-<script src="js/walker.js?v=0.9.58"></script>
-<script src="js/rail.js?v=0.9.58"></script>
-<script src="js/enforcement.js?v=0.9.58"></script>
-<script src="js/signaltod.js?v=0.9.58"></script>
-<script src="js/facil.js?v=0.9.58"></script>
-<script src="js/layers.js?v=0.9.58"></script>
-<script src="js/study.js?v=0.9.58"></script>
-<script src="js/drunkproc.js?v=0.9.58"></script>
-<script src="js/kidcourse.js?v=0.9.58"></script>
-<script src="js/career.js?v=0.9.58"></script>
-<script src="js/hudpos.js?v=0.9.58"></script>
-<script src="js/hud.js?v=0.9.58"></script>
-<script src="js/minimap.js?v=0.9.58"></script>
-<script src="js/input.js?v=0.9.58"></script>
-<script src="js/main.js?v=0.9.58"></script>
+<script src="lib/three.min.js?v=0.9.59"></script>
+<script src="js/config.js?v=0.9.59"></script>
+<script src="js/rng.js?v=0.9.59"></script>
+<script src="js/save.js?v=0.9.59"></script>
+<script src="js/perf.js?v=0.9.59"></script>
+<script src="js/emblem.js?v=0.9.59"></script>
+<script src="js/textures.js?v=0.9.59"></script>
+<script src="js/audio.js?v=0.9.59"></script>
+<script src="js/city.js?v=0.9.59"></script>
+<script src="js/world.js?v=0.9.59"></script>
+<script src="js/terrain.js?v=0.9.59"></script>
+<script src="js/weather.js?v=0.9.59"></script>
+<script src="js/signals.js?v=0.9.59"></script>
+<script src="js/vehmesh.js?v=0.9.59"></script>
+<script src="js/vehicle.js?v=0.9.59"></script>
+<script src="js/traffic.js?v=0.9.59"></script>
+<script src="js/peds.js?v=0.9.59"></script>
+<script src="js/character.js?v=0.9.59"></script>
+<script src="js/vfx.js?v=0.9.59"></script>
+<script src="js/response.js?v=0.9.59"></script>
+<script src="js/junction.js?v=0.9.59"></script>
+<script src="js/chase.js?v=0.9.59"></script>
+<script src="js/incident.js?v=0.9.59"></script>
+<script src="js/dispatch.js?v=0.9.59"></script>
+<script src="js/intro.js?v=0.9.59"></script>
+<script src="js/walker.js?v=0.9.59"></script>
+<script src="js/rail.js?v=0.9.59"></script>
+<script src="js/enforcement.js?v=0.9.59"></script>
+<script src="js/signaltod.js?v=0.9.59"></script>
+<script src="js/facil.js?v=0.9.59"></script>
+<script src="js/layers.js?v=0.9.59"></script>
+<script src="js/study.js?v=0.9.59"></script>
+<script src="js/drunkproc.js?v=0.9.59"></script>
+<script src="js/kidcourse.js?v=0.9.59"></script>
+<script src="js/career.js?v=0.9.59"></script>
+<script src="js/hudpos.js?v=0.9.59"></script>
+<script src="js/hud.js?v=0.9.59"></script>
+<script src="js/minimap.js?v=0.9.59"></script>
+<script src="js/input.js?v=0.9.59"></script>
+<script src="js/main.js?v=0.9.59"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.log('[TG] 서비스워커 등록 실패: ' + e.message); }); });
+  // 새 판이 올라와 서비스워커가 바뀌면 **한 번만** 새로고침한다 — 옛 화면을 보면서 「고쳤다는데 안 고쳐졌다」가 되는 것을 막는다.
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    try { if (sessionStorage.getItem('tg_swReload')) return; sessionStorage.setItem('tg_swReload', '1'); } catch (e) { }
+    location.reload();
+  });
 }
 </script>
 </body>

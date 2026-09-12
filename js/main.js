@@ -105,7 +105,12 @@
     if (vt) vt.textContent = 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
     log('준비 완료 v' + TG.VERSION + ' · 건물 ' + city.buildings.length + ' · 링크 ' + terrain.links.length + ' · 터치 ' + input.isTouch + ' · ' + location.protocol);
     if (isTest) installTestHooks();
-    if (noIntro || isTest) showTitle(); else startIntro();
+    // **시작 화면**(부트 게이트) — 브라우저는 사용자가 누르기 전에는 오디오를 열어 주지 않는다(자동재생 정책).
+    // 그래서 인트로를 **터치 뒤에** 시작한다. 그 한 번의 터치가 소리(웅장한 테마)와 진동(햅틱)을 같이 연다.
+    // 소유자: 「인트로에서 사운드가 안 나오네. 스마트폰에서도 멋있는 사운드가 나와야 하고 햅틱 반응 및 충돌 진동이 울려야 함.」
+    if (noIntro || isTest) { var bg0 = $('boot'); if (bg0) bg0.style.display = 'none'; showTitle(); }
+    else bootGate();
+
     requestAnimationFrame(loop);
   }
 
@@ -210,6 +215,38 @@
     } else { pano.on = false; renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h); }
   }
 
+  // ---------- 시작 화면(부트 게이트) ----------
+  // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
+  function bootGate() {
+    var EL = function (id) { return document.getElementById(id); };   // $ 는 init 안 지역 도우미라 여기서는 못 쓴다
+    var box = EL('boot'); if (!box) { startIntro(); return; }
+    var em = EL('bootEmblem');
+    if (em && !em.src && TG.tex && TG.tex.emblemPNG) { em.src = TG.tex.emblemPNG(function (u) { em.src = u; }); }
+    var vr = EL('bootVer');
+    if (vr) vr.textContent = 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
+    box.style.display = 'flex';
+    function go(sound) {
+      box.style.display = 'none';
+      if (sound) {
+        TG.audio.setMuted(false); settings.sound = true; TG.save.set('settings', settings);
+        TG.audio.resume();                                   // 이 호출은 **사용자 제스처 안**이라야 먹는다
+        buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
+      } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
+      startIntro();
+    }
+    input.bindTap(EL('btnBoot'), function () { go(true); });
+    input.bindTap(EL('btnBootQuiet'), function () { go(false); });
+    input.bindTap(EL('btnBootFresh'), function () {
+      // 저장된 옛 파일 때문에 「고쳤다는데 안 고쳐졌다」가 되는 일을 스스로 풀 수 있게 한다
+      var done = function () { try { sessionStorage.removeItem('tg_swReload'); } catch (e) { } location.reload(); };
+      try {
+        var jobs = [];
+        if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k2) { return caches.delete(k2); })); }));
+        if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+        Promise.all(jobs).then(done, done);
+      } catch (e) { done(); }
+    });
+  }
   // ---------- 인트로 ----------
   // 연출은 js/intro.js(TG.Intro) 가 맡는다 — 샷 표·배우·자막·타이틀 등장. 여기서는 상태만 잇는다.
   function startIntro() {
@@ -358,6 +395,15 @@
     input.bindTap($('btnMenu'), function () { if (G.state === 'play') setPaused(true, 'menu'); });
     // 화면 배치는 **모드가 없다** — 아무 때나 단추·칸을 **길게 눌러** 옮긴다(js/hudpos.js).
     // 소유자: 「화면배치 완료·처음배치로 단추는 작동하지도 않고 저 자체가 필요없어」 → 안내 띠와 그 단추들을 지웠다.
+    // 📳 진동 시험 — 폰이 진동을 지원하는지, 설정이 켜져 있는지 손으로 확인한다(아이폰은 Vibration API 가 없다)
+    input.bindTap($('btnBuzzTest'), function () {
+      var okv = buzz(TG.HAPTIC.tap);
+      setTimeout(function () { buzz(TG.HAPTIC.bad); }, 420);
+      setTimeout(function () { buzz(TG.HAPTIC.ok); }, 900);
+      hud.notice(okv === false ? '📳 진동이 꺼져 있습니다(설정에서 켜세요)' :
+        (navigator.vibrate ? '📳 짧게 · 길게 · 두 번 울립니다 — 느껴지지 않으면 폰의 진동·무음 설정을 확인하세요' :
+         '📳 이 기기(브라우저)에는 진동 기능이 없습니다 — 아이폰 사파리가 그렇습니다'), 'info', 4200);
+    });
     input.bindTap($('btnLayoutReset'), function () { if (TG.hudpos) { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다 — 단추를 길게 누르면 옮길 수 있습니다', 'info', 2600); } });
 
     input.bindTap($('btnAgain'), function () { hud.hideEnd(); showTitle(); });
@@ -1557,6 +1603,8 @@
   }
   G.setPaused = setPaused;
   function addScore(delta, reason) {
+    // 점수가 오르내릴 때 손끝에도 알린다 — 화면을 안 보고 있어도 「됐다 / 아니다」가 전해진다(소유자: 햅틱 반응).
+    if (isFinite(delta) && delta !== 0) buzz(delta > 0 ? (delta >= 25 ? TG.HAPTIC.ok : TG.HAPTIC.star) : (delta <= -20 ? TG.HAPTIC.bad : TG.HAPTIC.warn));
     if (!isFinite(delta)) return;   // 없는 감점 키를 주면 점수가 NaN 이 되어 HUD·결과 카드가 통째로 깨진다
     G.score += delta; hud.setScore(G.score); hud.setStops(G.stats.stops);
     if (delta) { hud.pop((delta > 0 ? '+' : '') + delta, delta > 0 ? 'good' : 'bad'); if (delta > 0) TG.audio.pop(); }

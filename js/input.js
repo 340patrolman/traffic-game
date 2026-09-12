@@ -35,7 +35,7 @@ TG.Input = function () {
   addEventListener('blur', function () { self.held = {}; for (var k in self.btn) self.btn[k] = false; releaseStick(); });
 
   function bindHold(el, name) {
-    function down(e) { e.preventDefault(); e.stopPropagation(); self.btn[name] = true; el.classList.add('held'); try { el.setPointerCapture(e.pointerId); } catch (x) {} TG.audio.resume(); }
+    function down(e) { e.preventDefault(); e.stopPropagation(); self.btn[name] = true; el.classList.add('held'); try { el.setPointerCapture(e.pointerId); } catch (x) {} TG.audio.resume(); TG.haptic(8); }
     function up(e) { e.preventDefault(); self.btn[name] = false; el.classList.remove('held'); }
     el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
     el.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
@@ -79,7 +79,7 @@ TG.Input = function () {
 
   this.bindTap = function (el, fn) {
     if (!el) return;
-    el.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); TG.audio.resume(); fn(); });
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); TG.audio.resume(); TG.haptic(8); fn(); });   // 누르는 손에 8ms 짧은 되울림
     el.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
   };
   this.onKey = function (code, fn) { this.handlers[code] = fn; };

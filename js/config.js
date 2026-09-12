@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.9.58';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.9.59';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -112,4 +112,17 @@ TG.CONFIG = {
   CHASE_SECONDS: 300,  // 추격전 한 판
   // 112 긴급출동 연습(v0.9.53) — **게임 설계값**: 신고 간격(초) · 100m 당 제시간 · 적색 교차로를 「서행」으로 보는 속도(km/h)
   DISPATCH_EVERY: [90, 150], DISPATCH_SEC_PER_100M: 16, EMERG_CROSS_KMH: 20,
+};
+
+// 햅틱 — 단추·사건마다 손끝에 되울림을 준다(소유자: 「햅틱 반응 및 충돌 충격시 진동이 울려야 함」).
+// 설정(진동)을 끄면 울리지 않고, 아이폰은 Vibration API 자체가 없어 조용히 지나간다.
+// 값은 밀리초이거나 [진동,쉼,진동] 배열이다. 게임 어디서든 TG.haptic(...) 으로 부른다.
+TG.HAPTIC = { tap: 8, ok: [16, 40, 16], bad: 90, warn: [24, 50, 24], hit: 140, big: [30, 60, 30, 60, 60], star: [12, 30, 12] };
+TG.haptic = function (p) {
+  try {
+    var g = TG.game;
+    if (g && g.buzz) return g.buzz(p);            // 설정·통계는 main 의 buzz 가 본다
+    if (navigator.vibrate) { navigator.vibrate(p); return true; }
+  } catch (e) { }
+  return false;
 };

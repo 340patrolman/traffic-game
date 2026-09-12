@@ -524,3 +524,13 @@ body.scene-near .tbtn.cone{display:flex}
 body.scene-near .tbtn.tow{display:flex}
 .tbtn.tow .ico{font-size:20px}
 .tbtn.tow.on{background:rgba(90,211,122,.28);border-color:rgba(90,211,122,.9)}
+
+/* 시작 화면 — 소리를 여는 한 번의 터치(자동재생 정책 때문에 필요하다) */
+.overlay.boot{background:radial-gradient(ellipse at 50% 40%,rgba(14,22,40,.92),rgba(6,8,14,.98));z-index:70}
+.bootcard{text-align:center;padding:26px 22px;max-width:min(92vw,420px)}
+.bootcard .em{width:clamp(64px,16vw,110px);height:auto;display:block;margin:0 auto 10px;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6))}
+.bootcard .logo{font-size:clamp(26px,7.5vw,46px);font-weight:900;letter-spacing:3px;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.8)}
+.bootcard .sub{margin-top:6px;font-size:clamp(12px,3vw,16px);letter-spacing:6px;color:#cfe0ff;font-weight:800}
+.bootcard .primary.big{margin-top:20px;width:100%;min-height:64px;font-size:19px;border-radius:16px}
+.bootcard .dim.small{margin-top:10px;font-size:12px;line-height:1.5;word-break:keep-all}
+.bootcard .ghost{margin-top:10px;width:100%;min-height:44px;font-size:13px}
