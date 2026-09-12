@@ -204,6 +204,24 @@ TG.Layers = function (game, city, cfg, scene) {
              hit: hit, topN: topN, enough: events >= 40 && sim.length >= 5,
              years: nodes.years || '', weights: { real: '사망×6 · 중상×0.6', sim: '보행자 근접×3 · 신호위반×2 · 급제동×1' } };
   };
+  // ---------- T6: 지금 시각의 **실제 사고** 브리핑 ----------
+  // 서초구에서 이 시간대에 실제로 난 사고를 근무 시작 때 알려 준다(TAAS 자료의 byHour 그대로 — 앱이 만든 숫자가 아니다).
+  // 시간대는 3시간 창(앞뒤 1시간)으로 본다 — 한 시간만 보면 표본이 들쭉날쭉하다.
+  self.hourBrief = function (hour) {
+    if (!vuln || !vuln.groups) return null;
+    var hh = (hour === undefined || hour === null) ? new Date().getHours() : hour;
+    var win = [(hh + 23) % 24, hh, (hh + 1) % 24];
+    var rows = vuln.groups.map(function (g) {
+      var bh = (g.dist && g.dist.byHour) || {}, n = 0, all = 0;
+      Object.keys(bh).forEach(function (k) { all += bh[k]; if (win.indexOf(+k) >= 0) n += bh[k]; });
+      return { id: g.id, name: g.name, n: n, all: all, share: all ? n / all : 0, top: (g.dist && g.dist.byType && g.dist.byType[0]) || null };
+    }).filter(function (r) { return r.all > 0; }).sort(function (a, b) { return b.n - a.n; });
+    if (!rows.length) return null;
+    var peak = rows[0];
+    return { hour: hh, win: win, rows: rows, years: vuln.years || '',
+             line: hh + '시 전후 서초구 실제 사고 — ' + rows.slice(0, 3).map(function (r) { return r.name + ' ' + r.n + '건'; }).join(' · '),
+             lead: peak.name + '가 이 시간대에 ' + peak.n + '건(' + Math.round(peak.share * 100) + '%)' };
+  };
   self.raw = function (id) { for (var i = 0; i < defs.length; i++) if (defs[i].id === id) return defs[i].src || null; return null; };   // 검증용: 그 층의 원자료
   self.toggle = function (id, want) {
     if (!(id in on)) return false;
@@ -280,6 +298,19 @@ TG.Layers = function (game, city, cfg, scene) {
         var nd = city.nodes[C.i][C.j], f = TG.DIR_VEC[C.d];
         var back = city.stopDist(nd, C.d) + 14;
         disc(gb, nd.x - f[0] * back, nd.z - f[1] * back, 9, col, 0.09); any = true;
+      });
+    } else if (d.kind === 'roads') {
+      // 실제 도로 중심선을 **땅 위에 띠로** 그린다(디지털 트윈 T1-a). 주행에는 쓰지 않는다 — 눈으로 견주는 층이다.
+      var RR = (d.src && d.src.roads) || {}, ter = game.terrain, W = 2.2;
+      Object.keys(RR).forEach(function (k) {
+        var pts = RR[k].pts || [];
+        for (var i = 1; i < pts.length; i++) {
+          var ax = pts[i - 1][0], az = pts[i - 1][1], bx = pts[i][0], bz = pts[i][1];
+          var dx = bx - ax, dz = bz - az, LL = Math.hypot(dx, dz) || 1, rx = -dz / LL * W, rz = dx / LL * W;
+          var ya = (ter ? ter.heightAt(ax, az) : 0) + 0.12, yb = (ter ? ter.heightAt(bx, bz) : 0) + 0.12;
+          gb.quad([ax + rx, ya, az + rz], [bx + rx, yb, bz + rz], [bx - rx, yb, bz - rz], [ax - rx, ya, az - rz], [0, 1, 0], col, null);
+          any = true;
+        }
       });
     } else if (d.kind === 'risk') {
       Object.keys(risk).forEach(function (k) {
@@ -397,6 +428,11 @@ TG.Layers = function (game, city, cfg, scene) {
       h += '<div class="pl-min">넣는 방법 · ' + lesc(src.howto) + '</div>';
     } else {
       h += '<div class="pl-note">data/taas.json 을 읽지 못했습니다 — file:// 로 열면 브라우저가 막습니다. 정적 서버나 GitHub Pages 로 여세요.</div>';
+    }
+    var hb2 = self.hourBrief();
+    if (hb2) {
+      h += '<div class="pl-note">⏰ 지금 시각의 실제 사고 (' + lesc(hb2.years) + ' · ' + hb2.hour + '시 전후)</div>';
+      hb2.rows.forEach(function (r) { h += '<div class="pl-min">' + lesc(r.name) + ' — 이 시간대 ' + r.n + '건 / 전체 ' + r.all + '건(' + Math.round(r.share * 100) + '%)' + (r.top ? ' · 가장 많은 유형 ' + lesc(r.top[0]) + ' ' + r.top[1] : '') + '</div>'; });
     }
     // T2(차로 수·일방통행): 자료가 막혀 있다는 사실을 화면에 그대로 적는다 — 「확인 중」을 숨기지 않는다.
     var rd = self.raw('twinRoads');
