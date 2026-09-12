@@ -21,6 +21,7 @@ TG.Tot = function (game) {
 
   // 마당 표. sec = 저절로 넘어가는 시간(선생님이 ▶ 로 넘길 수도 있다), btn = 큰 단추에 적히는 말
   var STAGES = [
+    { id: 'where', name: '여기는 어디?',      emoji: '🛣', btn: '어디일까?',   sec: 60 },
     { id: 'ice',   name: '얼음땡 놀이',        emoji: '🧊', btn: '얼음! 땡!',    sec: 46 },
     { id: 'hold',  name: '토수니 손 잡기',     emoji: '🐻', btn: '손 잡기',     sec: 34 },
     { id: 'cross', name: '다섯 걸음으로 건너기', emoji: '🚸', btn: '하나 더!',    sec: 96 },
@@ -34,6 +35,12 @@ TG.Tot = function (game) {
     { big: '③ 손 번쩍',         sub: '운전하는 사람이 나를 봐요',  say: '셋! 손을 번쩍 들어요',                              burst: '✋' },
     { big: '④ 다시 한 번',      sub: '차가 또 오지 않나?',        say: '넷! 초록불이어도 차가 오는지 다시 봐요',            burst: '🔁' },
     { big: '⑤ 손 잡고 천천히',  sub: '차를 보면서 · 장난 없이',    say: '다섯! 토수니 손을 잡고 차를 보면서 천천히 건너요',  burst: '🐻' },
+  ];
+  // 🛣 여기는 어디? — 노란 빛기둥으로 **자리를 짚어 가며** 세 길을 가르친다(아이들이 손가락으로 같이 가리킨다).
+  var WHERE = [
+    { big: '🚶 인도',     sub: '사람이 걷는 길 — 우리는 여기!', say: '여기는 인도예요. 사람이 걷는 길이에요. 우리는 여기로 걸어요', burst: '🚶' },
+    { big: '🚗 차도',     sub: '차가 다니는 길 — 들어가면 안 돼요', say: '저기는 차도예요. 차가 다니는 길이에요. 들어가면 안 돼요', burst: '🚗' },
+    { big: '🚸 횡단보도', sub: '건널 때만 가는 길',               say: '여기는 횡단보도예요. 길을 건널 때만 가는 길이에요', burst: '🚸' },
   ];
   var SAY = {
     open:    '안녕! 나는 곰돌이 토수니예요. 오늘은 길 건너기를 같이 배워요',
@@ -132,6 +139,7 @@ TG.Tot = function (game) {
     self.state = st;
     st.heading0 = W.heading;                         // **고정 방향** — 카메라·조작이 같은 값을 본다(되먹임으로 아이가 돌지 않게)
     st.home = { x: W.pos.x, z: W.pos.z };
+    st.node = G.city && G.city.nearestNode ? G.city.nearestNode(W.pos.x, W.pos.z) : null;   // 인도·차도·횡단보도를 짚을 기준
     st.bear = TG.Character.actor(scene, terrain, 'civilian', W.pos.x - 1.25, W.pos.z + 0.2, W.heading);
     bearify(st.bear);
     hearts(0); say('open', true); next();
@@ -139,6 +147,7 @@ TG.Tot = function (game) {
   };
   self.dispose = function () {
     document.body.classList.remove('totmode');
+    if (G.walker && G.walker.setMarker) G.walker.setMarker(null);
     if (st && st.bear && st.bear.dispose) st.bear.dispose();
     hideSignal(); setCaption(''); setBig(''); setButton('');
     var e = el('totStars'); if (e) e.style.display = 'none';
@@ -162,10 +171,11 @@ TG.Tot = function (game) {
     if (st.i >= STAGES.length) { finish(); return; }
     var S = STAGES[st.i]; st.t = 0; st.sayCd = 0;
     dots();
-    setBig(S.emoji + ' ' + S.name, { ice: '빨간불에 얼음, 초록불에 땡!', hold: '토수니 손을 꼭 잡아요',
+    setBig(S.emoji + ' ' + S.name, { where: '인도 · 차도 · 횡단보도', ice: '빨간불에 얼음, 초록불에 땡!', hold: '토수니 손을 꼭 잡아요',
       cross: '① 멈춰요 ② 차를 봐요 ③ 손 번쩍 ④ 다시 ⑤ 천천히', belt: '차에 타면 딸깍!', bright: '밝은 옷을 입어요' }[S.id]);
     setButton(S.btn, S.id === 'cross' && !st.held);
-    if (S.id === 'ice') { st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); }
+    if (S.id === 'where') { st.where = 0; whereShow(0); }
+    if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); }
     if (S.id === 'hold') { say('hold', true); }
     if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
@@ -203,6 +213,7 @@ TG.Tot = function (game) {
     TG.audio.ui(); TG.haptic(TG.HAPTIC.tap);
     var S = STAGES[st.i] || null;
     if (!S) { restart(); return true; }              // 끝난 뒤에 누르면 처음부터 다시
+    if (S.id === 'where') { whereNext(); return true; }
     if (S.id === 'ice') { toggleIce(); return true; }
     if (S.id === 'hold') { holdHands(); return true; }
     if (S.id === 'cross') { fiveStep(); return true; }
@@ -212,6 +223,28 @@ TG.Tot = function (game) {
   };
   self.next = function () { if (st) { if (st.done) restart(); else next(); } return true; };
 
+  // 노란 빛기둥(walker.setMarker)으로 그 자리를 짚는다 — 코드에 좌표를 적지 않고 **도시 함수**로 구한다.
+  function whereSpot(k) {
+    var W = G.walker, nd = st.node, C = G.city;
+    if (!W || !nd || !C) return null;
+    if (k === 0) return { x: W.pos.x, z: W.pos.z, name: '인도' };                                  // 지금 서 있는 보도
+    if (k === 1) return { x: nd.x, z: W.pos.z, name: '차도' };                                     // 도로 한가운데(옆)
+    var d = W.pos.z > nd.z ? 0 : 2;                                                                // 아이가 남쪽이면 남쪽 횡단보도
+    var f = TG.DIR_VEC[d], near = C.crossNear(nd, d) + 1.2;
+    return { x: nd.x + f[0] * 0, z: nd.z + f[1] * near, name: '횡단보도' };
+  }
+  function whereShow(k) {
+    var W = G.walker, sp = whereSpot(k), F = WHERE[Math.min(k, 2)];
+    if (W && sp) W.setMarker(sp);
+    setBig(F.big, F.sub); say(F.say, true);
+    TG.audio.totDing();
+    if (G.hud && G.hud.burst) G.hud.burst(F.burst);
+  }
+  function whereNext() {
+    st.where = (st.where === undefined ? 0 : st.where) + 1;
+    if (st.where > 2) { st.where = 0; heart(1); }
+    whereShow(st.where);
+  }
   function toggleIce() {
     st.ice.green = !st.ice.green; st.ice.t = 0;
     if (st.ice.green) { say('green', true); TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
@@ -278,7 +311,10 @@ TG.Tot = function (game) {
       st.bear.update(dt, TG.audio.speaking === 'kid');
     }
     if (!S) return;
-    if (S.id === 'ice') {
+    if (S.id === 'where') {
+      hideSignal();
+      if (st.sayCd <= 0 && st.t > 9) say(WHERE[Math.min(st.where || 0, 2)].say);
+    } else if (S.id === 'ice') {
       st.ice.t += dt;
       var span = st.ice.green ? 7 : 6;
       if (st.ice.t > span) { st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++;
