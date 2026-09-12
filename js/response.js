@@ -60,25 +60,43 @@ TG.Response = function (game) {
     var kindTxt = near.incident.kind === 'crash' ? '교통사고' : '고장차량';
     inc.notice -= dt;
     var behind = false, pf2 = pl.forward(), dx2 = near.pos.x - pl.pos.x, dz2 = near.pos.z - pl.pos.z, along = dx2 * pf2[0] + dz2 * pf2[1];
-    behind = along > 3 && along < 22 && Math.abs(dx2 * -pf2[1] + dz2 * pf2[0]) < 6;
+    // 사고 현장은 **후방 30~50m 방패**가 원칙이라 뒤에 서는 창을 62m 까지 넓힌다(고장차는 종전 22m).
+    var farBack = near.incident.kind === 'crash' ? 62 : 22;
+    // 비스듬히(약 15도) 세우면 40m 뒤에서 옆으로 10m 벌어진다 — 사고 현장은 옆 여유를 넓게 본다.
+    behind = along > 3 && along < farBack && Math.abs(dx2 * -pf2[1] + dz2 * pf2[0]) < (near.incident.kind === 'crash' ? 16 : 9);
     if (inc.notice <= 0) {
       inc.notice = 7;
       game.hud.notice('⚠ ' + kindTxt + ' 발견 — 경광등 켜고 뒤에 정차 → 📡 무전으로 견인·구급 요청', 'alert', 4200);
       game.hud.hint('현장 뒤에 서서 뒤차를 막아 준다. 삼각대 안쪽으로 들어가지 않는다');
     }
-    var ok = pl.siren && behind && pl.speedKmh() < 2 && near.radioed;
+    // 사고 현장은 **안전조치가 갖춰져야** 끝난다(T-Book 2차사고 철칙: 라바콘 후방 3중 → 순찰차 쉴드 → 본선 체류 최소화).
+    // 고장차(broken)는 종전대로 경광등·후방 정차·무전이면 끝난다.
+    var crash = near.incident.kind === 'crash', sc = game.iscene || null;
+    var safe = !crash || !sc || sc.ready(near);
+    var shield = !crash || !sc ? { ok: true } : (sc.shieldOf(near) || { ok: true });
+    var ok = pl.siren && behind && pl.speedKmh() < 2 && near.radioed && safe;
+
     inc.t = ok ? inc.t + dt : 0;
     if (inc.t > 2) {
       near.incident.handled = true; inc.car = null; inc.t = 0;
       if (pl.setSign) { pl.setSign(false); inc.signOn = false; }
       game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1;
+      // 순찰차 방패(후방 30~50m · 약 15도)로 섰으면 가점 — T-Book 「순찰차를 방패로」
+      if (crash && sc && shield && shield.ok) { game.addScore(S.sceneShield || 10, null); game.stats.shields = (game.stats.shields || 0) + 1; }
       game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
       game.hud.pop('✅ +' + S.incident, 'good'); TG.audio.jingle(3);
       TG.audio.say(kindTxt + ' 안전조치 완료. 견인 요청했습니다', { kind: 'officer', queue: true });
       setTimeout(function () { if (game.traffic.clearIncidents) game.traffic.clearIncidents(); }, 6000);
     } else if (pl.siren && behind && pl.speedKmh() < 2 && !near.radioed && inc.notice < 5.6) {
       game.hud.hint('📡 무전으로 상황을 전파하고 견인·구급을 요청하세요');
+    } else if (crash && sc && shield && !shield.ok && shield.along > 3 && shield.along < 22 && inc.notice < 5.2) {
+      var L2 = game.laws && game.laws.incidentScene;
+      game.hud.hint((L2 && L2.shield && L2.shield.how) || '현장 후방 30~50m 에 비스듬히 세워 순찰차를 방패로');
+    } else if (crash && sc && near.radioed && !safe && inc.notice < 5.6) {
+      var nx = sc.next(near);
+      game.hud.hint((nx.step === 'flare' ? '🔥 ' : '🚧 ') + (nx.hint || '') + ' (' + nx.closed + '/' + nx.need + ' 차로)');
     }
+
   }
   this.target = target;
   function vName(car) { return car.violation ? game.enforcement.nameOf(car.violation.type) : (car.wanted ? '수배차량' : '위반 없음'); }
@@ -125,6 +143,8 @@ TG.Response = function (game) {
     if (car.incident && !car.incident.handled) {   // 현장: 견인·구급 요청 무전
       car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1;
       var it = car.incident.kind === 'crash' ? '교통사고' : '고장차량', wi = placeName(car);
+      // **후미 안전조치 순찰차**가 같이 온다(T-Book 「순찰차를 후방 방패로」 · 소유자 「되도록 후미 안전조치 순찰차가 있어야」).
+      if (game.iscene && game.iscene.callBackup) { var bk = game.iscene.callBackup(car); if (bk && bk.ok) { game.addScore(S.towBackup || 10, null); game.stats.backups = (game.stats.backups || 0) + 1; } }
       game.addScore(S.radio, null);
       game.hud.notice('📡 무전 — ' + wi + ' ' + it + '. ' + (it === '교통사고' ? '구급차·견인차 요청, 후방 차단합니다' : '견인차 요청, 후방 차단합니다'), 'alert', 4200);
       TG.audio.say('상황실, ' + wi + ' ' + it + '. ' + (it === '교통사고' ? '구급차와 견인차 요청합니다' : '견인차 요청합니다'), { kind: 'officer', queue: true });

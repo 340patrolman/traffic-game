@@ -12,9 +12,24 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;display:none}
 .panel{background:var(--bg);border:1px solid var(--edge);border-radius:10px;backdrop-filter:blur(3px)}
-#speedbox{position:fixed;top:calc(10px + var(--sa-t));left:calc(10px + var(--sa-l));padding:8px 12px;min-width:160px;max-width:min(42vw,340px)}
+/* 계기 칸 하나로 합쳤다(소유자: 「공간의 낭비가 심해 좁은 스마트폰 화면에서 쓰기가 어려워」).
+   한 줄 = 속도·km/h·기어·점수·시간·단속 · 아랫줄 = 구간·신호초. 길게 누르면 옮길 수 있으니 pointer-events 를 켠다. */
+#hudbar{position:fixed;top:calc(8px + var(--sa-t));left:calc(8px + var(--sa-l));padding:5px 9px 6px;max-width:min(96vw,560px);pointer-events:auto;touch-action:none}
+#hudbar .hb-top{display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap}
+#hudbar .hb-bot{display:flex;align-items:baseline;gap:8px;flex-wrap:nowrap;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.25}
+#hudbar #stopbarWrap{display:flex;align-items:center;gap:6px;margin-top:3px}
+#hudbar #stopbarWrap .bar{flex:1;margin-top:0}
+#hudbar .sigwait{font-size:12px}
+#hudbar .gap{margin-top:2px;font-size:11px}
+#hudbar .hb-kv{display:inline-flex;align-items:baseline;gap:3px;margin-left:7px}
+#hudbar .hb-kv i{font-style:normal}
+#hudbar .hb-kv b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+#hudbar.dragging{border-color:var(--accent);box-shadow:0 0 0 2px rgba(77,141,255,.5),0 8px 22px rgba(0,0,0,.5)}
+#hudbar .section{margin-top:0}
+#hudbar .sigwait{margin-top:0}
+
 .speedrow{display:flex;align-items:baseline;gap:6px}
-#speed{font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+#speed{font-size:27px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 #speed.over{color:var(--bad)}
 .unit{font-size:12px;color:var(--dim)}
 .gear{margin-left:auto;font-size:12px;font-weight:800;color:#fff;background:#d7262b;padding:2px 7px;border-radius:6px}
@@ -27,8 +42,6 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stopbar{height:100%;width:0;background:var(--ok);transition:width .12s linear}
 .gap{margin-top:6px;font-size:12px;color:var(--ok);opacity:0;transition:opacity .2s}
 .gap.warn{color:var(--warn)} .gap.danger{color:var(--bad);font-weight:700}
-#scorebox{position:fixed;top:calc(10px + var(--sa-t));right:calc(10px + var(--sa-r));padding:8px 12px;font-size:13px;text-align:right;line-height:1.55}
-#scorebox b{font-size:16px;font-variant-numeric:tabular-nums}
 #sirenState{display:inline-block;margin-left:6px;font-size:11px;color:var(--bad);font-weight:700}
 #sirenState.on{animation:blink .6s steps(2) infinite}
 @keyframes blink{50%{color:var(--blue)}}
@@ -493,18 +506,21 @@ body.portrait .pl-list{flex:0 0 auto;width:100%;max-height:30vh}
    소유자: 「도구와 단추들이 움직여질 수 있으면 좋겠어 … 화면을 최대한 가리지 않게.」
    옮긴 것은 .moved 로 제 자리(position:fixed)에 서고, 배치 모드에서만 끌린다. */
 .tbtn.moved,#minimap.moved,.moved{position:fixed!important;margin:0!important}
-body.layout-edit .tbtn,body.layout-edit #minimap{outline:2px dashed rgba(255,207,63,.9);outline-offset:2px;cursor:grab}
-body.layout-edit .tbtn.dragging,body.layout-edit #minimap.dragging{outline-color:#fff;opacity:.9;cursor:grabbing}
 /* 배치 모드에서는 조이스틱 영역이 단추를 가로채지 않게 — 끌기가 먼저다 */
-body.layout-edit #stickZone{pointer-events:none}
-.layoutbar{position:fixed;top:calc(10px + var(--sa-t));left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;
-  background:rgba(14,18,26,.96);border:1px solid #3b4a66;border-radius:14px;padding:8px 12px;color:#eaf1ff;box-shadow:0 8px 22px rgba(0,0,0,.5);max-width:94vw}
-.layoutbar b{font-size:14px} .layoutbar span{font-size:11.5px;color:var(--dim);word-break:keep-all}
-.layoutbar button{height:38px;min-width:64px;border-radius:10px;border:1px solid #4a5a78;background:#2d3f5e;color:#eaf1ff;font-size:13px;font-weight:800;touch-action:manipulation}
-.layoutbar button.gh{background:#1f2a3d;font-weight:700}
-@media (max-width:520px){ .layoutbar{flex-direction:column;gap:6px;text-align:center} }
 /* ☰ 메뉴는 일시정지 단추 **왼쪽 한 칸**에 둔다 — 세로 줄(일시정지 64 · 시점 112 · ? 160 · 배속 208)을 밀지 않는다 */
 .tbtn.small.menu{right:calc(58px + var(--sa-r));font-size:17px;line-height:1}
 .tbtn.small.menu span{font-size:8.5px;font-weight:700}
 .speedpanel .sp-row.set{margin-top:5px}
 .speedpanel .sp-row.set button{min-width:58px;height:38px;font-size:12.5px}
+
+/* 🚧 현장 안전조치(라바콘·불꽃신호기) — 사고·고장 현장 45m 안에서만 보인다 */
+.tbtn.cone{width:60px;height:60px;background:rgba(255,122,0,.22);border-color:rgba(255,160,60,.9);margin-bottom:8px;display:none}
+body.scene-near .tbtn.cone{display:flex}
+.tbtn.cone .ico{font-size:22px}
+.tbtn.cone.done{background:rgba(90,211,122,.25);border-color:rgba(90,211,122,.85)}
+
+/* 🪝 견인고리·견인줄 — 현장 45m 안에서만 보인다 */
+.tbtn.tow{width:58px;height:58px;background:rgba(120,200,255,.20);border-color:rgba(140,210,255,.9);margin-bottom:8px;display:none}
+body.scene-near .tbtn.tow{display:flex}
+.tbtn.tow .ico{font-size:20px}
+.tbtn.tow.on{background:rgba(90,211,122,.28);border-color:rgba(90,211,122,.9)}

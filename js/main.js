@@ -354,22 +354,11 @@
     input.bindTap($('btnResume'), function () { setPaused(false, 'menu'); });
     input.bindTap($('btnQuit'), function () { endShift('근무 종료(직접 종료)'); setPaused(false, 'menu'); });
     input.bindTap($('btnRecover'), function () { setPaused(false, 'menu'); recoverToRoad('마지막 도로 위치로 복귀'); });
-    // 미니맵을 끌어 옮긴 뒤 처음 자리로 되돌린다(소유자: 기종마다 가리는 곳이 다르다 → 옮길 수 있게 하고, 되돌릴 길도 둔다)
     // ☰ 메뉴 — 소유자 「메뉴 버튼이 없네 멈춤 버튼이 그 기능을 하고는 있지만」. 여는 창은 같지만 이름이 메뉴다.
     input.bindTap($('btnMenu'), function () { if (G.state === 'play') setPaused(true, 'menu'); });
-    // 화면 배치 모드: 도구·단추를 끌어 옮긴다. **운전 중에 단추가 따라 움직이면 그게 더 큰 사고**라 이 모드에서만 끌린다.
-    function layoutEdit(on) {
-      var bar = $('layoutBar');
-      if (!TG.hudpos) return;
-      TG.hudpos.edit(on);
-      if (bar) bar.hidden = !on;
-      if (on) { setPaused(false, 'menu'); hud.notice('🧩 화면 배치 — 도구·단추를 끌어 옮기고 「완료」를 누르세요', 'info', 3200); }
-    }
-    G.layoutEdit = layoutEdit;
-    input.bindTap($('btnLayout'), function () { layoutEdit(true); });
-    input.bindTap($('btnLayoutDone'), function () { layoutEdit(false); });
-    input.bindTap($('btnLayoutBack'), function () { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다', 'info', 1600); });
-    input.bindTap($('btnLayoutReset'), function () { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다', 'info', 1600); });
+    // 화면 배치는 **모드가 없다** — 아무 때나 단추·칸을 **길게 눌러** 옮긴다(js/hudpos.js).
+    // 소유자: 「화면배치 완료·처음배치로 단추는 작동하지도 않고 저 자체가 필요없어」 → 안내 띠와 그 단추들을 지웠다.
+    input.bindTap($('btnLayoutReset'), function () { if (TG.hudpos) { TG.hudpos.reset(); hud.notice('화면 배치를 처음으로 되돌렸습니다 — 단추를 길게 누르면 옮길 수 있습니다', 'info', 2600); } });
 
     input.bindTap($('btnAgain'), function () { hud.hideEnd(); showTitle(); });
     var optH = $('optHints'), optS = $('optStopbar'), optA = $('optSound');
@@ -412,8 +401,10 @@
     setTimeScale(1);
     // 옮길 수 있는 것들 — 소유자가 든 것(미니맵·경광등·단속·앰프·블랙박스·무전)에 방향지시등·작은 단추·하차·손 들기까지 넣었다.
     // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
-    if (TG.hudpos) TG.hudpos.register(['minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnSigL', 'btnSigR',
-                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox']);
+    // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
+    // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
+    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnSigL', 'btnSigR',
+                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
@@ -450,6 +441,74 @@
     function radio() { if (response) response.radio(); }
     input.bindTap($('btnCam'), blackbox); input.onKey('KeyB', blackbox);
     input.bindTap($('btnRadio'), radio); input.onKey('KeyT', radio);
+    // 🚧 현장 안전조치 — 한 단추로 순서대로: 라바콘 차로 차단(필요한 수만큼) → 야간·악천후면 불꽃신호기 점화.
+    // 문구·수치는 laws.json incidentScene(티북 문구)에서 온다.
+    function sceneAct() {
+      if (G.state !== 'play' || G.paused || !G.iscene) return;
+      var car = sceneCar();
+      if (!car) { hud.notice('🚧 라바콘: 근처에 사고·고장 현장이 없습니다', 'warn', 2200); return; }
+      var nx = G.iscene.next(car), L = (G.laws && G.laws.incidentScene) || null;
+      if (nx.step === 'cone') {
+        var r = G.iscene.closeLane(car);
+        if (!r.ok) { hud.notice(r.why === 'off-grid' ? '🚧 이 자리에서는 차로를 차단할 수 없습니다(격자 도로에서만)' : '🚧 더 막을 차로가 없습니다 — 모든 차로를 막을 수는 없습니다', 'warn', 2600); return; }
+        hud.notice('🚧 라바콘 ' + r.cones + '개 — ' + r.closed + '/' + r.need + ' 차로 차단(뒤 100m)', 'good', 3000);
+        hud.hint(nx.hint || ''); TG.audio.ui && TG.audio.ui();
+        addScore(C.SCORE.sceneClose || 15, null);
+        TG.audio.say('라바콘으로 차로를 차단했습니다', { kind: 'officer', queue: true });
+      } else if (nx.step === 'flare') {
+        var fr = G.iscene.lightFlares(car);
+        if (!fr.ok) { hud.notice('🔥 불꽃신호기: 라바콘을 먼저 설치합니다', 'warn', 2200); return; }
+        hud.notice('🔥 불꽃신호기 점화 — 점화 후 200m 가시거리 확보', 'good', 3000);
+        hud.hint((L && L.flare && L.flare.when) || ''); addScore(C.SCORE.sceneFlare || 10, null);
+        TG.audio.say('불꽃신호기를 점화했습니다', { kind: 'officer', queue: true });
+      } else {
+        hud.notice('🚧 안전조치 완료 — ' + ((L && L.keepLane && L.keepLane.rule) || '견인차 도착 전까지 차로 폐쇄 보존'), 'info', 3200);
+      }
+    }
+    // 45m 안의 처리 안 된 현장(사고 우선)
+    function sceneCar() {
+      if (!traffic || !player) return null;
+      var best = null, bd = 45;
+      traffic.cars.forEach(function (c) {
+        if (!c.incident || c.incident.handled) return;
+        var d = Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z);
+        if (d < bd) { bd = d; best = c; }
+      });
+      return best;
+    }
+    G.sceneCar = sceneCar; G.sceneAct = sceneAct;
+    input.bindTap($('btnCone'), sceneAct); input.onKey('KeyK', sceneAct);
+    // 🪝 견인고리·견인줄 — 순찰차를 고장차 **앞**에 대고 연결해 갓길·안전지대까지 끌어낸다.
+    // T-Book 「견인차 도착을 기다리며 본선에 세워 두는 것보다, 가능한 경우 순찰차로 즉시 안전한 곳까지 끌어내는 것이 원칙」.
+    // 대형차는 **에어(압축공기)를 먼저 묻는다**(소유자 현장 지시 — 티북에 없다).
+    function towAct() {
+      if (G.state !== 'play' || G.paused || !G.iscene) return;
+      var car = sceneCar(), L = (G.laws && G.laws.incidentScene) || null;
+      if (!car) { hud.notice('🪝 견인: 근처에 사고·고장 현장이 없습니다', 'warn', 2200); return; }
+      var r = G.iscene.towAct(car);
+      if (r.ok) {
+        hud.notice('🪝 견인줄 연결 — 20km/h 이하로 갓길·안전지대까지 천천히', 'good', 3200);
+        hud.hint((L && L.tow && L.tow.far) || '');
+        TG.audio.say('견인줄을 연결했습니다. 갓길로 이동합니다', { kind: 'officer', queue: true });
+        return;
+      }
+      if (r.why === 'ask') {
+        // 운전자에게 물은 답이 바로 온다 — 에어가 빠진 차는 끌지 않는다(바퀴가 잠긴다)
+        hud.notice('🪝 에어(압축공기) 확인 — 운전자: 「' + (r.air ? '에어 있습니다' : '에어가 빠졌습니다') + '」', r.air ? 'info' : 'warn', 3600);
+        hud.hint((L && L.tow && L.tow.air) || '');
+        addScore(C.SCORE.towAsk || 8, null);
+        TG.audio.say(r.air ? '에어 있습니다' : '에어가 빠졌습니다', { kind: 'pa', queue: true });
+        return;
+      }
+      if (r.why === 'air') { hud.notice('🪝 에어가 빠진 대형차는 끌지 않습니다 — 바퀴가 잠깁니다. 견인차를 기다립니다', 'bad', 4200); hud.hint((L && L.tow && L.tow.air) || ''); return; }
+      if (r.why === 'place') { hud.notice('🪝 순찰차를 고장차 **앞** 3~8m 에 같은 방향으로 대고 멈춘 뒤 누르세요', 'warn', 3200); return; }
+      if (r.why === 'already') { hud.notice('🪝 이미 연결돼 있습니다 — 천천히 갓길로', 'info', 2000); return; }
+      hud.notice('🪝 이 자리에서는 견인할 수 없습니다', 'warn', 2200);
+    }
+    G.towAct = towAct;
+    input.bindTap($('btnTow'), towAct); input.onKey('KeyJ', towAct);
+
+
     // 미니맵 확대·축소: 미니맵 터치(단계 순환) · +/- 키
     input.onKey('Equal', function () { if (minimap) minimap.setZoom(minimap.zoom * 2); });
     input.onKey('Minus', function () { if (minimap) minimap.setZoom(minimap.zoom / 2); });
@@ -633,12 +692,14 @@
     if (TG.KidCourse && !G.kidCourse) G.kidCourse = new TG.KidCourse(G);   // 어린이 교실: 걷기·건너기·차 안·자전거·킥보드·서로 조심
     response = new TG.Response(G); G.response = response;   // 대응 원칙: 등급 A 적극 대응 / B 정차 단속 / C 추격 금지(영상·무전)
     if (G.dispatch) G.dispatch.dispose();
+    G.iscene = TG.IncidentScene ? new TG.IncidentScene(G) : null;   // 현장 안전조치(라바콘·불꽃신호기·순찰차 방패)
     G.dispatch = TG.Dispatch ? new TG.Dispatch(G) : null;   // 112 긴급출동(코드0·1) 연습 — 순찰 근무에서만 신고가 들어온다
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
     // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
     G.mode = modeOverride || settings.mode || 'patrol'; if (!MODES[G.mode]) G.mode = 'patrol';
     // **모드가 정해진 뒤에** 켠다 — 앞에서 켜면 G.mode 가 아직 지난 판의 것이라 늘 꺼져 있었다.
     if (G.kidCourse) { if (G.mode === 'kid') G.kidCourse.start(); else G.kidCourse.reset(); }
+    if (G.iscene) G.iscene.clear();   // 지난 근무의 라바콘·불꽃신호기를 치운다
     C.TRAFFIC_MAX = BASE_TRAFFIC; C.PED_MAX = BASE_PED;
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode };
     coach = { cd: 0, lastCorner: -1, apexDone: -1 };
@@ -1826,7 +1887,27 @@
     weather.update(dt, camera.position); TG.audio.rain(weather.name === 'rain'); if (vfx) vfx.update(dt);
     if (settings.cam === 'cockpit') { var fr0 = city.frameAt(player.pos.x, player.pos.z, player.heading), sus = 0; for (var si = 0; si < traffic.cars.length; si++) if (traffic.cars[si].violation && traffic.cars[si].violation.seen) sus++; player.mdtInfo = { score: G.score, stops: G.stats.stops, suspects: sus, advice: (function () { var tg = response && response.target(70); return tg ? response.adviceFor(tg) : ''; })(), target: enforcement.state === 'idle' ? '' : enforcement.state === 'yielding' ? '정차 유도 중' : enforcement.state === 'stopped' ? '대상 정차' : enforcement.state === 'release' ? '고지 완료' : '', limit: fr0.limit, section: fr0.name, gap: G.lead ? Math.round(G.lead.gap) + 'm · ' + G.lead.sec.toFixed(1) + 's' : '', time: hud.fmtTime ? hud.fmtTime(G.timeLeft) : '' }; }
     player.update(dt);
+    // **도로 밑으로 빠지는 것을 잡아 둔다**(소유자 신고: 「달리다 차가 도로 밑으로 들어가 소리만 나고 안 보인다」).
+    // v0.9.57 에서 정적 훑기로는 재현되지 않았다 — 링크 차로 4,076점(지형이 노면보다 높은 곳 최대 0.09m) ·
+    // 힌트 연쇄로 걸은 높이 튐 0곳 · 도시 격자 차로에서 노면보다 낮은 지형 0곳.
+    // 그래서 **일어나는 순간을 붙잡는다**: 노면보다 0.6m 아래로 0.4초 이상 잠기면 자리·시각을 G.sinkDiag 에 적고
+    // 마지막 도로 자리로 되돌린다. 다시 신고가 오면 이 기록으로 재현한다.
+    (function () {
+      var surf = terrain.heightAt(player.pos.x, player.pos.z, player.y);
+      if (player.y < surf - 0.6) {
+        G.sinkT = (G.sinkT || 0) + dt;
+        if (G.sinkT > 0.4) {
+          G.sinkDiag = { x: +player.pos.x.toFixed(1), z: +player.pos.z.toFixed(1), y: +player.y.toFixed(2), surf: +surf.toFixed(2),
+                         ground: +terrain.groundAt(player.pos.x, player.pos.z).toFixed(2), kmh: Math.round(player.speedKmh()),
+                         frame: city.frameAt(player.pos.x, player.pos.z, player.heading).name, t: Math.round(G.timeLeft), at: Date.now() };
+          G.sinkCount = (G.sinkCount || 0) + 1; G.sinkT = 0;
+          log('[sink] 도로 밑으로 빠짐 — ' + JSON.stringify(G.sinkDiag));
+          recoverToRoad('도로 밑으로 빠져 마지막 도로 자리로 복귀했습니다');
+        }
+      } else G.sinkT = 0;
+    })();
     // 차량 감각: 급가속 배기(내연기관) · 타이어 연기(미끄러짐) · 밤 전조등 플레어
+
     if (vfx) {
       var Tq = player.telemetry, pf2 = player.forward(), pr2 = [-pf2[1], pf2[0]];
       vfxT = (vfxT || 0) - dt;
@@ -1842,6 +1923,30 @@
     collisions(dt);
     if (G.state !== 'play') return;
     enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt);
+    if (G.iscene) {
+      G.iscene.update(dt);
+      var tw = G.iscene.towUpdate(dt);
+      if (tw && tw.cut) { hud.notice('🪝 견인줄이 끊어졌습니다 — 20km/h 이하로 천천히 끌어야 합니다', 'bad', 3200); TG.audio.bad(); }
+      else if (tw && tw.towing && tw.safe) {
+        var tcar = G.iscene.towState().car, L3 = (G.laws && G.laws.incidentScene) || null;
+        G.iscene.towDone();
+        addScore(C.SCORE.towDone || 25, null); G.stats.tows = (G.stats.tows || 0) + 1;
+        if (tcar && tcar.incident) { tcar.incident.handled = true; tcar.incident.towed = true; }
+        hud.notice('✅ 안전지대까지 끌어냈습니다 (+' + (C.SCORE.towDone || 25) + ') — ' + ((L3 && L3.tow && L3.tow.far) || ''), 'good', 5200);
+        hud.pop('🪝 +' + (C.SCORE.towDone || 25), 'good'); TG.audio.jingle(3);
+        TG.audio.say('차량을 안전지대로 이동했습니다', { kind: 'officer', queue: true });
+        setTimeout(function () { if (traffic.clearIncidents) traffic.clearIncidents(); }, 5000);
+      }
+
+      var scar = G.sceneCar ? G.sceneCar() : null, cb = document.getElementById('btnCone');
+      document.body.classList.toggle('scene-near', !!scar);
+      var tb = document.getElementById('btnTow');
+      if (tb) { var ts = G.iscene.towState(); tb.classList.toggle('on', !!(ts && ts.connected)); }
+      if (cb && scar) { var nx2 = G.iscene.next(scar); cb.classList.toggle('done', nx2.step === 'done'); var ic2 = cb.querySelector('.ico'), tx2 = cb.querySelector('span:last-child');
+        if (ic2) ic2.textContent = nx2.step === 'flare' ? '🔥' : '🚧';
+        if (tx2) tx2.textContent = nx2.step === 'flare' ? '불꽃' : nx2.step === 'done' ? '완료' : '라바콘 ' + nx2.closed + '/' + nx2.need; }
+    }
+
     var frame = city.frameAt(player.pos.x, player.pos.z, player.heading); G.frame = frame;
     checkRules(dt, frame);
     sigChip(frame);
@@ -1920,8 +2025,8 @@
           var st = signals.moveState(nd, d, 'S'), man = signals.isManual && signals.isManual(nd);
           var lt = signals.hasLeftFor && signals.hasLeftFor(nd, d) ? signals.moveState(nd, d, 'L') : null, leftOn = !!(lt && st.s === 'red' && lt.s !== 'red' && !man);
           // 보호 좌회전 현시 동안은 「⬅ 좌회전 녹색 N초 · 직진 적색」 — 직진 차가 화살표를 보고 출발하지 않게(v0.9.49)
-          if (leftOn) txt = '⬅ 좌회전 ' + (lt.s === 'green' ? '녹색 ' : '황색 ') + Math.max(0, Math.ceil(lt.remain)) + '초 · 직진 적색 · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
-          else txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · 정지선 ' + Math.max(0, Math.round(dist)) + 'm';
+          if (leftOn) txt = '⬅ 좌회전 ' + (lt.s === 'green' ? '녹색 ' : '황색 ') + Math.max(0, Math.ceil(lt.remain)) + '초 · 직진 적색 · ' + Math.max(0, Math.round(dist)) + 'm';
+          else txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · ' + Math.max(0, Math.round(dist)) + 'm';
           cls = 'sigwait ' + (leftOn ? lt.s : st.s);
         }
       }

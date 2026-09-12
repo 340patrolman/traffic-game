@@ -14,7 +14,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var COLORS = { sedan: [0xc94d43, 0x3e6bb0, 0x9aa3ad, 0x2f3438, 0xe6e2d8, 0x6b8f5a, 0xb08a3e, 0x7d5a96],
                  hatch: [0xd77a3a, 0x5c8bd6, 0xbfb8aa, 0x7d5a96, 0xd9d34f, 0x2f3438],
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
-                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], pickup: [0xdcdcd4, 0x2f3438, 0x8e9aa6, 0x6d4f3a, 0x9a4a3a], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8] };
+                 van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], pickup: [0xdcdcd4, 0x2f3438, 0x8e9aa6, 0x6d4f3a, 0x9a4a3a], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8], police: [0xf3f5f8] };   // police = 후미 안전조치 순찰차(현장 보호용, 주행하지 않는다)
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
@@ -29,7 +29,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var phoneGlowMat = new THREE.SpriteMaterial({ map: TG.tex.flare(), color: 0xcfe8ff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
   var DRV_SHIRT = [0x2b2f38, 0xe8e2d4, 0x3b6fd1, 0x6b5a48, 0xd94f4f, 0x2fa36b, 0x8a8f98], DRV_SKIN = [0xf1c9a5, 0xd9a06e, 0xb5794f], DRV_HAIR = [0x1a1a1a, 0x3a2a1a, 0x5a3a2a];
   this.rail = null;   // TG.Rail(철길건널목) — main 이 붙인다
-  this.control = { closed: [], hand: [] };   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
+  this.control = { closed: [], hand: [], zones: [] };   // zones = 사고 현장 차로 차단(js/incident.js 가 채운다)   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
   // ---------- 격자 경로 ----------
@@ -371,7 +371,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var fr = city.frameAt(x, z, pl.heading); if (fr.kind !== 'grid') return null;
       d = TG.headingToDir(pl.heading); var f = TG.DIR_VEC[d], r = [-f[1], f[0]];
       var rd = city.roadOf({ i: fr.idx, j: fr.idx, x: x, z: z }, d);
-      var off = city.shoulderOff(fr.axis, fr.idx) - 0.6;
+      // **사고 차량은 갓길로 밀지 않는다** — T-Book 「견인차 도착 전 사고차량은 1개 차로 폐쇄 상태로 보존」
+      // 「무리한 갓길 이동 시 2차 사고 + 증거 훼손 위험」. 고장차(broken)는 종전대로 갓길에 세운다.
+      var off = kind === 'crash' ? city.laneOff(fr.axis, fr.idx, city.lanesOf(fr.axis, fr.idx) - 1)
+                                 : city.shoulderOff(fr.axis, fr.idx) - 0.6;
       spot = { x: fr.axis === 'v' ? fr.center + r[0] * off : x, z: fr.axis === 'h' ? fr.center + r[1] * off : z, heading: TG.DIR_HEADING[d] };
     }
     var made = [];
@@ -381,7 +384,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       c.incident = { kind: kind, handled: false }; made.push(c); return c;
     }
     var hd0 = spot.heading || 0, fx = Math.sin(hd0), fz = Math.cos(hd0);
-    if (kind === 'crash') { place('sedan', 0, 0, hd0); place('hatch', -fx * 5.4 * 0.9 + 0.9, -fz * 5.4 * 0.9 + 0.9, hd0 + 0.35); }
+    if (kind === 'crash') {
+      place('sedan', 0, 0, hd0);
+      // 상대 차량: **현장 표식(incident)은 달지 않는다.** 둘 다 달면 무전은 한 대에 걸리고 처리 판정은 다른 대를 보아
+      // 안전조치를 다 해도 끝나지 않는다(검증에서 잡았다). 치울 때는 crashPart 로 같이 지운다.
+      var other = place('hatch', -fx * 5.4 * 0.9 + 0.9, -fz * 5.4 * 0.9 + 0.9, hd0 + 0.35);
+      other.incident = null; other.crashPart = true;
+    }
     else place(rng() < 0.3 ? 'truck' : 'sedan', 0, 0, hd0);
     // 안전삼각대 + 라바콘(뒤 10m·18m)
     if (!incidentGroup) { incidentGroup = new THREE.Group(); scene.add(incidentGroup); }
@@ -389,7 +398,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     gb.box(0, 0.42, 0, 0.72, 0.06, 0.05, 0xd7262b, {}); gb.box(-0.3, 0.24, 0, 0.06, 0.42, 0.05, 0xd7262b, { rotY: 0 }); gb.box(0.3, 0.24, 0, 0.06, 0.42, 0.05, 0xd7262b, {});
     gb.box(0, 0.03, 0, 0.8, 0.06, 0.2, 0xe8e8e8, {});
     var tri = new THREE.Mesh(gb.build(), bodyMat); tri.position.set(spot.x - fx * 11, 0, spot.z - fz * 11); tri.rotation.y = hd0; incidentGroup.add(tri);
-    for (var k = 1; k <= 2; k++) {
+    for (var k = 1; kind !== 'crash' && k <= 2; k++) {   // 사고 현장의 라바콘은 경찰관이 놓는다(🚧 단추) — 미리 깔지 않는다
       var cb = new TG.GeoBuilder(); cb.cylinder(0, 0, 0, 0.26, 0.06, 0.72, 8, 0xff7a00, true); cb.box(0, 0.02, 0, 0.5, 0.04, 0.5, 0x2a2e33, {}); cb.cylinder(0, 0.34, 0, 0.16, 0.13, 0.1, 8, 0xf2f2f2, false);
       var cone = new THREE.Mesh(cb.build(), bodyMat); cone.position.set(spot.x - fx * (5 + k * 7), 0, spot.z - fz * (5 + k * 7)); incidentGroup.add(cone);
     }
@@ -397,8 +406,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     self.onEvent('incident', made[0]);
     return made[0];
   };
+  // 후미 안전조치 순찰차 — T-Book 「순찰차를 후방 방패로」 · 소유자 현장 지시 「되도록 후미 안전조치 순찰차가 있어야」.
+  // 달리지 않는다(mode 'incident') — 비상등만 켜고 현장 뒤를 지킨다.
+  this.spawnBackup = function (at) {
+    var c = makeCar('police', at.x, at.z, at.heading, { violator: false, straight: true, trait: null, noLicense: false, mount: false });
+    c.mode = 'incident'; c.v = 0; c.cruise = 0; c.speedK = 0; c.path = []; c.route = null; c.lastNode = null;
+    c.incident = null; c.backup = true;
+    return c;
+  };
   this.clearIncidents = function () {
-    for (var i = cars.length - 1; i >= 0; i--) if (cars[i].incident) remove(cars[i]);
+    for (var i = cars.length - 1; i >= 0; i--) if (cars[i].incident || cars[i].crashPart || cars[i].backup) remove(cars[i]);
     if (incidentGroup) { scene.remove(incidentGroup); incidentGroup = null; }
   };
   function drive(car, dt) {
@@ -552,7 +569,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.prevApRef = ap;
     // 이륜차·자전거·개인형 이동장치: **이 도로의 맨 오른쪽 차로**로 붙는다(도로마다 차로 수가 다르므로 도로에 들어갈 때 잡는다).
     // 보도로 올라가 달리는 차(edgeRider)는 그 계산이 edgeOff 로 따로 있으니 건드리지 않는다.
-    if (car.rightGroup && !onLink && ap && car.mode === 'drive') {
+    if (car.rightGroup && !onLink && ap && car.mode === 'drive' && !car.inZone) {
       var rdG = city.roadOf(ap.node, ap.d), nG = city.lanesOf(rdG.axis, rdG.idx);
       var loG = nG >= 3 ? minCargoLane(nG) : nG - 1, wantG = car.isBus ? nG - 1 : TG.clamp(loG + (car.id % 2), loG, nG - 1);
       if (car.laneIdx !== wantG) {
@@ -560,11 +577,33 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         car.laneIdx = wantG;
       }
     }
-    if (car.rightLane && !onLink && ap && !car.edgeRider && car.mode === 'drive') {
+    if (car.rightLane && !onLink && ap && !car.edgeRider && car.mode === 'drive' && !car.inZone) {
       var rdW = city.roadOf(ap.node, ap.d), nW = city.lanesOf(rdW.axis, rdW.idx), wantW = nW - 1;
       if (car.laneIdx !== wantW) {
         car.lcShift += city.laneOff(rdW.axis, rdW.idx, wantW) - city.laneOff(rdW.axis, rdW.idx, TG.clamp(car.laneIdx, 0, nW - 1));
         car.laneIdx = wantW;
+      }
+    }
+    // 사고 현장 차로 차단(라바콘 구간): 130m 앞에서 **안쪽 차로로 옮기고**, 구간 안에서는 서행한다.
+    // T-Book 「라바콘 3중 설치 → 정체유발 후방차량 감속」 · 「불꽃신호기 사선 배치로 차로를 점진 차단, 후속 차량을 감속」.
+    // **지정차로·맨우측 규칙보다 뒤에 둔다** — 차단이 우선이다(앞에 두면 화물·버스가 매 프레임 막힌 차로로 되돌아갔다).
+    car.inZone = false;
+    if (!onLink && ap && car.mode === 'drive' && self.control && self.control.zones && self.control.zones.length) {
+      var rdZ0 = city.roadOf(ap.node, ap.d);   // 경로점(ap)에는 축·번호가 없다 — 노드와 방향으로 도로를 읽는다
+      for (var zi = 0; zi < self.control.zones.length; zi++) {
+        var Z = self.control.zones[zi];
+        if (Z.d !== ap.d || Z.axis !== rdZ0.axis || Z.idx !== rdZ0.idx) continue;
+        var fz0 = TG.DIR_VEC[Z.d], toZone = (Z.x - car.pos.x) * fz0[0] + (Z.z - car.pos.z) * fz0[1];
+        if (toZone < -8 || toZone > 130 + (Z.back || 110)) continue;
+        car.inZone = true;
+        if (car.laneIdx >= Z.lane) {
+          var tgtZ = Math.max(0, Z.lane - 1);
+          if (car.laneIdx !== tgtZ) {
+            car.lcShift += city.laneOff(rdZ0.axis, rdZ0.idx, tgtZ) - city.laneOff(rdZ0.axis, rdZ0.idx, TG.clamp(car.laneIdx, 0, city.lanesOf(rdZ0.axis, rdZ0.idx) - 1));
+            car.laneIdx = tgtZ; car.signal = 'L'; car.signalT = 2.5;
+          }
+        }
+        target = Math.min(target, 8.4);   // 약 30km/h 서행
       }
     }
     if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다

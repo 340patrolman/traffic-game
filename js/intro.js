@@ -86,7 +86,7 @@ TG.Intro = function (game) {
     // ⑦ 1인칭 순찰 — 타이틀 뒤에 「이 게임이 무엇인가」를 보여 준다.
     { at: 14.4, dur: 3.2, fov: 94, view: 'cockpit', kick: '함께 달린다', ttl: '서울을 순찰한다', sub: '반포대로 · 서초대로 · 경부고속도로 · 올림픽대로 · 철길건널목', cam: function () { return eye1(22, 1.05); } },
     // ⑧ 3인칭 추적 — 순찰차를 뒤에서 넓게.
-    { at: 17.6, dur: 3.0, fov: 58, kick: '', ttl: '근무 연습 · 스트레스 해소 · 교통안전 홍보', sub: '세 가지를 한 번에', cam: function (u) {
+    { at: 17.6, dur: 3.0, fov: 58, kick: '', ttl: '교통안전 근무 홍보 · 실제 데이터 기반 게임', sub: 'TAAS 교통사고 · 경찰청 신호계획 · 서초구 실측 지도', cam: function (u) {
         var pl = game.player, e = sm(u), f = [Math.sin(pl.heading), Math.cos(pl.heading)];
         return { p: [pl.pos.x - f[0] * (7 + e * 4), (pl.y || 0) + 2.6 + e * 1.2, pl.pos.z - f[1] * (7 + e * 4)], l: [pl.pos.x + f[0] * 6, (pl.y || 0) + 1.1, pl.pos.z + f[1] * 6] };
       } },

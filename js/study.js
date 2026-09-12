@@ -42,6 +42,36 @@ TG.study = (function () {
       });
     }
     });
+    // 🦺 안전 근무 시뮬레이션 — 소유자가 준 T-Book 카드 그대로(「이런 상황과 멘트도 넣자」).
+    // 상황과 정답 멘트는 laws.json incidentScene.sim 에서만 읽는다. 게임 안에서 실제로 해 보는 것은 🚧 라바콘·불꽃신호기·순찰차 방패다.
+    var SIM = G.laws && G.laws.incidentScene && G.laws.incidentScene.sim;
+    if (SIM) {
+      html += '<h2 style="margin-top:22px">' + esc(SIM.title) + '</h2>';
+      html += '<div class="dim small">' + esc(SIM.note) + '</div>';
+      [SIM.drive, SIM.foot].forEach(function (grp) {
+        if (!grp) return;
+        html += '<div class="badge" style="margin:14px 0 6px">' + esc(grp.name) + '</div>';
+        html += '<div class="sitem"><div class="num">✔</div><div class="body"><b>기본 수칙</b><div class="sit">' +
+          (grp.basics || []).map(function (t) { return '• ' + esc(t); }).join('<br>') + '</div></div></div>';
+        html += '<div class="cards">';
+        (grp.cards || []).forEach(function (c, k) {
+          html += '<div class="sitem"><div class="num">' + (k + 1) + '</div><div class="body"><b>' + esc(c.q) + '</b>' +
+            '<div class="sit">정답 · ' + esc(c.a) + '</div>' +
+            ((c.more && c.more.length) ? '<div class="tip">' + c.more.map(esc).join(' · ') + '</div>' : '') +
+            '</div></div>';
+        });
+        html += '</div>';
+      });
+      var IS = G.laws.incidentScene;
+      html += '<div class="sitem"><div class="num">🚧</div><div class="body"><b>게임에서 하는 일</b>' +
+        '<div class="law">' + esc(IS.creed || '') + '</div>' +
+        '<div class="sit">사고 현장 45m 안에서 🚧 단추(K)를 누르면 라바콘으로 차로를 차단한다 — ' + esc((IS.cones && IS.cones.layout) || '') +
+        ' · ' + esc((IS.cones && IS.cones.extent) || '') + '. 편도 4차로 이상은 두 개 차로를 막는다(' + esc((IS.cones && IS.cones.multi) || '') + ').' +
+        ' 야간·악천후에는 🔥 불꽃신호기까지 점화해야 안전조치가 끝난다 — ' + esc((IS.flare && IS.flare.when) || '') + '</div>' +
+        '<div class="tip">' + esc((IS.shield && IS.shield.how) || '') + '</div>' +
+        '<div class="tip">' + esc((IS.keepLane && IS.keepLane.rule) || '') + ' · ' + esc((IS.keepLane && IS.keepLane.why) || '') + '</div>' +
+        '</div></div>';
+    }
     if (G.career && G.career.html) html += G.career.html();   // 근무 일지 · 다시 볼 것(오답 노트)
     if (G.kidCourse && G.kidCourse.html) html += G.kidCourse.html();
     html += '<div class="dim small">이 게임은 법령의 정본이 아닙니다. 범칙금·벌점·조문은 T-Book 과 법령 원문으로 확인하세요.</div><button id="btnStudyClose" class="primary">닫기</button></div>';

@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.9.56';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.9.57';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -106,7 +106,7 @@ TG.CONFIG = {
            crash: -8, pedestrian: -100, cornerFail: -2, nosignal: -3, solidline: -5,
            jaywalk: -10, walkRed: -10, walkBlink: -6, safeCross: 10, arrive: 20, railroad: -10, incident: 30,
            junctionGood: 15, junctionJam: -6,
-           chaseSafe: 15, chaseClose: -10, chaseReckless: -25, chaseBreak: 45, chaseCatch: 60, dispatchArrive: 30, dispatchLate: 10, emergFast: -12, emergConflict: -25 },   // 추격전: 안전거리·무전 유지 / 8m 안 근접 / 부수적 피해 / 중단 판단(정답) / 검거   // 교차로 근무: 10초마다 소통 양호 / 꼬리물기 지속   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
+           chaseSafe: 15, chaseClose: -10, chaseReckless: -25, chaseBreak: 45, chaseCatch: 60, sceneClose: 15, sceneFlare: 10, sceneShield: 10, towAsk: 8, towDone: 25, towBackup: 10, dispatchArrive: 30, dispatchLate: 10, emergFast: -12, emergConflict: -25 },   // 추격전: 안전거리·무전 유지 / 8m 안 근접 / 부수적 피해 / 중단 판단(정답) / 검거   // 교차로 근무: 10초마다 소통 양호 / 꼬리물기 지속   // 보행자 모드: 무단횡단 · 신호위반 보행 · 안전 횡단 · 목적지 도착 / 철길건널목
   WALK_SECONDS: 360, WALK_DESTS: 8,
   DUTY_SECONDS: 420,   // 교차로 근무(하차 근무) 한 판
   CHASE_SECONDS: 300,  // 추격전 한 판
