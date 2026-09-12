@@ -24,7 +24,7 @@
   // 도보 상태: 보행 모드·어린이 교실·교차로 근무는 처음부터 도보, 순찰·자유 주행에서는 하차(G.afoot)하면 도보가 된다.
   // 교차로 근무는 **하차 근무**다 — 순찰차로 와서 갓길에 세우고 내린다(소유자: 「하차근무가 좋을지 싶네」).
   // 그래서 duty 는 여기서 뺀다. 내리기 전까지는 「차 안」이고, 내리면 G.afoot 이 켜진다.
-  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.afoot === true; }
+  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.mode === 'tot' || G.afoot === true; }
   G.actor = actor;
   // 차량 선택 「랜덤」: 근무마다 다른 순찰차
   function carSpec(id) { if (id === 'random' || !C.CARS[id]) { var ks = Object.keys(C.CARS); return C.CARS[ks[Math.floor(Math.random() * ks.length)]]; } return C.CARS[id]; }
@@ -598,6 +598,8 @@
     }
     G.towAct = towAct;
     input.bindTap($('btnTow'), towAct); input.onKey('KeyJ', towAct);
+    input.bindTap($('btnTot'), function () { if (G.tot && G.tot.on()) G.tot.act(); });   // 영아 교실: 큰 단추 하나
+    input.bindTap($('btnTotNext'), function () { if (G.tot && G.tot.on()) G.tot.next(); });   // 다음 마당(선생님용)
     input.bindTap($('btnGate'), function () { gateCross(); }); input.onKey('KeyG', function () { if (!onFoot()) gateCross(); });   // 관문(G) — 도보에서는 G 가 손 들기다
 
 
@@ -797,6 +799,7 @@
     coach = { cd: 0, lastCorner: -1, apexDone: -1 };
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
+    if (G.tot) { G.tot.dispose(); G.tot = null; }
     if (walker) { if (walk && walk.officer) walk.officer.dispose(); walker.dispose(); walker = null; walk = null; peds.walker = null; }
     G.afoot = false; exitScn = null; document.body.classList.remove('afoot');
     if (junction) { junction.dispose(); junction = null; duty = null; G.junction = null; }
@@ -830,7 +833,7 @@
     // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
-    hud.notice(G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 멈춘다 · 👀 본다 · ✋ 손을 든다 · 🚶 걷는다. 초록불에 건너서 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     if (layers && layers.hourBrief && (G.mode === 'patrol' || G.mode === 'duty')) {
       var hb = layers.hourBrief();
@@ -840,7 +843,7 @@
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
   var SCORED = { patrol: 1, walk: 1, duty: 1, chase: 1 };   // 점수·감점이 있는 모드(자유 주행·서킷·어린이 교실은 사고 외 감점 없음)
-  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '보행자 체험', kid: '어린이 보행 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
+  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '보행자 체험', kid: '어린이 보행 교실', tot: '영아 교통안전교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
   // ---------- 보행자 모드 ----------
   // 순찰차는 강남대로 갓길에 세워 두고, 경찰관이 내려 걷는다. 목적지(사거리 모퉁이) 8곳을 차례로. 차량·행인 AI 는 걷는 경찰관을 보행자로 본다.
   // 어린이 교실 무대 블록 — 서초역 사거리를 왼쪽 위 모퉁이로 하는 한 블록.
@@ -856,10 +859,24 @@
   function startWalk() {
     var xs = city.xs, zs = city.zs, rng = TG.makeRNG((Date.now() & 0xffff) + 7);
     player.teleport(xs[2] + city.shoulderOff('v', 2), zs[2] + 48, Math.PI); player.setSiren(false);
-    var kid = G.mode === 'kid';
+    var kid = G.mode === 'kid' || G.mode === 'tot';
     walker = new TG.Walker(scene, city, terrain, C, { kid: kid }); G.walker = walker;
+    if (G.mode === 'tot' && walker.rig && walker.rig.group) walker.rig.group.scale.setScalar(0.8);   // 4세는 더 작고 동글동글하게
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
+    if (G.mode === 'tot') {
+      // 영아 교실: 어린이 보행 교실과 같은 무대(서초역 사거리)지만 **목적지도 시간 제한도 없다**.
+      // 아이는 보도 위 한 자리에 서고, 화면이 마당을 차례로 넘긴다(선생님이 큰 단추 하나로 진행).
+      var TB = kidStageBlock(), tn = city.nodes[TB.i][TB.j];
+      walker.teleport(tn.x + city.sideOff('v', TB.i), tn.z + city.halfH[TB.j] + 9, Math.PI);
+      walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1, tot: true };
+      walk.safe = { x: walker.pos.x, z: walker.pos.z };
+      G.timeLeft = 1e9;                                   // 시간 제한 없음 — 교육이 끝나면 선생님이 닫는다
+      C.TRAFFIC_MAX = Math.max(6, Math.round(BASE_TRAFFIC * 0.35));   // 차는 적게(무섭지 않게)
+      C.PED_MAX = Math.max(6, Math.round(BASE_PED * 0.4));
+      if (TG.Tot) { G.tot = new TG.Tot(G); G.tot.start(); }
+      return;
+    }
     if (kid) {
       // 어린이 보행 교실 무대 = **서초역 사거리**(소유자: 「어린이교통교실의 배경을 서초역으로 해줘」).
       // 자리는 이름으로 찾는다 — 지도 파일이 격자를 바꿔도 서초역을 따라간다. 없으면 학교 블록으로 물러선다.
@@ -1449,6 +1466,22 @@
     }
   }
   function walkCamera(dt, look) {
+    // 👶 영아 교실: 아이 **앞쪽 비스듬히**에서 본다 — 어린이집 20명이 화면으로 볼 때 **얼굴과 손**이 보여야 한다.
+    // 뒤에서 보면 뒤통수와 신호등 기둥만 크게 나온다(첫 시험에서 그랬다).
+    if (G.mode === 'tot' && walker) {
+      var w2 = walker, h2 = (G.tot && G.tot.heading && G.tot.heading() !== null) ? G.tot.heading() : w2.heading;
+      var f2 = [Math.sin(h2), Math.cos(h2)], r2 = [-f2[1], f2[0]];
+      var tx2 = w2.pos.x + f2[0] * 3.1 + r2[0] * 1.9, tz2 = w2.pos.z + f2[1] * 3.1 + r2[1] * 1.9, ty2 = w2.y + 1.75;
+      var lx2 = w2.pos.x + f2[0] * 0.15, lz2 = w2.pos.z + f2[1] * 0.15, ly2 = w2.y + 0.85;
+      if (!camInit) { camPos.set(tx2, ty2, tz2); camLook.set(lx2, ly2, lz2); camInit = true; }
+      var k2 = 1 - Math.exp(-4 * dt);
+      camPos.x += (tx2 - camPos.x) * k2; camPos.y += (ty2 - camPos.y) * k2; camPos.z += (tz2 - camPos.z) * k2;
+      camLook.x += (lx2 - camLook.x) * k2; camLook.y += (ly2 - camLook.y) * k2; camLook.z += (lz2 - camLook.z) * k2;
+      w2.mesh.visible = true;
+      camera.position.copy(camPos); camera.lookAt(camLook); camFx(dt);
+      world.followSun(w2.pos.x, w2.pos.z);
+      return h2;   // **조작 기준도 고정 방향** — 카메라 방향을 돌려주면 아이가 제자리에서 빙글빙글 돈다(실측)
+    }
     // 3인칭 카메라 방향은 캐릭터 헤딩을 천천히 따른다(MMORPG 식). 스틱을 살짝 옆으로 밀면 캐릭터만 살짝 휘고 시야는 급히 돌지 않는다.
     var w = walker, cy = walk.cyaw === undefined ? w.heading : walk.cyaw, dcy = TG.wrapAngle(w.heading - cy);
     cy += dcy * Math.min(1, dt * (w.moving ? (Math.abs(dcy) > 1.4 ? 3.0 : 1.3) : 0.5)); walk.cyaw = cy;
@@ -1474,6 +1507,7 @@
   }
   function walkUpdate(dt) {
     var mv = input.readMove(); if (G.testMove) mv = G.testMove;
+    if (G.mode === 'tot') { if (G.tot) G.tot.update(dt); mv = totMove(dt); }   // 영아 교실: 화면이 이끈다
     if (exitScn) mv = exitSceneMove(dt);   // 하차 연출 중에는 조작을 받지 않는다
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
@@ -2158,6 +2192,14 @@
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
+  // 영아 교실의 걸음: **얼음땡**을 그대로 따른다 — 초록불이면 천천히 앞으로, 빨간불이면 선다.
+  // 조작은 큰 단추 하나뿐이라(4세·20명 앞) 스틱 입력은 받지 않는다.
+  function totMove(dt) {
+    var s = G.tot && G.tot.state;
+    var go = !!(s && s.ice && s.ice.on && s.ice.green);
+    if (walker) { walker.gesture = null; }
+    return { x: 0, y: go ? 0.5 : 0, run: false };
+  }
   // 위험도 쌓기(T5). **이 기기에서 달린 결과**다 — 급제동과 보행자 근접을 가까운 교차로(70m 안)에 적는다.
   // 가중·문턱은 게임 설계값이다(법령·통계값이 아니다): 급제동 = 미끄러짐 0.35 넘거나 제동 중 4m/s² 넘게 줄어든 순간.
   var riskT = { brake: 0, near: 0 };

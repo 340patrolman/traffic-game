@@ -42,6 +42,26 @@ TG.study = (function () {
       });
     }
     });
+    // 👶 영아 교통안전교실 진행 방법 — 어린이집에 가는 직원이 **폰으로 보면서** 진행할 수 있게.
+    // 대본은 laws.json totClass 에서만 읽는다(화면에 글을 박아 넣지 않는다).
+    var TOT = G.laws && G.laws.totClass;
+    if (TOT) {
+      html += '<h2 style="margin-top:22px">' + esc(TOT.title) + '</h2>';
+      html += '<div class="dim small">' + esc(TOT.note) + '</div>';
+      html += '<div class="badge" style="margin:14px 0 6px">시작 전</div>';
+      html += '<div class="sitem"><div class="num">✔</div><div class="body"><div class="sit">' +
+        (TOT.before || []).map(function (t) { return '• ' + esc(t); }).join('<br>') + '</div></div></div>';
+      html += '<div class="cards">';
+      (TOT.steps || []).forEach(function (p, k) {
+        html += '<div class="sitem"><div class="num">' + (k + 1) + '</div><div class="body"><b>' + esc(p.n) + '</b>' +
+          '<div class="sit">🗣 “' + esc(p.say) + '”</div>' +
+          '<div class="sit">🙌 ' + esc(p.do) + '</div>' +
+          (p.tip ? '<div class="tip">' + esc(p.tip) + '</div>' : '') + '</div></div>';
+      });
+      html += '</div>';
+      html += '<div class="sitem"><div class="num">🎉</div><div class="body"><b>마무리</b><div class="sit">' + esc(TOT.end) + '</div>' +
+        '<div class="tip">' + esc(TOT.caution) + '</div></div></div>';
+    }
     // 🦺 안전 근무 시뮬레이션 — 소유자가 준 T-Book 카드 그대로(「이런 상황과 멘트도 넣자」).
     // 상황과 정답 멘트는 laws.json incidentScene.sim 에서만 읽는다. 게임 안에서 실제로 해 보는 것은 🚧 라바콘·불꽃신호기·순찰차 방패다.
     var SIM = G.laws && G.laws.incidentScene && G.laws.incidentScene.sim;

@@ -599,3 +599,40 @@ body.kidmode.portrait .speedpanel{top:calc(var(--hudh,97px) + 174px + var(--sa-t
   .tbtn.runbtn{bottom:calc(190px + var(--sa-b))}
   .tbtn.boxbtn{left:auto;right:calc(88px + var(--sa-r));bottom:calc(100px + var(--sa-b))}
 }
+
+/* ---------- 👶 영아 교통안전교실(4세) ----------
+   소유자: 「어린이집 20명, 4세. 귀엽고 예쁘고 쉽게.」 → 프로젝터에서 보이게 **아주 크게**, 조작은 큰 단추 하나.
+   화면 요소는 이 모드에서만 뜬다(body.totmode). */
+#totSig{display:none;position:fixed;left:50%;top:calc(14px + var(--sa-t));transform:translateX(-50%);z-index:26;
+  align-items:center;gap:14px;background:rgba(12,16,26,.72);border:3px solid rgba(255,255,255,.35);border-radius:24px;padding:10px 20px}
+#totSigLamp{width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:46px;
+  background:#e23b3b;box-shadow:0 0 26px rgba(226,59,59,.75);transition:background .18s,box-shadow .18s}
+#totSig.go #totSigLamp{background:#37c66b;box-shadow:0 0 30px rgba(55,198,107,.8)}
+#totSigNum{font-size:62px;font-weight:900;color:#fff;min-width:74px;text-align:center;font-variant-numeric:tabular-nums;text-shadow:0 3px 10px rgba(0,0,0,.6)}
+#totBig{display:none;position:fixed;left:50%;top:calc(128px + var(--sa-t));transform:translateX(-50%);z-index:25;text-align:center;
+  background:rgba(12,16,26,.62);border-radius:22px;padding:12px 26px;max-width:94vw;word-break:keep-all}
+#totBig b{display:block;font-size:clamp(30px,7vw,62px);font-weight:900;color:#fff;text-shadow:0 4px 16px rgba(0,0,0,.7);letter-spacing:1px}
+#totBig i{display:block;margin-top:4px;font-size:clamp(15px,3.2vw,26px);font-style:normal;color:#ffe8a3;font-weight:800}
+#totBig.pop{animation:totpop .42s cubic-bezier(.2,1.5,.4,1)}
+@keyframes totpop{0%{transform:translateX(-50%) scale(.72)}100%{transform:translateX(-50%) scale(1)}}
+#totSay{display:none;position:fixed;left:50%;bottom:calc(128px + var(--sa-b));transform:translateX(-50%);z-index:25;
+  font-size:clamp(17px,3.6vw,30px);font-weight:800;color:#fff;background:rgba(12,16,26,.66);border-radius:18px;padding:10px 20px;
+  max-width:92vw;text-align:center;word-break:keep-all;line-height:1.4}
+#totStars{display:none;position:fixed;right:calc(14px + var(--sa-r));top:calc(14px + var(--sa-t));z-index:25;font-size:clamp(22px,4.4vw,38px);letter-spacing:2px}
+.tbtn.totbtn{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(26px + var(--sa-b));
+  width:auto;min-width:210px;height:88px;padding:0 26px;border-radius:26px;background:rgba(255,207,63,.94);border:3px solid #fff;
+  color:#1b1b1b;font-size:26px;font-weight:900;box-shadow:0 8px 26px rgba(0,0,0,.45)}
+body.totmode .tbtn.totbtn{display:flex}
+.tbtn.totbtn span{font-size:26px;font-weight:900}
+/* 영아 교실에서는 계기·단속·조작을 감춘다 — 아이들이 볼 것은 신호등과 캐릭터뿐이다 */
+body.totmode #hudbar,body.totmode #minimap,body.totmode .cluster.right,body.totmode #stickZone,body.totmode .sigs,
+body.totmode .tbtn.hand,body.totmode .tbtn.runbtn,body.totmode .tbtn.footbtn,body.totmode .tbtn.revbtn,
+body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.view,body.totmode #target{display:none!important}
+/* 마당 점(①②③④) · 다음 마당 단추 — 선생님이 진행 상황을 보고 앞으로 넘긴다 */
+#totDots{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(196px + var(--sa-b));z-index:25;gap:10px}
+#totDots span{font-size:26px;opacity:.32;filter:grayscale(1)}
+#totDots span.ok{opacity:.6;filter:none}
+#totDots span.on{opacity:1;filter:none;transform:scale(1.25)}
+.tbtn.totnext{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(46px + var(--sa-b));width:64px;height:64px;
+  border-radius:20px;background:rgba(255,255,255,.9);border:3px solid #ffd93d;color:#1b1b1b;font-size:26px;font-weight:900}
+body.totmode .tbtn.totnext{display:flex}
