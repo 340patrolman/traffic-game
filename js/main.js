@@ -805,6 +805,7 @@
     if (junction) { junction.dispose(); junction = null; duty = null; G.junction = null; }
     if (chase) { chase.dispose(); chase = null; G.chase = null; }
     document.body.classList.remove('dutyopen');
+    peds.noJaywalk = false; traffic.quiet = false;   // 어린이 교실을 나오면 되돌린다(startWalk 가 교실에서 다시 켠다)
     if (G.mode === 'duty') startDuty(); else if (onFoot()) startWalk();
     if (G.mode === 'chase') startChase();
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
@@ -860,6 +861,12 @@
     var xs = city.xs, zs = city.zs, rng = TG.makeRNG((Date.now() & 0xffff) + 7);
     player.teleport(xs[2] + city.shoulderOff('v', 2), zs[2] + 48, Math.PI); player.setSiren(false);
     var kid = G.mode === 'kid' || G.mode === 'tot';
+    // 어린이 앞에서는 **무단횡단도 급제동 경적도 보여주지 않는다**(소유자 2026-09-12:
+    // 「어린이 교통안전을 하고 있는데 왠 아저씨가 건너편에서 빨간불에 건너온다 … 그런 모습을 보여주는 것조차 교육적으로 안 좋다」).
+    // 인트로와 같은 방식이다(v0.9.39) — 교실을 나가면 되돌린다(순찰 근무에는 무단횡단이 있어야 단속을 배운다).
+    peds.noJaywalk = kid; traffic.quiet = kid;
+    if (kid) peds.clearJaywalkers && peds.clearJaywalkers();
+
     walker = new TG.Walker(scene, city, terrain, C, { kid: kid }); G.walker = walker;
     if (G.mode === 'tot' && walker.rig && walker.rig.group) walker.rig.group.scale.setScalar(0.8);   // 4세는 더 작고 동글동글하게
     traffic.player = walker; peds.player = walker; peds.walker = walker;

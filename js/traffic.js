@@ -690,7 +690,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (self.peds && !onLink) {
       // 사람까지 거리도 **앞범퍼**에서 잰다 — 중심에서 재면 긴 차일수록 사람을 차체 안에 두고 선다(앞범퍼 2m 앞에서 선다).
       var hlP = car.len / 2, pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, (pedIgnore ? 6 : 18) + hlP, pedIgnore ? 2.2 : 6.5);
-      if (pd !== null) { pd -= hlP; target = Math.min(target, stopProfile(pd - 0.7, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 3.7) { emergency = true; if (car.v > 4 && !car.pedHorn && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적
+      if (pd !== null) { pd -= hlP; target = Math.min(target, stopProfile(pd - 0.7, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 3.7) { emergency = true; if (car.v > 4 && !car.pedHorn && !self.quiet && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적
     }
     var lead = leadOf(car, fx, fz);
     // 우측 앞지르기(overtake 습관): 느린 앞차 뒤에서 바깥(우측) 차로로 빠져 속도를 올려 추월한다 → 「앞지르기 위반」(앞지르기는 좌측으로)
@@ -716,7 +716,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (gap < want) target = Math.min(target, Math.max(0, lead.v - (want - gap) * 0.9));
       if (gap < 1.5) { target = 0; emergency = true; }
       // 경적: 앞차가 서서 안 움직이면(3~6초) 성질 급한 운전자가 짧게 울린다(플레이어 근처만 들린다)
-      if (lead.v < 0.4 && car.v < 0.4 && gap < 4) { car.hornT = (car.hornT || 0) + dt; if (car.hornT > (car.hornAt || (car.hornAt = 3 + rng() * 4))) { car.hornT = 0; car.hornAt = 6 + rng() * 6; if (self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 45 && rng() < 0.5) TG.audio.horn(rng() < 0.3); } } else car.hornT = 0;
+      if (lead.v < 0.4 && car.v < 0.4 && gap < 4) { car.hornT = (car.hornT || 0) + dt; if (car.hornT > (car.hornAt || (car.hornAt = 3 + rng() * 4))) { car.hornT = 0; car.hornAt = 6 + rng() * 6; if (!self.quiet && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 45 && rng() < 0.5) TG.audio.horn(rng() < 0.3); } } else car.hornT = 0;
     }
     if (car.route && car.route.merge && car.route.blend < 0.6) {
       for (var mi = 0; mi < cars.length; mi++) { var o2 = cars[mi]; if (o2 === car) continue; var ddx = o2.pos.x - car.pos.x, ddz = o2.pos.z - car.pos.z; if (ddx * ddx + ddz * ddz < 14 * 14 && (ddx * fx + ddz * fz) < 0 && Math.abs(ddx * rx + ddz * rz) < 5) target = Math.min(target, 4); }

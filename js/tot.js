@@ -22,12 +22,14 @@ TG.Tot = function (game) {
   // 마당 표. sec = 저절로 넘어가는 시간(선생님이 ▶ 로 넘길 수도 있다), btn = 큰 단추에 적히는 말
   var STAGES = [
     { id: 'where', name: '여기는 어디?',      emoji: '🛣', btn: '어디일까?',   sec: 60 },
-    { id: 'ice',   name: '얼음땡 놀이',        emoji: '🧊', btn: '얼음! 땡!',    sec: 46 },
+    { id: 'ice',   name: '얼음땡 놀이',        emoji: '🧊', btn: '얼음! 땡!',    sec: 58 },
     { id: 'hold',  name: '토수니 손 잡기',     emoji: '🐻', btn: '손 잡기',     sec: 34 },
     { id: 'cross', name: '다섯 걸음으로 건너기', emoji: '🚸', btn: '하나 더!',    sec: 96 },
+    { id: 'alley', name: '골목길',             emoji: '🏘', btn: '어디로 걸을까?', sec: 52 },
     { id: 'belt',  name: '안전벨트 딸깍',      emoji: '🔒', btn: '딸깍!',       sec: 34 },
     { id: 'bright',name: '밝은 옷',           emoji: '🌈', btn: '밝은 옷 입기', sec: 42 },
   ];
+
   // **원문 5단계**(순서를 바꾸지 않는다). 아이가 따라 외칠 수 있게 짧게.
   var FIVE = [
     { big: '① 멈춰요',         sub: '초록불이어도 먼저 멈춰요',  say: '하나! 먼저 멈춰요. 초록불이어도 바로 건너지 않아요', burst: '🛑' },
@@ -42,11 +44,26 @@ TG.Tot = function (game) {
     { big: '🚗 차도',     sub: '차가 다니는 길 — 들어가면 안 돼요', say: '저기는 차도예요. 차가 다니는 길이에요. 들어가면 안 돼요', burst: '🚗' },
     { big: '🚸 횡단보도', sub: '건널 때만 가는 길',               say: '여기는 횡단보도예요. 길을 건널 때만 가는 길이에요', burst: '🚸' },
   ];
+  // 🏘 골목길 — 인도가 없는 좁은 길. **법으로 확인한 것만** 가르친다(도로교통법 제8조, 국가법령정보센터 원문 2026.7.1. 시행).
+  //  ② 보도·차도 구분이 없고 중앙선이 있는 길 → 길가장자리(구역)로 통행해야 한다
+  //  ③ 중앙선이 없는 길·보행자우선도로 → 도로의 전 부분으로 통행할 수 있다(고의로 차를 막지는 않는다)
+  //  ④ 보도에서는 우측통행이 원칙
+  // → 4세에게는 「길 한가운데는 위험해요, 가장자리로 걸어요 · 인도에서는 오른쪽으로」로 줄인다.
+  var ALLEY = [
+    { big: '🚗 길 한가운데',   sub: '차가 오면 위험해요',            say: '길 한가운데로 걸으면 차가 오는 걸 늦게 봐요. 위험해요',      burst: '⚠️', ok: false },
+    { big: '🚶 길 가장자리',   sub: '여기로 걸어요',                 say: '골목길에서는 길 가장자리로 걸어요. 차가 지나갈 자리를 비켜 줘요', burst: '🚶', ok: true },
+    { big: '➡️ 인도는 오른쪽', sub: '인도에서는 오른쪽으로 걸어요',   say: '넓은 길 인도에서는 오른쪽으로 걸어요',                       burst: '➡️', ok: true },
+  ];
+
   var SAY = {
     open:    '안녕! 나는 곰돌이 토수니예요. 오늘은 길 건너기를 같이 배워요',
     ice:     '빨간불에는 얼음! 초록불에는 땡! 하고 걸어요',
-    red:     '빨간불! 얼음!',
-    green:   '초록불! 땡! 걸어요',
+    red:     '빨간불! 얼음! 발을 딱 멈춰요',
+    green:   '초록불! 땡! 손 잡고 걸어요',
+    iceGood: '얼음도 땡도 잘했어요! 빨간불에는 꼭 멈춰요',
+    alley:   '골목길에는 인도가 없어요. 어디로 걸을까요?',
+    run:     '혼자 뛰어가면 위험해요. 손 잡고 천천히 걸어요',
+
     hold:    '길을 건널 때는 토수니 손을 꼭 잡아요',
     holdOk:  '손을 꼭 잡았어요. 참 잘했어요',
     notYet:  '아직이야. 토수니 손을 먼저 잡아요',
@@ -139,6 +156,7 @@ TG.Tot = function (game) {
     self.state = st;
     st.heading0 = W.heading;                         // **고정 방향** — 카메라·조작이 같은 값을 본다(되먹임으로 아이가 돌지 않게)
     st.home = { x: W.pos.x, z: W.pos.z };
+    if (W.markerKeep !== undefined) W.markerKeep = true;
     st.node = G.city && G.city.nearestNode ? G.city.nearestNode(W.pos.x, W.pos.z) : null;   // 인도·차도·횡단보도를 짚을 기준
     st.bear = TG.Character.actor(scene, terrain, 'civilian', W.pos.x - 1.25, W.pos.z + 0.2, W.heading);
     bearify(st.bear);
@@ -146,8 +164,9 @@ TG.Tot = function (game) {
     return true;
   };
   self.dispose = function () {
-    document.body.classList.remove('totmode');
-    if (G.walker && G.walker.setMarker) G.walker.setMarker(null);
+    document.body.classList.remove('totmode'); document.body.classList.remove('toticy');
+    var bg = el('totBig'); if (bg) bg.classList.remove('shiver');
+    if (G.walker && G.walker.setMarker) { G.walker.setMarker(null); G.walker.markerKeep = false; }
     if (st && st.bear && st.bear.dispose) st.bear.dispose();
     hideSignal(); setCaption(''); setBig(''); setButton('');
     var e = el('totStars'); if (e) e.style.display = 'none';
@@ -175,8 +194,9 @@ TG.Tot = function (game) {
       cross: '① 멈춰요 ② 차를 봐요 ③ 손 번쩍 ④ 다시 ⑤ 천천히', belt: '차에 타면 딸깍!', bright: '밝은 옷을 입어요' }[S.id]);
     setButton(S.btn, S.id === 'cross' && !st.held);
     if (S.id === 'where') { st.where = 0; whereShow(0); }
-    if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); }
-    if (S.id === 'hold') { say('hold', true); }
+    if (S.id === 'ice') { if (G.walker) G.walker.setMarker(null); st.ice = { on: true, t: 0, green: false, round: 0 }; say('ice', true); TG.audio.totIce(); iceLook(false); }
+    if (S.id === 'alley') { iceLook(true); st.alley = 0; alleyShow(0); say('alley', true); }
+    if (S.id === 'hold') { iceLook(true); say('hold', true); }
     if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
     if (S.id === 'bright') { st.night = true; if (G.weather) G.weather.set('night'); setCoat(null); say('dark', true); }
@@ -217,6 +237,7 @@ TG.Tot = function (game) {
     if (S.id === 'ice') { toggleIce(); return true; }
     if (S.id === 'hold') { holdHands(); return true; }
     if (S.id === 'cross') { fiveStep(); return true; }
+    if (S.id === 'alley') { alleyNext(); return true; }
     if (S.id === 'belt') { beltClick(); return true; }
     if (S.id === 'bright') { wearBright(); return true; }
     return false;
@@ -224,10 +245,27 @@ TG.Tot = function (game) {
   self.next = function () { if (st) { if (st.done) restart(); else next(); } return true; };
 
   // 노란 빛기둥(walker.setMarker)으로 그 자리를 짚는다 — 코드에 좌표를 적지 않고 **도시 함수**로 구한다.
+  // 아이가 선 보도가 어느 도로를 따라 뻗는지 — **가로 거리와 그 도로의 보도선(sideOff)을 견줘** 고른다.
+  // 「둘 중 큰 쪽」으로 고르면 8차로 도로 보도(18m)와 4차로 도로(13m) 사이에서 뒤집힌다(실측에서 뒤집혔다).
+  // 돌려주는 것은 **교차로에서 멀어지는 쪽** 단위벡터다.
+  function sideDir() {
+    var W = G.walker, nd = st.node, C = G.city;
+    if (!W || !nd || !C || !C.sideOff) return [0, 1];
+    var dV = Math.abs(Math.abs(W.pos.x - nd.x) - C.sideOff('v', nd.i));
+    var dH = Math.abs(Math.abs(W.pos.z - nd.z) - C.sideOff('h', nd.j));
+    if (dV <= dH) return [0, (W.pos.z - nd.z) >= 0 ? 1 : -1];      // 남북 도로 보도 → 보도는 z 로 뻗는다
+    return [(W.pos.x - nd.x) >= 0 ? 1 : -1, 0];
+  }
+
   function whereSpot(k) {
     var W = G.walker, nd = st.node, C = G.city;
     if (!W || !nd || !C) return null;
-    if (k === 0) return { x: W.pos.x, z: W.pos.z, name: '인도' };                                  // 지금 서 있는 보도
+    if (k === 0) {                                                                                 // 인도 = 아이가 선 보도. 발밑을 짚으면 기둥이 카메라를 덮는다 —
+      var sv = sideDir();                                                                          // **보도를 따라 6m 앞**(교차로 반대쪽)을 짚는다
+      return { x: W.pos.x + sv[0] * 6, z: W.pos.z + sv[1] * 6, name: '인도' };
+    }
+
+
     if (k === 1) return { x: nd.x, z: W.pos.z, name: '차도' };                                     // 도로 한가운데(옆)
     var d = W.pos.z > nd.z ? 0 : 2;                                                                // 아이가 남쪽이면 남쪽 횡단보도
     var f = TG.DIR_VEC[d], near = C.crossNear(nd, d) + 1.2;
@@ -245,12 +283,47 @@ TG.Tot = function (game) {
     if (st.where > 2) { st.where = 0; heart(1); }
     whereShow(st.where);
   }
-  function toggleIce() {
-    st.ice.green = !st.ice.green; st.ice.t = 0;
-    if (st.ice.green) { say('green', true); TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
-    else { say('red', true); TG.audio.totIce(); if (G.hud && G.hud.burst) G.hud.burst('🧊'); }
-    if (st.ice.round >= 1) heart(1);
+  // 🏘 골목길: 단추를 누를 때마다 한가운데 → 가장자리 → 인도 오른쪽을 짚는다. **사고 장면은 없다**(무섭게 하지 않는다).
+  function alleySpot(k) {
+    var W = G.walker, nd = st.node, C = G.city;
+    if (!W || !nd || !C) return null;
+    var half = C.halfV ? C.halfV[nd.i] : 10, side = (W.pos.x - nd.x) >= 0 ? 1 : -1;
+    if (k === 0) return { x: nd.x, z: W.pos.z, name: '길 한가운데' };                       // 차도 한가운데
+    if (k === 1) return { x: nd.x + side * (half - 1.0), z: W.pos.z, name: '길 가장자리' }; // 차도 맨 가장자리
+    var sv2 = sideDir();
+    return { x: W.pos.x + sv2[0] * 6, z: W.pos.z + sv2[1] * 6, name: '인도 오른쪽' };                             // 아이가 선 보도 위 앞쪽
   }
+  function alleyNext() {
+    st.alley = (st.alley === undefined ? 0 : st.alley) + 1;
+    if (st.alley > 2) { st.alley = 0; heart(3); }
+    alleyShow(st.alley);
+  }
+  function alleyShow(k) {
+    var W = G.walker, sp = alleySpot(k), A = ALLEY[Math.min(k, 2)];
+    if (W && sp) W.setMarker(sp);
+    setBig(A.big, A.sub); say(A.say, true);
+    if (A.ok) { TG.audio.totDing(); } else { TG.audio.totBoing(); }
+    if (G.hud && G.hud.burst) G.hud.burst(A.burst);
+  }
+
+  // ---------- 🧊 얼음땡 ----------
+  // 소유자(2026-09-12): 「얼음 땡을 더 실감나게 표현해야 할 듯해.」
+  // 실감의 정체는 ① 화면이 얼어붙는다(파란 테두리 + ❄) ② 아이도 **토수니도** 딱 멈춘다 ③ 큰 글씨가 떨린다 ④ 소리가 다르다.
+  // ⚠ **얼음은 인도에서** 한다 — 횡단보도 위에서 멈추는 것은 위험하고 법(시행규칙 별표2)과도 맞지 않는다.
+  //    건너는 중에 빨간불이 되면 「멈춤」이 아니라 「다 건널 때까지 걸어요」다(다섯 걸음 마당이 그것을 가르친다).
+  function iceLook(green) {
+    document.body.classList.toggle('toticy', !green);
+    var b = el('totBig'); if (b) b.classList.toggle('shiver', !green);
+  }
+  function toggleIce() {
+    st.ice.green = !st.ice.green; st.ice.t = 0; st.ice.round++;
+    if (st.ice.green) { say('green', true); TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
+    else { say('red', true); TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
+    iceLook(st.ice.green);
+    if (st.ice.round >= 2) heart(1);
+    if (st.ice.round >= 4) { heart(2); if (st.sayCd <= 0) say('iceGood', true); }
+  }
+
   function holdHands() {
     st.held = true; heart(2);
     var W = G.walker; if (W) W.raiseHand(4);
@@ -303,7 +376,8 @@ TG.Tot = function (game) {
       W.heading = st.heading0;
     }
     // 곰돌이 토수니: 아이 옆에 붙어 따라 걷는다(손을 잡으면 더 가까이)
-    if (st.bear && W) {
+    var frozen = !!(S && S.id === 'ice' && st.ice && !st.ice.green);   // 얼음! — 토수니도 같이 멈춘다(실감)
+    if (st.bear && W && !frozen) {
       var h0 = st.heading0, f = [Math.sin(h0), Math.cos(h0)], r = [-f[1], f[0]], gap = st.held ? 0.8 : 1.3;
       var bx = W.pos.x - r[0] * gap, bz = W.pos.z - r[1] * gap;
       if (Math.hypot(bx - st.bear.pos.x, bz - st.bear.pos.z) > 0.45) st.bear.goTo(bx, bz, Math.max(1.0, W.v + 0.3));
@@ -317,12 +391,22 @@ TG.Tot = function (game) {
     } else if (S.id === 'ice') {
       st.ice.t += dt;
       var span = st.ice.green ? 7 : 6;
-      if (st.ice.t > span) { st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++;
-        say(st.ice.green ? 'green' : 'red', true); if (st.ice.green) TG.audio.totGo(); else TG.audio.totIce(); }
+      if (st.ice.t > span) {                             // 선생님이 안 눌러도 저절로 바뀐다(놀이가 끊기지 않게)
+        st.ice.t = 0; st.ice.green = !st.ice.green; st.ice.round++;
+        say(st.ice.green ? 'green' : 'red', true);
+        if (st.ice.green) { TG.audio.totGo(); if (G.hud && G.hud.burst) G.hud.burst('🚶'); }
+        else { TG.audio.totIce(); if (G.hud && G.hud.burst) { G.hud.burst('🧊'); G.hud.burst('❄️'); } }
+        iceLook(st.ice.green);
+      }
       setSignal(st.ice.green, span - st.ice.t);
-      setBig(st.ice.green ? '🚶 땡! 걸어요' : '🧊 얼음! 멈춰요', st.ice.green ? '초록불' : '빨간불');
+      var cnt = st.ice.round > 0 ? ' · ' + st.ice.round + '번' : '';
+      setBig(st.ice.green ? '🚶 땡! 걸어요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? '초록불' : '빨간불 — 발도 손도 멈춰요') + cnt);
       if (W && !st.ice.green) { W.v = 0; W.moving = false; }
       if (st.ice.round >= 2) heart(1);
+    } else if (S.id === 'alley') {
+      hideSignal();
+      if (st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
+
     } else if (S.id === 'hold') {
       hideSignal();
       setBig(st.held ? '🤝 손 잡고 걸어요' : '🐻 토수니 손을 잡아요', st.held ? '이제 건널 수 있어요' : '단추를 눌러 손을 잡아요');

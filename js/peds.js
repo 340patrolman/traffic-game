@@ -4,6 +4,15 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   var peds = [], self = this;
   this.peds = peds; this.player = null; this.traffic = null; this.walker = null;   // walker: 보행자 모드의 플레이어(차량 AI 가 보행자로 취급)
   this.onEvent = function () {};
+  // 이미 걷고 있는 사람의 무단횡단 성향까지 지운다 — 어린이 교실·인트로에서 쓴다(보여 주면 안 되는 장면이다).
+  this.clearJaywalkers = function () {
+    for (var i = 0; i < peds.length; i++) {
+      var p = peds[i]; p.jaywalker = false;
+      if (p.state === 'jaywalk') { p.state = 'walk'; p.d = p.jayD !== undefined ? p.jayD : p.d; }
+      p.jayLive = false;
+    }
+  };
+
   var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var SHIRTS = [0xd94f4f, 0x3b6fd1, 0x2fa36b, 0xe0b84a, 0x8b5cc7, 0xe8e2d4, 0x2b2f38, 0xf08a5d, 0x6fc3d8, 0xc7c7c7];
   var PANTS = [0x2b3140, 0x4a4a4a, 0x6b5a48, 0x1f2e4a, 0x8a7d6b], SKINS = [0xf1c9a5, 0xd9a06e, 0xb5794f], HAIRS = [0x1a1a1a, 0x3a2a1a, 0x5a3a2a, 0x8a6a4a];

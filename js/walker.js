@@ -20,11 +20,14 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.setMarker = function (m) { this.marker = m; beam.visible = ring.visible = !!m; if (m) { var y = terrain ? terrain.heightAt(m.x, m.z) : 0; beam.position.set(m.x, y + 20, m.z); ring.position.set(m.x, y + 0.12, m.z); } };
   // 목표 빔은 **찾을 때** 쓰는 것이다. 바로 앞에 서면 빔이 대상을 가린다 —
   // 교차로 근무에서 노란 기둥이 제어함을 반쯤 덮었다(화면 점검에서 발견). 6m 안에서는 바닥 고리만 남긴다.
+  // 다만 **영아 교실**에서는 빛기둥이 「가리키는 손가락」이라 바로 앞이어도 남긴다(markerKeep).
+  this.markerKeep = false;
   this.markerFade = function () {
     if (!this.marker) return;
     var d = Math.hypot(this.marker.x - this.pos.x, this.marker.z - this.pos.z);
-    beam.visible = d > 6;
+    beam.visible = this.markerKeep || d > 6;
   };
+
 
   this.forward = function () { return [Math.sin(this.heading), Math.cos(this.heading)]; };
   this.speedKmh = function () { return this.v * 3.6; };
