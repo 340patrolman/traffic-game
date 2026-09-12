@@ -11,13 +11,14 @@
 TG.Chase = function (game) {
   var self = this, city = game.city, traffic = game.traffic, cfg = game.cfg, S = cfg.SCORE;
   var KIND = [
-    { id: 'theft', name: '차량 절도 피의자', radio: '차량 절도 피의자가 탄 차량으로 확인됩니다. 추적 중' },
-    { id: 'drunk', name: '음주 의심 도주차량', radio: '음주 의심 차량입니다. 비틀거리며 도주 중' },   // 음주 도주는 적당한 범위에서 추격이 가능하다(법익이 크다)
-    { id: 'wanted', name: '수배 차량', radio: '수배 차량으로 조회됩니다. 지원 요청합니다' },
+    { id: 'theft', why: '절도 혐의자 탑승', name: '차량 절도 피의자', radio: '차량 절도 피의자가 탄 차량으로 확인됩니다. 추적 중' },
+    { id: 'drunk', why: '음주 의심 · 비틀거림', name: '음주 의심 도주차량', radio: '음주 의심 차량입니다. 비틀거리며 도주 중' },   // 음주 도주는 적당한 범위에서 추격이 가능하다(법익이 크다)
+    { id: 'wanted', why: '수배 조회 일치', name: '수배 차량', radio: '수배 차량으로 조회됩니다. 지원 요청합니다' },
   ];
   this.car = null; this.state = 'idle'; this.kind = KIND[0];
   this.t = { safe: 0, close: 0, follow: 0, lost: 0, warn: 0, tick: 0 };
-  this.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '' };
+  this.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '', topKmh: 0 };
+  this.said = {};
 
   // 대상 차량: 플레이어 앞 같은 방향 도로에 만든다. 도주(flee)라 흐름보다 빠르고 적색도 통과한다.
   this.spawn = function () {
@@ -35,15 +36,49 @@ TG.Chase = function (game) {
       car.wanted = true; car.flee = true; car.chase = true;
       self.car = car; self.kind = KIND[Math.floor(Math.random() * KIND.length)];
       self.state = 'follow'; self.t = { safe: 0, close: 0, follow: 0, lost: 0, warn: 0, tick: 0 };
-      self.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '' };
+      self.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '', topKmh: 0 };
+      self.said = {};
       game.hud.notice('📡 상황실 — ' + self.kind.name + ' 발견. 경광등 켜고 뒤에 붙되 안전거리를 지키세요', 'alert', 5200);
       game.hud.hint('경광등을 켜고 안전거리 10~40m 로 따라간다. 📡 무전을 하면 공조로 앞을 막아 준다(모든 것을 무전보고하지는 않는다)');
       if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
+      game.slowmo = 0.85; game.punch = 1.0; if (game.hud.vignette) game.hud.vignette(0.3);   // 대상 발견 순간 연출(짧게)
       if (TG.audio.chaseTheme) TG.audio.chaseTheme();   // 추격 음악 시작 — 대상과 가까울수록 밝고 크게(chaseTension)
       document.body.classList.add('chasing');
       return car;
     }
     return null;
+  };
+  // ---------- 🚨 추격 패널(HUD) ----------
+  // 소유자(2026-09-12): 「추격전을 할 때 **상용게임 느낌** 물씬 나게 … 상용 퀄리티 높은 게임처럼 구성해줘.」
+  // 상용 추격전이 늘 화면에 두는 것 셋을 그대로 둔다 —
+  //  ① **거리 게이지**(너무 붙었나 · 적정 · 멀다)  ② **검거 게이지**(원칙을 지킨 시간이 쌓인다)  ③ **화면 밖 대상 화살표**.
+  // 숫자 한 줄로는 달리면서 읽을 수 없다(0.5초 안에 읽히는 것이 상용의 기준이다).
+  function q(sel) { var b = document.getElementById('chaseHud'); return b ? b.querySelector(sel) : null; }
+  this.panel = function (camera) {
+    var box = document.getElementById('chaseHud'), arrow = document.getElementById('chaseArrow');
+    if (!box) return;
+    if (self.state !== 'follow' || !self.car) { if (arrow) arrow.className = ''; return; }
+    var d = dist(), radioed = !!(self.car.radioed || self.car.pursuitOk), need = radioed ? 12 : 20, siren = game.player.siren;
+    var nm = q('.ch-name'); if (nm) nm.textContent = '🚨 ' + self.kind.name;
+    var wy = q('.ch-why'); if (wy) wy.textContent = self.kind.why || '';
+    var pct = TG.clamp(d / 60, 0, 1) * 100, mk = q('.ch-mark');
+    if (mk) { mk.style.left = pct.toFixed(1) + '%'; mk.className = 'ch-mark ' + (d < 9 ? 'near' : d > 42 ? 'far' : 'ok'); }
+    var nu = q('.ch-num'); if (nu) nu.textContent = Math.round(d) + 'm';
+    var fl = q('.ch-fill'); if (fl) fl.style.width = (Math.min(1, self.t.safe / need) * 100).toFixed(0) + '%';
+    var pt = q('.ch-ptxt'); if (pt) pt.textContent = '검거까지 ' + Math.max(0, Math.ceil(need - self.t.safe)) + '초';
+    var cs = q('.ch-siren'); if (cs) { cs.textContent = siren ? '경광등 ON' : '경광등 OFF'; cs.className = 'ch-siren ' + (siren ? 'on' : 'warn'); }
+    var cc = q('.ch-coop'); if (cc) { cc.textContent = radioed ? '📡 공조' : '단독'; cc.className = 'ch-coop ' + (radioed ? 'on' : ''); }
+    var cd = q('.ch-dist'); if (cd) { cd.textContent = d < 9 ? '너무 가깝다' : d > 42 ? '멀다' : '적정 거리'; cd.className = 'ch-dist ' + (d < 9 ? 'warn' : d > 42 ? '' : 'on'); }
+    // 화면 밖 대상: 카메라로 투영해 좌·우를 가린다
+    if (arrow && camera && window.THREE) {
+      var v = new THREE.Vector3(self.car.pos.x, (self.car.y || 0) + 0.8, self.car.pos.z).project(camera);
+      var off = v.z > 1 || v.x < -1 || v.x > 1;
+      arrow.className = off ? (v.x < 0 ? 'left' : 'right') : '';
+      if (off) { var sp = arrow.querySelector('span'); if (sp) sp.textContent = v.x < 0 ? '◀' : '▶'; }
+    }
+  };
+  this.hidePanel = function () {
+    var arrow = document.getElementById('chaseArrow'); if (arrow) arrow.className = '';
   };
   function dist() {
     var pl = game.player, c = self.car; if (!c) return 1e9;
@@ -102,6 +137,22 @@ TG.Chase = function (game) {
     self.t.follow += dt;
     var kmh = pl.speedKmh();
     if (TG.audio.chaseTension && isFinite(d) && isFinite(kmh)) TG.audio.chaseTension(Math.min(1, (kmh / 110) * 0.6 + (d < 60 ? (60 - d) / 60 * 0.5 : 0)));
+    // 📡 무전 교신 — 상용 추격전은 「상황실과 주고받는 말」로 긴장을 만든다. 우리 것은 **원칙대로** 주고받는다.
+    self.log.topKmh = Math.max(self.log.topKmh || 0, kmh);
+    if (radioed && !self.said.coop && self.t.safe > 5) {
+      self.said.coop = true;
+      if (TG.audio.squelch) TG.audio.squelch();
+      game.hud.notice('📡 상황실 — 인접 순찰차가 전방을 막습니다. 간격 유지하고 따라가세요', 'alert', 4200);
+      TG.audio.pa('인접 순찰차가 전방을 막습니다. 간격 유지하십시오');
+    }
+    if (!radioed && !self.said.solo && self.t.follow > 12) {
+      self.said.solo = true;
+      game.hud.hint('💭 혼자 쫓기 어려우면 📡 무전으로 공조를 부른다 — 앞을 막아 주면 12초에 끝난다');
+    }
+    if (!self.said.near && d < 12 && behind()) {
+      self.said.near = true;
+      game.hud.hint('💭 너무 붙었다 — 대상이 급제동하면 그대로 추돌이다. 10m 이상 벌린다');
+    }
     // 아슬아슬: 다른 차를 2m 안으로 스치며 지나갈 때. 점수는 없다 — 부수적 피해 직전이라는 긴장 신호다.
     self.t.miss = (self.t.miss || 0) - dt;
     if (kmh > 55 && self.t.miss <= 0) {
@@ -154,6 +205,7 @@ TG.Chase = function (game) {
            ' · ' + self.t.safe.toFixed(0) + '/' + (radioed ? 12 : 20) + '초';
   };
   this.dispose = function () {
+    self.hidePanel();
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(0.6);
     document.body.classList.remove('chasing');
     if (self.car) { self.car.flee = false; self.car.chase = false; }

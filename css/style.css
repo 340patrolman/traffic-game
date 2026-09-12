@@ -662,3 +662,45 @@ body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.v
 body.totmode .tbtn.totnext{display:flex}
 /* 잠긴 큰 단추 — 토수니 손을 잡기 전에는 건너기를 누를 수 없다(스펙: 혼자 건너기 엔딩 없음) */
 .tbtn.totbtn.locked{background:rgba(255,255,255,.55);border-color:#cfd6e2;color:#6b7280}
+
+/* 🚨 추격 패널 — 상용 추격전의 감각: **거리 게이지**와 **검거 게이지**를 눈으로 본다(소유자 2026-09-12 「상용 퀄리티 높은 게임처럼」).
+   추격전에서만 뜬다(body.chasing). 숫자만 있던 줄로는 「지금 너무 붙었나」를 0.5초에 읽을 수 없었다. */
+#chaseHud{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hudh,97px) + 14px + var(--sa-t));z-index:24;
+  width:min(88vw,372px);background:rgba(9,14,26,.74);border:1px solid rgba(255,96,96,.48);border-radius:14px;padding:8px 10px 9px;
+  box-shadow:0 6px 22px rgba(0,0,0,.45)}
+body.chasing #chaseHud{display:block}
+#chaseHud .ch-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#chaseHud .ch-name{font-size:15px;font-weight:900;color:#ffdada;letter-spacing:.2px;white-space:nowrap}
+#chaseHud .ch-why{font-size:11px;font-weight:700;color:#ffb9b9;opacity:.92;text-align:right;word-break:keep-all}
+#chaseHud .ch-bar{position:relative;height:17px;margin-top:7px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(90deg,#6b2020 0 15%,#1f4a2b 15% 70%,#2b3140 70% 100%)}
+#chaseHud .ch-zone{position:absolute;left:15%;width:55%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.35);border-right:1px solid rgba(255,255,255,.35)}
+#chaseHud .ch-mark{position:absolute;top:-2px;width:5px;height:21px;border-radius:3px;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8);transform:translateX(-50%);transition:left .08s linear}
+#chaseHud .ch-mark.near{background:#ff5a5a}
+#chaseHud .ch-mark.far{background:#a9b3c6}
+#chaseHud .ch-num{position:absolute;right:6px;top:1px;font-size:11.5px;font-weight:900;color:#eef3ff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#chaseHud .ch-prog{position:relative;height:11px;margin-top:6px;border-radius:6px;background:rgba(255,255,255,.13);overflow:hidden}
+#chaseHud .ch-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,#37c66b,#a8f0c0);transition:width .12s linear}
+#chaseHud .ch-ptxt{position:absolute;inset:0;text-align:center;font-size:9.5px;font-weight:900;color:#0d1424;line-height:11px;letter-spacing:.2px}
+#chaseHud .ch-chips{display:flex;gap:6px;margin-top:7px;flex-wrap:nowrap}
+#chaseHud .ch-chips span{font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:8px;background:rgba(255,255,255,.14);color:#e2e9f7;white-space:nowrap}
+#chaseHud .ch-chips span.on{background:#2e7d46;color:#eafff0}
+#chaseHud .ch-chips span.warn{background:#9a2d2d;color:#ffe6e6}
+/* 대상이 화면 밖이면 좌·우 화살표로 알린다 — 상용 게임이 늘 하는 일이다(놓친 줄 알고 헤매지 않게) */
+#chaseArrow{display:none;position:fixed;top:50%;transform:translateY(-50%);z-index:24;font-size:42px;font-weight:900;color:#ff6b6b;
+  text-shadow:0 2px 12px rgba(0,0,0,.7);animation:chpulse .85s ease-in-out infinite}
+#chaseArrow.left{left:calc(8px + var(--sa-l));display:block}
+#chaseArrow.right{right:calc(8px + var(--sa-r));display:block}
+@keyframes chpulse{0%,100%{opacity:.5;transform:translateY(-50%) scale(.94)}50%{opacity:1;transform:translateY(-50%) scale(1.06)}}
+/* 속도선 — 85km/h 부터 화면 가장자리가 흐른다. 값싸고 효과가 크다(모션블러는 폰에서 비싸다) */
+body.fastlines::after{content:'';position:fixed;inset:0;z-index:12;pointer-events:none;opacity:var(--fast,0);
+  background:radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0) 44%, rgba(255,255,255,.10) 76%, rgba(255,255,255,.26) 100%)}
+/* 경광등이 화면 테두리를 물들인다(사이렌 ON) — 왼쪽 파랑·오른쪽 빨강이 번갈아 */
+body.sirenlit::before{content:'';position:fixed;inset:0;z-index:11;pointer-events:none;animation:sirenedge 1.05s steps(1,end) infinite}
+@keyframes sirenedge{
+  0%,49%{box-shadow:inset 42px 0 72px -34px rgba(64,124,255,.80), inset -42px 0 72px -34px rgba(255,64,64,.22)}
+  50%,100%{box-shadow:inset 42px 0 72px -34px rgba(64,124,255,.22), inset -42px 0 72px -34px rgba(255,64,64,.80)}}
+@media (prefers-reduced-motion:reduce){
+  body.sirenlit::before{animation:none;box-shadow:inset 42px 0 72px -34px rgba(64,124,255,.45), inset -42px 0 72px -34px rgba(255,64,64,.45)}
+  #chaseArrow{animation:none}}
+@media (max-width:380px){#chaseHud{width:94vw;padding:7px 8px 8px}#chaseHud .ch-name{font-size:14px}#chaseHud .ch-why{font-size:10px}}

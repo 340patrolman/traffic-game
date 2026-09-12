@@ -772,6 +772,7 @@
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
+    document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit');   // 속도선·경광등 테두리는 내리고 시작한다
     hud.clearHint(); hud.setTarget(null); setTimeScale(1);   // 배속은 근무를 새로 시작하면 1배로 돌아간다
 
     if (player) scene.remove(player.mesh);
@@ -1064,6 +1065,7 @@
     if (!chase) return;
     if (!chase.car && chase.retry > 0) { chase.retry -= dt; if (chase.retry <= 0) { chase.spawn(); chase.retry = chase.car ? 0 : 3; } }
     chase.update(dt);
+    chase.panel(camera);                    // 🚨 거리·검거 게이지·화면 밖 화살표(상용 감각)
     var line = chase.line();
     if (line) {
       hud.setSectionText(line); var se = el('section'); if (se) se.className = 'section walk ' + (line.indexOf('⚠') >= 0 ? 'stop' : 'go');
@@ -1881,6 +1883,7 @@
       if (st.chase && st.chase.result === 'break') badges.push({ text: '🛑 중단 판단', gold: true });
       if (st.chase && st.chase.result === 'caught' && !penaltyCount.chaseReckless) badges.push({ text: '🚨 안전한 추격', gold: true });
       if (st.chase && st.chase.safeAwards >= 2) badges.push({ text: '📏 안전거리 ' + st.chase.safeAwards + '회' });
+      if (st.chase && (st.chase.topKmh || 0) > 60) badges.push({ text: '🏁 최고 ' + Math.round(st.chase.topKmh) + 'km/h' + ((st.chase.misses || 0) ? ' · 아슬아슬 ' + st.chase.misses + '회' : '') });
       if ((st.junction || 0) >= 3) badges.push({ text: '🚦 소통 확보 ' + st.junction + '회', gold: (st.junction || 0) >= 5 });
       if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
       if (walk && walk.crossings >= 4) badges.push({ text: '🚶 모범 보행 ' + walk.crossings + '회' });
@@ -2152,6 +2155,11 @@
 
   // 카메라 감각: 충돌 흔들림(G.shake) · 위반 포착 줌 펀치(G.punch)
   function camFx(dt) {
+    // 🚨 속도선·경광등 테두리 — 도보·교실에서는 안 쓴다(아이들 앞은 무대다)
+    var fastV = (player && !onFoot() && G.state === 'play') ? TG.clamp((player.speedKmh() - 85) / 70, 0, 1) : 0;
+    if (Math.abs(fastV - (G.fastV || 0)) > 0.03) { G.fastV = fastV; document.documentElement.style.setProperty('--fast', (fastV * 0.9).toFixed(2)); }
+    document.body.classList.toggle('fastlines', fastV > 0.02);
+    document.body.classList.toggle('sirenlit', !!(player && player.siren) && !onFoot() && G.state === 'play');
     G.shake = Math.max(0, (G.shake || 0) - dt * 3); G.punch = Math.max(0, (G.punch || 0) - dt * 1.6);
     if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.5; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; camera.position.z += (Math.random() - 0.5) * G.shake * 0.5; }
     var target = chaseFov() + speedFov() - 9 * G.punch;   // 추격 중에는 속도만큼 화각이 넓어진다(속도감)
