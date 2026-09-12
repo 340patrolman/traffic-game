@@ -14,6 +14,7 @@ TG.Layers = function (game, city, cfg, scene) {
   var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
   var fatal = null;          // data/taas-fatal-<지도>.json — 사망사고 한 건씩(집계하지 않는다)
   var vuln = null;           // data/taas-vuln-<지도>.json — 어린이·보행자·노인·자전거(홍보용 분포까지)
+  var roads = null;          // data/maps/<지도>-roads.json — **실제 도로 형상**(디지털 트윈 T1-a). 트윈 지도에만 있다
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
   var risk = {};
@@ -53,9 +54,15 @@ TG.Layers = function (game, city, cfg, scene) {
       var ff = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasFatal) || (TG.MAP && TG.MAP.taasFatal) || null;
       // 어린이·보행자·노인·자전거 — 홍보 활동에 쓸 분포까지 같이 들어 있다
       var vf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasVuln) || (TG.MAP && TG.MAP.taasVuln) || null;
+      // 실제 도로 형상(OSM) — 트윈 지도 항목에 roads 가 있을 때만
+      var rf = (TG.MAP_ENTRY && TG.MAP_ENTRY.roads) || (TG.MAP && TG.MAP.roads) || null;
+      var loadRoads = function () {
+        if (!rf) { after(); return; }
+        fetch(rf).then(function (r5) { return r5.json(); }).then(function (v5) { roads = v5; after(); }).catch(function () { after(); });
+      };
       var loadVuln = function () {
-        if (!vf) { after(); return; }
-        fetch(vf).then(function (r4) { return r4.json(); }).then(function (v4) { vuln = v4; after(); }).catch(function () { after(); });
+        if (!vf) { loadRoads(); return; }
+        fetch(vf).then(function (r4) { return r4.json(); }).then(function (v4) { vuln = v4; loadRoads(); }).catch(function () { loadRoads(); });
       };
       var loadFatal = function () {
         if (!ff) { loadVuln(); return; }
@@ -113,6 +120,13 @@ TG.Layers = function (game, city, cfg, scene) {
         desc: vuln.years + ' ' + g.total + '건 · 사망 ' + g.dead + ' · 중상 ' + g.ser +
           (g.cases ? ' · 한 건씩 사례' : ' · 교차로 부근 ' + (g.total - g.outside) + '건, 격자 바깥 ' + g.outside + '건') });
     });
+    // 실제 도로 형상(디지털 트윈 T1-a) — **주행에는 아직 쓰지 않는다.** 지금 직선 격자와 얼마나 다른지 겹쳐 보는 층이다.
+    if (roads && roads.roads) {
+      var rn = Object.keys(roads.roads), dsum = 0, dmax = 0;
+      rn.forEach(function (k) { var R = roads.roads[k]; dsum += R.devAvg || 0; if ((R.devMax || 0) > dmax) dmax = R.devMax; });
+      defs.push({ id: 'twinRoads', name: '실제 도로 형상(OSM)', color: '#4cc3ff', kind: 'roads', src: roads,
+        desc: '간선 ' + rn.length + '개 · 지금 직선 격자에서 평균 ' + (dsum / Math.max(1, rn.length)).toFixed(1) + 'm · 최대 ' + dmax.toFixed(1) + 'm 벗어난다 · ' + (roads.source || '') });
+    }
     defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
     defs.push({ id: 'risk', name: '시뮬레이션 위험도', color: '#d33bd3', kind: 'risk', desc: '이 기기에서 달린 결과 — 급제동·보행자 근접·신호위반을 교차로별로 쌓는다' });
@@ -129,6 +143,7 @@ TG.Layers = function (game, city, cfg, scene) {
     if (d.kind === 'zone') return 1;
     if (d.kind === 'cam') return game.facil ? game.facil.count() : 0;
     if (d.kind === 'risk') return Object.keys(risk).length;
+    if (d.kind === 'roads') return Object.keys((d.src && d.src.roads) || {}).length;
     return 0;
   }
   function noteOf(d) {
@@ -158,9 +173,10 @@ TG.Layers = function (game, city, cfg, scene) {
   self.sourceNote = function () { return taas ? { source: taas.source, sourceUrl: taas.sourceUrl, attribution: taas.attribution,
     years: taas.years, howto: taas.howto, updated: taas.updated, region: taas.region, criteria: taas.criteria, mapping: taas.mapping } : null; };
 
-  self.toggle = function (id) {
+  self.raw = function (id) { for (var i = 0; i < defs.length; i++) if (defs[i].id === id) return defs[i].src || null; return null; };   // 검증용: 그 층의 원자료
+  self.toggle = function (id, want) {
     if (!(id in on)) return false;
-    on[id] = !on[id];
+    on[id] = (want === undefined) ? !on[id] : !!want;
     TG.save.set('layers', on);
     apply();
     return on[id];
@@ -279,6 +295,16 @@ TG.Layers = function (game, city, cfg, scene) {
           g.beginPath(); g.arc(mx(nd.x), mz(nd.z), Math.max(2.5, (12 + r0.total * 2) * 0.09) * K, 0, Math.PI * 2);
           g.fillStyle = d.color + '99'; g.fill();
         });
+      } else if (d.kind === 'roads') {
+        var RR = d.src.roads || {};
+        g.strokeStyle = d.color; g.lineWidth = 1.6 * K; g.setLineDash([5 * K, 4 * K]);
+        Object.keys(RR).forEach(function (k) {
+          var pts = RR[k].pts || []; if (pts.length < 2) return;
+          g.beginPath(); g.moveTo(mx(pts[0][0]), mz(pts[0][1]));
+          for (var i = 1; i < pts.length; i++) g.lineTo(mx(pts[i][0]), mz(pts[i][1]));
+          g.stroke();
+        });
+        g.setLineDash([]);
       } else if (d.kind === 'cam') {
         (game.facil ? game.facil.list() : []).forEach(function (C) {
           var nd = city.nodes[C.i][C.j], f = TG.DIR_VEC[C.d], back = city.stopDist(nd, C.d) + 14;

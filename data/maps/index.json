@@ -25,6 +25,7 @@
       "beta": true,
       "note": "시뮬레이션 공간(개발 중). 도로 간격은 OpenStreetMap 실측값, 신호 주기는 경찰청 계획값, 사고는 TAAS 실제 자료다. 아직 없는 것 — 도로 곡선·비스듬한 교차각·일방통행·시간대별 실제 교통량. 무엇이 실측이고 무엇이 설계값인지는 지도 파일 realness 에 적혀 있다.",
       "file": "data/maps/seocho-twin.json",
+      "roads": "data/maps/seocho-twin-roads.json",
       "signalTod": "data/signal-tod-seocho.json",
       "taas": "data/taas.json",
       "taasNodes": "data/taas-nodes-seocho.json",
