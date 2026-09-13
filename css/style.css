@@ -740,3 +740,31 @@ body.laptime #lapPanel{display:block}
 @media (max-width:380px){#lapPanel{padding:5px 7px 6px}#lapPanel .lp-cur{font-size:17px}#startLights i{width:22px;height:22px;margin:0 4px}}
 
 @media (max-height:520px){#startLights{top:calc(var(--hudh,97px) + 56px + var(--sa-t))}}   /* 눕힌 폰: 아래가 짧다 */
+
+/* 👶 영아 교실 — **화살표·스마트폰으로 직접** 한다(소유자 2026-09-13 「인터액티브한 교통홍보 활동이 되게」)
+   ① 🚶 꾹 누르면 걷기 단추(얼음땡 · 다섯 걸음의 ⑤) — 왼쪽 아래 둥근 단추. 큰 단추는 오른쪽으로 비킨다(▶ 와 안 닿게).
+   ② 고르는 칸은 **손가락 단추**다 — 높이 48px 이상, 두 줄로 접힐 수 있다. 키보드로 고르는 칸은 흰 테두리.
+   ③ 키보드 안내는 터치가 아닌 기기(PC·홍보 부스)에서만, 좁은 창에서는 감춘다(신호등과 겹친다). */
+.tbtn.totwalk{display:none;position:fixed;left:calc(14px + var(--sa-l));bottom:calc(22px + var(--sa-b));width:96px;height:96px;border-radius:50%;
+  flex-direction:column;align-items:center;justify-content:center;gap:1px;background:rgba(55,198,107,.94);border:4px solid #fff;color:#fff;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;z-index:27}
+.tbtn.totwalk span{font-size:38px;line-height:1}
+.tbtn.totwalk i{font-style:normal;font-size:11px;font-weight:900;line-height:1.15;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tbtn.totwalk.held{transform:scale(.9);background:#23a257;box-shadow:0 0 0 6px rgba(255,255,255,.35),0 6px 18px rgba(0,0,0,.45)}
+body.totmode.totwalkpad .tbtn.totwalk{display:flex}
+body.totmode.totwalkpad .tbtn.totbtn{left:calc(50% + 26px)}
+@media (max-width:440px){body.totmode.totwalkpad .tbtn.totbtn{min-width:0;padding:0 14px}body.totmode.totwalkpad .tbtn.totbtn span{font-size:21px}}
+body.totmode #totWhere{pointer-events:auto;flex-wrap:wrap;justify-content:center;width:max-content;max-width:94vw;gap:8px}
+body.totmode #totWhere span{cursor:pointer;min-height:48px;display:inline-flex;align-items:center;font-size:18px;padding:8px 14px;border-radius:14px;
+  touch-action:manipulation;opacity:.8;user-select:none;-webkit-user-select:none}
+body.totmode #totWhere span.on{opacity:1}
+body.totmode #totWhere span.focus{outline:4px solid #fff;outline-offset:3px}
+#totWhere span.a0{background:#ff9d9d}
+#totWhere span.a1{background:#7ff0a4}
+#totWhere span.a2{background:#9fd8ff}
+#totWhere span.cc{color:#1b1b1b}
+@media (max-width:380px){body.totmode #totWhere span{font-size:15px;padding:7px 10px;min-height:44px}}
+#totKeys{display:none;position:fixed;left:calc(12px + var(--sa-l));top:calc(12px + var(--sa-t));z-index:25;max-width:30vw;
+  font-size:12px;font-weight:800;color:#e9f0ff;background:rgba(12,16,26,.6);border-radius:10px;padding:6px 10px;line-height:1.5;pointer-events:none}
+body.totmode.desktop #totKeys{display:block}
+@media (max-width:760px){#totKeys{display:none!important}}

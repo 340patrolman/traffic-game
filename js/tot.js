@@ -85,6 +85,12 @@ TG.Tot = function (game) {
     crossOk: '다 건넜어요! 참 잘했어요',
     back:    '신호를 기다릴 때는 한 발 뒤로 물러나요. 차에서 멀리 떨어져서 기다려요',
 
+    oops:     '빨간불이에요! 얼음! 멈춰요',
+    stopGood: '잘 멈췄어요! 빨간불에는 얼음이에요',
+    goGood:   '땡! 초록불에 손 잡고 잘 걸어요',
+    quizOk:   '맞았어요! 참 잘했어요',
+    quizWrong: '다시 볼까요? 천천히 찾아봐요',
+    quizAll:  '다 맞혔어요! 최고예요',
     count:   '조금만 더, 셋을 세요. 하나, 둘, 셋',
     phone:   '길을 걸을 때는 스마트폰도 이어폰도 안 돼요. 소리도 들어야 해요',
     play:    '길가에서 공놀이도 몸장난도 안 돼요. 갑자기 도로로 뛰어 나가면 위험해요',
@@ -224,7 +230,8 @@ TG.Tot = function (game) {
     document.body.classList.add('totmode');
     st = { i: -1, t: 0, sayCd: 0, hearts: 0, done: false, coat: 0, night: false,
            held: false, five: 0, crossed: false, walkT: 0, belt: false, beltT: 0,
-           ice: { on: false, t: 0, green: false, round: 0 }, missCd: 0, missN: 0 };
+           ice: { on: false, t: 0, green: false, round: 0 }, missCd: 0, missN: 0,
+           walkIn: false, manual: false, idleT: 0, focus: 0, kbFocus: false, quiz: null, quizReady: false, msgT: 0 };
     self.state = st;
     st.heading0 = W.heading;                         // **고정 방향** — 카메라·조작이 같은 값을 본다(되먹임으로 아이가 돌지 않게)
     st.home = { x: W.pos.x, z: W.pos.z };
@@ -235,11 +242,21 @@ TG.Tot = function (game) {
     if (G.signals && G.signals.setRealOff && st.node) G.signals.setRealOff(st.node, true);   // 교실 동안은 화면이 신호를 잡는다
     crossSetup();
     stageCast();
+    var chipBox = el('totWhere');                    // 고르는 칸은 다시 그려지므로 **상자 하나에** 누름을 받는다(교실을 다시 열어도 한 번만 붙인다)
+    if (chipBox && !chipBox._totBound) {
+      chipBox._totBound = true;
+      chipBox.addEventListener('pointerdown', function (e) {
+        var sp = e.target && e.target.closest ? e.target.closest('span[data-i]') : null;
+        if (!sp || !G.tot || !G.tot.on()) return;
+        e.preventDefault(); e.stopPropagation(); TG.audio.resume();
+        G.tot.pick(+sp.getAttribute('data-i'));
+      });
+    }
     hearts(0); say('open', true); next();
     return true;
   };
   self.dispose = function () {
-    document.body.classList.remove('totmode'); document.body.classList.remove('toticy'); document.body.classList.remove('totfree');
+    document.body.classList.remove('totmode'); document.body.classList.remove('toticy'); document.body.classList.remove('totfree'); document.body.classList.remove('totwalkpad');
     var bg = el('totBig'); if (bg) bg.classList.remove('shiver');
     whereHide();
     if (G.walker && G.walker.setUmbrella) G.walker.setUmbrella(false);
@@ -272,6 +289,7 @@ TG.Tot = function (game) {
     if (W0 && st.stand && pg0 > 0.8 && pg0 < (st.crossLen || 32) - 0.8) { W0.teleport(st.stand.x, st.stand.z, st.heading0); W0.v = 0; }
     st.i++;
     if (st.i >= STAGES.length) { finish(); return; }
+    st.quiz = null; st.quizReady = false; st.kbFocus = false; st.focus = 0; st.msgT = 0; st.oops = false; st.caught = false;
     var S = STAGES[st.i]; st.t = 0; st.sayCd = 0;
     dots();
     setBig(S.emoji + ' ' + S.name, { where: '인도 · 차도 · 횡단보도', ice: '빨간불에 얼음, 초록불에 땡!', hold: '토수니 손을 꼭 잡아요',
@@ -289,6 +307,7 @@ TG.Tot = function (game) {
     if (S.id === 'cross') { st.five = 0; st.crossed = false; st.walkT = 0; st.walkGo = false; st.stopT = 0; st.stopCnt = 0; crossSetup(); say(st.held ? FIVE[0].say : 'notYet', true); }
     if (S.id === 'belt') { st.belt = false; st.beltT = 0; say('belt', true); }
     if (S.id === 'bright') { st.night = true; if (G.weather) G.weather.set('night'); setCoat(null); say('dark', true); }
+    stageChips(S.id);
   }
   function finish() {
     st.done = true; hideSignal(); setButton('🔁 다시 하기');
@@ -322,12 +341,12 @@ TG.Tot = function (game) {
     TG.audio.ui(); TG.haptic(TG.HAPTIC.tap);
     var S = STAGES[st.i] || null;
     if (!S) { restart(); return true; }              // 끝난 뒤에 누르면 처음부터 다시
-    if (S.id === 'where') { whereNext(); return true; }
+    if (S.id === 'where') { if (st.quiz) quizAnswer(st.quiz.list[st.quiz.q].a); else if (st.quizReady) quizStart('where'); else whereNext(); return true; }
     if (S.id === 'ice') { toggleIce(); return true; }
     if (S.id === 'hold') { holdHands(); return true; }
     if (S.id === 'cross') { fiveStep(); return true; }
     if (S.id === 'tryme') { tryButton(); return true; }
-    if (S.id === 'alley') { alleyNext(); return true; }
+    if (S.id === 'alley') { if (st.quiz) quizAnswer(st.quiz.list[st.quiz.q].a); else if (st.quizReady) quizStart('alley'); else alleyNext(); return true; }
     if (S.id === 'belt') { beltClick(); return true; }
     if (S.id === 'bright') { wearBright(); return true; }
     return false;
@@ -376,7 +395,8 @@ TG.Tot = function (game) {
   }
   // 글자는 **3D 가 아니라 화면(HUD) 띠**로 보여 준다 — 3D 글자판은 옆 3/4 카메라에서 화면 밖으로 나가거나
   // 아이 앞을 덮었다(실측 3회). 바닥 색과 **같은 색 칩**을 화면 아래에 두면 폰에서도 늘 읽힌다.
-  function whereLegend(k) {
+  function whereLegend(k) { chipsRender('where', k); }   // v0.9.85: 손가락으로 누르는 칸이 되었다
+  function whereLegendOld(k) {
     var e = el('totWhere'); if (!e) return;
     var s = '';
     for (var i = 0; i < WHERE.length; i++) {
@@ -439,17 +459,18 @@ TG.Tot = function (game) {
     var f = TG.DIR_VEC[d], near = C.crossNear(nd, d) + 1.2;
     return { x: nd.x + f[0] * 0, z: nd.z + f[1] * near, name: '횡단보도' };
   }
-  function whereShow(k) {
+  function whereShow(k, quiet) {
     var W = G.walker, sp = whereSpot(k), F = WHERE[Math.min(k, 2)];
     whereBuild(); whereHighlight(k); whereLegend(k);
     if (W && sp) W.setMarker(sp);
+    if (quiet) return;
     setBig(F.big, F.sub); say(F.say, true);
     TG.audio.totDing();
     if (G.hud && G.hud.burst) G.hud.burst(F.burst);
   }
   function whereNext() {
     st.where = (st.where === undefined ? 0 : st.where) + 1;
-    if (st.where > 2) { st.where = 0; heart(1); }
+    if (st.where > 2) { st.where = 0; heart(1); st.quizReady = true; setButton('❓ 맞혀 볼까요?', false); }   // 세 곳을 다 봤다 — 이제 맞혀 본다
     whereShow(st.where);
   }
   // 🏘 골목길: 단추를 누를 때마다 한가운데 → 가장자리 → 인도 오른쪽을 짚는다. **사고 장면은 없다**(무섭게 하지 않는다).
@@ -464,12 +485,13 @@ TG.Tot = function (game) {
   }
   function alleyNext() {
     st.alley = (st.alley === undefined ? 0 : st.alley) + 1;
-    if (st.alley > 2) { st.alley = 0; heart(3); }
+    if (st.alley > 2) { st.alley = 0; heart(3); st.quizReady = true; setButton('❓ 맞혀 볼까요?', false); }
     alleyShow(st.alley);
   }
-  function alleyShow(k) {
+  function alleyShow(k, quiet) {
     var W = G.walker, sp = alleySpot(k), A = ALLEY[Math.min(k, 2)];
     if (W && sp) W.setMarker(sp);
+    if (quiet) return;
     setBig(A.big, A.sub); say(A.say, true);
     if (A.ok) { TG.audio.totDing(); } else { TG.audio.totBoing(); }
     if (G.hud && G.hud.burst) G.hud.burst(A.burst);
@@ -659,10 +681,162 @@ TG.Tot = function (game) {
   }
 
 
+  // ---------- 🎮 직접 하기 — 화살표·스마트폰(소유자 2026-09-13) ----------
+  // 「영아교실도 **화살표나 스마트폰으로도** 잘 작동되게 해줘. **인터액티브한 교통홍보 활동**이 되게.」
+  // 그전에는 키보드가 아예 안 먹었고(큰 단추를 마우스로 누르는 것뿐), 아이는 화면이 걷는 것을 **보기만** 했다.
+  //  ① **꾹 누르면 걷기** — 🚶 단추 · ↑ 키 · 스틱 위. 손을 떼면 선다. 얼음땡이 **몸으로** 된다.
+  //     빨간불에 누르고 있으면 「얼음!」(야단치지 않는다 · 하트는 안 깎인다), 제때 떼면 「⭐ 잘 멈췄어요」.
+  //  ② **고르는 칸을 손가락으로 누른다** — 인도·차도·횡단보도 / 골목길 / 밝은 옷 색. ← → 로 고르고 Space.
+  //     세 곳을 다 본 뒤에는 **맞혀 보기**가 열린다. 틀리면 고른 곳을 보여 주고 같은 문제를 다시 낸다.
+  //  ③ 10초 동안 아무도 안 누르면 **예전처럼 화면이 이끈다**(프로젝터 앞 선생님 진행은 그대로 된다).
+  var QUIZ = {
+    where: [
+      { q: '❓ 사람이 걷는 곳은?',     say: '사람이 걷는 곳은 어디일까요? 눌러 보세요',   a: 0 },
+      { q: '❓ 자동차가 다니는 곳은?', say: '자동차가 다니는 곳은 어디일까요?',           a: 1 },
+      { q: '❓ 길을 건너는 곳은?',     say: '길을 건널 때는 어디로 갈까요?',              a: 2 },
+    ],
+    alley: [
+      { q: '❓ 골목길은 어디로 걸을까?', say: '인도가 없는 골목길에서는 어디로 걸을까요?', a: 1 },
+      { q: '❓ 인도에서는 어느 쪽?',     say: '넓은 길 인도에서는 어느 쪽으로 걸을까요?', a: 2 },
+    ],
+  };
+  function chipItems(kind) {
+    if (kind === 'where') return WHERE.map(function (w, i) { return { label: w.big, cls: 'w' + i }; });
+    if (kind === 'alley') return [{ label: '🚗 길 한가운데', cls: 'a0' }, { label: '🚶 길 가장자리', cls: 'a1' }, { label: '➡️ 인도 오른쪽', cls: 'a2' }];
+    if (kind === 'bright') return COATS.map(function (c) { return { label: '👕 ' + c.name, cls: 'cc', bg: '#' + ('00000' + c.color.toString(16)).slice(-6) }; });
+    return null;
+  }
+  function chipsRender(kind, onIdx) {
+    var e = el('totWhere'); if (!e) return;
+    var items = chipItems(kind);
+    if (!items) { e.style.display = 'none'; return; }
+    var s = '';
+    for (var i = 0; i < items.length; i++) {
+      var cls = items[i].cls + (i === onIdx ? ' on' : '') + (st.kbFocus && i === st.focus ? ' focus' : '');
+      s += '<span class="' + cls + '" data-i="' + i + '"' + (items[i].bg ? ' style="background:' + items[i].bg + '"' : '') + '>' + items[i].label + '</span>';
+    }
+    e.innerHTML = s; e.style.display = 'flex'; st.chipKind = kind; st.chipOn = onIdx;
+  }
+  function stageChips(id) {
+    if (id === 'alley') chipsRender('alley', st.alley || 0);
+    else if (id === 'bright') chipsRender('bright', -1);
+  }
+  function quizStart(kind) {
+    st.quizReady = false;
+    st.quiz = { kind: kind, list: QUIZ[kind], q: 0, wait: 0, ok: 0 };
+    setButton('정답 보기', false);                                  // 큰 단추 = 선생님이 정답을 보여 준다
+    askQuiz();
+  }
+  function askQuiz() {
+    var Q = st.quiz; if (!Q) return;
+    var it = Q.list[Q.q];
+    if (G.walker && G.walker.setMarker) G.walker.setMarker(null);  // 답을 미리 짚지 않는다
+    if (Q.kind === 'where') { whereBuild(); whereHighlight(-1); }
+    chipsRender(Q.kind, -1);
+    setBig(it.q, (G.input && G.input.isTouch) ? '👆 눌러서 골라요' : '👆 눌러서 골라요 · ← → 고르고 Space');
+    say(it.say, true); TG.audio.totDing();
+  }
+  function quizAnswer(i) {
+    var Q = st.quiz; if (!Q || Q.wait > 0) return;
+    var it = Q.list[Q.q], ok = i === it.a, T2 = Q.kind === 'where' ? WHERE : ALLEY;
+    if (Q.kind === 'where') whereShow(i, true); else { alleyShow(i, true); chipsRender('alley', i); }   // 고른 자리를 **보여 준다** — 틀려도 무엇을 골랐는지 배운다
+    if (ok) {
+      Q.ok++; heart(Math.min(5, 1 + Q.ok)); TG.audio.totFanfare(); G.slowmo = 0.5;
+      if (G.hud && G.hud.burst) { G.hud.burst('⭐', 6); G.hud.burst('⭕', 2); }
+      setBig('⭕ 맞았어요!', T2[i].sub); say('quizOk', true);
+      Q.q++;
+    } else {
+      TG.audio.totBoing(); if (G.hud && G.hud.burst) G.hud.burst('🤔', 3);
+      setBig('🤔 다시 볼까요?', T2[i].big + ' — ' + T2[i].sub); say('quizWrong', true);   // **하트는 깎지 않는다**(스펙) · 같은 문제를 다시 낸다
+    }
+    Q.wait = 2.6;
+  }
+  function quizDone() {
+    var Q = st.quiz; st.quiz = null;
+    setBig('🎉 다 맞혔어요!', Q.kind === 'where' ? '인도 · 차도 · 횡단보도' : '골목길은 가장자리 · 인도는 오른쪽');
+    say('quizAll', true); TG.audio.totFanfare(); TG.audio.totClap(6); heart(Q.kind === 'where' ? 3 : 4);
+    if (G.hud && G.hud.burst) G.hud.burst('🎉', 5);
+    st.quizReady = true; setButton('❓ 한 번 더', false);
+  }
+  // 얼음땡을 **직접** 할 때의 말. 야단치지 않는다 — 막 빨간불이 된 1초는 손을 뗄 틈으로 준다.
+  function iceFeedback(dt) {
+    if (!st.manual) { st.msgT = 0; return false; }
+    st.msgT = Math.max(0, (st.msgT || 0) - dt);
+    var g = st.ice.green;
+    if (!g && st.walkIn) {
+      if (st.ice.t < 1.0) { st.caught = true; setBig('🧊 얼음!', '빨간불 — 멈춰요'); return true; }
+      if (!st.oops) { st.oops = true; TG.audio.totBoing(); G.punch = 0.45; if (G.hud && G.hud.burst) G.hud.burst('🧊', 4); say('oops', true); }
+      setBig('🧊 얼음! 멈춰요', '빨간불이에요 — 걷기를 멈춰요');
+      return true;
+    }
+    if (!g && !st.walkIn && (st.oops || st.caught)) {
+      st.oops = false; st.caught = false; st.msgT = 1.8; st.msg = ['⭐ 잘 멈췄어요!', '빨간불에는 얼음'];
+      heart(2); TG.audio.totDing(); if (G.hud && G.hud.burst) G.hud.burst('⭐', 4); say('stopGood', true);
+    }
+    if (g) {
+      st.oops = false; st.caught = false;
+      if (st.walkIn) {
+        st.goT = (st.goT || 0) + dt;
+        if (st.goT > 1.2 && !st.goPraised) { st.goPraised = true; st.msgT = 1.8; st.msg = ['🚶 땡! 잘 걸어요', '초록불에 손 잡고 천천히']; heart(2); TG.audio.totDing(); if (G.hud && G.hud.burst) G.hud.burst('🚶', 3); say('goGood', true); }
+      }
+    } else { st.goT = 0; st.goPraised = false; }
+    if (st.msgT > 0 && st.msg) { setBig(st.msg[0], st.msg[1]); return true; }
+    return false;
+  }
+  function walkPadSync() {
+    var S = STAGES[st.i] || null;
+    var on = !!S && !st.freeCtl && (S.id === 'ice' || (S.id === 'cross' && st.walkGo && !st.crossed));
+    if (st.padOn !== on) { st.padOn = on; document.body.classList.toggle('totwalkpad', on); }
+  }
+  // 꾹 누르면 걷기 — main.js 가 매 프레임 넣는다(↑·W · 🚶 단추 · 패드 십자 위 · 스틱 위)
+  self.walkHold = function (on) {
+    if (!st) return;
+    if (on) { st.manual = true; st.idleT = 0; }
+    st.walkIn = !!on;
+  };
+  // 고르는 칸을 눌렀다(손가락 · Space)
+  self.pick = function (i) {
+    if (!st) return false;
+    var S = STAGES[st.i] || null; if (!S) return false;
+    TG.audio.ui(); TG.haptic(TG.HAPTIC.tap);
+    st.focus = i;
+    if (S.id === 'where') { if (st.quiz) quizAnswer(i); else if (WHERE[i]) { st.where = i; whereShow(i); } return true; }
+    if (S.id === 'alley') { if (st.quiz) quizAnswer(i); else if (ALLEY[i]) { st.alley = i; alleyShow(i); chipsRender('alley', i); } return true; }
+    if (S.id === 'bright') {
+      var c = COATS[i]; if (!c) return false;
+      st.coat = Math.max(st.coat, i + 1); setCoat(c.color); heart(5);
+      setBig('🌈 ' + c.name + ' 옷', '밝은 옷은 멀리서도 반짝 보여요'); say('bright', true); TG.audio.totDing();
+      if (G.hud && G.hud.burst) G.hud.burst('✨', 4);
+      chipsRender('bright', i); return true;
+    }
+    return false;
+  };
+  // 키보드: Space·Enter = 큰 단추(칸을 고르고 있으면 그 칸) · ← → = 칸 고르기
+  self.key = function (name) {
+    if (!st) return false;
+    var S = STAGES[st.i] || null;
+    var kind = S && (S.id === 'where' || S.id === 'alley' || S.id === 'bright') ? S.id : null;
+    if (name === 'left' || name === 'right') {
+      if (!kind) return false;
+      var n = chipItems(kind).length;
+      st.focus = st.kbFocus ? (st.focus + (name === 'left' ? -1 : 1) + n) % n : (name === 'left' ? n - 1 : 0);
+      st.kbFocus = true; TG.audio.ui();
+      chipsRender(kind, st.chipOn === undefined ? -1 : st.chipOn);
+      return true;
+    }
+    if (name === 'act') { if (kind && st.kbFocus) return self.pick(st.focus); return self.act(); }
+    return false;
+  };
+  self.prev = function () { if (!st) return false; if (st.i > 0) { st.i -= 2; st.done = false; next(); } return true; };
+  self.jump = function (n) { if (!st || n < 0 || n >= STAGES.length) return false; st.i = n - 1; st.done = false; next(); return true; };
+
   // ---------- 매 프레임 ----------
   self.update = function (dt) {
     if (!st) return;
     st.t += dt; st.sayCd -= dt;
+    if (st.manual && !st.walkIn) { st.idleT += dt; if (st.idleT > 10) st.manual = false; }   // 10초 손을 안 대면 다시 화면이 이끈다
+    if (st.quiz && st.quiz.wait > 0) { st.quiz.wait -= dt; if (st.quiz.wait <= 0) { if (st.quiz.q >= st.quiz.list.length) quizDone(); else askQuiz(); } }
+    walkPadSync();
     var S = STAGES[st.i] || null, W = G.walker;
     // 아이는 보도 위를 **좁게** 왔다 갔다 한다(집에서 1.6m 넘으면 돌아선다 — 교실 얼음땡은 제자리걸음에 가깝다). **건너는 중에는 돌아서지 않는다.**
     // ⚠ v0.9.77 에서 아이를 횡단보도 앞 1.4m 로 당겨 놓고 왕복 폭을 7m 로 두었더니
@@ -702,7 +876,7 @@ TG.Tot = function (game) {
     if (!S) return;
     if (S.id === 'where') {
       hideSignal();
-      if (st.sayCd <= 0 && st.t > 9) say(WHERE[Math.min(st.where || 0, 2)].say);
+      if (!st.quiz && st.sayCd <= 0 && st.t > 9) say(WHERE[Math.min(st.where || 0, 2)].say);
     } else if (S.id === 'ice') {
       var prog = crossProgress(), onRoad = prog > 0.8 && prog < st.crossLen - 0.8;   // 횡단보도 위에 있다
       if (onRoad) {                                        // **건너는 중에는 초록을 붙잡는다** — 길 위에서 얼음하지 않는다(별표2)
@@ -723,7 +897,7 @@ TG.Tot = function (game) {
         }
         setSignal(st.ice.green, span - st.ice.t);
         var cnt = st.ice.round > 0 ? ' · ' + st.ice.round + '번' : '';
-        setBig(st.ice.green ? '🚶 땡! 건너요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? '초록불 — 손 잡고 걸어서' : '빨간불 — 한 발 뒤로 물러서서') + cnt);
+        if (!iceFeedback(dt)) setBig(st.ice.green ? '🚶 땡! 건너요' : '🧊 얼음! 딱 멈춰요', (st.ice.green ? (st.manual ? '초록불 — 꾹 누르고 걸어요' : '초록불 — 손 잡고 걸어서 · 🚶 꾹 누르면 내가 걸어요') : '빨간불 — 한 발 뒤로 물러서서') + cnt);
         if (W && !st.ice.green) { W.v = 0; W.moving = false; }
         if (st.ice.round >= 2) heart(1);
         if (!st.ice.green && st.ice.round >= 1 && st.sayCd <= 0 && st.ice.t > 2.5) say('back');   // 기다릴 때는 한 발 뒤로(소유자 제공 자료)
@@ -756,7 +930,7 @@ TG.Tot = function (game) {
 
     } else if (S.id === 'alley') {
       hideSignal();
-      if (st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
+      if (!st.quiz && st.sayCd <= 0 && st.t > 10) say(ALLEY[Math.min(st.alley || 0, 2)].say);
 
     } else if (S.id === 'hold') {
       hideSignal();
@@ -769,6 +943,7 @@ TG.Tot = function (game) {
       if (!st.held) setBig('🐻 아직이야', '어른 손을 먼저 잡아요');
       else if (st.crossed) setBig('🎉 다 건넜어요', CHANT);
       else if (st.stopT > 0) setBig('🛑 ' + Math.ceil(st.stopT) + '초', '하나 · 둘 · 셋 — 멈춰서 세어요');
+      else if (st.walkGo && st.manual && !st.walkIn && !self.crossing()) setBig('🚶 꾹 누르면 건너요', '손 잡고 · 뛰지 않고 천천히');
       else setBig('🚸 ' + F2.big, F2.sub);
       if (st.stopT > 0 && st.stopCnt !== Math.ceil(st.stopT)) { st.stopCnt = Math.ceil(st.stopT); TG.audio.totDing(); }
       if (st.walkGo || self.crossing()) {              // ⑤ 손 잡고 천천히 — **실제로** 횡단보도를 건넌다
@@ -806,8 +981,8 @@ TG.Tot = function (game) {
     var S = STAGES[st.i] || null; if (!S) return false;
     var prog = crossProgress(), onRoad = prog > 0.8 && prog < (st.crossLen || 32) - 0.8;
     if (onRoad) return true;                                   // **길 위에서는 멈추지 않는다**(별표2 · 시행규칙)
-    if (S.id === 'cross') return st.walkGo === true;
-    if (S.id === 'ice') return !!(st.ice && st.ice.green);
+    if (S.id === 'cross') return st.walkGo === true && (!st.manual || st.walkIn);        // 직접 할 때는 **누르는 동안만** 걷는다(길 위에서는 위에서 이미 계속 걷는다)
+    if (S.id === 'ice') return !!(st.ice && st.ice.green) && (!st.manual || st.walkIn);
     return false;
   };
   self.freeControl = function () { return !!(st && st.freeCtl); };   // 🎮 해보기 — 조작이 아이 손에 있다

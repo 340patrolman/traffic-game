@@ -38,6 +38,7 @@
   function init() {
     canvas = document.getElementById('game');
     input = new TG.Input();
+    G.input = input;   // 영아 교실(tot.js)·어린이 교실이 터치 기기인지·달리기 토글을 본다 — v0.9.85 까지 안 넘겨 줘서 항상 undefined 였다
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: noRender });
     applyQuality();
     renderer.shadowMap.enabled = true;
@@ -526,7 +527,7 @@
     // 📹 블랙박스 영상 단속(B) · 📡 무전 상황 전파(T) — 이륜차·자전거·PM 의 단순 위반은 추격하지 않고 이 둘로 처리한다
     function blackbox() { if (response) response.blackbox(); }
     function radio() { if (response) response.radio(); }
-    input.bindTap($('btnCam'), blackbox); input.onKey('KeyB', blackbox);
+    input.bindTap($('btnCam'), blackbox); input.onKey('KeyB', function () { if (totKeysOn()) { G.tot.prev(); return; } blackbox(); });
     input.bindTap($('btnRadio'), radio); input.onKey('KeyT', radio);
     // 🚧 현장 안전조치 — 한 단추로 순서대로: 라바콘 차로 차단(필요한 수만큼) → 야간·악천후면 불꽃신호기 점화.
     // 문구·수치는 laws.json incidentScene(티북 문구)에서 온다.
@@ -623,7 +624,7 @@
     var optDr = $('optDrive');
     function applyDrive(m) { settings.drive = m === 'sport' ? 'sport' : 'normal'; TG.save.set('settings', settings); if (optDr) optDr.value = settings.drive; var dm = $('driveMode'); if (dm) { dm.textContent = settings.drive === 'sport' ? 'S' : 'N'; dm.classList.toggle('sport', settings.drive === 'sport'); } }
     if (optDr) optDr.addEventListener('change', function () { applyDrive(optDr.value); });
-    input.onKey('KeyN', function () { applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노멀 모드', 'info', 1500); });
+    input.onKey('KeyN', function () { if (totKeysOn()) { G.tot.next(); return; } applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노멀 모드', 'info', 1500); });
     applyDrive(settings.drive || 'normal');
     // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
     // 화면의 차량·보행자를 터치하면 선택(빨간 고리 + 이름표). 「단속」(E) 을 누르면 차량은 정차 유도, 보행자는 계도·통고 화면.
@@ -692,8 +693,17 @@
       if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); else if (G.state === 'intro') endIntro();
     });
     input.onKey('KeyP', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
-    input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } });
-    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); });
+    input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } else if (totKeysOn()) G.tot.key('act'); });
+    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); else if (totKeysOn()) G.tot.key('act'); });
+    // 👶 영아 교실 — **화살표·키보드로도** 한다(소유자 2026-09-13 「화살표나 스마트폰으로도 잘 작동되게 · 인터액티브한 교통홍보」)
+    //  Space·Enter = 큰 단추(칸을 고르고 있으면 그 칸) · ← → = 칸 고르기 · ↑ = 꾹 누르면 걷기(walkUpdate 가 읽는다)
+    //  N·PageDown = 다음 마당 · B·PageUp = 이전 마당 · 1~8 = 그 마당으로(선생님·홍보 부스용)
+    function totKeysOn() { return G.state === 'play' && !G.paused && G.mode === 'tot' && !!G.tot && G.tot.on(); }
+    input.onKey('ArrowLeft', function () { if (totKeysOn()) G.tot.key('left'); });
+    input.onKey('ArrowRight', function () { if (totKeysOn()) G.tot.key('right'); });
+    input.onKey('PageDown', function () { if (totKeysOn()) G.tot.next(); });
+    input.onKey('PageUp', function () { if (totKeysOn()) G.tot.prev(); });
+    for (var dk = 1; dk <= 8; dk++) (function (n) { input.onKey('Digit' + n, function () { if (totKeysOn()) G.tot.jump(n - 1); }); })(dk);
     canvas.addEventListener('pointerdown', function () { TG.audio.resume(); });
   }
   // ---------- 선택 대상 ----------
@@ -844,7 +854,7 @@
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
     // 서킷은 출발 신호등이 화면 가운데를 쓰니 알림은 **출발 뒤에** 넣는다(startLightUpdate)
-    if (G.mode !== 'circuit') hud.notice(G.mode === 'tot' ? '👶 영아 교통안전교실 — 큰 단추 하나로 진행합니다. 아이들과 함께 「빨간불 얼음, 초록불 땡」을 몸으로 해 보세요' : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    if (G.mode !== 'circuit') hud.notice(G.mode === 'tot' ? ('👶 영아 교통안전교실 — 큰 단추로 진행하고, 🚶 꾹 누르면 아이가 직접 걸어요. 고르는 칸은 손가락으로 눌러요' + (input.isTouch ? '' : ' (⌨ ↑ 걷기 · Space 단추 · ← → 고르기 · N 다음)')) : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     if (layers && layers.hourBrief && (G.mode === 'patrol' || G.mode === 'duty')) {
       var hb = layers.hourBrief();
@@ -1594,7 +1604,12 @@
   function walkUpdate(dt) {
     var mv = input.readMove(); if (G.testMove) mv = G.testMove;
     // 영아 교실: 보통은 화면이 이끌지만, 🎮 해보기 마당에서는 **조작을 아이에게 넘긴다**(소유자: 「화살표를 움직여서 동작을」).
-    if (G.mode === 'tot') { if (G.tot) G.tot.update(dt); if (!(G.tot && G.tot.freeControl && G.tot.freeControl())) mv = totMove(dt); }
+    if (G.mode === 'tot') {
+      // 꾹 누르면 걷기 — ↑·W 키 · 화면 「🚶」 단추 · 패드 십자 위 · 스틱 위. 손을 떼면 선다(얼음땡을 몸으로 한다 · v0.9.85)
+      var totWalk = !!(input.held.ArrowUp || input.held.KeyW || input.btn.totwalk || (input.gp && input.gp.held && input.gp.held.ArrowUp) || (input.stick.active && input.stick.y > 0.35));
+      if (G.tot) { if (G.tot.walkHold) G.tot.walkHold(totWalk); G.tot.update(dt); }
+      if (!(G.tot && G.tot.freeControl && G.tot.freeControl())) mv = totMove(dt);
+    }
     if (exitScn) mv = exitSceneMove(dt);   // 하차 연출 중에는 조작을 받지 않는다
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
