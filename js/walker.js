@@ -31,6 +31,25 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
 
   // 🌂 **투명 우산** — 비 오는 날에는 앞이 잘 보이는 투명 우산을 쓴다(소유자 제공 자료: 경기도교육청 등·하굣길).
   // 우산도 코드로 만든다(외부 이미지 0). 비닐이 비쳐 보이게 반투명이고, 오른손 쪽에 든다.
+  // 🚲 자전거 교실 — 자전거를 **타거나(ride)** 옆에서 **끌고(walk)** 간다. 자전거는 부품 메시(vehmesh 'bike', 탑승자 없음)를 이 몸에 붙인다.
+  //  ride: 스틱 위 = 페달, 아래·브레이크 단추 = 브레이크, 좌우 = 핸들(속도가 붙을수록 잘 돈다). 몸은 앉은 자세(Character.pose 'ride').
+  //  walk: 걷는 몸 그대로, 자전거는 오른쪽 옆에서 같이 굴러간다. 제동 감속 dec 는 교실이 바꾼다(브레이크 없는 픽시 = 1.0).
+  this.bike = null; this.riding = false; this.ride = { vmax: 5.5, acc: 1.6, dec: 3.5, coast: 0.18 }; this.brakeHold = false; this.braking = false; this.leanZ = 0;
+  var bikeMat = null;
+  this.setBike = function (mode) {
+    if (mode && !this.bike) {
+      bikeMat = bikeMat || new THREE.MeshLambertMaterial({ vertexColors: true });
+      var bm = new THREE.Mesh(TG.vehmesh.build('bike', 0x2f8f5a, false, { noRider: true }), bikeMat); bm.castShadow = true;
+      g.add(bm); this.bike = bm;
+    }
+    if (this.bike) this.bike.visible = !!mode;
+    var wasRiding = this.riding;
+    this.riding = mode === 'ride';
+    if (this.bike) { if (this.riding) this.bike.position.set(0, -0.02, 0.5); else this.bike.position.set(-0.62, -0.02, 0.35); }   // +x 가 몸 왼쪽 — 끌 때는 오른쪽 옆
+    if (this.riding && !wasRiding) { TG.Character.pose(rig, 'ride'); this.v = Math.min(this.v, 1.0); }
+    if (!this.riding && wasRiding) { rig.frozen = false; this.leanZ = 0; g.rotation.z = 0; this.v = Math.min(this.v, 1.2); }
+    return mode || null;
+  };
   this.setUmbrella = function (on) {
     if (on && !this.umbrella) {
       var g = new THREE.Group();
@@ -59,6 +78,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.sync = function (dt) {
     this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z, this.y) : 0;
     rig.baseY = this.y; g.position.x = this.pos.x; g.position.z = this.pos.z; g.rotation.y = this.heading;
+    if (this.riding) { g.position.y = this.y + 0.02; g.rotation.z = this.leanZ || 0; if (rig.joints && rig.joints.neck) rig.joints.neck.rotation.y = this.look || 0; return; }
     var sp = TG.audio.speaking, talking = sp === (this.kid ? 'kid' : 'officer');
     TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan, talking: talking, smile: !!this.smile }, dt || 0.016);
   };
@@ -67,6 +87,17 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.update = function (dt, move, camYaw) {
     var mx = move.x, my = move.y, mag = Math.min(1, Math.hypot(mx, my));
     var want = 0, dir = null;
+    if (this.riding) {
+      var R = this.ride, thr = my > 0.12 ? Math.min(1, my) : 0, brk = Math.max(this.brakeHold ? 1 : 0, my < -0.12 ? Math.min(1, -my) : 0);
+      if (brk > 0) this.v = Math.max(0, this.v - R.dec * brk * dt);
+      else if (thr > 0) this.v = Math.min(R.vmax, this.v + R.acc * Math.max(0.15, 1 - this.v / R.vmax) * thr * dt);
+      else this.v = Math.max(0, this.v - R.coast * dt);
+      var steerRate = this.v > 0.25 ? 0.55 + 0.85 * Math.min(1, this.v / 3.5) : 0.35;
+      if (Math.abs(mx) > 0.08) this.heading -= mx * steerRate * dt;              // 오른쪽으로 밀면 오른쪽으로 돈다(헤딩이 줄어든다)
+      this.leanZ += (mx * 0.22 * Math.min(1, this.v / 3) - this.leanZ) * Math.min(1, dt * 6);
+      this.braking = brk > 0; this.running = false;
+      if (this.hand > 0) this.hand -= dt;
+    } else {
     if (mag > 0.08) {
       // 스틱 위(+y) = camYaw 방향, 오른쪽(+x) = 그 우측
       var fx = Math.sin(camYaw), fz = Math.cos(camYaw), rx = -fz, rz = fx;
@@ -79,6 +110,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
     this.v += ((want - this.v) * Math.min(1, dt * (want > this.v ? 6 : 9)));
     // 방향 전환: 급회전 금지 — 최대 3.2rad/s, 작은 각도는 부드럽게(MMORPG 식: 살짝 밀면 살짝 휜다)
     if (dir !== null) { var d = TG.wrapAngle(dir - this.heading), stp = Math.min(Math.abs(d), (1.6 + 2.2 * Math.abs(d)) * dt); this.heading += Math.sign(d) * stp; }
+    }
     var f = this.forward(), nx = this.pos.x + f[0] * this.v * dt, nz = this.pos.z + f[1] * this.v * dt;
     var c = city.collideCircle(nx, nz, 0.4); this.pos.x = c.x; this.pos.z = c.z;
     this.vx = f[0] * this.v; this.vz = f[1] * this.v; this.vF = this.v;

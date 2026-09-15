@@ -127,5 +127,5 @@ TG.Career = function (game) {
     h += '</div>';
     return h;
   };
-  var MODE_KO = { patrol: '순찰', duty: '교차로', chase: '추격', walk: '보행', kid: '어린이 교실', free: '자유', circuit: '서킷' };
+  var MODE_KO = { patrol: '순찰', duty: '교차로', chase: '추격', walk: '도보', kid: '어린이 교실', tot: '영아 교실', bike: '청소년 교실', free: '자유', circuit: '서킷' };
 };

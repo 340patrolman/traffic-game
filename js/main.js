@@ -24,7 +24,7 @@
   // 도보 상태: 보행 모드·어린이 교실·교차로 근무는 처음부터 도보, 순찰·자유 주행에서는 하차(G.afoot)하면 도보가 된다.
   // 교차로 근무는 **하차 근무**다 — 순찰차로 와서 갓길에 세우고 내린다(소유자: 「하차근무가 좋을지 싶네」).
   // 그래서 duty 는 여기서 뺀다. 내리기 전까지는 「차 안」이고, 내리면 G.afoot 이 켜진다.
-  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.mode === 'tot' || G.afoot === true; }
+  function onFoot() { return G.mode === 'walk' || G.mode === 'kid' || G.mode === 'tot' || G.mode === 'bike' || G.afoot === true; }
   G.actor = actor;
   // 차량 선택 「랜덤」: 근무마다 다른 순찰차
   function carSpec(id) { if (id === 'random' || !C.CARS[id]) { var ks = Object.keys(C.CARS); return C.CARS[ks[Math.floor(Math.random() * ks.length)]]; } return C.CARS[id]; }
@@ -230,6 +230,8 @@
     if (hh > 0) document.documentElement.style.setProperty('--hudh', hh + 'px');
   }
   G.hudHeightVar = hudHeightVar;
+  G.kidStageBlock = function () { return kidStageBlock(); };   // 교실 모듈(bike.js)이 같은 무대(서초역 사거리 블록)를 쓴다
+  G.endShift = function (why) { endShift(why); };
   // ---------- 시작 화면(부트 게이트) ----------
   // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
   function bootGate() {
@@ -684,7 +686,7 @@
     });
     // 하차·승차(X): 순찰 근무 중 내려서 걸어간다
     function footToggle() { if (G.afoot) enterCar(); else exitCar(); }
-    input.bindTap($('btnFoot'), footToggle); input.onKey('KeyX', footToggle);
+    input.bindTap($('btnFoot'), footToggle); input.onKey('KeyX', function () { if (G.mode === 'bike' && G.bike && G.state === 'play') { G.bike.mount(); return; } footToggle(); });
     input.onKey('KeyL', toggleSiren);
     input.onKey('KeyH', function () { settings.hints = !settings.hints; hud.setHints(settings.hints); optH.checked = settings.hints; TG.save.set('settings', settings); hud.notice('교육 안내 ' + (settings.hints ? '켬' : '끔'), 'info', 1500); });
     input.onKey('Escape', function () {
@@ -694,7 +696,12 @@
     });
     input.onKey('KeyP', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
     input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } else if (totKeysOn()) G.tot.key('act'); });
-    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); else if (totKeysOn()) G.tot.key('act'); });
+    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); else if (totKeysOn()) G.tot.key('act'); else if (bikeKeysOn()) G.bike.look(); });
+    function bikeKeysOn() { return G.state === 'play' && !G.paused && G.mode === 'bike' && !!G.bike && G.bike.on(); }
+    input.onKey('KeyZ', function () { if (bikeKeysOn()) G.bike.bell(); });
+    input.bindTap($('btnBikeLook'), function () { if (bikeKeysOn()) G.bike.look(); });
+    input.bindTap($('btnBikeMount'), function () { if (bikeKeysOn()) G.bike.mount(); });
+    input.bindTap($('btnBikeBell'), function () { if (bikeKeysOn()) G.bike.bell(); });
     // 👶 영아 교실 — **화살표·키보드로도** 한다(소유자 2026-09-13 「화살표나 스마트폰으로도 잘 작동되게 · 인터액티브한 교통홍보」)
     //  Space·Enter = 큰 단추(칸을 고르고 있으면 그 칸) · ← → = 칸 고르기 · ↑ = 꾹 누르면 걷기(walkUpdate 가 읽는다)
     //  N·PageDown = 다음 마당 · B·PageUp = 이전 마당 · 1~8 = 그 마당으로(선생님·홍보 부스용)
@@ -817,6 +824,7 @@
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.notice('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (G.tbLink.theme === 'dark' ? ' · 야간' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : ''), 'info', 4000); }
     else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.notice('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : ''), 'info', 3500); }
     if (G.tot) { G.tot.dispose(); G.tot = null; }
+    if (G.bike) { G.bike.dispose(); G.bike = null; }
     if (walker) { if (walk && walk.officer) walk.officer.dispose(); walker.dispose(); walker = null; walk = null; peds.walker = null; }
     G.afoot = false; exitScn = null; document.body.classList.remove('afoot');
     if (junction) { junction.dispose(); junction = null; duty = null; G.junction = null; }
@@ -845,16 +853,16 @@
     if (G.mode === 'free' || G.mode === 'circuit') hud.setTimerText(G.mode === 'circuit' ? '—' : '∞');
     var dmEl = document.getElementById('driveMode'); if (dmEl) dmEl.style.display = onFoot() ? 'none' : '';   // 도보 근무에는 기어가 없다
     var tlEl = document.getElementById('timerLbl');
-    if (tlEl) tlEl.textContent = G.mode === 'circuit' ? '랩 타임' : (G.mode === 'free' ? '주행' : '남은 시간');   // 서킷·자유 주행은 남은 시간이 없다
+    if (tlEl) tlEl.textContent = G.mode === 'circuit' ? '랩 타임' : (G.mode === 'free' ? '주행' : G.mode === 'bike' ? '교실' : '남은 시간');   // 서킷·자유 주행은 남은 시간이 없다
     if (onFoot()) { document.getElementById('stopbarWrap').style.display = 'none'; hud.setTimer(G.timeLeft); walkGuide(); }
     else { document.getElementById('stopbarWrap').style.display = settings.stopbar ? '' : 'none'; document.getElementById('section').className = 'section'; }
-    document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('dutymode', G.mode === 'duty');
+    document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('bikemode', G.mode === 'bike'); document.body.classList.toggle('dutymode', G.mode === 'duty');
     // 하차 버튼. **교차로 근무(하차 근무)도 포함한다** — v0.9.33 부터 차로 도착해 내려야 근무가 시작되는데
     // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty');
     footBtnLabel(false);
     // 서킷은 출발 신호등이 화면 가운데를 쓰니 알림은 **출발 뒤에** 넣는다(startLightUpdate)
-    if (G.mode !== 'circuit') hud.notice(G.mode === 'tot' ? ('👶 영아 교통안전교실 — 큰 단추로 진행하고, 🚶 꾹 누르면 아이가 직접 걸어요. 고르는 칸은 손가락으로 눌러요' + (input.isTouch ? '' : ' (⌨ ↑ 걷기 · Space 단추 · ← → 고르기 · N 다음)')) : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '보행자 체험 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
+    if (G.mode !== 'circuit') hud.notice(G.mode === 'bike' ? '🚲 청소년 교실 — 페달(위) · 🛑 브레이크 · 👀 살피기 · 🚶 내리기. 네 장면을 차례로 해요' : G.mode === 'tot' ? ('👶 영아 교통안전교실 — 큰 단추로 진행하고, 🚶 꾹 누르면 아이가 직접 걸어요. 고르는 칸은 손가락으로 눌러요' + (input.isTouch ? '' : ' (⌨ ↑ 걷기 · Space 단추 · ← → 고르기 · N 다음)')) : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '🚶 도보 근무 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     if (layers && layers.hourBrief && (G.mode === 'patrol' || G.mode === 'duty')) {
       var hb = layers.hourBrief();
@@ -864,7 +872,7 @@
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
   var SCORED = { patrol: 1, walk: 1, duty: 1, chase: 1 };   // 점수·감점이 있는 모드(자유 주행·서킷·어린이 교실은 사고 외 감점 없음)
-  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '보행자 체험', kid: '어린이 보행 교실', tot: '영아 교통안전교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
+  var MODES = { patrol: '순찰 근무', free: '자유 주행', circuit: '연습 서킷', duty: '교차로 근무', chase: '추격전', walk: '도보 근무', kid: '어린이 교실', tot: '영아 교실', bike: '청소년 교실' }, BASE_TRAFFIC = C.TRAFFIC_MAX, BASE_PED = C.PED_MAX, lap = null, coach = null;
   // ---------- 보행자 모드 ----------
   // 순찰차는 강남대로 갓길에 세워 두고, 경찰관이 내려 걷는다. 목적지(사거리 모퉁이) 8곳을 차례로. 차량·행인 AI 는 걷는 경찰관을 보행자로 본다.
   // 어린이 교실 무대 블록 — 서초역 사거리를 왼쪽 위 모퉁이로 하는 한 블록.
@@ -880,7 +888,7 @@
   function startWalk() {
     var xs = city.xs, zs = city.zs, rng = TG.makeRNG((Date.now() & 0xffff) + 7);
     player.teleport(xs[2] + city.shoulderOff('v', 2), zs[2] + 48, Math.PI); player.setSiren(false);
-    var kid = G.mode === 'kid' || G.mode === 'tot';
+    var kid = G.mode === 'kid' || G.mode === 'tot' || G.mode === 'bike';   // 교실 셋 — 무단횡단·경적을 보여 주지 않는다
     // 어린이 앞에서는 **무단횡단도 급제동 경적도 보여주지 않는다**(소유자 2026-09-12:
     // 「어린이 교통안전을 하고 있는데 왠 아저씨가 건너편에서 빨간불에 건너온다 … 그런 모습을 보여주는 것조차 교육적으로 안 좋다」).
     // 인트로와 같은 방식이다(v0.9.39) — 교실을 나가면 되돌린다(순찰 근무에는 무단횡단이 있어야 단속을 배운다).
@@ -891,6 +899,16 @@
     if (G.mode === 'tot' && walker.rig && walker.rig.group) walker.rig.group.scale.setScalar(0.8);   // 4세는 더 작고 동글동글하게
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
+    if (G.mode === 'bike') {
+      // 🚲 청소년 교실(자전거) — 서초역 사거리 블록. 장면마다 자리를 옮기는 「마당」 방식이다(js/bike.js).
+      // 메뉴에서 「청소년 교실」로 들어오면 중·고등학생으로 시작한다(소유자 2026-09-15 「청소년 · 어린이 · 영아 교실로 나눠 거기에 맞게」).
+      walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, stars: 0, stopT: 0, voiceCd: 0, step: -1, bike: true };
+      G.timeLeft = 1e9;
+      C.TRAFFIC_MAX = Math.max(8, Math.round(BASE_TRAFFIC * 0.5)); C.PED_MAX = Math.max(8, Math.round(BASE_PED * 0.5));
+      if (weather) weather.set('clear');
+      if (TG.BikeClass) { G.bike = new TG.BikeClass(G); G.bike.start('teen'); }
+      return;
+    }
     if (G.mode === 'tot') {
       // 영아 교실: 어린이 보행 교실과 같은 무대(서초역 사거리)지만 **목적지도 시간 제한도 없다**.
       // 아이는 보도 위 한 자리에 서고, 화면이 마당을 차례로 넘긴다(선생님이 큰 단추 하나로 진행).
@@ -1378,7 +1396,7 @@
     // 교실은 보여 주는 자리다 — 아이가 차도로 걸어 들어가는 장면 자체가 나오면 안 된다.
     // 그래서 어린이 교실에서만 연석에서 막는다: 갈 수 있는 곳은 ① 보도·도로 밖 ② 보행 녹색인 횡단보도
     // ③ **이미 건너던 횡단보도**(다 건너기 전에 신호가 바뀌어도 갇히면 안 된다).
-    // 보행자 체험(walk)은 그대로 둔다 — 어른은 무단횡단을 할 수 있고 그것이 위반으로 기록되는 것이 배움이다.
+    // 도보 근무(walk)는 그대로 둔다 — 어른은 무단횡단을 할 수 있고 그것이 위반으로 기록되는 것이 배움이다.
     var totFree = !!(G.mode === 'tot' && G.tot && G.tot.freeControl && G.tot.freeControl());
     if (kid && !totFree) {                                  // 🎮 해보기 마당에서는 막지 않는다 — 그 대신 아찔한 순간을 보여 주고 되돌린다
       walk.curbCd = (walk.curbCd || 0) - dt;
@@ -1555,7 +1573,7 @@
       for (var b = 0; b < cc.length; b++) {
         var ddx = walker.pos.x - cc[b].x, ddz = walker.pos.z - cc[b].z, d2 = ddx * ddx + ddz * ddz;
         if (d2 >= cr * cr) continue;
-        if (c.v > 0.8) { if (kid) { addScore(-10, 'pedestrian'); hud.notice('앗! 차에 부딪혔어요 — 차도는 위험해요. 다시 해 봐요', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차에 부딪혔어요 — 횡단보도에서 멈추고, 손 들고, 초록불에 건너요'); return; } addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 보행자 체험 종료', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차량 접촉 — 사람은 차와 부딪히면 끝'); return; }
+        if (c.v > 0.8) { if (kid) { addScore(-10, 'pedestrian'); hud.notice('앗! 차에 부딪혔어요 — 차도는 위험해요. 다시 해 봐요', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차에 부딪혔어요 — 횡단보도에서 멈추고, 손 들고, 초록불에 건너요'); return; } addScore(C.SCORE.pedestrian, 'pedestrian'); hud.notice('차량에 치임 — 도보 근무 종료', 'bad', 5000); TG.audio.thump(1); buzz([220, 80, 220]); endShift('차량 접촉 — 사람은 차와 부딪히면 끝'); return; }
         var dd2 = Math.sqrt(d2) || 0.01; walker.pos.x += ddx / dd2 * (cr - dd2); walker.pos.z += ddz / dd2 * (cr - dd2); walker.sync();
       }
     }
@@ -1610,6 +1628,7 @@
       if (G.tot) { if (G.tot.walkHold) G.tot.walkHold(totWalk); G.tot.update(dt); }
       if (!(G.tot && G.tot.freeControl && G.tot.freeControl())) mv = totMove(dt);
     }
+    if (G.mode === 'bike' && G.bike) mv = G.bike.update(dt, mv);   // 🚲 페달·브레이크·핸들은 walker 가, 장면 규칙은 bike.js 가 맡는다
     if (exitScn) mv = exitSceneMove(dt);   // 하차 연출 중에는 조작을 받지 않는다
     var lk = (input.held.KeyQ ? 1 : 0) - (input.held.KeyE ? 1 : 0) - (mv.look || 0);
     if (lk !== 0) G.lookYaw = TG.clamp(G.lookYaw + lk * 2.4 * dt, -2.6, 2.6); else if (!G.lookHold) G.lookYaw += (0 - G.lookYaw) * Math.min(1, dt * 3);
@@ -1642,7 +1661,7 @@
     traffic.update(dt, TG.perf.budget(C.TRAFFIC_MAX)); traffic.separate();
     peds.update(dt, TG.perf.budget(C.PED_MAX));
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
-    if (G.mode === 'duty' && duty && walker) dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else walkRules(dt);
+    if (G.mode === 'duty' && duty && walker) dutyRules(dt); else if (walk && walk.afoot) afootRules(dt); else if (G.mode !== 'bike') walkRules(dt);   // 자전거 교실은 보행 규칙(무단횡단 감점 등)을 쓰지 않는다
     if (G.mode === 'kid') kidZipWatch(dt);
     if (G.state !== 'play') return;
     walk.camYaw = walkCamera(dt);
@@ -1651,7 +1670,8 @@
     hud.setSpeed(walker.speedKmh(), 0, 999); hud.setGear('D');
     minimap.draw(walker, traffic.cars, null, walk.dests[walk.idx] || null);
     TG.audio.update(dt, 0, 0, 0, 0, false);
-    G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift(G.mode === 'duty' ? '근무 종료 — 소통 양호 ' + junction.score.cleared + '회' : (walk && walk.afoot) ? '근무 시간 종료' : '체험 시간 종료 — 목적지 ' + walk.arrived + '/' + walk.dests.length);
+    if (G.mode === 'bike') hud.setTimerText('—'); else { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); }   // 청소년 교실은 시간 제한이 없다(장면을 다 하면 끝난다)
+    if (G.timeLeft <= 0) endShift(G.mode === 'duty' ? '근무 종료 — 소통 양호 ' + junction.score.cleared + '회' : (walk && walk.afoot) ? '근무 시간 종료' : '체험 시간 종료 — 목적지 ' + walk.arrived + '/' + walk.dests.length);
   }
   function fmtLap(t) { var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
   // 랩 타임: 링크 인덱스 0 을 진행 방향으로 지나면 한 바퀴. 최고 기록은 tg_bestlap_<mode>.
@@ -1992,6 +2012,7 @@
       if ((G.mode === 'circuit' || G.mode === 'free') && lap && lap.best) badges.push({ text: '🏁 최고 랩 ' + fmtLap(lap.best) });
       if (G.mode === 'circuit' && coach && (coach.corners || 0) >= 3) badges.push({ text: '⭐ 코너 ' + coach.stars + '별 / ' + coach.corners + '곳', gold: coach.stars >= coach.corners * 2.5 });
     }
+    if (G.mode === 'bike' && G.bike && G.bike.badges) G.bike.badges().forEach(function (b) { badges.push(b); });
     st.badges = badges;
     // 오답 노트·근무 일지를 결과 카드에 얹는다. finishShift 를 먼저 불러 오늘 판까지 센 값을 보인다.
     if (G.career) {

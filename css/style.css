@@ -768,3 +768,77 @@ body.totmode #totWhere span.focus{outline:4px solid #fff;outline-offset:3px}
   font-size:12px;font-weight:800;color:#e9f0ff;background:rgba(12,16,26,.6);border-radius:10px;padding:6px 10px;line-height:1.5;pointer-events:none}
 body.totmode.desktop #totKeys{display:block}
 @media (max-width:760px){#totKeys{display:none!important}}
+
+/* 🚲 자전거 교실(body.bikemode) — 초등·중고등학생. 패널은 **계기 칸 안의 한 줄**(v0.9.84 교훈 — 지도·단추와 겹치지 않게).
+   조작: 왼쪽 스틱(페달·핸들) · 오른쪽 🛑 브레이크(꾹) · 👀 살피기 · 🚶/🚲 내리기·타기 · 🔔 벨. 차 단추·손 들기·달리기는 감춘다. */
+#bikeHud{display:none;margin-top:6px;background:rgba(10,30,20,.5);border:1px solid rgba(90,220,140,.35);border-radius:10px;padding:6px 8px 7px}
+body.bikemode #bikeHud{display:block}
+#bikeHud .bk-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#bikeHud .bk-stage{font-size:14px;font-weight:900;color:#e6fff0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bikeHud .bk-grade{font-size:11px;font-weight:800;color:#bfe9cf;white-space:nowrap}
+#bikeHud .bk-goal{font-size:12px;font-weight:700;color:#fff3c4;margin-top:3px;line-height:1.35;word-break:keep-all}
+#bikeHud .bk-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+#bikeHud .bk-dots{display:flex;gap:4px;font-size:15px}
+#bikeHud .bk-dots span{opacity:.35;filter:grayscale(1)}
+#bikeHud .bk-dots span.on{opacity:1;filter:none;transform:scale(1.18)}
+#bikeHud .bk-dots span.ok{opacity:.85;filter:none}
+#bikeHud .bk-live{font-size:11px;font-weight:800;color:#d8f5e3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bikeHud .bk-risk{position:relative;height:12px;margin-top:5px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
+.bk-fill{position:absolute;left:0;top:0;bottom:0;width:0;transition:width .25s}
+.bk-fill.ok{background:linear-gradient(90deg,#38c872,#9ef0bd)} .bk-fill.warn{background:linear-gradient(90deg,#f0b43a,#ffd98a)} .bk-fill.bad{background:linear-gradient(90deg,#e24a4a,#ff9a9a)}
+#bikeHud .bk-rtxt{position:absolute;inset:0;text-align:center;font-size:9.5px;font-weight:900;line-height:12px;color:#0d1424}
+.tbtn.bkbtn{display:none;position:fixed;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;
+  border:3px solid #fff;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.45);z-index:22}
+.tbtn.bkbtn .ico{font-size:28px;line-height:1}
+.tbtn.bkbtn .lbl{font-size:10.5px;font-weight:900;margin-top:1px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.tbtn.bkbtn.brake{right:calc(16px + var(--sa-r));bottom:calc(34px + var(--sa-b));width:100px;height:100px;background:rgba(214,52,52,.92)}
+.tbtn.bkbtn.brake .ico{font-size:38px}
+.tbtn.bkbtn.brake.held{transform:scale(.92);background:#b52424}
+.tbtn.bkbtn.look{right:calc(22px + var(--sa-r));bottom:calc(150px + var(--sa-b));width:80px;height:80px;background:rgba(52,120,214,.92)}
+.tbtn.bkbtn.mount{right:calc(128px + var(--sa-r));bottom:calc(40px + var(--sa-b));width:70px;height:70px;background:rgba(40,150,90,.92)}
+.tbtn.bkbtn.bell{right:calc(122px + var(--sa-r));bottom:calc(126px + var(--sa-b));width:58px;height:58px;background:rgba(230,170,40,.92)}
+.tbtn.bkbtn.bell .ico{font-size:24px}
+body.bikemode .tbtn.bkbtn{display:flex}
+body.bikemode .tbtn.hand,body.bikemode .tbtn.runbtn,body.bikemode .tbtn.footbtn,body.bikemode .tbtn.revbtn,body.bikemode .tbtn.boxbtn,
+body.bikemode .cluster.right,body.bikemode .sigs,body.bikemode #kidSteps,body.bikemode .face,body.bikemode .pad-mid{display:none!important}
+/* 학년 고르기 · 결과 카드 — 가운데 창 */
+#bikeGrade,#bikeResult{display:none;position:fixed;inset:0;z-index:40;align-items:center;justify-content:center;background:rgba(6,10,18,.55);pointer-events:auto;padding:14px}
+#bikeGrade .bg-box,#bikeResult .bk-box{background:#101826;border:2px solid rgba(120,220,160,.5);border-radius:18px;padding:18px 16px;max-width:min(94vw,460px);max-height:88vh;overflow:auto;color:#eaf2ff;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#bikeGrade b{display:block;font-size:22px;font-weight:900;text-align:center}
+#bikeGrade p{text-align:center;margin:8px 0 12px;font-size:15px;font-weight:700;color:#cfe3ff}
+#bikeGrade button{display:block;width:100%;min-height:56px;margin:8px 0;border-radius:14px;border:2px solid #fff;font-size:17px;font-weight:900;color:#10202a;background:#9ef0bd;cursor:pointer}
+#bikeGrade button[data-grade="teen"]{background:#9fd8ff}
+#bikeGrade i{display:block;margin-top:8px;font-size:11.5px;font-style:normal;color:#9fb2cc;text-align:center;line-height:1.45}
+#bikeResult h3{margin:0 0 8px;font-size:21px;text-align:center}
+#bikeResult .bk-rbar{position:relative;height:18px;border-radius:9px;background:rgba(255,255,255,.12);overflow:hidden}
+#bikeResult .bk-rbar span{position:absolute;inset:0;text-align:center;font-size:12px;font-weight:900;line-height:18px;color:#0d1424}
+#bikeResult .bk-rows{list-style:none;padding:0;margin:10px 0 6px}
+#bikeResult .bk-rows li{font-size:14px;font-weight:700;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,.08)}
+#bikeResult .bk-rows li.no{opacity:.6} #bikeResult .bk-rows i{font-style:normal;font-size:12px;color:#ffd98a}
+#bikeResult .bk-next{margin:8px 0;font-size:13.5px;font-weight:800;color:#fff3c4;word-break:keep-all}
+#bikeResult .bk-card{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 10px;margin:6px 0}
+#bikeResult .bk-card b{font-size:13.5px} #bikeResult .bk-card em{font-style:normal;font-size:11px;color:#ffb3b3;margin-left:4px}
+#bikeResult .bk-card small{display:block;font-size:11px;color:#9fb2cc;margin-top:2px}
+#bikeResult .bk-card p{margin:4px 0 0;font-size:12.5px;line-height:1.45;word-break:keep-all}
+#bikeResult .bk-acts{display:flex;gap:8px;margin-top:12px}
+#bikeResult .bk-acts button{flex:1;min-height:50px;border-radius:12px;border:2px solid #fff;font-size:16px;font-weight:900;cursor:pointer;background:#9ef0bd;color:#10202a}
+#bikeResult .bk-acts button[data-act="quit"]{background:#d8dee9}
+#bikeResult .bk-src{margin-top:10px;font-size:11px;color:#8ea3bf;line-height:1.45}
+@media (max-width:380px){.tbtn.bkbtn.brake{width:88px;height:88px}.tbtn.bkbtn.look{width:70px;height:70px;bottom:calc(136px + var(--sa-b))}.tbtn.bkbtn.mount{right:calc(114px + var(--sa-r));width:62px;height:62px}.tbtn.bkbtn.bell{right:calc(110px + var(--sa-r));bottom:calc(112px + var(--sa-b));width:52px;height:52px}}
+
+/* 메뉴 정리(소유자 2026-09-15 「메뉴가 너무 산만해」) — **테두리 두 칸**으로 나눈다: 🚓 경찰 근무 · 🏫 교통안전 교실.
+   학습·교통시설은 그 아래 작은 줄. 교실 단추에는 대상(학년·주제)을 작게 적는다. */
+.views.modes.mgroups{display:flex;flex-direction:column;align-items:stretch;gap:10px;width:100%}
+.mgroup{border:1.5px solid rgba(120,160,230,.38);border-radius:16px;padding:9px 10px 10px;background:rgba(255,255,255,.03);pointer-events:auto}
+.mgroup.edu{border-color:rgba(110,210,150,.45)}
+.mgroup .mg-title{font-size:12.5px;font-weight:900;letter-spacing:.3px;color:#bcd2ff;text-align:left;margin:0 0 7px 4px}
+.mgroup.edu .mg-title{color:#aee8c4}
+.mgroup .mg-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+.mgroup.edu .mpick{display:inline-flex;flex-direction:column;align-items:center;line-height:1.2}
+.mgroup.edu .mpick small{display:block;font-size:10.5px;font-weight:700;opacity:.75;margin-top:2px}
+.mg-more{display:flex;justify-content:center;gap:7px;flex-wrap:wrap}
+.mg-more .mpick{font-size:12.5px!important;padding:7px 13px!important;opacity:.9}
+.mgroup.edu .mg-btns{flex-wrap:nowrap}
+.mgroup.edu .mpick{flex:1 1 0;min-width:0;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
+@media (max-width:480px){.mgroup{padding:8px 7px 9px}.mgroup .mg-btns{gap:6px}.mgroup.edu .mpick{font-size:13px!important}.mgroup.edu .mpick small{font-size:9.5px}}
+@media (max-width:360px){.mgroup.edu .mpick{font-size:12px!important;padding-left:3px!important;padding-right:3px!important}}
