@@ -62,6 +62,12 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   function remove(p) { scene.remove(p.mesh); var k = peds.indexOf(p); if (k >= 0) peds.splice(k, 1); }
 
   function step(p, dt) {
+    // 인트로·교실 동안에는 무단횡단을 **매 프레임** 지운다 — 성향을 끄기 전에 이미 건너던 사람이 남아
+    // 검증에서 「인트로 중 무단횡단 1명」이 드물게 잡혔다(8회 중 1회). 여기서 막으면 경로와 무관하게 0 이다.
+    if (self.noJaywalk && (p.jaywalker || p.jayLive || p.state === 'jaywalk')) {
+      p.jaywalker = false; p.jayLive = false;
+      if (p.state === 'jaywalk') { p.state = 'walk'; p.d = p.jayD !== undefined ? p.jayD : p.d; }
+    }
     var f = TG.DIR_VEC[p.d];
     if (p.state === 'walk' || p.state === 'cross' || p.state === 'jaywalk') { p.pos.x += f[0] * p.speed * dt; p.pos.z += f[1] * p.speed * dt; }
     // **보도선으로 돌아온다 — 걷는 사람은 차도에 있을 수 없다.**

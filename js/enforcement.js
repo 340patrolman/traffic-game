@@ -7,7 +7,7 @@ TG.Enforcement = function (game) {
   var self = this;
   this.state = 'idle';     // idle | quiz | yielding | stopped | release
   this.target = null;
-  var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null;
+  var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null, notifyT = 0;
 
   function me() { return game.actor ? game.actor() : game.player; }   // 순찰차, 보행자 모드면 걷는 경찰관
   function onFoot() { return game.mode === 'walk' || game.mode === 'kid' || game.afoot === true; }
@@ -135,7 +135,7 @@ TG.Enforcement = function (game) {
     var pl = me();
     if (car.mode !== 'drive' && car.mode !== 'release') return;
     if (!onFoot() && !pl.siren) { pl.setSiren(true); TG.audio.setSiren(true); game.hud.setSiren(true); }
-    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0;
+    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0; notifyT = 0;
     game.traffic.setYield(car, true);
     if (onFoot()) { game.hud.notice('수신호 정차 — 차량이 우측에 섭니다. 운전석 옆(3m 안)으로 걸어가면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하세요. 수신호입니다'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하세요. 수신호입니다', 'info', 2600); }
     else { game.hud.notice('정차 유도 — 대상이 우측으로 정차합니다. 그 뒤 갓길에 안전하게 정차하면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하십시오', 'info', 2600); }
@@ -215,7 +215,19 @@ TG.Enforcement = function (game) {
       var c2 = self.target;
       if (c2.mode === 'stopped') {
         if (self.state !== 'stopped' && self.state !== 'await') { self.state = 'stopped'; game.hud.setTarget(onFoot() ? '대상 정차 — 운전석 옆(3m 안)으로 가세요' : '대상 정차 — 그 뒤 우측 가장자리에 정차하세요'); }
-        if (onFoot()) { if (distToTarget() < 3.6 && pl.telemetry.speed < 0.5) { completePullover(c2); self.target = null; } return; }
+        if (onFoot()) {
+          // 소유자 지시(2026-09-16): 「하차하고 단속되는 장면을 간단하게 만들어서 그냥 진행만 되게. 복잡할 필요 없을 듯.」
+          // 순찰차에서 내렸으면(afoot) 걸어간 거리를 재지 않는다 — 내리는 순간부터 2초 뒤 고지가 끝난다.
+          // 도보 근무(walk·kid)는 종전대로 운전석 옆으로 걸어간다(그쪽은 차가 없고 걷는 것이 근무다).
+          if (game.afoot) {
+            if (notifyT <= 0) { notifyT = 2.0; game.hud.setTarget('🚶 하차 — 위반사항 고지 중'); game.hud.hintNow('운전자에게 위반사항을 알리고 있습니다'); }
+            notifyT -= dt;
+            if (notifyT <= 0) { notifyT = 0; completePullover(c2); self.target = null; }
+            return;
+          }
+          if (distToTarget() < 3.6 && pl.telemetry.speed < 0.5) { completePullover(c2); self.target = null; }
+          return;
+        }
         if (pl.telemetry.speed < 0.3) {
           var cf = [Math.sin(c2.heading), Math.cos(c2.heading)], crx = -cf[1], crz = cf[0];
           var dx = pl.pos.x - c2.pos.x, dz = pl.pos.z - c2.pos.z, along = dx * cf[0] + dz * cf[1], lat = dx * crx + dz * crz;
@@ -226,7 +238,7 @@ TG.Enforcement = function (game) {
             // 소유자 지시(2026-09-12): 단속 **장면**은 보여주지 않는다. 세운 뒤 **하차해서 운전석 옆으로 가면** 고지가 끝난다.
             if (cfg.ENF_SCENE && sceneStart(c2)) return;
             if (cfg.ENF_SCENE) { completePullover(c2); self.target = null; return; }
-            if (self.state !== 'await') { self.state = 'await'; game.hud.setTarget('✅ 정차 완료 — 🚶 하차해서 운전석 옆(3m 안)으로'); game.hud.hintNow('하차 단추를 누르고(후방 확인) 운전석 약간 뒤 측면으로 갑니다'); }
+            if (self.state !== 'await') { self.state = 'await'; game.hud.setTarget('✅ 정차 완료 — 🚶 하차하면 고지가 끝납니다'); game.hud.hintNow('🚶 하차 단추를 누르세요(뒤에서 차가 오면 지나간 뒤에 내립니다)'); }
             return;
           }
           warnT -= dt;

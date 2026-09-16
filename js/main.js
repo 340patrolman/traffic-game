@@ -1670,7 +1670,7 @@
     hud.setSpeed(walker.speedKmh(), 0, 999); hud.setGear('D');
     minimap.draw(walker, traffic.cars, null, walk.dests[walk.idx] || null);
     TG.audio.update(dt, 0, 0, 0, 0, false);
-    if (G.mode === 'bike') hud.setTimerText('—'); else { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); }   // 청소년 교실은 시간 제한이 없다(장면을 다 하면 끝난다)
+    if (G.timeLeft > 1e8) hud.setTimerText(G.mode === 'bike' ? '—' : '∞'); else { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); }   // 시간 제한이 없는 모드(교실·자유 주행·서킷)는 숫자를 세지 않는다 — 하차하면 「16666666:30」이 찍혔다
     if (G.timeLeft <= 0) endShift(G.mode === 'duty' ? '근무 종료 — 소통 양호 ' + junction.score.cleared + '회' : (walk && walk.afoot) ? '근무 시간 종료' : '체험 시간 종료 — 목적지 ' + walk.arrived + '/' + walk.dests.length);
   }
   function fmtLap(t) { var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }

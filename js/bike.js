@@ -326,6 +326,7 @@ TG.BikeClass = function (game) {
     }
     b.d[1] = { d: d, v: b.bv || b.maxV };
     var ratio = b.d[0] && b.d[0].d > 0.3 ? d / b.d[0].d : 0;
+    var cl2 = cardLine('ride-inertia'); if (cl2) setTimeout(function () { if (st) hint(cl2); }, 2600);   // 소유자(2026-09-16): 「바퀴 달린 물건은 차 — 관성 때문에 바로 못 멈춘다 → 안전운전의무」
     pass('보통 ' + (b.d[0] ? b.d[0].d.toFixed(1) : '?') + 'm · 픽시 ' + d.toFixed(1) + 'm' + (ratio ? ' — 약 ' + ratio.toFixed(1) + '배' : '') + '. 브레이크 없는 자전거는 타지 않아요');
   }
 
@@ -379,7 +380,7 @@ TG.BikeClass = function (game) {
       var n = st.tries[S.id] || 0;
       return '<li class="' + (st.done[S.id] ? 'ok' : 'no') + '">' + S.icon + ' ' + esc(S.name) + ' <b>' + (st.done[S.id] ? '✓' : '—') + '</b>' + (n ? ' <i>다시 ' + n + '번</i>' : '') + '</li>';
     }).join('');
-    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
+    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
     var cards = ids.map(function (id) {
       var c = law(id); if (!c) return '';
       return '<div class="bk-card"><b>' + esc(c.name) + (c.verified === false ? ' <em>확인 중</em>' : '') + '</b><small>' + esc(c.law || '') + '</small><p>' + esc(c.tip || c.situation || '') + '</p></div>';

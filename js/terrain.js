@@ -182,9 +182,16 @@ TG.buildTerrain = function (scene, city, cfg) {
     var SP = Math.max(30, (J.x - E.x) * tc[0] + (J.z - E.z) * tc[1]);   // 분기점 → 링 접속점 실측 거리
     var tR = [J.tx, J.tz];                                   // 링 진행 방향(접선)
     var Rf = Math.max(34, SP - LO);                          // 원호 반지름
+    // 분기(Y) 를 실제 도로처럼 만든다 — 소유자(2026-09-16): 「연결 램프가 제대로 구현되어 있지 않음 · 도로와 도로가 제대로 연결되는 램프를 구현하자」.
+    // 전에는 램프 **한 개**를 연결로 폭(반폭 17m = 폭 34m)까지 부풀려 이음부를 덮었다 — 그래서 진출로가 부채꼴로 퍼져 보였다(실측 onS/offS 반폭 17).
+    // 이제 **진입·진출 두 갈래를 좌우로 벌려** 나란히 세운다. 두 갈래의 폭을 합치면 연결로 폭과 같아서 이음부에 빈 곳이 없고, 갈라지면서 가운데 도류대가 드러난다.
+    var RH = 5.8;                                            // 램프 본래 반폭(buildLink)
+    var RW = Math.max(RH, E.half / 2);                       // 분기점에서의 램프 반폭
+    var OFF = Math.max(0, E.half - RW);                      // 좌우로 벌리는 양
+    var sd = (tR[0] * rc[0] + tR[1] * rc[1]) >= 0 ? 1 : -1;  // 링 진행 방향이 연결로 기준 어느 쪽인가(갈래가 서로 엇갈리지 않게)
     // 원호: 분기점 E(방향 tc)에서 링 방향 sgn·tR 으로 90° 돈다. 진입·진출 램프가 같은 점에서 갈라진다.
     function arc(sgn) {
-      var T = [E.x, E.z];
+      var T = [E.x + rc[0] * sgn * sd * OFF, E.z + rc[1] * sgn * sd * OFF];   // 갈래는 자기가 도는 쪽에서 시작한다
       var C = [T[0] + tR[0] * sgn * Rf, T[1] + tR[1] * sgn * Rf], out = [];
       for (var k = 0; k <= 4; k++) {
         var th = (k / 4) * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
@@ -222,7 +229,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     var i0 = Math.max(iC, 0), yA = off.pts[i0].y, sA = off.pts[i0].s, sT = Math.max(1e-3, off.total - sA);
     for (i = i0 + 1; i < off.N; i++) off.pts[i].y = yA + (y0 - yA) * ((off.pts[i].s - sA) / sT);
     smoothY(on); smoothY(off);
-    taperHalf(on, true, E.half, Math.min(90, on.total * 0.45)); taperHalf(off, false, E.half, Math.min(90, off.total * 0.45));   // 램프 ↔ 연결로: 급하게 좁아지지 않도록 길게 줄인다
+    taperHalf(on, true, RW, Math.min(60, on.total * 0.35)); taperHalf(off, false, RW, Math.min(60, off.total * 0.35));   // 분기점 쪽만 조금 넓혀 이음부를 덮는다(전에는 연결로 폭까지 부풀렸다)
     conn.splitEnd = true;          // 끝이 램프 분기점이다(난간을 세우지 않는 구간)
     var connEndIdx = conn.N - 1;   // 연결로 끝 = 램프 분기점
     conn.nextA = { link: on, index: 0, lane: 0, joinIndex: connEndIdx };
@@ -258,9 +265,21 @@ TG.buildTerrain = function (scene, city, cfg) {
     // 램프 분기점은 **다리 위에 두지 않는다**. 한남대교 연결로는 링 접속점에서 56m 뒤가 한강 한복판이어서
     // 분기점과 두 램프가 강 위에 조각조각 떠 있었다(소유자: 「도로가 또 끊어져 있음 · 연결성이 매우 중요함에도」).
     // 링에서 멀어지는 쪽으로 물러나며 물 위가 아닌 첫 지점을 분기점으로 삼는다 — 강은 램프가 아니라 **연결로 본선**이 건넌다.
-    var Ept = conn.pts[conn.N - 1], SPLIT = 56;
-    for (var sp = 56; sp <= 136; sp += 6) { SPLIT = sp; if (river(J.x - Ept.tx * sp, J.z - Ept.tz * sp) > -1.2) break; }
-    var split = [J.x - Ept.tx * SPLIT, J.z - Ept.tz * SPLIT];   // 90° 원호(반경 약 59m)가 들어갈 만큼 링에서 떨어뜨린다
+    // 분기점은 **링에서 멀수록 좋다** — 56m 면 갈래가 갈라지자마자 90° 로 꺾여 정면으로는 20~30m 만에 포장이 끝나 보였다
+    // (소유자 2026-09-16: 「아직도 중간에 끊어져 있어」). 멀면 원호 반경이 커져 길고 완만하게 갈라진다.
+    // 다만 ① 물 위에 두지 않고(한남대교) ② 연결로가 70m 보다 짧아지지 않아야 한다 — 그 두 조건을 지키는 **가장 먼 자리**를 고른다.
+    var Ept = conn.pts[conn.N - 1], SPLIT = 0;
+    function connAt(px, pz) { var bp = conn.pts[0], bd = 1e9; for (var ci = 0; ci < conn.N; ci++) { var cp = conn.pts[ci], cd = Math.hypot(cp.x - px, cp.z - pz); if (cd < bd) { bd = cd; bp = cp; } } return bp; }
+    for (var sp = 116; sp >= 56; sp -= 6) {
+      var cx1 = J.x - Ept.tx * sp, cz1 = J.z - Ept.tz * sp;
+      if (river(cx1, cz1) <= -1.2) continue;                                   // 물 위에 두지 않는다
+      var cp1 = connAt(cx1, cz1);
+      if (cp1.s < 70) continue;                                                // 연결로가 너무 짧아지면 안 된다
+      if ((J.x - cx1) * cp1.tx + (J.z - cz1) * cp1.tz < 70) continue;          // 그 자리에서 링까지 원호가 들어갈 여유(굽은 연결로에서 급해지던 것)
+      SPLIT = sp; break;
+    }
+    if (!SPLIT) { SPLIT = 56; for (var sp2 = 56; sp2 <= 136; sp2 += 6) { SPLIT = sp2; if (river(J.x - Ept.tx * sp2, J.z - Ept.tz * sp2) > -1.2) break; } }
+    var split = [J.x - Ept.tx * SPLIT, J.z - Ept.tz * SPLIT];
     trimLink(conn, [start[0] - dv[0] * 4, start[1] - dv[1] * 4], split);
     var cAx = city.axisOfDir(ic.dir), cIdx = cAx === 'v' ? ic.node[0] : ic.node[1];
     taperHalf(conn, true, city.halfOf(cAx, cIdx), 90);   // 도시 도로 폭에서 연결로 폭으로 점차 줄인다
@@ -300,11 +319,21 @@ TG.buildTerrain = function (scene, city, cfg) {
     function at(d) { return [J.x + rad[0] * d, J.z + rad[1] * d]; }
     // 링 **중앙분리대를 넘지 않는다** — 바깥 차로(중앙선 밖)에서 시작해 밖으로 나간다.
     // 처음에 중앙선(at(-30))부터 그었더니 분리대에 막혀 차가 39km/h 로 달리다 그 자리에서 멈췄다(실측).
-    var L = buildLink('gate', [at(-2), at(6), at(40), at(85), at(120), at(150)], 'suburb', false);   // 150m — 더 길게 빼면 동쪽 바다에 닿는다
+    // 고속도로에 **직각으로 붙는 길은 없다**(소유자 2026-09-16: 「도로와 도로가 잘 연결되어야 하는데」).
+    // 진출로처럼 바깥 차로에서 **나란히 흐르다가 점점 벌어져** 나간다 — 전에는 링 한가운데에서 직각으로 뻗어 평면 교차처럼 보였다.
+    // 링의 rx 는 **안쪽**을 가리킨다(A = 안쪽 차로 · 시계 방향) — 바깥으로 벌리려면 중심에서 바깥을 향하는 방사 방향을 직접 쓴다.
+    // 관문은 바깥 차로(B 쪽)에서 갈라지므로 링 인덱스는 **거꾸로** 따라간다.
+    var LOg = cfg.HW_LANES[cfg.HW_LANES.length - 1], CPg = [];
+    for (var tg = 0; tg <= 6; tg++) {
+      var ug = tg / 6, pg = ring.P(j + 8 - Math.round(ug * 22));
+      var ox = pg.x - CXC, oz = pg.z - CZC, ol = Math.hypot(ox, oz) || 1, ex = LOg + 150 * ug * ug;
+      CPg.push([pg.x + (ox / ol) * ex, pg.z + (oz / ol) * ex]);
+    }
+    var L = buildLink('gate', CPg, 'suburb', false);   // 바깥으로 약 150m — 더 빼면 동쪽 바다에 닿는다
     L.name = '관문 · 순환도로 밖';
     L.noSpawn = true;                                  // AI 는 ring·conns 에서만 스폰한다 — 막다른 길에 차를 두지 않는다
-    var endP = L.P(L.N - 1);
-    return { link: L, x: endP.x, z: endP.z, hd: Math.atan2(-rad[0], -rad[1]), out: rad, ring: [J.x, J.z] };
+    var endP = L.P(L.N - 1), outV = [endP.tx, endP.tz];
+    return { link: L, x: endP.x, z: endP.z, hd: Math.atan2(-outV[0], -outV[1]), out: outV, ring: [J.x, J.z] };
   })();
   // 관문 광장·표지(외부 이미지 0개 규칙 그대로 — 글은 캔버스 표지로 그린다)
   function buildGateSigns(isTwin) {
@@ -533,7 +562,18 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 램프가 링 가장자리를 가로지르는 곳(±16m)은 가드레일을 비운다 — 진입·진출로가 벽에 막히지 않는다. 램프가 있는 쪽(lateral 부호)만.
   // 램프가 본선 포장 안을 달리는 구간(가속·감속차로)을 표시한다 — 그 구간에서는 램프의 가장자리선을 그리지 않는다.
   // 그리지 않으면 램프 차로선이 본선 차로를 가로질러 이어져 보였다(소유자: 「연결도로선이 본선도로까지 이어짐」).
-  links.forEach(function (Lm) { if (!Lm.oneWay) return; for (var mi = 0; mi < Lm.N; mi++) { var mp = Lm.pts[mi], mq = nearest(mp.x, mp.z, 'no'); mp.inMain = !!(mq && mq.dist <= mq.p.half - 1.5 && Math.abs(mq.y - mp.y) < 1.5); } });
+  // ⚠ `nearest().dist` 는 **가로(lateral) 거리**다 — 본선이 **끝난 뒤**에도 그 중심선 연장 위에 있으면 작게 나온다.
+  //   그래서 분기점 너머 램프들이 「본선 포장 안」으로 잘못 잡혀 **포장이 아예 안 그려졌다** — 운전석에서는 길이 뚝 끊겨 보였다
+  //   (소유자 2026-09-16: 「도로와 도로가 잘 연결되어야 하는데」 · 「아직도 중간에 끊어져 있어」).
+  //   진짜로 겹치는 구간만 참이 되도록 **세로(along) 잔여값**까지 본다 — 끝점에 붙어 잘린 투영이면 이 값이 크다.
+  links.forEach(function (Lm) {
+    if (!Lm.oneWay) return;
+    for (var mi = 0; mi < Lm.N; mi++) {
+      var mp = Lm.pts[mi], mq = nearest(mp.x, mp.z, 'no');
+      var alo = mq ? (mp.x - mq.x) * mq.tx + (mp.z - mq.z) * mq.tz : 99;
+      mp.inMain = !!(mq && mq.dist <= mq.p.half - 1.5 && Math.abs(alo) <= 3 && Math.abs(mq.y - mp.y) < 1.5);
+    }
+  });
   var rampPts = []; links.forEach(function (Lr) { if (Lr.oneWay || Lr.id === 'gate') for (var ri = 0; ri < Lr.N; ri++) rampPts.push(Lr.pts[ri]); });   // 관문 길도 포함 — 순환도로 방호벽이 출구를 막고 있었다
   function rampGap(L, p, side) {
     if (!L.closed) return false;
@@ -549,8 +589,31 @@ TG.buildTerrain = function (scene, city, cfg) {
     for (var i = 0; i < segs; i++) {
       var p = L.P(i), q = L.P(i + 1), half = p.half, hw = p.f > 0.5, ramp = L.oneWay;
       var noseZone = L.splitEnd && (L.total - p.s) < 46;   // 램프 분기점 앞: 난간·방호벽을 세우지 않는다(램프가 이 선을 가로지른다)
+      // `inMain`(본선 포장 안)은 **차선·옆치마에만** 쓴다 — 포장은 언제나 그린다.
+      // 전에는 포장까지 건너뛰어서, 본선 중심선 연장 위에 있는 램프 구간이 통째로 안 그려졌다(가로 거리만 보는 판정 탓).
+      // 겹쳐 그려도 램프 노면은 2cm 위라 어른거리지 않는다. 「도로가 중간에 끊긴다」의 진짜 원인이 이 건너뛰기였다.
       var overMain = ramp && p.inMain;                     // 본선 포장 안 = 본선이 이미 깔았다
-      if (!overMain) ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);
+      ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);   // 포장은 언제나 그린다(겹쳐도 2cm 위)
+      // 분기점 뒤 **도류대(gore)** 를 포장으로 메운다 — 소유자(2026-09-16): 「아직도 중간에 끊어져 있어」.
+      // 두 갈래가 갈라지자마자 가운데가 잔디로 드러나 운전석에서는 길이 끊긴 것처럼 보였다(실측: S IC 는 분기 20m 뒤부터 포장 없음).
+      if (ramp && L.id.indexOf('on') === 0 && p.s < 70) {
+        var mate = null;
+        for (var mi = 0; mi < links.length; mi++) if (links[mi].id === 'off' + L.id.slice(2)) mate = links[mi];
+        if (mate) {
+          var mA = null, mB = null, dA = 1e9, dB = 1e9;
+          for (var oi = 0; oi < mate.N; oi++) {
+            var op = mate.pts[oi];
+            var d1 = Math.hypot(op.x - p.x, op.z - p.z); if (d1 < dA) { dA = d1; mA = op; }
+            var d2 = Math.hypot(op.x - q.x, op.z - q.z); if (d2 < dB) { dB = d2; mB = op; }
+          }
+          if (mA && mB) {
+            var latA = (mA.x - p.x) * p.rx + (mA.z - p.z) * p.rz, latB = (mB.x - q.x) * q.rx + (mB.z - q.z) * q.rz;
+            var sgG = latA >= 0 ? 1 : -1;
+            var fill = Math.min(Math.abs(latA) - mA.half, Math.abs(latB) - mB.half);
+            if (fill > half + 0.2 && fill < half + 26 && Math.abs(p.y - mA.y) < 1.2) ribbon(road, p, q, sgG * half, sgG * fill, 0.04, 0xffffff, 8);
+          }
+        }
+      }
       // 노면 옆치마(4m 벽)는 **정말로 지형이 꺼진 곳**에만 세운다.
       // 램프가 본선 포장 위를 나란히 달리는 구간에서는 이 벽이 차로 가운데를 가로지르는 「턱」으로 보였다
       // (소유자: 「매끈하게 연결되어야 하는데 턱이 있고 차들이 도로에 반쯤 들어가서 달리고 있음」).
