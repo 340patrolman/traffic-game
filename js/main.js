@@ -87,6 +87,10 @@
     minimap = new TG.Minimap(document.getElementById('minimap'), city, terrain); G.minimap = minimap;
     // 근무 일지 + 오답 노트는 **처음부터** 있어야 한다 — 타이틀 화면에도 누적 기록이 뜬다.
     if (TG.Career) G.career = new TG.Career(G);
+    // 🎖 칭찬·콤보·등업도 **처음부터** — 타이틀에 계급이 뜨고, 근무를 넘겨도 경험치는 이어진다
+    if (TG.Praise) G.praise = new TG.Praise(G);
+    // 👁 두 시점 되돌려 보기 — 「하지 말라는 걸 하면 무슨 일이 벌어지는가」(아이 눈 · 운전자 눈)
+    if (TG.Replay) G.replay = new TG.Replay(G);
     minimap.layers = layers;   // 미니맵에도 레이어를 겹쳐 그린다
     TG.audio.setMuted(!settings.sound);
     TG.perf.onChange(function (scale, shadows) { world.sun.castShadow = shadows; });
@@ -295,7 +299,7 @@
     TG.audio.setSiren(false);
   }
   function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); if (cine) { cine.dispose(); cine = null; G.cine = null; } hud.showIntro(false); hud.showTouch(true); showTitle(); }
-  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null), G.career ? G.career.line() : ''); camInit = false; }
+  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; hud.showTitle(TG.save.get('best', null), (G.praise ? G.praise.rank().icon + ' ' + G.praise.rank().name + ' · ' + G.praise.data.xp + ' XP' + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '')); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -488,12 +492,12 @@
       setTimeout(function () { TG.audio.say('초록불이 켜졌어요. 손을 들고 천천히 건너요', { kind: 'kid', queue: true }); }, 2600);
       hud.notice('🔊 목소리 들어보기 — 경찰관 · 어린이 순서로 말합니다(기기에 목소리가 여럿이면 목록에서 고르세요)', 'info', 4200);
     });
-    setTimeScale(1);
+    setTimeScale(settings.speed || 1);
     // 옮길 수 있는 것들 — 소유자가 든 것(미니맵·경광등·단속·앰프·블랙박스·무전)에 방향지시등·작은 단추·하차·손 들기까지 넣었다.
     // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
     // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
     // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
-    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnSigL', 'btnSigR',
+    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR',
                         'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
@@ -531,6 +535,9 @@
     function radio() { if (response) response.radio(); }
     input.bindTap($('btnCam'), blackbox); input.onKey('KeyB', function () { if (totKeysOn()) { G.tot.prev(); return; } blackbox(); });
     input.bindTap($('btnRadio'), radio); input.onKey('KeyT', radio);
+    // 🔥 비스트 모드(추격전) — 원칙대로 따라간 만큼 찬 게이지를 쓴다
+    function beastGo() { if (G.state === 'play' && G.chase) G.chase.beastGo(); }
+    input.bindTap($('btnBeast'), beastGo); input.onKey('KeyH', beastGo);
     // 🚧 현장 안전조치 — 한 단추로 순서대로: 라바콘 차로 차단(필요한 수만큼) → 야간·악천후면 불꽃신호기 점화.
     // 문구·수치는 laws.json incidentScene(티북 문구)에서 온다.
     function sceneAct() {
@@ -664,8 +671,17 @@
     input.onKey('KeyF', enforce);
     // 손 들기(보행자·어린이 모드): ✋ 버튼 · G 키
     function raiseHand() { if (G.mode === 'duty') { if (G.state === 'play' && duty && walker) dutyHand(); return; }   // 교차로 근무에서는 ✋ 가 꼬리 끊기 수신호다
-      if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요 — 운전자가 나를 잘 봐요', 'good', 1600); TG.audio.ui(); kidSay('kidOk'); } } }
+      if (G.state === 'play' && walker) { walker.raiseHand(4); if (G.mode === 'kid') { hud.notice('✋ 손을 들었어요 — 운전자가 나를 잘 봐요', 'good', 1600); TG.audio.ui(); kidSay('kidOk'); if (G.praise) G.praise.cheer('hand', 10, { feed: '손 들기 ✋' }); } } }
     input.bindTap($('btnHand'), raiseHand); input.onKey('KeyG', raiseHand);
+    // 👀 살피기(어린이 교실) — 소유자(2026-09-16) 「자전거에서 살피기 누르니까 재미 있는데 어린이 교실에서도 적용시켜줘 재미가 있어야해」
+    function kidLook() {
+      if (G.state !== 'play' || !walker || !walk || G.mode !== 'kid') return;
+      walk.lookSweep = 1.4; walk.lookAuto = true;
+      TG.audio.ui(); hud.burst('👀', 2); kidVoice('look');
+      if (G.praise) G.praise.cheer('look', 8, { feed: '좌우 살피기 👀' });
+    }
+    G.kidLook = kidLook;
+    input.bindTap($('btnLook'), kidLook); input.onKey('KeyL', kidLook);
     // 걷기/달리기 토글(보행자·어린이 모드): 스틱을 끝까지 밀어도 걷는다. 달리기는 이 버튼(또는 Shift·패드 A)으로만
     input.bindTap($('btnRun'), function () { input.runToggle = !input.runToggle; var b = $('btnRun'); b.classList.toggle('on', input.runToggle); b.querySelector('.ico').textContent = input.runToggle ? '🏃' : '🚶'; b.querySelector('span:last-child').textContent = input.runToggle ? '달리기' : '걷기'; TG.audio.ui(); if (G.mode === 'kid' && input.runToggle) kidVoice('norun', true); });
     // 교차로 근무: 신호제어기 조작판(제어함 R 키 · 🔧 버튼). 자동/수동 · 방향별 녹색 요청 · 바깥 차로 차단 · 꼬리 끊기
@@ -696,7 +712,7 @@
     });
     input.onKey('KeyP', function () { if (G.state === 'play') setPaused(!G.pauseReasons.menu, 'menu'); });
     input.onKey('Enter', function () { if (G.state === 'title') start(settings.car); else if (G.state === 'intro') endIntro(); else if (G.state === 'end') { hud.hideEnd(); showTitle(); } else if (totKeysOn()) G.tot.key('act'); });
-    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); else if (totKeysOn()) G.tot.key('act'); else if (bikeKeysOn()) G.bike.look(); });
+    input.onKey('Space', function () { if (G.state === 'intro') endIntro(); else if (totKeysOn()) G.tot.key('act'); else if (bikeKeysOn()) G.bike.look(); else if (G.mode === 'kid' && G.state === 'play') G.kidLook(); });
     function bikeKeysOn() { return G.state === 'play' && !G.paused && G.mode === 'bike' && !!G.bike && G.bike.on(); }
     input.onKey('KeyZ', function () { if (bikeKeysOn()) G.bike.bell(); });
     input.bindTap($('btnBikeLook'), function () { if (bikeKeysOn()) G.bike.look(); });
@@ -785,15 +801,16 @@
   }
   function toggleSiren() {
     if (G.state !== 'play' || !player || onFoot()) return;
-    player.setSiren(!player.siren); TG.audio.resume(); TG.audio.setSiren(player.siren); hud.setSiren(player.siren);
+    player.setSiren(!player.siren); TG.audio.resume(); TG.audio.setSiren(player.siren, 'wail'); hud.setSiren(player.siren);   // 손으로 켤 때는 늘 웨일 — 옐프는 비스트 모드에서만
   }
 
   function start(carId, modeOverride) {
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
-    document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit');   // 속도선·경광등 테두리는 내리고 시작한다
-    hud.clearHint(); hud.setTarget(null); setTimeScale(1);   // 배속은 근무를 새로 시작하면 1배로 돌아간다
+    document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit'); document.body.classList.remove('beast');   // 속도선·경광등 테두리·비스트는 내리고 시작한다
+    hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1);   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
+    if (G.praise) { G.praise.reset(); G.praise.showBar(); }   // 🎖 근무를 시작하면 콤보는 0 부터, 계급은 이어서(경험치는 기기에 남는다)
 
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
@@ -1462,6 +1479,22 @@
             walk.stars += st; walk.crossings++; addScore(st * 10, null);
             if (walk.cross.hand) { walk.handCross = (walk.handCross || 0) + 1; addScore(5, null); }
             if (G.kidCourse) G.kidCourse.note('crossed');   // 어린이 교실 ②「건널 자리」
+            // 🎖 칭찬·콤보·등업 — 잘 건널 때마다 재치 있는 한마디와 경험치가 붙는다(소유자: 「게임의 재미」)
+            if (G.praise) G.praise.cheer(walk.cross.carOk === false ? 'cross' : 'carstop', 18 + st * 8, { feed: '안전 횡단 ⭐' + st });
+            // 👁 차가 아직 오는데 들어섰다면 — **두 시점으로 되돌려 본다**(소유자 2026-09-16 「아이 시점과 운전자 시점으로」).
+            // 사고는 나지 않았다. 「그때 서로 어떻게 보였는지」만 보여 준다.
+            if (walk.cross.carOk === false && G.replay && walk.carObj && traffic.cars.indexOf(walk.carObj) >= 0) {
+              G.replay.blindSpot({ x: walk.cross.x0, y: walker.y || 0, z: walk.cross.z0 }, walk.carObj, {
+                eye: 1.0,
+                childTtl: '내 눈에는 「멈추겠지」였다',
+                childSub: '초록불이어도 차가 완전히 멈췄는지 보고 건너요',
+                childSay: '초록불이어도 차가 완전히 멈췄는지 봐야 해요',
+                driverTtl: '운전자 눈에는 아이가 갑자기 보인다',
+                driverSub: '차는 바로 멈추지 않는다 — 브레이크를 밟아도 한참 더 간다',
+                driverSay: '운전자 눈에는 아이가 갑자기 보여요. 차는 바로 멈추지 않아요'
+              });
+            }
+            walk.carObj = null;
             hud.burst('⭐', st * 4); TG.audio.jingle(st); walk.smileT = 4; walk.waveT = 3.5;
             if (st >= 3) { G.slowmo = 0.8; G.punch = 0.7; hud.burst('🎉', 4); if (vfx) vfx.puff(walker.pos.x, 1.2, walker.pos.z, 0, 1.2, 0, 1.1, 1.4); }   // 별 셋 = 오늘의 자랑거리
             hud.notice('⭐'.repeat(st) + ' 잘 건넜어요! (멈춘다 ' + (walk.cross.stopped ? '✓' : '✗') + ' · 본다 ✓ · 손을 든다 ' + (walk.cross.hand ? '✓' : '✗') + ' · 걷는다 ' + (walk.cross.ran ? '✗' : '✓') + ' · 차 멈춤 ' + (walk.cross.carOk === false ? '✗' : '✓') + ') 별 ' + walk.stars + '개', 'good', 3600); TG.audio.good();
@@ -1494,10 +1527,11 @@
         var crossAxK = nearX ? city.roadOf(node, best).axis : 'v';
         var wk = nearX && signals.pedWalk(node, crossAxK), rem = nearX ? signals.pedRemain(node, crossAxK) : 99;
         if (nearX && walker.v < 0.3) walk.stopT += dt; else if (!nearX) walk.stopT = 0;
-        if (!nearX) { kidStep(-1); walk.handHeld = false; }
+        if (!nearX) { kidStep(-1); walk.handHeld = false; walk.lookAuto = false; }
         else if (walk.stopT < 1.0) { kidStep(0, '🛑 서다 — 멈춘다'); if (walker.v > 0.5 && walk.voiceCd <= 0) kidVoice('stop'); }
         else if (walk.stopT < 4.0) {   // 👀 보다: 멈춰 선 채로 **3초 동안** 좌우를 살핀다 — 이때 자전거·오토바이가 지나간다
           kidStep(1, '👀 보다 — ' + Math.max(1, Math.ceil(4.0 - walk.stopT)) + '초');
+          if (!walk.lookAuto) { walk.lookAuto = true; walk.lookSweep = 1.4; hud.burst('👀', 2); }   // 단계에 들어서면 고개가 저절로 좌우를 훑는다 — 👀 단추로 다시 볼 수 있다
           if (walk.voiceCd <= 0) kidVoice('look');
           if ((walk.zipCd || 0) <= 0 && !wk) { walk.zipCd = 30; kidZip(node, best); }   // 차량 녹색(보행 적색) 때만 — 적색에 스폰하면 정지선에 서 버린다
           if ((walk.compCd || 0) <= 0) { walk.compCd = 30; kidCompanions(node, best); }
@@ -1529,7 +1563,7 @@
         // 🚗 「초록불이라도 **자동차가 완전히 멈추었는지** 확인 후 건너기」 — 아직 움직이는 차가 있으면 알려 준다.
         if (kidHint && nearX && wk && walk.hintCd <= 0) {
           var mv = movingCarNear(node, best, 18);
-          if (mv) { walk.hintCd = 3; walk.carMoving = 1.6; kidVoice('carStop', true); hud.notice('🚗 차가 아직 멈추지 않았어요 — 완전히 멈춘 뒤에 건너요', 'warn', 2800); }
+          if (mv) { walk.hintCd = 3; walk.carMoving = 1.6; walk.carObj = mv; kidVoice('carStop', true); hud.notice('🚗 차가 아직 멈추지 않았어요 — 완전히 멈춘 뒤에 건너요', 'warn', 2800); }
         }
         walk.carMoving = Math.max(0, (walk.carMoving || 0) - dt);
         // 🌂 비 오는 날: 한 번 건너 보면 비가 오고 **투명 우산**을 든다(소유자 제공 자료 — 경기도교육청 등·하굣길).
@@ -1643,6 +1677,12 @@
     if (G.mode === 'duty' && junction && junction.hand) walker.gesture = 'stop';   // 꼬리 끊기 수신호는 계속 유지한다
     else if (G.mode === 'duty' && duty && duty.open && junction.nearBox(walker.pos.x, walker.pos.z) < 3.2) walker.gesture = 'operate';   // 제어함 앞에서는 조작 자세
     walker.lookScan = !!(walk && walker.kid && (walk.step === 2 || walk.step === 3));
+    if ((walk.lookSweep || 0) > 0) {                                  // 👀 살피기 — 고개와 화면이 왼쪽 → 오른쪽을 훑는다(자전거 교실과 같은 연출)
+      walk.lookSweep -= dt;
+      var lph = 1 - walk.lookSweep / 1.4;
+      G.lookYaw = Math.sin(lph * Math.PI * 2) * 1.15; G.lookHold = true; walker.look = G.lookYaw * 0.8; walker.lookScan = true;
+      if (walk.lookSweep <= 0) { walk.lookSweep = 0; G.lookHold = false; walker.look = 0; walker.lookScan = false; }
+    }
     walker.smile = walk.smileT > 0; walk.smileT = Math.max(0, (walk.smileT || 0) - dt);
     walker.update(dt, mv, camYaw);
     // 발소리(걸음 위상 반 바퀴마다) · 횡단보도 음향신호기(앞 횡단보도가 보행 녹색이면 뻐꾸기/귀뚜라미)
@@ -1944,7 +1984,9 @@
   G.addScore = addScore; G.selectTarget = function (s) { selectTarget(s); };
   function penalize(key, text, teach) {
     if (!SCORED[G.mode] && key !== 'crash' && key !== 'pedestrian') { if (teach) hud.hint(teach); return; }   // 자유 주행·서킷: 사고 외 감점 없음(안내만)
-    addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad(); }
+    addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600); if (teach) hud.hint(teach); TG.audio.bad();
+    if (G.praise) G.praise.miss();   // 콤보만 끊는다 — 감점은 위에서 이미 했고, 여기서 더 벌하지 않는다
+  }
   G.penalize = penalize;
   function onTrafficEvent(kind, car) {
     if (kind === 'incident') {   // 상황실 신고 → 현장으로
@@ -2004,6 +2046,7 @@
       if (st.chase && st.chase.result === 'break') badges.push({ text: '🛑 중단 판단', gold: true });
       if (st.chase && st.chase.result === 'caught' && !penaltyCount.chaseReckless) badges.push({ text: '🚨 안전한 추격', gold: true });
       if (st.chase && st.chase.safeAwards >= 2) badges.push({ text: '📏 안전거리 ' + st.chase.safeAwards + '회' });
+      if ((st.beastUses || 0) >= 1) badges.push({ text: '🔥 비스트 ' + st.beastUses + '회', gold: !penaltyCount.chaseReckless && !penaltyCount.chaseClose });
       if (st.chase && (st.chase.topKmh || 0) > 60) badges.push({ text: '🏁 최고 ' + Math.round(st.chase.topKmh) + 'km/h' + ((st.chase.misses || 0) ? ' · 아슬아슬 ' + st.chase.misses + '회' : '') });
       if ((st.junction || 0) >= 3) badges.push({ text: '🚦 소통 확보 ' + st.junction + '회', gold: (st.junction || 0) >= 5 });
       if (!penaltyCount.redLight && !penaltyCount.speeding && G.mode === 'patrol') badges.push({ text: '🚦 신호·속도 준수' });
@@ -2021,6 +2064,13 @@
       st.review = wl.length ? wl.slice(0, 3).map(function (w) { return (enforcement && enforcement.nameOf ? enforcement.nameOf(w.id) : w.id) + '(' + w.left + '번 더)'; }).join(' · ') +
         (wl.length > 3 ? ' 외 ' + (wl.length - 3) + '개' : '') + ' — 학습 화면에서 다시 보세요' : '';
       st.career = G.career.line();
+    }
+    // 🎖 계급·콤보(v0.9.89) — 오늘 얻은 경험치와 다음 계급까지 남은 값
+    if (G.praise) {
+      var ps = G.praise.summary();
+      st.rank = ps.rank; st.rankNext = ps.next; st.rankPct = ps.pct; st.rankXp = ps.xp; st.rankUps = ps.rankUps;
+      st.rankLeft = ps.next ? Math.max(0, ps.next.xp - ps.total) : 0; st.bestCombo = ps.combo;
+      G.praise.hide();
     }
     if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
@@ -2280,6 +2330,7 @@
 
   // 카메라 감각: 충돌 흔들림(G.shake) · 위반 포착 줌 펀치(G.punch)
   function camFx(dt) {
+    if (G.replay && G.replay.apply(camera)) return;   // 되돌려 보기가 카메라를 잡는다(흔들림·화각 펀치 없이 그대로 보여 준다)
     // 🚨 속도선·경광등 테두리 — 도보·교실에서는 안 쓴다(아이들 앞은 무대다)
     var fastV = (player && !onFoot() && G.state === 'play') ? TG.clamp((player.speedKmh() - 85) / 70, 0, 1) : 0;
     if (Math.abs(fastV - (G.fastV || 0)) > 0.03) { G.fastV = fastV; document.documentElement.style.setProperty('--fast', (fastV * 0.9).toFixed(2)); }
@@ -2296,6 +2347,8 @@
     player.teleport(rules.lastRoad.x, rules.lastRoad.z, rules.lastRoad.h); player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync(); camInit = false;
   }
   function update(dt) {
+    // 👁 되돌려 보기 동안에는 세상이 멈춘다 — 여기서 걸러야 `TG.test.step` 으로 돌릴 때도 같은 길을 간다
+    if (G.replay && G.replay.active()) { G.replay.update(dt); return; }
     if (onFoot() && walker) { walkUpdate(dt); return; }
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
@@ -2359,6 +2412,7 @@
         if (tcar && tcar.incident) { tcar.incident.handled = true; tcar.incident.towed = true; }
         hud.notice('✅ 안전지대까지 끌어냈습니다 (+' + (C.SCORE.towDone || 25) + ') — ' + ((L3 && L3.tow && L3.tow.far) || ''), 'good', 5200);
         hud.pop('🪝 +' + (C.SCORE.towDone || 25), 'good'); TG.audio.jingle(3);
+        if (G.praise) { G.praise.cheer('help', 50, { feed: '고장차 견인 🪝', voice: true }); G.praise.medal('tow-help', '끌어내 주었다', 30); }
         TG.audio.say('차량을 안전지대로 이동했습니다', { kind: 'officer', queue: true });
         setTimeout(function () { if (traffic.clearIncidents) traffic.clearIncidents(); }, 5000);
       }
@@ -2444,6 +2498,8 @@
   // 한 번에 큰 dt 를 넣으면 주행 물리가 튄다 — 0.034초 이하 조각으로 나눠 update 를 여러 번 돈다.
   // 눌림(pressed) 입력은 첫 조각에서만 받고 지운다(한 번 누른 것이 두 번 처리되지 않게).
   function playStep(dt) {
+    // 👁 되돌려 보기 동안에는 **세상이 멈춘다** — 카메라만 움직이고 조작은 받지 않는다(아이가 볼 것은 시야뿐이다)
+    if (G.replay && G.replay.active()) { update(dt); input.clearPressed(); return; }   // 배속과 무관하게 한 번만(update 안에서 되돌려 보기가 돈다)
     var k = G.timeScale || 1;
     if (k <= 1.0001) update(dt);
     else {
@@ -2459,10 +2515,13 @@
     G.sigTick = false;
   }
   function setTimeScale(v) {
-    v = Math.round(TG.clamp(+v || 1, 0.5, 3) * 10) / 10;   // 0.5 배까지 내린다 — 어린이 교실에서 「늦게」가 필요하다
+    // 0.5~2.0 배(소유자 2026-09-16: 「0.5부터 2.0까지」). **고른 값은 기억한다** — 근무를 새로 시작해도 1배로 돌아가지 않는다.
+    v = Math.round(TG.clamp(+v || 1, 0.5, 2) * 20) / 20;   // 0.05 자리로 반올림 — [ ] 의 0.1 단위와 빠른 설정의 0.75 를 둘 다 담는다
     G.timeScale = v;
-    var b = document.getElementById('btnSpeed'); if (b) { b.textContent = '▶ ' + v.toFixed(1) + '×'; b.classList.toggle('fast', v > 1); }
-    var sv = document.getElementById('speedVal'); if (sv) sv.textContent = v.toFixed(1) + '×';
+    var ts = (Math.abs(v * 10 - Math.round(v * 10)) < 1e-6) ? v.toFixed(1) : v.toFixed(2);   // 0.75 를 「0.8」로 보이면 안 된다
+    var b = document.getElementById('btnSpeed'); if (b) { b.textContent = '▶ ' + ts + '×'; b.classList.toggle('fast', v > 1); }
+    var sv = document.getElementById('speedVal'); if (sv) sv.textContent = ts + '×';
+    if (settings.speed !== v) { settings.speed = v; TG.save.set('settings', settings); }
     return v;
   }
   // 진동(소유자: 「게임중 부딛히면 진동도 오고」). 안드로이드 크롬만 된다 — 아이폰 사파리에는 진동 API 가 없어 조용히 넘어간다.

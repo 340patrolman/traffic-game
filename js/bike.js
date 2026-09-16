@@ -20,9 +20,12 @@ TG.BikeClass = function (game) {
     { id: 'cross', icon: '🚸', name: '횡단보도는 끌고',   goal: '🚶 내려서 끌고, 초록불에 건너요',                     card: 'ride-cross' },
     { id: 'lane',  icon: '🛣️', name: '어디로 달릴까',     goal: '',                                                    card: 'ride-lane' },
     { id: 'brake', icon: '🛑', name: '멈추는 거리',       goal: '힘껏 달리다가 🛑 선 앞에서 멈춰요',                   card: 'ride-check' },
+    // 🛣 자유 주행(v0.9.90) — 소유자: 「청소년 모드에 **자전거 자유주행**을 넣어야 하네, **자전거 주행 원칙에 맞춰서**」.
+    // 교실이 아니라 **그냥 신나게 타는 판**이다. 대신 원칙이 살아 있고, 사람을 치면 그 자리에서 절차가 시작된다.
+    { id: 'free',  icon: '🛣', name: '자유 주행',         goal: '목적지 세 곳을 찍어요 — 오른쪽 가장자리 · 신호 · 횡단보도는 끌고', card: 'ride-lane' },
   ];
   // 위험 게이지 — **게임 설계값**(법령·통계 수치가 아니다). 60 을 넘으면 「다시 도전」.
-  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8 };
+  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40 };
   var RISK_PASS = 60, LANE_SEC = 8;
 
   function el(id) { return document.getElementById(id); }
@@ -104,9 +107,19 @@ TG.BikeClass = function (game) {
     if (G.hud && G.hud.vignette) G.hud.vignette(0.55); st.vigT = 1.4;
     if (G.hud && G.hud.burst) G.hud.burst('⚠️', 5);
     addRisk(RISK.miss, why || '아찔했어요'); st.misses++;
+    // 👁 **두 시점으로 되돌려 본다** — 아이 눈에는 차가 안 보였고, 운전자 눈에는 아이가 갑자기 나타났다(소유자 2026-09-16)
+    if (G.replay && car && G.walker) {
+      var W0 = G.walker;
+      G.replay.blindSpot({ x: W0.pos.x, y: W0.y || 0, z: W0.pos.z }, car, {
+        childTtl: '차 사이에서는 차가 안 보인다',
+        driverTtl: '운전자도 나를 못 본다',
+        driverSub: '갑자기 나타나면 브레이크를 밟아도 늦다 — 자전거도 차도 바로 멈추지 않는다'
+      });
+    }
   }
   function retry() {
     var S = SCENES[st.i]; st.tries[S.id] = (st.tries[S.id] || 0) + 1;
+    if (G.praise) G.praise.miss();   // 콤보만 끊는다 — 교실에서는 벌하지 않는다
     st.retryT = 1.8;                                    // 잠깐 보여 준 뒤 그 장면 처음으로
     if (G.walker) G.walker.v = 0;
   }
@@ -115,6 +128,7 @@ TG.BikeClass = function (game) {
     if (TG.audio.jingle) TG.audio.jingle(3);
     if (G.hud && G.hud.burst) G.hud.burst('⭐', 6);
     notice('✅ ' + S.name + ' — ' + msg, 'good', 4600);
+    if (G.praise) G.praise.cheer(S.id === 'cross' ? 'bike' : 'scene', 55, { feed: S.icon + ' ' + S.name + ' 통과' });   // 🎖 장면 통과 = 등업 한 걸음
     var cl = cardLine(S.card); if (cl) setTimeout(function () { if (st) hint(cl); }, 900);
     say(msg, true); st.passT = 3.0; paint();
   }
@@ -194,6 +208,20 @@ TG.BikeClass = function (game) {
       }
       st.actors.forEach(function (a) { a.pos.x = a.homeX || a.pos.x; a.target = null; });
       if (st.brake.sub === 1) notice('🚲 이번에는 **브레이크 없는 픽시 자전거**예요 — 같은 곳에서 멈춰 봐요', 'warn', 4200);
+    } else if (id === 'free') {
+      // 🛣 자유 주행 — 교실이 아니라 **그냥 타는 판**. 대신 원칙이 살아 있고, 사람을 치면 그 자리에서 절차가 시작된다.
+      var B = g.B, dests = [];
+      var pick = [[B.i, B.j + 1, '🏪 편의점'], [B.i + 1, B.j + 1, '🏫 학교 앞'], [B.i, B.j, '🏠 우리 집']];
+      pick.forEach(function (p) {
+        var n = city.nodes[p[0]] && city.nodes[p[0]][p[1]]; if (!n) return;
+        dests.push({ x: n.x - g.half - 2.2, z: n.z - 14, name: p[2] });
+      });
+      if (!dests.length) dests.push({ x: nA.x - g.half - 2.2, z: nA.z - 14, name: '🏠 우리 집' });
+      st.free = { dests: dests, at: 0, ok: 0, warnT: -99, swT: 0, sigT: -99, crossT: 0, wrongT: -99, crash: null, goodT: 0, ridden: 0 };
+      W.setBike('ride'); W.teleport(nA.x - (g.half - 1.3), nA.z + 30, 0);
+      W.setMarker({ x: dests[0].x, z: dests[0].z, name: dests[0].name });
+      // 자유 주행에는 차와 사람이 있어야 한다 — 청소년 교실은 이미 교통량·행인을 절반으로 켜 두고 시작한다(main.js)
+      notice('🛣 자유 주행 — 차도 **오른쪽 가장자리**로, 신호를 지키고, 횡단보도는 **내려서 끌고** 건너요', 'info', 5200);
     }
   }
   function clearZ(x, z0, offs) {
@@ -330,6 +358,125 @@ TG.BikeClass = function (game) {
     pass('보통 ' + (b.d[0] ? b.d[0].d.toFixed(1) : '?') + 'm · 픽시 ' + d.toFixed(1) + 'm' + (ratio ? ' — 약 ' + ratio.toFixed(1) + '배' : '') + '. 브레이크 없는 자전거는 타지 않아요');
   }
 
+  // ---------- 🛣 자유 주행(v0.9.90) ----------
+  // 소유자(2026-09-16): 「교통안전교실을 만들어 놓으니까 잘 안 해. 순찰근무·자유주행도 중고등학생이 할 수 있으니
+  //  **그들이 자주 위반하는 것**, 자전거도 조금만 잘못되어도 **경찰서 교통수사팀**으로 올 수 있다는 것 …
+  //  특히 **12개 항목 — 횡단보도**, 게다가 **인도에서 사람과 부딪히면** 경찰서로 갈 수 있네.」
+  // 그래서 이 판에서는 **가르치지 않고 겪게** 한다: 신나게 타다가 사람을 치면 그 자리에서 절차가 시작된다.
+  function crashCard(where) {
+    // 어디서 쳤는가로 조문이 갈린다. 문구·조문은 **laws.json 에서만** 읽는다(코드에 조문을 적지 않는다).
+    var id = where === 'crosswalk' ? 'crash-crosswalk' : where === 'sidewalk' ? 'crash-sidewalk' : 'crash-road';
+    return law(id) || law('crash-road');
+  }
+  function crashScene(ped, where) {
+    var F = st.free; if (!F || F.crash) return;
+    var W = G.walker;
+    F.crash = { where: where, t: 0 };
+    W.v = 0; if (W.setBike) W.setBike('walk');
+    G.slowmo = 1.4; G.punch = 1.1; G.shake = 0.7;
+    if (TG.audio.thump) TG.audio.thump(1);
+    if (TG.audio.skidBurst) TG.audio.skidBurst();
+    if (G.buzz) G.buzz([220, 80, 220]);
+    if (G.hud && G.hud.vignette) { G.hud.vignette(0.6); st.vigT = 1.6; }
+    if (ped && ped.pos) { ped.stunned = 6; ped.v = 0; }
+    addRisk(RISK.crash, where === 'crosswalk' ? '횡단보도에서 사람을 쳤어요' : where === 'sidewalk' ? '보도에서 사람을 쳤어요' : '차도에서 사람을 쳤어요');
+    if (G.praise) G.praise.miss(true);
+    var c = crashCard(where);
+    // 👁 먼저 **두 시점으로 되돌려 보고**(내 눈 · 보행자 눈) 그다음에 절차 카드를 연다
+    var shown = false;
+    if (G.replay && ped && ped.pos) {
+      var px = ped.pos.x, pz = ped.pos.z, py = (ped.y || 0);
+      shown = G.replay.play([
+        { pos: [W.pos.x, (W.y || 0) + 1.35, W.pos.z], look: [px, py + 1.1, pz], sec: 2.6, push: 0.8,
+          kick: '① 내 눈(자전거)', ttl: '「금방 지나갈 줄 알았다」',
+          sub: where === 'crosswalk' ? '횡단보도는 사람이 먼저다 — 타고 건너면 나는 「차」다' : where === 'sidewalk' ? '보도는 사람이 걷는 곳이다 — 나는 「차」다' : '차도에서도 앞의 사람이 먼저다',
+          say: '내 눈에는 금방 지나갈 것 같았어요' },
+        { pos: [px, py + 1.55, pz], look: [W.pos.x, (W.y || 0) + 1.1, W.pos.z], sec: 2.8, push: 0.5,
+          kick: '② 걷던 사람 눈', ttl: '갑자기 자전거가 나타난다',
+          sub: '사람은 피할 시간이 없다 — 자전거도 바로 멈추지 않는다(관성)',
+          say: '걷던 사람 눈에는 자전거가 갑자기 나타나요' }
+      ], function () { showCrash(c, where); });
+    }
+    if (!shown) showCrash(c, where);
+    say('사람과 부딪혔어요. 자전거도 차예요 — 여기서부터는 교통사고 처리가 시작됩니다', true);
+  }
+  function showCrash(c, where) {
+    var box = el('bikeCrash'); if (!box) return;
+    var whereKo = where === 'crosswalk' ? '횡단보도' : where === 'sidewalk' ? '보도(인도)' : '차도';
+    var rows = '';
+    if (c) {
+      rows += '<div class="cr-law">' + esc(c.law || '') + (c.verified === false ? ' <i>(확인 중)</i>' : '') + '</div>';
+      if (c.situation) rows += '<p>' + esc(c.situation) + '</p>';
+      if (c.tip) rows += '<p class="cr-tip">' + esc(c.tip) + '</p>';
+      if (c.penalty) rows += '<p class="cr-pen">' + esc(c.penalty) + '</p>';
+    }
+    var base = law('crash-bike-is-car');
+    if (base) rows += '<div class="cr-base">' + esc(base.law || '') + ' — ' + esc(base.situation || '') + '</div>';
+    box.innerHTML = '<div class="cr-box"><h3>🚓 교통수사팀 — 출석 요구</h3>' +
+      '<div class="cr-where">' + esc(whereKo) + '에서 사람과 부딪혔습니다</div>' + rows +
+      '<div class="cr-note">게임은 여기서 멈춥니다. 다친 사람은 없습니다 — 실제라면 지금부터 조사가 시작됩니다.</div>' +
+      '<button id="crashOk" type="button">다시 타기</button></div>';
+    box.style.display = 'flex';
+    var b = el('crashOk');
+    if (b) b.onclick = function () { box.style.display = 'none'; if (st && st.free) { st.free.crash = null; setupScene('free', false); } };
+  }
+  function pedNear(W) {
+    var P = G.peds && G.peds.peds ? G.peds.peds : [];
+    for (var i = 0; i < P.length; i++) {
+      var p = P[i]; if (!p || !p.pos) continue;
+      var d = Math.hypot(p.pos.x - W.pos.x, p.pos.z - W.pos.z);
+      if (d < 0.95) return p;
+    }
+    return null;
+  }
+  function updFree(dt, W) {
+    var F = st.free, g = st.g, pl = TG.walkerPlace(city, G.signals, W.pos.x, W.pos.z);
+    if (F.crash) return;                                   // 조사 카드가 떠 있는 동안은 멈춘다
+    // ① 사람과 부딪히면 — 어디서 쳤는지로 조문이 갈린다
+    if (W.riding && W.v > 1.2) {
+      var hitP = pedNear(W);
+      if (hitP) { crashScene(hitP, pl.where === 'crosswalk' ? 'crosswalk' : pl.where === 'sidewalk' ? 'sidewalk' : 'road'); return; }
+    }
+    // ② 보도 주행 — 13세 이상은 차도 오른쪽 가장자리
+    if (pl.where === 'sidewalk' && W.riding && W.v > 0.8) {
+      F.swT += dt;
+      if (F.swT > 1.2 && st.sceneT - F.warnT > 5) {
+        F.warnT = st.sceneT; addRisk(RISK.sidewalk, '보도로 달렸어요');
+        notice('🚫 보도는 사람이 걷는 곳 — 여기서 사람을 치면 **보도 침범**입니다', 'bad', 4200);
+        var cs = cardLine('crash-sidewalk'); if (cs) hint(cs);
+      }
+    } else F.swT = 0;
+    // ③ 횡단보도를 탄 채로 건너면 — 보행자가 아니다
+    if (pl.where === 'crosswalk' && W.riding && W.v > 0.6) {
+      F.crossT += dt;
+      if (F.crossT > 0.6 && st.sceneT - F.sigT > 5) {
+        F.sigT = st.sceneT; addRisk(RISK.rideCross, '횡단보도를 탄 채로 건넜어요');
+        notice('🚸 횡단보도는 **내려서 끌고** — 타고 건너면 보행자가 아닙니다', 'bad', 4200);
+        var cc = cardLine('ride-cross'); if (cc) hint(cc);
+      }
+    } else F.crossT = 0;
+    // ④ 역주행
+    var fwd = Math.cos(W.heading);
+    if (pl.where === 'road' && Math.abs(fwd) > 0.5) {
+      var wrong = (W.pos.x < g.nA.x && fwd < -0.5) || (W.pos.x > g.nA.x && fwd > 0.5);
+      if (wrong && st.sceneT - F.wrongT > 6) { F.wrongT = st.sceneT; addRisk(RISK.wrongWay, '거꾸로 달렸어요(역주행)'); notice('⛔ 차와 같은 방향으로 — 거꾸로 달리면 정면으로 부딪혀요', 'bad', 3800); }
+    }
+    // ⑤ 규칙을 지키며 달리면 칭찬(등업) — 20초마다
+    if (pl.where === 'road' && W.riding && W.v > 1.2 && !F.swT) {
+      F.goodT += dt;
+      if (F.goodT > 20) { F.goodT = 0; if (G.praise) G.praise.cheer('bike', 18, { feed: '규칙대로 주행 🚲' }); }
+    }
+    // ⑥ 목적지
+    var d0 = F.dests[F.at];
+    if (d0 && Math.hypot(W.pos.x - d0.x, W.pos.z - d0.z) < 5.5) {
+      F.at++; F.ok++;
+      if (G.praise) G.praise.cheer('scene', 30, { feed: d0.name + ' 도착' });
+      if (F.at >= F.dests.length) { pass('세 곳을 모두 안전하게 다녀왔어요'); return; }
+      var d1 = F.dests[F.at];
+      W.setMarker({ x: d1.x, z: d1.z, name: d1.name });
+      notice('✅ ' + d0.name + ' 도착 — 다음은 ' + d1.name, 'good', 3200);
+    }
+  }
   // ---------- 화면 ----------
   function paint() {
     var box = el('bikeHud'); if (!box || !st) return;
@@ -380,7 +527,7 @@ TG.BikeClass = function (game) {
       var n = st.tries[S.id] || 0;
       return '<li class="' + (st.done[S.id] ? 'ok' : 'no') + '">' + S.icon + ' ' + esc(S.name) + ' <b>' + (st.done[S.id] ? '✓' : '—') + '</b>' + (n ? ' <i>다시 ' + n + '번</i>' : '') + '</li>';
     }).join('');
-    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
+    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'crash-bike-is-car', 'crash-crosswalk', 'crash-sidewalk', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
     var cards = ids.map(function (id) {
       var c = law(id); if (!c) return '';
       return '<div class="bk-card"><b>' + esc(c.name) + (c.verified === false ? ' <em>확인 중</em>' : '') + '</b><small>' + esc(c.law || '') + '</small><p>' + esc(c.tip || c.situation || '') + '</p></div>';
@@ -463,7 +610,7 @@ TG.BikeClass = function (game) {
       retry(); return stop();
     }
     var id = SCENES[st.i] ? SCENES[st.i].id : null;
-    if (id === 'gap') updGap(dt, W); else if (id === 'cross') updCross(dt, W); else if (id === 'lane') updLane(dt, W); else if (id === 'brake') updBrake(dt, W);
+    if (id === 'gap') updGap(dt, W); else if (id === 'cross') updCross(dt, W); else if (id === 'lane') updLane(dt, W); else if (id === 'brake') updBrake(dt, W); else if (id === 'free') updFree(dt, W);
     paintLive();
     return mv;
   };

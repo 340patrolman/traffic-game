@@ -19,6 +19,11 @@ TG.Chase = function (game) {
   this.t = { safe: 0, close: 0, follow: 0, lost: 0, warn: 0, tick: 0 };
   this.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '', topKmh: 0 };
   this.said = {};
+  // 🔥 비스트 모드(v0.9.88) — 소유자 「추격전의 비스트 모드를 해서 니드포스피드 같은 상황으로」.
+  // 다만 이 게임의 원칙은 그대로다: **원칙대로 따라갈 때만 충전되고, 붙거나 들이받거나 경광등을 끄면 비워진다.**
+  // 난폭 운전에 상을 주지 않는다 — 규칙을 지킨 사람에게 「한 번 더 밀어붙일 힘」을 준다.
+  var B = cfg.BEAST || { gain: 9, decay: 7, need: 100, sec: 8, torque: 1.55, top: 1.22, cool: 6 };
+  this.beast = { g: 0, t: 0, cool: 0, uses: 0, on: false };
 
   // 대상 차량: 플레이어 앞 같은 방향 도로에 만든다. 도주(flee)라 흐름보다 빠르고 적색도 통과한다.
   this.spawn = function () {
@@ -38,6 +43,7 @@ TG.Chase = function (game) {
       self.state = 'follow'; self.t = { safe: 0, close: 0, follow: 0, lost: 0, warn: 0, tick: 0 };
       self.log = { collateral: 0, closeCalls: 0, safeAwards: 0, radioed: false, result: '', topKmh: 0 };
       self.said = {};
+      endBeast(true); self.beast = { g: 0, t: 0, cool: 0, uses: 0, on: false };
       game.hud.notice('📡 상황실 — ' + self.kind.name + ' 발견. 경광등 켜고 뒤에 붙되 안전거리를 지키세요', 'alert', 5200);
       game.hud.hint('경광등을 켜고 안전거리 10~40m 로 따라간다. 📡 무전을 하면 공조로 앞을 막아 준다(모든 것을 무전보고하지는 않는다)');
       if (TG.audio.squelch) TG.audio.squelch(); TG.audio.pa(self.kind.radio);   // 상황실 무전(📡)
@@ -69,6 +75,13 @@ TG.Chase = function (game) {
     var cs = q('.ch-siren'); if (cs) { cs.textContent = siren ? '경광등 ON' : '경광등 OFF'; cs.className = 'ch-siren ' + (siren ? 'on' : 'warn'); }
     var cc = q('.ch-coop'); if (cc) { cc.textContent = radioed ? '📡 공조' : '단독'; cc.className = 'ch-coop ' + (radioed ? 'on' : ''); }
     var cd = q('.ch-dist'); if (cd) { cd.textContent = d < 9 ? '너무 가깝다' : d > 42 ? '멀다' : '적정 거리'; cd.className = 'ch-dist ' + (d < 9 ? 'warn' : d > 42 ? '' : 'on'); }
+    // 🔥 비스트 게이지 · 버튼
+    var bs = self.beast, bb = q('.ch-beast'), bf = q('.ch-bfill'), bx = q('.ch-btxt');
+    if (bb) bb.className = 'ch-beast' + (bs.on ? ' full' : bs.g >= B.need ? ' full' : '');
+    if (bf) bf.style.width = (bs.on ? Math.max(0, bs.t / B.sec) * 100 : (bs.g / B.need) * 100).toFixed(0) + '%';
+    if (bx) bx.textContent = bs.on ? '🔥 비스트 ' + Math.max(0, bs.t).toFixed(1) + '초' : bs.cool > 0 ? '🔥 재충전 ' + Math.ceil(bs.cool) + '초' : '🔥 비스트 ' + Math.round(bs.g / B.need * 100) + '%';
+    var bn = document.getElementById('btnBeast');
+    if (bn) { bn.classList.toggle('on', !!bs.on); bn.classList.toggle('ready', !bs.on && bs.cool <= 0 && bs.g >= B.need); }
     // 화면 밖 대상: 카메라로 투영해 좌·우를 가린다
     if (arrow && camera && window.THREE) {
       var v = new THREE.Vector3(self.car.pos.x, (self.car.y || 0) + 0.8, self.car.pos.z).project(camera);
@@ -94,6 +107,7 @@ TG.Chase = function (game) {
   this.onCollateral = function () {
     if (self.state !== 'follow') return;
     self.log.collateral++;
+    self.beast.g = 0; endBeast();   // 부수적 피해 = 비스트 즉시 해제(난폭 운전에 상을 주지 않는다)
     game.penalize('chaseReckless', '추격 중 차량 접촉 — 부수적 피해', '추격의 위험이 검거 이익보다 크면 멈춘다');
     if (self.log.collateral >= 2 && !self.order) {
       self.order = true;
@@ -105,6 +119,7 @@ TG.Chase = function (game) {
   // 추격 중단(정답인 경우가 있다): 어린이보호구역 도주 · 상황실 지시 · 보행자 밀집
   function breakOff(why, bonus) {
     self.state = 'break'; self.log.result = 'break';
+    endBeast(true);
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.4);
     chasingClass(false);
     if (self.car) { self.car.flee = false; self.car.chase = false; self.car.cruise = 12; }
@@ -119,6 +134,7 @@ TG.Chase = function (game) {
   // 검거: 대상이 포기하고 우측에 정차한다
   function caught(coop) {
     self.state = 'stopped'; self.log.result = 'caught'; self.log.coop = !!coop;
+    endBeast(true);
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(1.6);
     chasingClass(false);
     game.slowmo = 1.1; game.punch = 1.2;   // 검거 순간: 짧은 슬로모션 + 화각 펀치(재미)
@@ -129,6 +145,56 @@ TG.Chase = function (game) {
     game.hud.pop('✅ +' + bonus, 'good'); TG.audio.jingle(4);
     game.hud.hint(coop ? '📡 공조로 검거했다 — 앞을 막으면 무리한 추격이 필요 없다' : '안전거리를 지켜 스스로 세웠다. 무전으로 공조하면 더 빨리 끝난다');
     if (coop && TG.audio.squelch) TG.audio.squelch();
+  }
+  // 🔥 비스트 — 켜기 / 끄기 / 충전
+  function endBeast(quiet) {
+    var bs = self.beast; if (!bs.on) { setBoost(1, 1); return; }
+    bs.on = false; bs.t = 0; bs.cool = B.cool;
+    setBoost(1, 1);
+    document.body.classList.remove('beast');
+    if (TG.audio.beast) TG.audio.beast(false);
+    if (!quiet && TG.audio.blowOff) TG.audio.blowOff();
+    if (TG.audio.sirenTone && game.player.siren) TG.audio.sirenTone('wail');
+    if (!quiet) game.hud.hint('💭 비스트 해제 — 다시 원칙대로 따라가면 또 찬다');
+  }
+  function setBoost(t, top) { var pl = game.player; if (!pl) return; pl.boost = t; pl.boostTop = top; }
+  this.endBeast = endBeast;
+  this.beastGo = function () {
+    var bs = self.beast;
+    if (self.state !== 'follow' || !self.car) return false;
+    if (bs.on) return false;
+    if (bs.cool > 0) { game.hud.hintNow('🔥 비스트 재충전 중 — ' + Math.ceil(bs.cool) + '초'); return false; }
+    if (bs.g < B.need) { game.hud.hintNow('🔥 비스트는 원칙대로 따라간 만큼 찬다 — 경광등 ON · 대상이 앞 · 9~42m (' + Math.round(bs.g / B.need * 100) + '%)'); return false; }
+    if (!game.player.siren) { game.hud.hintNow('경광등을 켠다 — 알리지 않고 밀어붙이지 않는다'); return false; }
+    bs.on = true; bs.t = B.sec; bs.g = 0; bs.uses++;
+    setBoost(B.torque, B.top);
+    document.body.classList.add('beast');
+    game.punch = 1.2; game.shake = Math.max(game.shake || 0, 0.35);
+    if (TG.audio.beast) TG.audio.beast(true);
+    if (TG.audio.sirenTone && game.player.siren) TG.audio.sirenTone('yelp');   // 붙는 구간에서는 사이렌도 옐프로 바뀐다
+    if (TG.haptic) TG.haptic([18, 40, 18]);
+    game.hud.notice('🔥 비스트 모드 — ' + B.sec + '초 (원칙을 지킨 만큼 받은 힘이다)', 'alert', 2600);
+    game.stats.beastUses = (game.stats.beastUses || 0) + 1;
+    return true;
+  };
+  // 게이지: 원칙대로면 차고, 8m 안 근접·경광등 OFF 는 비운다(접촉은 onCollateral 에서)
+  function beastTick(dt, ok, tooClose, siren) {
+    var bs = self.beast;
+    if (bs.cool > 0) bs.cool = Math.max(0, bs.cool - dt);
+    if (bs.on) {
+      bs.t -= dt;
+      if (tooClose || !siren) { endBeast(); game.hud.hintNow(tooClose ? '너무 붙었다 — 비스트가 풀린다' : '경광등을 끄면 비스트가 풀린다'); return; }
+      if (bs.t <= 0) endBeast();
+      return;
+    }
+    if (tooClose || !siren) {
+      if (bs.g > 0 && !self.said.beastLost) { self.said.beastLost = true; game.hud.hint('💭 붙거나 경광등을 끄면 🔥 게이지가 비워진다 — 원칙이 곧 힘이다'); }
+      bs.g = 0; return;
+    }
+    if (ok) {
+      var was = bs.g; bs.g = Math.min(B.need, bs.g + B.gain * dt);
+      if (was < B.need && bs.g >= B.need) { game.hud.notice('🔥 비스트 충전 완료 — 🔥 버튼(H)', 'good', 2400); if (TG.audio.jingle) TG.audio.jingle(2); }
+    } else bs.g = Math.max(0, bs.g - B.decay * dt);
   }
   this.update = function (dt) {
     var pl = game.player, c = self.car;
@@ -165,6 +231,7 @@ TG.Chase = function (game) {
         self.t.miss = 2.2; self.log.misses = (self.log.misses || 0) + 1;
         game.hud.pop('⚠ 아슬아슬', 'bad'); game.hud.hint('💭 부수적 피해 직전이었다 — 간격을 두고 따라간다');
         game.shake = Math.max(game.shake || 0, 0.5); TG.audio.whoosh();
+        if (TG.audio.passBy) { var pf = pl.forward(), sd = (mdx * -pf[1] + mdz * pf[0]) > 0 ? 1 : -1; TG.audio.passBy(TG.clamp(kmh / 110, 0.3, 1), sd); }   // 스쳐 지나가는 소리(좌·우로 흐른다)
         break;
       }
     }
@@ -181,6 +248,7 @@ TG.Chase = function (game) {
     // 원칙대로 따라가는 시간: 경광등 ON · 대상이 앞에 · 10~42m. **무전은 필수가 아니다** —
     // 무전을 하면 공조(인접 순찰차가 앞을 막는다)로 12초에 끝나고, 안 하면 단독으로 20초를 따라간다.
     var ok = siren && bh && d >= 9 && d <= 42;
+    beastTick(dt, ok, d < 8 && bh, siren);
     var need = radioed ? 12 : 20;
     if (ok) {
       self.t.safe += dt; self.t.lost = 0;
@@ -208,6 +276,7 @@ TG.Chase = function (game) {
   };
   this.dispose = function () {
     self.hidePanel();
+    endBeast(true);
     if (TG.audio.stopChaseTheme) TG.audio.stopChaseTheme(0.6);
     chasingClass(false);
     if (self.car) { self.car.flee = false; self.car.chase = false; }

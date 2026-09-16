@@ -149,7 +149,10 @@ h2{font-size:26px;letter-spacing:2px}
 .tbtn.small.speed{top:calc(340px + var(--sa-t));font-size:11px;width:54px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 body.portrait .tbtn.small.speed{top:calc(308px + var(--sa-t))}
 .tbtn.small.speed.fast{background:rgba(255,196,0,.88);color:#1b1b1b;border-color:#ffd23f}
-.speedpanel{position:fixed;top:calc(332px + var(--sa-t));right:calc(72px + var(--sa-r));z-index:40;background:rgba(14,18,26,.95);border:1px solid #3b4a66;border-radius:12px;padding:8px 9px;color:#eaf1ff;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+/* ⚠ `#touch` 는 pointer-events:none 이다 — 그 안에 있는 판은 **스스로 auto 를 켜야** 눌린다.
+   v0.9.44 부터 배속 판이 이 한 줄이 없어 손가락으로도 마우스로도 눌리지 않았다
+   (소유자 2026-09-16: 「배속 설정이 안 되고, 컴퓨터로 화면을 마우스로 눌러도 작동 안 되고 있어」 — 클릭이 뒤 캔버스로 빠졌다). */
+.speedpanel{position:fixed;top:calc(332px + var(--sa-t));right:calc(72px + var(--sa-r));z-index:40;background:rgba(14,18,26,.95);border:1px solid #3b4a66;border-radius:12px;padding:8px 9px;color:#eaf1ff;box-shadow:0 6px 18px rgba(0,0,0,.45);pointer-events:auto}
 body.portrait .speedpanel{top:calc(300px + var(--sa-t))}
 .speedpanel .sp-val{font-size:20px;font-weight:800;text-align:center;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .speedpanel .sp-row{display:flex;gap:5px}
@@ -395,9 +398,11 @@ body.chasing #section{border-color:rgba(255,90,90,.8)}
 /* 한국어 줄바꿈: 단어 중간에서 끊지 않는다(「걷 / 는다」 처럼 깨지던 것) */
 .intro-shot .ttl,.intro-shot .sub,.intro-lines .il,.notice,#hint,#target,.section,.intro-title .tag,#kidNow{word-break:keep-all;overflow-wrap:break-word}
 
-/* 인트로 전체화면 단추(건너뛰기 왼쪽) */
-.skip.full{right:calc(126px + var(--sa-r))}
-body.portrait .skip.full{right:calc(112px + var(--sa-r))}
+/* 인트로 단추 둘 — **전체화면은 왼쪽 끝, 건너뛰기는 오른쪽 끝**(v0.9.90).
+   소유자(2026-09-16): 「전체화면과 건너뛰기가 붙어 있어서 간격을 벌려놓아야 함.」
+   종전에는 오른쪽에 나란히 두고 126px(세로 112px)을 띄웠는데, 글씨 폭이 그보다 넓어 서로 닿았다.
+   폭을 픽셀로 어림하지 않고 **양 끝으로 갈라** 붙을 수가 없게 했다(두 엄지로 눌러도 자연스럽다). */
+.skip.full{right:auto;left:calc(18px + var(--sa-l))}
 
 /* 교통시설 관리(심시티 요소): 왼쪽 교차로 목록 · 오른쪽 설정판 */
 #plan{display:none}
@@ -649,7 +654,8 @@ body.totmode .tbtn.hand,body.totmode .tbtn.footbtn,body.totmode .tbtn.revbtn,
 body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.view,body.totmode #target{display:none!important}
 /* 마당 점(①②③④) · 다음 마당 단추 — 선생님이 진행 상황을 보고 앞으로 넘긴다 */
 /* 🛣 여기는 어디? — 바닥 색과 **같은 색 칩**을 화면 아래에 둔다(3D 글자판은 카메라 밖으로 나간다 · 실측) */
-#totWhere{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(256px + var(--sa-b));z-index:25;gap:6px;flex-wrap:nowrap}
+/* 고르는 칸은 **누르는 것**이다 — `#touch` 가 pointer-events:none 이라 스스로 auto 를 켜야 손가락·마우스가 닿는다(v0.9.90 에서 발견) */
+#totWhere{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(256px + var(--sa-b));z-index:25;gap:6px;flex-wrap:nowrap;pointer-events:auto}
 #totWhere span{font-size:15px;font-weight:900;color:#0d1424;padding:7px 11px;border-radius:12px;white-space:nowrap;
   box-shadow:0 2px 10px rgba(0,0,0,.35);opacity:.45;transform:scale(.94)}
 #totWhere span.w0{background:#7ff0a4}
@@ -842,3 +848,153 @@ body.bikemode .cluster.right,body.bikemode .sigs,body.bikemode #kidSteps,body.bi
 .mgroup.edu .mpick{flex:1 1 0;min-width:0;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
 @media (max-width:480px){.mgroup{padding:8px 7px 9px}.mgroup .mg-btns{gap:6px}.mgroup.edu .mpick{font-size:13px!important}.mgroup.edu .mpick small{font-size:9.5px}}
 @media (max-width:360px){.mgroup.edu .mpick{font-size:12px!important;padding-left:3px!important;padding-right:3px!important}}
+
+/* 👀 살피기 단추(어린이 교실) — 자전거 교실의 살피기와 같은 연출. 손 들기 단추 위에 나란히 둔다. */
+.tbtn.look{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(286px + var(--sa-b));width:76px;height:76px;background:rgba(120,200,255,.20);border-color:rgba(120,200,255,.9)}
+.tbtn.look .ico{font-size:28px}
+body.kidmode .tbtn.look{display:flex;width:96px;height:96px;bottom:calc(256px + var(--sa-b))}
+body.kidmode .tbtn.look .ico{font-size:40px}
+body.portrait.kidmode .tbtn.look{bottom:calc(336px + var(--sa-b))}
+
+/* 🔥 비스트 모드(v0.9.88 · 추격전) — 게이지는 **원칙을 지킨 시간**으로 찬다(난폭 운전은 오히려 비운다).
+   소유자 「추격전의 비스트 모드를 해서 니드포스피드 같은 상황으로」 — 화면은 뜨겁게, 규칙은 그대로. */
+#chaseHud .ch-beast{position:relative;height:12px;margin-top:6px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
+#chaseHud .ch-bfill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,#ff7a2f,#ffd36a);transition:width .12s linear}
+#chaseHud .ch-beast.full .ch-bfill{animation:beastglow 1s ease-in-out infinite}
+#chaseHud .ch-btxt{position:absolute;inset:0;text-align:center;font-size:9.5px;font-weight:900;color:#2a1405;line-height:12px;letter-spacing:.2px}
+@keyframes beastglow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45)}}
+.tbtn.beast{display:none;width:60px;height:60px;background:rgba(255,140,50,.14);border-color:rgba(255,160,70,.6);margin-bottom:8px;opacity:.5}
+.tbtn.beast .ico{font-size:22px}
+.tbtn.beast.ready{opacity:1;background:rgba(255,140,50,.42);border-color:#ffb04a;animation:pulse 1.1s ease-in-out infinite}
+.tbtn.beast.on{opacity:1;background:rgba(255,70,30,.6);border-color:#ff7a3c}
+body.chasing .tbtn.beast{display:flex}
+body.onfoot .tbtn.beast{display:none}
+body.portrait .tbtn.beast{width:54px;height:54px}
+/* 비스트 동안 화면이 달아오른다 — 가장자리 주황 + 속도선이 진해진다 */
+body.beast::after{content:'';position:fixed;inset:0;z-index:13;pointer-events:none;
+  box-shadow:inset 0 0 120px -30px rgba(255,120,30,.55);animation:beastedge .9s ease-in-out infinite}
+@keyframes beastedge{0%,100%{opacity:.75}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){body.beast::after{animation:none;opacity:.8}#chaseHud .ch-beast.full .ch-bfill{animation:none}}
+
+/* 🎖 칭찬 · 콤보 · 등업 · 임무 피드(v0.9.89)
+   소유자(학원 시연): 「이해도는 높아지는데 게임의 재미가 떨어진다 — 등업·칭찬·재치 있는 말투」 · 「콜오브듀티 같은 느낌」.
+   전부 **뜨고 사라지는 것**이라 좁은 폰에서도 지도·단추를 가리지 않는다. */
+#praiseLine{position:fixed;left:50%;top:calc(var(--hudh, 97px) + 96px);transform:translate(-50%,-6px);z-index:26;pointer-events:none;
+  opacity:0;transition:opacity .16s,transform .16s;text-align:center;max-width:min(88vw,520px);word-break:keep-all}
+#praiseLine.on{opacity:1;transform:translate(-50%,0)}
+#praiseLine b{display:block;font-size:20px;font-weight:900;color:#fff8e0;letter-spacing:.2px;text-shadow:0 2px 10px rgba(0,0,0,.85),0 0 22px rgba(255,190,60,.45)}
+#praiseLine i{display:block;margin-top:3px;font-size:12.5px;font-style:normal;font-weight:700;color:#ffe9b0;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+#praiseLine.big b{font-size:26px;animation:praisePop .42s cubic-bezier(.2,1.4,.4,1)}
+@keyframes praisePop{0%{transform:scale(.7);opacity:.2}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+#comboChip{position:fixed;left:50%;top:calc(var(--hudh, 97px) + 62px);transform:translateX(-50%);z-index:26;pointer-events:none;
+  opacity:0;transition:opacity .14s;font-size:15px;font-weight:900;color:#fff;padding:4px 12px;border-radius:14px;
+  background:rgba(255,120,30,.34);border:1.5px solid rgba(255,170,60,.85);text-shadow:0 1px 4px rgba(0,0,0,.8)}
+#comboChip.on{opacity:1}
+#comboChip.warm{background:rgba(255,90,30,.5);border-color:#ffb04a}
+#comboChip.hot{background:rgba(255,50,30,.62);border-color:#ff8a3c;animation:comboHot .7s ease-in-out infinite}
+@keyframes comboHot{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.08)}}
+/* 계급 막대 — 경험치를 받을 때만 뜬다 */
+#xpWrap{position:fixed;left:50%;bottom:calc(16px + var(--sa-b));transform:translate(-50%,8px);z-index:25;pointer-events:none;
+  display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:16px;background:rgba(10,16,30,.72);border:1px solid rgba(255,255,255,.22);
+  opacity:0;transition:opacity .18s,transform .18s;max-width:min(92vw,420px)}
+#xpWrap.on{opacity:1;transform:translate(-50%,0)}
+#xpIcon{font-size:20px}
+#xpWrap .xp-mid{min-width:150px}
+#xpWrap b{display:block;font-size:12px;font-weight:900;color:#eaf1ff;letter-spacing:.2px}
+#xpWrap .xp-bar{height:7px;margin-top:3px;border-radius:4px;background:rgba(255,255,255,.16);overflow:hidden}
+#xpFill{height:100%;width:0%;background:linear-gradient(90deg,#4da3ff,#9ad8ff);transition:width .35s ease-out}
+#xpWrap i{font-size:11px;font-style:normal;font-weight:800;color:#a9c2e6;white-space:nowrap}
+/* 📋 임무 피드 — 「+25 안전거리 유지」가 쌓였다 사라진다(콜오브듀티식) */
+#xpFeed{position:fixed;right:calc(10px + var(--sa-r));top:calc(var(--hudh, 97px) + 176px);z-index:24;pointer-events:none;
+  display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:56vw}
+#xpFeed .xpf{display:flex;align-items:baseline;gap:6px;padding:3px 9px;border-radius:10px;background:rgba(10,16,30,.62);
+  border:1px solid rgba(255,255,255,.18);animation:xpfIn .22s ease-out;white-space:nowrap;max-width:100%;overflow:hidden}
+#xpFeed .xpf b{font-size:12.5px;font-weight:900;color:#ffd77a}
+#xpFeed .xpf span{font-size:11.5px;font-weight:700;color:#dfe8f7;overflow:hidden;text-overflow:ellipsis}
+@keyframes xpfIn{0%{opacity:0;transform:translateX(14px)}100%{opacity:1;transform:translateX(0)}}
+body.totmode #xpFeed{display:none}                      /* 영아 교실은 화면을 비운다 — 신호등과 아이만 본다 */
+body.totmode #praiseLine b{font-size:24px}
+body.kidmode #praiseLine b{font-size:23px}
+@media (max-width:380px){#praiseLine b{font-size:18px}#praiseLine.big b{font-size:23px}#xpWrap .xp-mid{min-width:118px}#xpFeed{max-width:64vw}}
+@media (prefers-reduced-motion:reduce){#comboChip.hot{animation:none}#praiseLine.big b{animation:none}}
+
+/* 결과 카드의 계급 막대(v0.9.89) */
+#end .rankrow{display:flex;align-items:center;gap:8px;margin:8px 0 2px}
+#end .rk-ic{font-size:20px}
+#end .rk-nm{font-size:13px;font-weight:900;color:#eaf1ff;white-space:nowrap}
+#end .rk-bar{flex:1;height:8px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden}
+#end .rk-bar i{display:block;height:100%;background:linear-gradient(90deg,#4da3ff,#9ad8ff)}
+#end .rk-xp{font-size:12px;font-weight:900;color:#ffd77a;white-space:nowrap}
+#end .rankfoot{font-size:11.5px;font-weight:700;color:#a9c2e6;text-align:left;word-break:keep-all}
+
+/* 계급 막대와 임무 피드를 **한 칸(오른쪽 열)**에 모은다 — 안내문이 떠 있으면 그 아래로 함께 비켜선다(겹침 0) */
+#xpCol{position:fixed;right:calc(10px + var(--sa-r));top:calc(var(--hudh, 97px) + 176px);z-index:24;pointer-events:none;
+  display:flex;flex-direction:column;align-items:flex-end;gap:5px;max-width:min(66vw,320px)}
+#xpWrap{position:static;transform:none;bottom:auto;left:auto;max-width:100%}
+#xpWrap.on{transform:none}
+#xpFeed{position:static;right:auto;top:auto;max-width:100%}
+
+/* 칭찬 배너는 **화면 한가운데**에 띄운다 — 계기 칸 아래에 두면 안내문(notice)과 부딪힌다(375x812 실측 16px 겹침).
+   가운데는 3D 화면이라 늘 비어 있고, 잠깐 떴다 사라지므로 조작을 가리지 않는다. */
+#praiseLine{top:50%;transform:translate(-50%,calc(-50% + 6px))}
+#praiseLine.on{transform:translate(-50%,-50%)}
+#comboChip{top:calc(50% - 66px)}
+
+/* 세로 화면(폰)에서는 오른쪽 열을 **큰 단추 위**에 붙인다 — 375x812 실측으로 자리를 잡았다:
+   안내문 237~323 · 조이스틱 x<195 · 큰 단추 y>568. 그 사이 y 450~560 · x 201~366 이 비어 있다. */
+body.portrait #xpCol{top:auto;bottom:calc(252px + var(--sa-b));max-height:112px;overflow:hidden;max-width:min(44vw,240px)}
+/* 배너는 **한 줄에 한 문장**이 되도록 폭을 고정한다(줄바꿈이 생기면 높이가 두 배가 되어 아래 칸과 부딪힌다) */
+#praiseLine{width:min(88vw,520px);top:47.5%}
+#comboChip{top:calc(47.5% - 62px)}
+
+/* 좁은 폰에서는 안내문(notice)과 자리가 겹칠 수밖에 없다(320x640 실측: 안내문 280~383 · 조이스틱 397~).
+   그래서 **칭찬 배너에는 판을 깔고**, 배너가 떠 있는 동안 안내문을 흐리게 한다 —
+   조작(단추·조이스틱·미니맵)과는 절대 겹치지 않는다(실측 확인). */
+#praiseLine.on{background:linear-gradient(180deg,rgba(8,12,24,.86),rgba(8,12,24,.62));border-radius:14px;padding:8px 14px;
+  border:1px solid rgba(255,200,90,.35);box-shadow:0 6px 26px rgba(0,0,0,.45)}
+body.praising #notice{opacity:.26!important;transition:opacity .15s}
+body.praising #xpCol{z-index:27}
+/* 콤보 알은 배너 **안**에 둔다 — 따로 띄우면 좁은 폰에서 미니맵과 부딪힌다(320x640 실측) */
+#praiseLine #comboChip{position:static;transform:none;display:none;margin:0 0 5px 0}
+#praiseLine #comboChip.on{display:inline-block}
+/* 낮은 화면(320x640 등)에서는 배너를 **한 줄로** 줄인다 — 두 줄이 되면 미니맵을 덮는다(실측 25px) */
+@media (max-height:780px){#praiseLine i{display:none!important}#praiseLine b{font-size:17px}#praiseLine.big b{font-size:20px}#praiseLine.on{padding:6px 12px}}
+
+/* 가로 화면(폰 눕힘·PC) 실측 844x390 — 계기 8~85 · 안내문 12~49 · 미니맵 706~ · 작은 단추 146~186 · 큰 단추 292~ · 조이스틱 x<360.
+   그래서 **가운데 오른쪽 띠(x 370~700 · y 90~285)** 가 비어 있다. 계급 칸은 그 위쪽, 배너는 그 아래쪽에 둔다. */
+/* 실측 두 가지(844x390 · 740x360)에서 공통으로 비어 있는 곳은 **왼쪽 띠**다 —
+   계기 칸 아래(85) ~ 조이스틱 위(173·187), x 8~336. 거기에 계급 칸과 배너를 위아래로 넣는다.
+   가로 화면은 세로가 360~390px 뿐이라 임무 피드와 콤보 알은 접는다(경험치는 그대로 쌓이고 결과 카드에 나온다). */
+body:not(.portrait) #xpCol{top:calc(var(--hudh, 97px) + 8px);right:auto;left:8px;max-width:min(46vw,330px);max-height:41px;overflow:hidden;align-items:flex-start}
+body:not(.portrait) #praiseLine{left:calc(8px + min(46vw,330px)/2);top:calc(var(--hudh, 97px) + 46px);bottom:auto;width:min(46vw,330px);transform:translate(-50%,6px)}
+body:not(.portrait) #praiseLine.on{transform:translate(-50%,0)}
+body:not(.portrait) #praiseLine #comboChip{display:none!important}
+
+/* 🚓 교통수사팀 카드(자전거 자유 주행에서 사람을 쳤을 때) — 소유자: 「조금만 잘못되어도 경찰서 교통수사팀으로 올 수 있다는 것」 */
+#bikeCrash{display:none;position:fixed;inset:0;z-index:41;align-items:center;justify-content:center;background:rgba(10,4,6,.62);pointer-events:auto;padding:14px}
+#bikeCrash .cr-box{background:#160f14;border:2px solid rgba(255,120,110,.55);border-radius:18px;padding:18px 16px;max-width:min(94vw,470px);max-height:88vh;overflow:auto;color:#f3e9ea;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#bikeCrash h3{margin:0 0 6px;font-size:21px;text-align:center;color:#ffd9d4}
+#bikeCrash .cr-where{font-size:13.5px;font-weight:900;text-align:center;color:#ffb3a8;margin-bottom:10px}
+#bikeCrash .cr-law{font-size:12.5px;font-weight:900;color:#ffd77a;background:rgba(255,215,122,.10);border:1px solid rgba(255,215,122,.3);border-radius:8px;padding:6px 8px;margin-bottom:8px;word-break:keep-all}
+#bikeCrash p{margin:6px 0;font-size:13px;line-height:1.55;word-break:keep-all}
+#bikeCrash .cr-tip{color:#ffe9b0}
+#bikeCrash .cr-pen{color:#ffb3a8;font-weight:800}
+#bikeCrash .cr-base{margin-top:10px;font-size:11.5px;color:#c9d4e6;border-top:1px solid rgba(255,255,255,.14);padding-top:8px;word-break:keep-all}
+#bikeCrash .cr-note{margin-top:10px;font-size:11.5px;color:#a9b6c9;word-break:keep-all}
+#bikeCrash button{margin-top:12px;width:100%;padding:11px;border-radius:12px;border:0;background:#c2453c;color:#fff;font-size:15px;font-weight:900}
+
+/* 👁 두 시점 되돌려 보기(v0.9.91) — 「하지 말라는 걸 하면 무슨 일이 벌어지는가」를 아이 눈 / 운전자 눈으로.
+   화면 위아래에 영화 띠를 두르고 자막만 남긴다 — 조작은 잠깐 멈춘다. */
+#replayCard{position:fixed;left:50%;bottom:16%;transform:translate(-50%,10px);z-index:30;pointer-events:none;opacity:0;
+  transition:opacity .22s,transform .22s;text-align:center;width:min(92vw,700px);word-break:keep-all}
+#replayCard.on{opacity:1;transform:translate(-50%,0)}
+#replayCard .rp-kick{display:block;font-size:13px;font-weight:900;letter-spacing:4px;color:var(--accent);text-shadow:0 2px 8px rgba(0,0,0,.9)}
+#replayCard .rp-ttl{display:block;margin-top:6px;font-size:clamp(22px,4.6vw,38px);font-weight:900;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.95)}
+#replayCard .rp-sub{display:block;margin-top:8px;font-size:clamp(13px,2.4vw,18px);font-weight:700;color:#e9f0ff;text-shadow:0 2px 10px rgba(0,0,0,.95)}
+#replayCard .rp-dots{display:block;margin-top:10px}
+#replayCard .rp-dots i{display:inline-block;width:8px;height:8px;margin:0 3px;border-radius:50%;background:rgba(255,255,255,.35)}
+#replayCard .rp-dots i.on{background:var(--accent)}
+body.replaying::before{content:'';position:fixed;left:0;right:0;top:0;height:9vh;background:#000;z-index:29;pointer-events:none}
+body.replaying::after{content:'';position:fixed;left:0;right:0;bottom:0;height:9vh;background:#000;z-index:29;pointer-events:none}
+body.replaying #hudbar,body.replaying #minimap,body.replaying .cluster,body.replaying #stickZone,body.replaying .sigs,
+body.replaying .tbtn,body.replaying #xpCol,body.replaying #praiseLine{opacity:0;transition:opacity .2s}

@@ -85,6 +85,7 @@ TG.Response = function (game) {
       if (crash && sc && shield && shield.ok) { game.addScore(S.sceneShield || 10, null); game.stats.shields = (game.stats.shields || 0) + 1; }
       game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
       game.hud.pop('✅ +' + S.incident, 'good'); TG.audio.jingle(3);
+      if (game.praise) { game.praise.cheer('help', 45, { feed: '현장 안전조치 🛠', voice: true }); game.praise.medal('scene-safe', '현장을 지켰다', 30); }   // 보람 — 어려운 사람을 돕는 쪽이 제일 크게 쳐 준다
       TG.audio.say(kindTxt + ' 안전조치 완료. 견인 요청했습니다', { kind: 'officer', queue: true });
       setTimeout(function () { if (game.traffic.clearIncidents) game.traffic.clearIncidents(); }, 6000);
     } else if (pl.siren && behind && pl.speedKmh() < 2 && !near.radioed && inc.notice < 5.6) {

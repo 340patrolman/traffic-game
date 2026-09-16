@@ -146,7 +146,13 @@ TG.Tot = function (game) {
     for (var i = 0; i < STAGES.length; i++) s += '<span class="' + (i === st.i ? 'on' : (i < st.i ? 'ok' : '')) + '">' + STAGES[i].emoji + '</span>';
     e.innerHTML = s; e.style.display = 'flex';
   }
-  function heart(n) { if (!st) return; st.hearts = Math.max(st.hearts, n); hearts(st.hearts); }
+  function heart(n) {
+    if (!st) return;
+    var was = st.hearts;
+    st.hearts = Math.max(st.hearts, n); hearts(st.hearts);
+    // 🎖 하트가 하나 늘 때마다 칭찬 한마디 + 경험치(영아 교실에도 **등업**은 있다 — 점수·감점은 여전히 없다)
+    if (st.hearts > was && G.praise) G.praise.cheer('tot', 22, { voice: false });
+  }
 
   // ---------- 곰돌이 토수니 ----------
   // 남의 그림·영상은 쓰지 않는다(저작권). 사람 리그에 **둥근 귀·주둥이·배 무늬**를 붙여 우리 곰돌이를 만든다.

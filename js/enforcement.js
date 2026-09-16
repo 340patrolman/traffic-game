@@ -106,10 +106,12 @@ TG.Enforcement = function (game) {
         var mNote = e.mount && lawById('phone'); if (mNote && mNote.mountNote) lines.push(mNote.mountNote);   // 거치대 차량이면 왜 적법인지(티북 문구)
       } else if (choice === answer) {
         delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
+        if (game.praise) game.praise.cheer('quiz', 22, { feed: '정확한 판단 · ' + NAMES[answer] });   // 🎖 재치 있는 한마디 + 경험치(콤보가 쌓인다)
       } else if (choice !== 'none' && choice !== 'timeout' && (choice === 'jaywalk' || choice === 'jaywalk-red') && (answer === 'jaywalk' || answer === 'jaywalk-red')) {
         delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines(answer)); TG.audio.bad();
       } else {
         kind = 'warn'; lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + NAMES[answer] + '」'); lines = lines.concat(lawLines(lawId, '승용')); lines.push('다시 관찰하고 단속하세요.'); TG.audio.bad();
+        if (game.praise) game.praise.miss();   // 콤보만 끊는다 — 틀렸다고 벌하지 않는다(오답 노트가 따로 맡는다)
       }
       game.stats.stops++; if (sel.kind === 'ped') game.stats.warned++;
       // 오답 노트: 틀린 것은 사라지지 않고 모인다. 두 번 더 맞혀야 목록에서 빠진다.
@@ -192,6 +194,11 @@ TG.Enforcement = function (game) {
     game.hud.notice('고지 완료 — ' + (onFoot() ? '운전자에게 위반 고지' : '안전한 위치에 정차') + ' (+' + bonus + ')', 'good', 3200);
     game.hud.hint(onFoot() ? '차도 쪽에 등을 보이지 않는다 — 차 뒤쪽·보도 쪽에서 응대' : '단속 뒤에는 차로로 안전하게 복귀한다');
     TG.audio.good();
+    if (game.praise) {   // 🎖 한 대 정리 — 첫 단속에는 메달이 붙는다(콜오브듀티식 「처음 해낸 일」)
+      game.praise.cheer('stop_ok', 25, { feed: '정차 유도 완료' });
+      if ((game.stats.stops || 0) >= 1) game.praise.medal('first-stop', '첫 단속 완료', 20);
+      if ((game.stats.stops || 0) >= 5) game.praise.medal('five-stops', '단속 5건 — 현장의 눈', 40);
+    }
     if (car.noLicense) {
       car.noLicense = false; game.addScore(15, null); game.stats.correct++;
       var L2 = lawById('license');

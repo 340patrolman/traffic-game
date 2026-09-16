@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.87">
+<link rel="stylesheet" href="css/style.css?v=0.9.91">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -35,6 +35,7 @@
       <div class="ch-top"><span class="ch-name">대상 확인 중</span><span class="ch-why"></span></div>
       <div class="ch-bar"><div class="ch-zone"></div><div class="ch-mark"></div><div class="ch-num">0m</div></div>
       <div class="ch-prog"><div class="ch-fill"></div><div class="ch-ptxt">검거까지</div></div>
+      <div class="ch-beast"><div class="ch-bfill"></div><div class="ch-btxt">🔥 비스트 0%</div></div>
       <div class="ch-chips"><span class="ch-siren">경광등</span><span class="ch-coop">단독</span><span class="ch-dist">적정</span></div>
     </div>
     <!-- 🏁 연습 서킷: 출발 신호등(3·2·1) · 랩·섹터 패널. 소유자: 「연습 서킷을 제대로 해보자」 -->
@@ -62,6 +63,14 @@
   <div id="vignette"></div>
   <div id="flash"></div>
   <div id="pops"></div>
+  <!-- 👁 두 시점 되돌려 보기(v0.9.91) — 아이 눈 / 운전자 눈 -->
+  <div id="replayCard"><span class="rp-kick"></span><b class="rp-ttl"></b><span class="rp-sub"></span><span class="rp-dots"></span></div>
+  <!-- 🎖 칭찬·콤보·등업·임무 피드(v0.9.89) — 자리를 늘 차지하지 않는다. 얻을 때만 떠서 스스로 사라진다 -->
+  <div id="praiseLine"><span id="comboChip"></span><b></b><i></i></div>
+  <div id="xpCol">
+    <div id="xpWrap"><span id="xpIcon">🌱</span><div class="xp-mid"><b id="xpName">새싹 대원</b><div class="xp-bar"><div id="xpFill"></div></div></div><i id="xpText">0 / 120</i></div>
+    <div id="xpFeed"></div>
+  </div>
 </div>
 
 <!-- 터치 조작: 왼쪽 원형 조이스틱(조향·가속·브레이크) + 오른쪽 원형 버튼 -->
@@ -78,6 +87,7 @@
     <div class="tbtn enf" id="btnEnforce" title="단속: 화면의 차량·보행자를 터치하면 위반 객관식이 뜹니다. 버튼은 앞쪽 위반 의심 대상을 자동으로 고릅니다"><span class="ico">🚨</span><span>단속</span></div>
     <div class="tbtn pa" id="btnPA" title="앰프(확성기) 안내"><span class="ico">📢</span><span>앰프</span></div>
     <div class="tbtn cam" id="btnCam" title="블랙박스 영상 단속(B): 이륜차·자전거·킥보드의 단순 위반은 추격하지 않고 영상으로 기록해 통고처분을 의뢰합니다"><span class="ico">📹</span><span>블랙박스</span></div>
+    <div class="tbtn beast" id="btnBeast" title="비스트 모드(H): 원칙(경광등 ON · 대상이 앞 · 9~42m)을 지키는 동안 충전됩니다. 가득 차면 잠깐 추진력이 올라갑니다"><span class="ico">🔥</span><span>비스트</span></div>
     <div class="tbtn radio" id="btnRadio" title="무전 상황 전파(T): 상황실·인접 순찰차에 알립니다. 번호판 조회도 함께"><span class="ico">📡</span><span>무전</span></div>
     <div class="tbtn cone" id="btnCone" title="현장 안전조치(K): 라바콘으로 차로를 차단하고, 야간·악천후에는 불꽃신호기를 점화합니다"><span class="ico">🚧</span><span>라바콘</span></div>
     <div class="tbtn gate" id="btnGate" title="관문: 순환도로 밖으로 나가는 길 끝에서 다른 지도로 건너갑니다(놀이용 기본 지도 ↔ 서초구 디지털 트윈)"><span class="ico">🛰</span><span>건너가기</span></div>
@@ -90,8 +100,8 @@
   <div id="speedPanel" class="speedpanel" hidden>
     <div class="sp-val" id="speedVal">1.0×</div>
     <div class="sp-row"><button type="button" data-ts="-0.5">−0.5</button><button type="button" data-ts="-0.1">−0.1</button><button type="button" data-ts="reset">1배</button><button type="button" data-ts="0.1">+0.1</button><button type="button" data-ts="0.5">+0.5</button></div>
-    <div class="sp-row set"><button type="button" data-tsset="0.7">🐢 늦게</button><button type="button" data-tsset="1">🚶 보통</button><button type="button" data-tsset="2">🐇 빨리</button><button type="button" data-tsset="3">⏩ 아주 빨리</button></div>
-    <div class="sp-note">0.5 ~ 3.0배 · 신호를 기다릴 때 · 근무를 새로 시작하면 1배</div>
+    <div class="sp-row set"><button type="button" data-tsset="0.5">🐢 아주 늦게</button><button type="button" data-tsset="0.75">🚶 늦게</button><button type="button" data-tsset="1">▶ 보통</button><button type="button" data-tsset="1.5">🐇 빠르게</button><button type="button" data-tsset="2">⏩ 2배</button></div>
+    <div class="sp-note">0.5 ~ 2.0배 · 신호를 기다릴 때 · 고른 배속은 다음 근무에도 이어집니다</div>
   </div>
   <!-- 화면 게임패드 배치(조작 설정 「게임패드」): 왼쪽 십자키 + 오른쪽 △○×□ + L1/R1 -->
   <div id="pad">
@@ -114,6 +124,8 @@
   </div>
   <div class="tbtn small help" id="btnCtlHelp" title="조작 설명">?</div>
   <!-- 보행자·어린이 모드: 손 들기 -->
+  <!-- 👀 살피기(어린이 교실) — 자전거 교실의 살피기가 재미있다는 소유자 의견(2026-09-16)으로 같은 연출을 넣었다 -->
+  <div class="tbtn look" id="btnLook" title="살피기(Space) — 고개를 좌우로 돌려 차가 오는지 본다"><span class="ico">👀</span><span>살피기</span></div>
   <div class="tbtn hand" id="btnHand" title="손 들기(G) — 어린이 횡단 4단계: 멈춘다 · 본다 · 손을 든다 · 걷는다"><span class="ico">✋</span><span>손 들기</span></div>
   <div class="tbtn footbtn" id="btnFoot" title="하차·승차(X): 완전히 정차한 뒤 내려서 걸어갑니다"><span class="ico">🚶</span><span>하차</span></div>
   <!-- 후진(R): 스틱을 아래로 오래 눌러도 되지만, 그건 찾기 어렵다 — 누르는 동안 바로 뒤로 간다 -->
@@ -136,6 +148,8 @@
   <div class="tbtn bkbtn bell" id="btnBikeBell" title="벨(Z)"><span class="ico">🔔</span><span class="lbl">벨</span></div>
   <div id="bikeGrade"><div class="bg-box"><b>🚲 자전거 교실</b><p>누가 타나요?</p><button data-grade="elem">🎒 초등학생 (13세 미만)</button><button data-grade="teen">🏫 중·고등학생 (13세 이상)</button><i>나이는 저장하지 않아요 — 법이 나이에 따라 달라서 묻습니다(보도로 다닐 수 있는지 · 전동킥보드)</i></div></div>
   <div id="bikeResult"></div>
+  <!-- 🚓 교통수사팀 — 자전거로 사람을 치면 그 자리에서 절차가 시작된다(v0.9.90) -->
+  <div id="bikeCrash"></div>
   <div id="totKeys">⌨ ↑ 꾹 걷기 · Space 큰 단추<br>← → 고르기 · N 다음 · B 이전 · 1~8 마당</div>
   <!-- 어린이 보행 교실: 횡단보도 단계 -->
   <div id="kidSteps"><div class="chips"><span class="chip">🛑 서다</span><span class="chip">👀 보다</span><span class="chip">✋ 손 들기</span><span class="chip">🚶 걷다</span></div><div id="kidNow">보도로 걸어요 🚶</div></div>
@@ -338,48 +352,50 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.87"></script>
-<script src="js/config.js?v=0.9.87"></script>
-<script src="js/rng.js?v=0.9.87"></script>
-<script src="js/save.js?v=0.9.87"></script>
-<script src="js/perf.js?v=0.9.87"></script>
-<script src="js/emblem.js?v=0.9.87"></script>
-<script src="js/textures.js?v=0.9.87"></script>
-<script src="js/audio.js?v=0.9.87"></script>
-<script src="js/city.js?v=0.9.87"></script>
-<script src="js/world.js?v=0.9.87"></script>
-<script src="js/terrain.js?v=0.9.87"></script>
-<script src="js/weather.js?v=0.9.87"></script>
-<script src="js/signals.js?v=0.9.87"></script>
-<script src="js/vehmesh.js?v=0.9.87"></script>
-<script src="js/vehicle.js?v=0.9.87"></script>
-<script src="js/traffic.js?v=0.9.87"></script>
-<script src="js/peds.js?v=0.9.87"></script>
-<script src="js/character.js?v=0.9.87"></script>
-<script src="js/vfx.js?v=0.9.87"></script>
-<script src="js/response.js?v=0.9.87"></script>
-<script src="js/junction.js?v=0.9.87"></script>
-<script src="js/chase.js?v=0.9.87"></script>
-<script src="js/incident.js?v=0.9.87"></script>
-<script src="js/dispatch.js?v=0.9.87"></script>
-<script src="js/intro.js?v=0.9.87"></script>
-<script src="js/walker.js?v=0.9.87"></script>
-<script src="js/rail.js?v=0.9.87"></script>
-<script src="js/enforcement.js?v=0.9.87"></script>
-<script src="js/signaltod.js?v=0.9.87"></script>
-<script src="js/facil.js?v=0.9.87"></script>
-<script src="js/layers.js?v=0.9.87"></script>
-<script src="js/study.js?v=0.9.87"></script>
-<script src="js/drunkproc.js?v=0.9.87"></script>
-<script src="js/kidcourse.js?v=0.9.87"></script>
-<script src="js/bike.js?v=0.9.87"></script>
-<script src="js/tot.js?v=0.9.87"></script>
-<script src="js/career.js?v=0.9.87"></script>
-<script src="js/hudpos.js?v=0.9.87"></script>
-<script src="js/hud.js?v=0.9.87"></script>
-<script src="js/minimap.js?v=0.9.87"></script>
-<script src="js/input.js?v=0.9.87"></script>
-<script src="js/main.js?v=0.9.87"></script>
+<script src="lib/three.min.js?v=0.9.91"></script>
+<script src="js/config.js?v=0.9.91"></script>
+<script src="js/rng.js?v=0.9.91"></script>
+<script src="js/save.js?v=0.9.91"></script>
+<script src="js/perf.js?v=0.9.91"></script>
+<script src="js/emblem.js?v=0.9.91"></script>
+<script src="js/textures.js?v=0.9.91"></script>
+<script src="js/audio.js?v=0.9.91"></script>
+<script src="js/city.js?v=0.9.91"></script>
+<script src="js/world.js?v=0.9.91"></script>
+<script src="js/terrain.js?v=0.9.91"></script>
+<script src="js/weather.js?v=0.9.91"></script>
+<script src="js/signals.js?v=0.9.91"></script>
+<script src="js/vehmesh.js?v=0.9.91"></script>
+<script src="js/vehicle.js?v=0.9.91"></script>
+<script src="js/traffic.js?v=0.9.91"></script>
+<script src="js/peds.js?v=0.9.91"></script>
+<script src="js/character.js?v=0.9.91"></script>
+<script src="js/vfx.js?v=0.9.91"></script>
+<script src="js/response.js?v=0.9.91"></script>
+<script src="js/junction.js?v=0.9.91"></script>
+<script src="js/chase.js?v=0.9.91"></script>
+<script src="js/incident.js?v=0.9.91"></script>
+<script src="js/dispatch.js?v=0.9.91"></script>
+<script src="js/intro.js?v=0.9.91"></script>
+<script src="js/walker.js?v=0.9.91"></script>
+<script src="js/rail.js?v=0.9.91"></script>
+<script src="js/enforcement.js?v=0.9.91"></script>
+<script src="js/signaltod.js?v=0.9.91"></script>
+<script src="js/facil.js?v=0.9.91"></script>
+<script src="js/layers.js?v=0.9.91"></script>
+<script src="js/study.js?v=0.9.91"></script>
+<script src="js/drunkproc.js?v=0.9.91"></script>
+<script src="js/kidcourse.js?v=0.9.91"></script>
+<script src="js/bike.js?v=0.9.91"></script>
+<script src="js/tot.js?v=0.9.91"></script>
+<script src="js/praise.js?v=0.9.91"></script>
+<script src="js/replay.js?v=0.9.91"></script>
+<script src="js/career.js?v=0.9.91"></script>
+<script src="js/hudpos.js?v=0.9.91"></script>
+<script src="js/hud.js?v=0.9.91"></script>
+<script src="js/minimap.js?v=0.9.91"></script>
+<script src="js/input.js?v=0.9.91"></script>
+<script src="js/main.js?v=0.9.91"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

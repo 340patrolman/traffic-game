@@ -241,8 +241,8 @@
     var c = this.controls, s = this.spec, T = this.telemetry, city = this.city;
     var want = TG.clamp(c.steer, -1, 1);
     want = TG.clamp(want + this.laneAssist(want), -1, 1);
-    var sport = this.driveMode === 'sport', SP = sport ? 1.28 : 1;   // 스포츠 모드: 가속·조향 응답·그립 한계가 조금씩 올라간다
-    var rate = (Math.abs(want) < Math.abs(this.steer) ? 6 : (this.easy !== false ? 2.4 : 3.2)) * SP;   // 풀 조향까지 0.3~0.4초: 키를 톡 쳐도 확 꺾이지 않는다(초보 보조는 더 느긋하게)
+    var sport = this.driveMode === 'sport', SP = (sport ? 1.28 : 1) * (this.boost || 1), MX = s.maxSpeed * (this.boostTop || 1);   // 스포츠 모드: 가속·조향 응답·그립 한계가 조금씩 올라간다
+    var rate = (Math.abs(want) < Math.abs(this.steer) ? 6 : (this.easy !== false ? 2.4 : 3.2)) * (sport ? 1.28 : 1);   // 풀 조향까지 0.3~0.4초: 키를 톡 쳐도 확 꺾이지 않는다(초보 보조는 더 느긋하게)
     this.steer += TG.clamp(want - this.steer, -rate * dt, rate * dt);
     this.brakeLevel = c.brake > 0 ? Math.min(1, this.brakeLevel + dt * 5) : 0;
 
@@ -273,11 +273,11 @@
     } else if (c.throttle > 0) {
       this.stopT = 0;
       if (vF < -0.2) vF += s.brake * dt;
-      else vF += c.throttle * s.accel * SP * (1 - Math.max(0, vF) / s.maxSpeed) * surface * dt;
+      else vF += c.throttle * s.accel * SP * (1 - Math.max(0, vF) / MX) * surface * dt;
     } else this.stopT = 0;
     vF -= vF * (onRoad ? 0.025 : (vF < 0 ? 0.30 : 0.9)) * dt;   // 도로 밖 저항. 후진일 때는 약하게 — 어디서든 뒤로 빠져나올 수 있어야 한다
     if (Math.abs(vF) < 0.4 * dt + 0.02 && c.throttle === 0 && !wantRev) vF = 0; else vF -= Math.sign(vF) * 0.35 * dt;
-    vF = TG.clamp(vF, -s.revMax, s.maxSpeed);
+    vF = TG.clamp(vF, -s.revMax, MX);
     this.gear = vF < -0.05 ? 'R' : 'D';
 
     // 조향 기하 → 요구 횡가속 → 그립 한계

@@ -47,7 +47,17 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
     this.riding = mode === 'ride';
     if (this.bike) { if (this.riding) this.bike.position.set(0, -0.02, 0.5); else this.bike.position.set(-0.62, -0.02, 0.35); }   // +x 가 몸 왼쪽 — 끌 때는 오른쪽 옆
     if (this.riding && !wasRiding) { TG.Character.pose(rig, 'ride'); this.v = Math.min(this.v, 1.0); }
-    if (!this.riding && wasRiding) { rig.frozen = false; this.leanZ = 0; g.rotation.z = 0; this.v = Math.min(this.v, 1.2); }
+    // 내릴 때 **자세를 되돌린다** — 안 되돌리면 탈 때의 벌린 다리·굽힌 허리가 그대로 남아 어색하게 서 있다
+    // (소유자 2026-09-16: 「자전거를 타고 있다가 내렸을 때 다리를 너무 벌리고 서 있어서 부자연스러워」).
+    if (!this.riding && wasRiding) {
+      rig.frozen = false; this.leanZ = 0; g.rotation.z = 0; this.v = Math.min(this.v, 1.2);
+      if (TG.Character.pose) TG.Character.pose(rig, 'stand');
+      // 벌린 다리는 `pose` 가 되돌리지 않는다 — 걷기 애니메이션은 엉덩이·무릎의 **x 회전만** 쓰기 때문에
+      // 탈 때 준 좌우 벌림(rotation.z ±0.42)이 그대로 남아 있었다. 그것을 직접 0 으로 돌린다.
+      var J0 = rig.joints; if (J0) { J0.hpL.rotation.z = 0; J0.hpR.rotation.z = 0; J0.hpL.rotation.y = 0; J0.hpR.rotation.y = 0; }
+      rig.frozen = false;
+      TG.Character.animate(rig, { speed: 0, moving: false, hand: 0, look: 0 }, 0.016);   // 선 자세로 한 프레임 정리
+    }
     return mode || null;
   };
   this.setUmbrella = function (on) {

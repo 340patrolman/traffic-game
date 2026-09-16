@@ -2,7 +2,7 @@
 TG.audio = (function () {
   var ctx = null, master = null, muted = false, ready = false, volume = 0.32;   // 기본 음량: 은은하게(전체 마스터 0.32)
   function setVolume(v) { volume = TG.clamp(v, 0, 1); if (master && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05); }
-  var engine = null, skid = null, siren = null, sirenOn = false, wind = null, ambient = null;
+  var engine = null, skid = null, siren = null, sirenOn = false, sirenMode = 'wail', wind = null, ambient = null;
   // 현장 소리: 바람(속도에 비례한 저역 노이즈) + 도심 웅웅거림(저음 화음) — 모두 합성
   function buildAmbient() {
     var src = ctx.createBufferSource(); src.buffer = noiseBuffer(2.0); src.loop = true;
@@ -156,6 +156,8 @@ TG.audio = (function () {
     return b;
   }
 
+  // 엔진(v0.9.88 강화 — 소유자: 「사운드이팩트를 더 강화」): 톱니·삼각파 위에 **저음 몸통(sub)** 과 **배기 노이즈**를 얹는다.
+  // 파일은 여전히 0개다. 층이 셋이 되면 같은 회전수라도 「무게」가 실린다.
   function buildEngine() {
     var o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
     o1.type = 'sawtooth'; o2.type = 'triangle';
@@ -163,7 +165,25 @@ TG.audio = (function () {
     var g = ctx.createGain(); g.gain.value = 0.0;
     o1.connect(f); o2.connect(f); f.connect(g); g.connect(master);
     o1.start(); o2.start();
-    engine = { o1: o1, o2: o2, f: f, g: g };
+    var sub = ctx.createOscillator(); sub.type = 'sine'; sub.frequency.value = 45;   // 저음 몸통(가슴을 치는 쪽)
+    var sg = ctx.createGain(); sg.gain.value = 0; sub.connect(sg); sg.connect(master); sub.start();
+    var ex = ctx.createBufferSource(); ex.buffer = noiseBuffer(2); ex.loop = true;   // 배기 — 회전수·가속에 따라 거칠어진다
+    var ef = ctx.createBiquadFilter(); ef.type = 'bandpass'; ef.frequency.value = 220; ef.Q.value = 0.9;
+    var eg = ctx.createGain(); eg.gain.value = 0; ex.connect(ef); ef.connect(eg); eg.connect(master); ex.start();
+    engine = { o1: o1, o2: o2, f: f, g: g, sub: sub, sg: sg, ef: ef, eg: eg };
+  }
+  // 🔥 터보(비스트 모드 전용): 스풀 휘파람 + 바람 노이즈. 켜져 있는 동안만 소리가 난다.
+  var turbo = null, beastOn = false;
+  function buildTurbo() {
+    var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 700;
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 7;
+    var g = ctx.createGain(); g.gain.value = 0;
+    o.connect(f); f.connect(g); g.connect(master); o.start();
+    var n = ctx.createBufferSource(); n.buffer = noiseBuffer(2); n.loop = true;
+    var nf = ctx.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 1100;
+    var ng = ctx.createGain(); ng.gain.value = 0;
+    n.connect(nf); nf.connect(ng); ng.connect(master); n.start();
+    turbo = { o: o, g: g, f: f, ng: ng };
   }
   function buildSkid() {
     var src = ctx.createBufferSource(); src.buffer = noiseBuffer(1.5); src.loop = true;
@@ -219,6 +239,14 @@ TG.audio = (function () {
       engine.o2.frequency.setTargetAtTime(base * 1.5, now, 0.04);
       engine.f.frequency.setTargetAtTime(260 + rpmSm * 1100 + throttle * 500, now, 0.06);
       engine.g.gain.setTargetAtTime((shiftT > 0 ? 0.025 : 0.04) + rpmSm * 0.06 + throttle * 0.035, now, 0.08);
+      if (engine.sub) {   // 저음 몸통 — 회전수의 반옥타브, 가속할수록 두꺼워진다
+        engine.sub.frequency.setTargetAtTime(base * 0.5, now, 0.05);
+        engine.sg.gain.setTargetAtTime(0.012 + rpmSm * 0.05 + throttle * 0.03 + (beastOn ? 0.03 : 0), now, 0.1);
+      }
+      if (engine.eg) {    // 배기 — 밟으면 거칠게, 놓으면 사그라든다
+        engine.ef.frequency.setTargetAtTime(160 + rpmSm * 420 + (beastOn ? 260 : 0), now, 0.08);
+        engine.eg.gain.setTargetAtTime(0.006 + throttle * (0.03 + rpmSm * 0.05) + (beastOn ? 0.03 : 0), now, 0.12);
+      }
       if (ev) { ev.g.gain.setTargetAtTime(0, now, 0.1); ev.ag.gain.setTargetAtTime(0, now, 0.1); }
     } else {
       if (!ev) buildEV();
@@ -237,17 +265,55 @@ TG.audio = (function () {
     skid.g.gain.setTargetAtTime(skidLevel > 0 ? 0.05 + skidLevel * 0.22 : 0, ctx.currentTime, 0.05);
     if (wind) { wind.g.gain.setTargetAtTime(speedNorm * speedNorm * 0.09, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + speedNorm * 900, ctx.currentTime, 0.2); }
     skid.f.frequency.setTargetAtTime(1400 + skidLevel * 900, ctx.currentTime, 0.1);
+    if (turbo) {   // 🔥 터보 스풀 — 회전수·속도에 따라 휘파람이 올라간다(비스트 모드에서만 들린다)
+      turbo.o.frequency.setTargetAtTime(420 + rpmSm * 2400 + kmh * 7, now, 0.08);
+      turbo.g.gain.setTargetAtTime(beastOn ? 0.018 + throttle * 0.03 : 0, now, 0.15);
+      turbo.ng.gain.setTargetAtTime(beastOn ? 0.012 + speedNorm * 0.05 : 0, now, 0.2);
+    }
     if (sirenOn) {
       siren.phase += dt;
-      var t = siren.phase % 1.4;                 // 웨일: 0.7초 상승, 0.7초 하강
-      var k = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.7;
-      siren.o.frequency.setTargetAtTime(600 + k * 700, ctx.currentTime, 0.02);
+      // 웨일(0.7초 상승·하강) / **옐프**(0.18초 빠른 반복 — 실제 순찰차가 교차로·근접에서 바꾸는 소리).
+      if (sirenMode === 'yelp') {
+        var ty = siren.phase % 0.36, ky = ty < 0.18 ? ty / 0.18 : 1 - (ty - 0.18) / 0.18;
+        siren.o.frequency.setTargetAtTime(760 + ky * 640, ctx.currentTime, 0.008);
+      } else {
+        var t = siren.phase % 1.4;
+        var k = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.7;
+        siren.o.frequency.setTargetAtTime(600 + k * 700, ctx.currentTime, 0.02);
+      }
     }
   }
-  function setSiren(on) {
+  function setSiren(on, mode) {
     sirenOn = on;
+    if (mode) sirenMode = mode === 'yelp' ? 'yelp' : 'wail';
     if (!ready) return;
-    siren.g.gain.setTargetAtTime(on ? 0.07 : 0, ctx.currentTime, 0.05);
+    siren.g.gain.setTargetAtTime(on ? (sirenMode === 'yelp' ? 0.085 : 0.07) : 0, ctx.currentTime, 0.05);
+  }
+  function sirenTone(mode) { sirenMode = mode === 'yelp' ? 'yelp' : 'wail'; if (ready && sirenOn) siren.g.gain.setTargetAtTime(sirenMode === 'yelp' ? 0.085 : 0.07, ctx.currentTime, 0.05); }
+  // 🔥 비스트 모드(v0.9.88) — 터보 스풀이 돌고 배기가 굵어진다. 켤 때 한 방, 끌 때 블로오프.
+  function beast(on) {
+    if (!ready) return false;
+    if (!turbo) buildTurbo();
+    beastOn = !!on;
+    var t0 = ctx.currentTime;
+    if (on) {
+      tone(80, t0, 0.02, 0.55, 'sawtooth', 0.26, 320);        // 낮은 곳에서 솟구치는 포효
+      tone(320, t0 + 0.02, 0.01, 0.5, 'square', 0.08, 1400);  // 터보 스풀 업
+      noiseHit(t0, 0.55, 0.2, 1100, 0.7);
+    } else blowOff();
+    return beastOn;
+  }
+  function blowOff() { if (!ready) return; var t0 = ctx.currentTime; noiseHit(t0, 0.2, 0.18, 3200, 1.1); tone(1400, t0, 0.004, 0.14, 'triangle', 0.06, 420); }
+  // 옆을 스쳐 지나가는 차 — 다가왔다 멀어지는 도플러(좌/우로 흐른다)
+  function passBy(strength, side) {
+    if (!ready) return;
+    var t0 = ctx.currentTime, v = TG.clamp(strength || 0.5, 0, 1), pan = panner(TG.clamp(side || 0, -1, 1));
+    var s = ctx.createBufferSource(); s.buffer = noiseBuf || (noiseBuf = noiseBuffer(1));
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+    f.frequency.setValueAtTime(1500 + v * 900, t0); f.frequency.exponentialRampToValueAtTime(320, t0 + 0.42);
+    var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.06 + v * 0.16, t0 + 0.09); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+    s.connect(f); f.connect(g); g.connect(pan); pan.connect(master); s.start(t0); s.stop(t0 + 0.5);
   }
 
   function blip(freq, dur, type, vol) {
@@ -598,7 +664,7 @@ TG.audio = (function () {
   }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
+  return { resume: resume, update: update, setSiren: setSiren, sirenTone: sirenTone, beast: beast, blowOff: blowOff, passBy: passBy, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
            sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, skidBurst: skidBurst, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();
