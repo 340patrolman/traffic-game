@@ -38,7 +38,7 @@ TG.Rail = function (scene, terrain, link, idx, cfg) {
   var gates = [], lamps = [], signGeo = new THREE.PlaneGeometry(1.3, 1.3), signMat = new THREE.MeshBasicMaterial({ map: TG.tex.sign('rail'), transparent: true, side: THREE.DoubleSide });
   function gate(sign) {   // sign: +1 = A 방향(s 증가) 접근, -1 = B 방향
     var px = P.x - t[0] * sign * 7 + r[0] * sign * (half + 0.9), pz = P.z - t[1] * sign * 7 + r[1] * sign * (half + 0.9), py = hAt(px, pz);
-    var pg = new TG.GeoBuilder(); pg.cylinder(px, py, pz, 0.14, 0.14, 3.2, 6, 0xdfe4ea); pg.box(px, py + 1.0, pz, 0.5, 0.5, 0.5, 0x2d3138, {});
+    var pg = new TG.GeoBuilder(); pg.cylinder(px, py, pz, 0.14, 0.14, 3.2, 6, 0xdfe4ea); TG.facReg('railGate', px, pz, 0.3, py, py + 3.2); pg.box(px, py + 1.0, pz, 0.5, 0.5, 0.5, 0x2d3138, {});
     var pm = new THREE.Mesh(pg.build(), lambert); pm.matrixAutoUpdate = false; pm.updateMatrix(); scene.add(pm);
     var yaw = new THREE.Object3D(); yaw.position.set(px, py + 1.05, pz);
     var a = [-r[0] * sign, -r[1] * sign]; yaw.rotation.y = Math.atan2(-a[1], a[0]);   // 로컬 +x → 도로 건너는 방향

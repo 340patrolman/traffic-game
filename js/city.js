@@ -319,7 +319,7 @@ TG.buildCity = function (cfg) {
   }
   var terrain = null;
   function frameAt(x, z, heading) {
-    if (inGridArea(x, z) || (x > -20 && x < 340 && z > -20 && z < 340)) {
+    if (inGridArea(x, z) || (x > xs[0] - 20 && x < xs[xs.length - 1] + 20 && z > zs[0] - 20 && z < zs[zs.length - 1] + 20)) {   // 격자 판정 상자는 **지도의 격자에서** 잰다(기본 지도 -20~340 에 못 박혀 있었다)
       var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z);
       // 제한속도(안전속도 5030 취지): 4차로 간선 50, 2차로 40, 어린이보호구역 30
       var lim = school ? 30 : (lf.lanes >= 2 ? 50 : 40);

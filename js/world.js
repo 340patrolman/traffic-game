@@ -288,23 +288,24 @@
       props.box(cx, 0.15, cz, vert ? 0.4 : len + 0.2, 0.3, vert ? len + 0.2 : 0.4, 0xc9c5ba, {});
     });
     city.trees.forEach(function (t) {
-      props.cylinder(t.x, 0.2, t.z, 0.2 * t.s, 0.14 * t.s, 2.2 * t.s, 6, 0x6b4a2b);
+      props.cylinder(t.x, 0.2, t.z, 0.2 * t.s, 0.14 * t.s, 2.2 * t.s, 6, 0x6b4a2b); TG.facReg('tree', t.x, t.z, 0.2 * t.s, 0.2, 2.4 * t.s);
       var col = [0x4f8a3a, 0x5c9a42, 0x437a33][Math.floor(t.s * 10) % 3];
       if (Math.floor(t.s * 100) % 2 === 0) { props.cylinder(t.x, 1.8 * t.s, t.z, 1.9 * t.s, 0.9 * t.s, 2.0 * t.s, 7, col, false); props.cylinder(t.x, 3.2 * t.s, t.z, 1.4 * t.s, 0.15, 2.0 * t.s, 7, col, true); }
       else { props.cylinder(t.x, 2.0 * t.s, t.z, 1.2 * t.s, 1.9 * t.s, 1.4 * t.s, 8, col, false); props.cylinder(t.x, 3.4 * t.s, t.z, 1.9 * t.s, 0.9 * t.s, 1.6 * t.s, 8, col, true); }
     });
     city.lamps.forEach(function (l) {
-      props.cylinder(l.x, 0.2, l.z, 0.14, 0.1, 7, 6, 0x8f959c);
+      props.cylinder(l.x, 0.2, l.z, 0.14, 0.1, 7, 6, 0x8f959c); TG.facReg('lamp', l.x, l.z, 0.14, 0.2, 7.2);
       var fx = Math.sin(l.rot), fz = Math.cos(l.rot);
       props.box(l.x + fx * 1.2, 7, l.z + fz * 1.2, 0.16, 0.16, 2.4, 0x8f959c, { rotY: l.rot }); props.box(l.x + fx * 2.3, 6.85, l.z + fz * 2.3, 0.5, 0.22, 0.9, 0xfff2c8, { rotY: l.rot });
     });
-    city.signs.forEach(function (s) { props.cylinder(s.x, 0.2, s.z, 0.06, 0.05, 2.9, 5, 0x8f959c); });
+    city.signs.forEach(function (s) { props.cylinder(s.x, 0.2, s.z, 0.06, 0.05, 2.9, 5, 0x8f959c); TG.facReg('sign', s.x, s.z, 0.06, 0.2, 3.1); });
     for (var pi = 0; pi < xs.length; pi++) {
       var prev = null;
       for (var pz = zs[0] + 16; pz < zs[zs.length - 1]; pz += 32) {
         if (Math.abs(pz - city.nearestZ(pz)) < 16) continue;
+        if (zs.some(function (zj, jj) { return Math.abs(pz - zj) < hH[jj] + 3; })) continue;   // 넓은 도로(남부순환로 반폭 17m)는 16m 로 모자랐다 — 전주가 차도 안에 섰다(2026-09-17 전체 점검)
         var px = xs[pi] - hV[pi] - 2.6;
-        props.cylinder(px, 0.2, pz, 0.17, 0.13, 9.5, 6, 0x7a6a58); props.box(px, 9.2, pz, 0.12, 0.12, 1.8, 0x5a4a3a, {}); props.box(px, 8.6, pz, 0.12, 0.12, 1.4, 0x5a4a3a, {});
+        props.cylinder(px, 0.2, pz, 0.17, 0.13, 9.5, 6, 0x7a6a58); TG.facReg('upole', px, pz, 0.17, 0.2, 9.7); props.box(px, 9.2, pz, 0.12, 0.12, 1.8, 0x5a4a3a, {}); props.box(px, 8.6, pz, 0.12, 0.12, 1.4, 0x5a4a3a, {});
         if (prev && pz - prev[2] < 40) { wires.beam([prev[0], 9.3, prev[2] + 0.8], [px, 9.3, pz + 0.8], 0.02, 0x222222); wires.beam([prev[0], 9.3, prev[2] - 0.8], [px, 9.3, pz - 0.8], 0.02, 0x222222); wires.beam([prev[0], 8.7, prev[2]], [px, 8.7, pz], 0.02, 0x222222); }
         prev = [px, 0, pz];
       }
@@ -315,10 +316,10 @@
       var sx = (xs[bi] + xs[bi + 1]) / 2 + 10, sz = zs[bj] + hH[bj] + 1.6;
       shelters.box(sx, 2.6, sz, 4.2, 0.12, 1.6, 0x2f3d4c, {}); shelters.box(sx - 2.0, 1.3, sz, 0.1, 2.6, 1.6, 0x8f959c, {}); shelters.box(sx + 2.0, 1.3, sz, 0.1, 2.6, 1.6, 0x8f959c, {});
       shelters.box(sx, 1.4, sz + 0.75, 4.2, 2.2, 0.06, 0x5a7a9a, {}); shelters.box(sx, 0.55, sz + 0.3, 3.2, 0.08, 0.4, 0x8a6a4a, {});
-      props.cylinder(sx + 2.6, 0.2, sz - 0.4, 0.05, 0.05, 2.8, 5, 0x8f959c);
+      props.cylinder(sx + 2.6, 0.2, sz - 0.4, 0.05, 0.05, 2.8, 5, 0x8f959c); TG.facReg('shelter', sx, sz, 0.8, 0, 2.7); TG.facReg('busSign', sx + 2.6, sz - 0.4, 0.05, 0.2, 3.0);
       busSigns.vquad(sx + 2.6, 2.4, sz - 0.52, 0.5, 1.0, Math.PI, 0xffffff, null);   // 판을 기둥 앞으로(전에는 기둥이 판 가운데를 가렸다)
       props.box(sx + 2.6, 2.4, sz - 0.49, 0.54, 1.04, 0.05, 0x9aa2ab, {});
-      props.cylinder(sx - 3.2, 0.2, sz, 0.28, 0.28, 0.8, 8, 0x3a3f45, true);
+      props.cylinder(sx - 3.2, 0.2, sz, 0.28, 0.28, 0.8, 8, 0x3a3f45, true); TG.facReg('bin', sx - 3.2, sz, 0.28, 0.2, 1.0);
     }
     // ---- 지하철역 출입구 + 역 이름 표지 ----
     // 실제 서초구 역 위치에 세운다(2호선 서초대로: 방배 → 서초 → 교대 → 강남).
@@ -328,7 +329,7 @@
       var f = [Math.sin(S.rot), Math.cos(S.rot)], r = [-f[1], f[0]];
       function P(a, b) { return [S.x + f[0] * b + r[0] * a, S.z + f[1] * b + r[1] * a]; }
       var c0 = P(0, 0);
-      props.box(c0[0], 0.55, c0[1], 3.6, 1.1, 2.6, 0xdfe3e8, {});                     // 계단 입구 옹벽
+      props.box(c0[0], 0.55, c0[1], 3.6, 1.1, 2.6, 0xdfe3e8, {}); TG.facReg('subway', c0[0], c0[1], 1.3, 0, 1.3);                     // 계단 입구 옹벽
       props.box(c0[0], 1.18, c0[1], 3.8, 0.16, 2.8, 0xb9bec4, { noBottom: true });     // 테두리
       var mouth = P(0, 1.0);   // 계단 입구는 도로 쪽으로 열린다
       props.box(mouth[0], 0.35, mouth[1], 3.0, 0.7, 0.6, 0x2a2e33, {});                // 어두운 계단 입구
@@ -339,7 +340,7 @@
         props.box((a0[0] + a1[0]) / 2, 2.0, (a0[1] + a1[1]) / 2, 0.07, 0.07, 2.4, 0xa9b0b8, { rotY: S.rot });
       }
       var pole = P(2.5, 0);
-      props.cylinder(pole[0], 0.2, pole[1], 0.09, 0.08, 3.0, 8, 0x6f7680);             // 표지 기둥
+      props.cylinder(pole[0], 0.2, pole[1], 0.09, 0.08, 3.0, 8, 0x6f7680); TG.facReg('swSign', pole[0], pole[1], 0.09, 0.2, 3.2);             // 표지 기둥
       var key = 'sw:' + S.name;
       (swFaces[key] = swFaces[key] || { S: S, gb: new GeoBuilder() });
       // 판을 기둥(반지름 0.09m) 앞으로 0.16m 내고 뒤를 회색 판으로 막는다 — 기둥이 역 이름 가운데를 가리고 있었다
@@ -366,7 +367,7 @@
       }
       props.box(M.x, 0.62, M.z - R + 0.2, 2.6, 0.9, 0.4, 0x8a7a63, {});                 // 출입구 문지방
       // 향나무: 수백 년 묵은 나무라 **줄기가 굵고 낮으며 수관이 옆으로 넓게 퍼진다**(뾰족한 침엽수와 다르다).
-      props.cylinder(M.x, 0.3, M.z, 0.95, 0.72, 2.6, 12, 0x6b5340, true);              // 굵은 밑동
+      props.cylinder(M.x, 0.3, M.z, 0.95, 0.72, 2.6, 12, 0x6b5340, true); TG.facReg('bigtree', M.x, M.z, 0.95, 0.3, 6.6);              // 굵은 밑동
       props.cylinder(M.x - 0.35, 2.9, M.z + 0.2, 0.56, 0.34, 1.8, 10, 0x6b5340, true);  // 살짝 기운 줄기
       for (var br = 0; br < 7; br++) {
         var ba = br / 7 * Math.PI * 2 + 0.35, bl = 4.2 + (br % 3) * 1.0, by = 2.9 + (br % 2) * 0.7;
@@ -425,6 +426,7 @@
         // 여기 달린 차량 신호등 머리는 반대편(-f2 로 오는) 운전자가 읽는다 — 그래야 정지선 옆에 두고도 보인다.
         var stopA = city.stopDist(nd, hd) + 0.9, sideA = city.sideOff(rd2.axis, rd2.idx) + 1.0;
         var px2 = nd.x - f2[0] * stopA + r2[0] * sideA, pz2 = nd.z - f2[1] * stopA + r2[1] * sideA;
+        TG.facReg('signal', px2, pz2, 0.16, 0.2, 6.6, { node: nd.i + ',' + nd.j, d: hd });
         sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.4, 6, 0x4a4f55);   // 가로등은 달지 않는다(소유자 지시) - 가로등은 별도 기둥
         var headOff = cfg.LANE_OFF + cfg.LANE_W * (lanes - 1) / 2, armLen = sideA - headOff + 0.6;
         sigProps.box(px2 - r2[0] * armLen / 2, 6.1, pz2 - r2[1] * armLen / 2, 0.14, 0.14, armLen, 0x4a4f55, { rotY: TG.DIR_HEADING[hd] + Math.PI / 2 });

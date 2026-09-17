@@ -63,6 +63,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   var G = TG.GeoBuilder;
   function build() {
     while (group.children.length) { var c0 = group.children[0]; group.remove(c0); if (c0.geometry) c0.geometry.dispose(); }
+    self.poles = [];   // 점검용 — 지주 자리
     if (!data.cams.length) return;
     var gb = new G(), faces = {};
     data.cams.forEach(function (C) {
@@ -70,7 +71,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
       var rd = city.roadOf(nd, d), back = city.stopDist(nd, d) + 14, side = city.sideOff(rd.axis, rd.idx) + 1.2;
       var px = nd.x - f[0] * back + r[0] * side, pz = nd.z - f[1] * back + r[1] * side;
       var rot = TG.DIR_HEADING[d];
-      gb.cylinder(px, 0.2, pz, 0.19, 0.16, 7.4, 8, 0x5a6068);                                      // 지주
+      gb.cylinder(px, 0.2, pz, 0.19, 0.16, 7.4, 8, 0x5a6068); self.poles.push({ kind: 'cam', x: px, z: pz, r: 0.19, y0: 0.2, y1: 7.6, meta: { node: C.i + ',' + C.j, d: d } });                                      // 지주
       var armLen = side + city.laneOff(rd.axis, rd.idx, 1);
       gb.box(px - r[0] * armLen * 0.5, 7.5, pz - r[1] * armLen * 0.5, 0.2, 0.2, armLen, 0x5a6068, { rotY: rot + Math.PI / 2 });   // 도로 위로 뻗은 팔
       for (var n = 0; n < 2; n++) {                                                                 // 함체 두 대(차로별)

@@ -123,6 +123,8 @@
     resize();
     addEventListener('resize', resize);
     addEventListener('orientationchange', function () { setTimeout(resize, 200); });
+    // ⏱ 근무 시계: 게임 중 화면·자판을 누르면 선다(clockWatch). 캡처 단계라 단추가 이벤트를 막아도 잡힌다
+    ['pointerdown', 'keydown'].forEach(function (ev) { document.addEventListener(ev, function () { if (G.state === 'play' && !G.paused) G.userActed = true; }, true); });
     if (!isTest) document.addEventListener('visibilitychange', function () { if (document.hidden && G.state === 'play') setPaused(true, 'menu'); });
     // 인트로용 순찰차(타이틀 배경에서도 경광등을 켜고 서 있다)
     player = new TG.PlayerCar(scene, city, C, carSpec(settings.car)); player.setSiren(true); G.player = player;
@@ -255,8 +257,6 @@
     if (hh > 0) document.documentElement.style.setProperty('--hudh', hh + 'px');
   }
   G.hudHeightVar = hudHeightVar;
-  G.kidStageBlock = function () { return kidStageBlock(); };   // 교실 모듈(bike.js)이 같은 무대(서초역 사거리 블록)를 쓴다
-  G.endShift = function (why) { endShift(why); };
   // 세로 화면 계기 칸의 온디맨드 칸(v0.9.98 · 0.5초마다): 최고 속도 · 남은 시간 1분 전 경고 · 랩 측정 중 자동 노출(끝나면 3초 뒤 접힘)
   function portraitHudTick() {
     var B = document.body;
@@ -266,6 +266,8 @@
     if (on) G.lapOffT = 0; else G.lapOffT = (G.lapOffT || 0) + 0.5;
     B.classList.toggle('lapon', on || G.lapOffT < 3);
   }
+  G.kidStageBlock = function () { return kidStageBlock(); };   // 교실 모듈(bike.js)이 같은 무대(서초역 사거리 블록)를 쓴다
+  G.endShift = function (why) { endShift(why); };
   // ---------- 시작 화면(부트 게이트) ----------
   // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
   function bootGate() {
@@ -480,14 +482,14 @@
     var optVb = $('optVibrate');
     if (optVb) { optVb.checked = settings.vibrate !== false; optVb.addEventListener('change', function () { settings.vibrate = optVb.checked; TG.save.set('settings', settings); if (optVb.checked) buzz(40); }); }
     // 배속 단추와 판: 1.0~3.0배 · 0.1 단위와 0.5 단위 · 1배 되돌리기. 키보드 [ ] (Shift 와 함께 0.5) · \ = 1배
-    var bSp = $('btnSpeed'), pSp = $('speedPanel');
-    if (bSp && pSp) {
     // 세로 화면 한 줄 계기 칸(v0.9.98): 누르면 온디맨드 칸(남은 시간·단속·최고 속도·정지거리·랩)을 펼치고 다시 누르면 접는다
     input.bindTap($('hudbar'), function () { if (document.body.classList.contains('portrait')) document.body.classList.toggle('hudmore'); });
     // 메뉴 안으로 모은 작은 단추들(시점 · 조작 설명 · 배속)
     input.bindTap($('pmView'), function () { setPaused(false, 'menu'); if (G.state === 'play') applyView(settings.cam === 'cockpit' ? 'chase' : 'cockpit', true); });
     input.bindTap($('pmHelp'), function () { setPaused(false, 'menu'); showCtlHelp(); });
     input.bindTap($('pmSpeed'), function () { setPaused(false, 'menu'); var ps = $('speedPanel'); if (ps) ps.hidden = false; });
+    var bSp = $('btnSpeed'), pSp = $('speedPanel');
+    if (bSp && pSp) {
       input.bindTap(bSp, function () { pSp.hidden = !pSp.hidden; });
       // 늦게 · 보통 · 빨리 — 소유자 「어린이 보행교실 안에서 실제 신호값으로 진행하면 너무 많이 기다리게 되므로
       // 진행되는 시간을 늦게 보통 빨리 등으로 속도를 조절할 수 있게 해서 빠른 진행도 되게 하자」.
@@ -847,9 +849,9 @@
     TG.audio.resume(); if (TG.study) TG.study.close();
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
+    document.body.classList.remove('hudmore'); document.body.classList.remove('mmopen'); document.body.classList.remove('timewarn'); G.topKmh = 0; G.lapOffT = 9;   // 세로 계기 칸은 접은 채로 시작한다
     document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit'); document.body.classList.remove('beast');   // 속도선·경광등 테두리·비스트는 내리고 시작한다
     hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1);   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
-    document.body.classList.remove('hudmore'); document.body.classList.remove('mmopen'); document.body.classList.remove('timewarn'); G.topKmh = 0; G.lapOffT = 9;   // 세로 계기 칸은 접은 채로 시작한다
     if (G.praise) { G.praise.reset(); G.praise.showBar(); }   // 🎖 근무를 시작하면 콤보는 0 부터, 계급은 이어서(경험치는 기기에 남는다)
     if (G.story) G.story.resetShift();                        // 🔗 사슬은 아래에서 모드를 정한 뒤에 시작한다
 
@@ -868,6 +870,7 @@
     G.iscene = TG.IncidentScene ? new TG.IncidentScene(G) : null;   // 현장 안전조치(라바콘·불꽃신호기·순찰차 방패)
     G.dispatch = TG.Dispatch ? new TG.Dispatch(G) : null;   // 112 긴급출동(코드0·1) 연습 — 순찰 근무에서만 신고가 들어온다
     G.score = 0; G.timeLeft = C.SHIFT_SECONDS; penaltyTotal = 0; penaltyCount = {};
+    G.userActed = false; G.clockOn = !!(isTest && !G.testClockHold);   // ⏱ 시계는 처음 움직이거나 조작할 때 선다(검사는 기본으로 켠 채 — 시계 검사만 T.clockHold 로 세운다)
     // 모드: patrol(순찰 근무) | free(자유 주행: 시간 제한·감점 없음, 랩 타임) | circuit(연습 서킷: 교통 없음, 코칭·랩 타임)
     G.mode = modeOverride || settings.mode || 'patrol'; if (!MODES[G.mode]) G.mode = 'patrol';
     // **모드가 정해진 뒤에** 켠다 — 앞에서 켜면 G.mode 가 아직 지난 판의 것이라 늘 꺼져 있었다.
@@ -894,7 +897,8 @@
     if (G.mode === 'free') { G.timeLeft = 1e9; lap.link = terrain.ring; }
     if (G.enterGate && terrain.gate && !onFoot()) {   // 관문으로 건너온 판: 순환도로 밖 길 끝에서 도시를 보고 선다
       var gp = terrain.gate; G.enterGate = false;
-      player.teleport(gp.x, gp.z, gp.hd); player.resync();
+      var gfx = Math.sin(gp.hd), gfz = Math.cos(gp.hd);   // 길 한가운데가 아니라 **오른쪽 차로**에 선다(점검: 중앙선 위에 서 있었다)
+      player.teleport(gp.x - gfz * C.LANE_OFF, gp.z + gfx * C.LANE_OFF, gp.hd); player.resync();
       hud.notice('🛰 ' + city.mapName + ' 에 들어왔습니다 — 순환도로 쪽으로 나가면 도시입니다', 'info', 4200);
     }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz));
@@ -1754,7 +1758,7 @@
     hud.setSpeed(walker.speedKmh(), 0, 999); hud.setGear('D');
     minimap.draw(walker, traffic.cars, null, walk.dests[walk.idx] || null);
     TG.audio.update(dt, 0, 0, 0, 0, false);
-    if (G.timeLeft > 1e8) hud.setTimerText(G.mode === 'bike' ? '—' : '∞'); else { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); }   // 시간 제한이 없는 모드(교실·자유 주행·서킷)는 숫자를 세지 않는다 — 하차하면 「16666666:30」이 찍혔다
+    if (G.timeLeft > 1e8) hud.setTimerText(G.mode === 'bike' ? '—' : '∞'); else { if (G.clockOn) G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); }   // 시간 제한이 없는 모드(교실·자유 주행·서킷)는 숫자를 세지 않는다 — 하차하면 「16666666:30」이 찍혔다
     if (G.timeLeft <= 0) endShift(G.mode === 'duty' ? '근무 종료 — 소통 양호 ' + junction.score.cleared + '회' : (walk && walk.afoot) ? '근무 시간 종료' : '체험 시간 종료 — 목적지 ' + walk.arrived + '/' + walk.dests.length);
   }
   function fmtLap(t) { var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
@@ -2017,7 +2021,17 @@
     if (any) TG.audio.setSiren(false); else if (player && player.siren) TG.audio.setSiren(true);
   }
   G.setPaused = setPaused;
+  // ⏱ 근무 시계 — **처음 움직이거나 조작하기 전에는 시계가 서 있고 점수도 변하지 않는다**(2026-09-17 소유자 지시 「시작 전 감점 차단」).
+  // 세워 둔 순찰차를 뒤차가 들이받아 달리기도 전에 −40 이 찍혔다. 걷기(0.3m/s) · 가속·후진·조향 · 화면·자판 누름 중 하나면 시계가 선다.
+  function clockWatch() {
+    if (G.clockOn || G.state !== 'play') return;
+    var mv = onFoot() && walker && walker.v > 0.3;   // 차는 속도로 보지 않는다 — 뒤차에 밀려도 속도가 붙는다
+    var ct = !onFoot() && player && player.controls && (player.controls.throttle > 0.05 || player.controls.reverse > 0 || Math.abs(player.controls.steer) > 0.15);
+    if (mv || ct || G.userActed) G.clockOn = true;
+  }
+  G.clockWatch = clockWatch;
   function addScore(delta, reason) {
+    if (!G.clockOn) return;   // 시계가 서 있으면 점수는 그대로다(가점·감점 모두)
     // 점수가 오르내릴 때 손끝에도 알린다 — 화면을 안 보고 있어도 「됐다 / 아니다」가 전해진다(소유자: 햅틱 반응).
     if (isFinite(delta) && delta !== 0) buzz(delta > 0 ? (delta >= 25 ? TG.HAPTIC.ok : TG.HAPTIC.star) : (delta <= -20 ? TG.HAPTIC.bad : TG.HAPTIC.warn));
     if (!isFinite(delta)) return;   // 없는 감점 키를 주면 점수가 NaN 이 되어 HUD·결과 카드가 통째로 깨진다
@@ -2326,7 +2340,9 @@
         var cf = [Math.sin(c.heading), Math.cos(c.heading)], closing = (player.vx - cf[0] * c.v) * nx + (player.vz - cf[1] * c.v) * nz;
         if (closing > 0) {
           player.vx -= nx * closing * 0.8; player.vz -= nz * closing * 0.8; player.resync(); c.v = Math.max(0, c.v - closing * 0.3);
-          if (closing > 2.5 && rules.crashCd <= 0) {
+          var myPart = player.vx * nx + player.vz * nz;   // 내 차가 그쪽으로 다가간 몫 — 세워 둔 차를 뒤차가 들이받으면 내 사고가 아니다
+          if (closing > 2.5 && rules.crashCd <= 0 && myPart < 0.8) { rules.crashCd = 1.5; TG.audio.thump(closing / 10); }
+          else if (closing > 2.5 && rules.crashCd <= 0) {
             rules.crashCd = 1.5; TG.audio.thump(closing / 10);
             var teach = (G.lead && G.lead.car === c && G.lead.sec < 1.2) ? '1초 미만 간격에서는 사람의 반응 시간(약 1초) 안에 못 멈춘다' : '차량 접촉 — 속도를 줄이고 간격을 둔다';
             penalize('crash', '차량 접촉', teach); if (chase) chase.onCollateral(); G.lastCrash = { car: c.id, closing: closing, t: performance.now() }; G.shake = Math.min(1.2, closing / 8); buzz(Math.round(60 + Math.min(1, closing / 10) * 160));
@@ -2397,6 +2413,7 @@
   function update(dt) {
     // 👁 되돌려 보기 동안에는 세상이 멈춘다 — 여기서 걸러야 `TG.test.step` 으로 돌릴 때도 같은 길을 간다
     if (G.replay && G.replay.active()) { G.replay.update(dt); return; }
+    clockWatch();
     if (onFoot() && walker) { walkUpdate(dt); return; }
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
@@ -2508,7 +2525,7 @@
     hud.setGear(player.gear);
     minimap.draw(player, traffic.cars, enforcement.target, G.dispatch && G.dispatch.dest ? G.dispatch.dest : null);
     TG.audio.update(dt, TG.clamp(T.speed / player.spec.maxSpeed, 0, 1), player.controls.throttle, T.skid, player.speedKmh(), player.controls.brake > 0 || (player.controls.throttle === 0 && T.speed > 3));
-    if (G.mode === 'patrol' || G.mode === 'chase') { G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift(G.mode === 'chase' ? '추격전 시간 종료' : '근무 시간 종료'); }
+    if (G.mode === 'patrol' || G.mode === 'chase') { if (G.clockOn) G.timeLeft -= dt; hud.setTimer(Math.max(0, G.timeLeft)); if (G.timeLeft <= 0) endShift(G.mode === 'chase' ? '추격전 시간 종료' : '근무 시간 종료'); }
     else { lapUpdate(dt); if (G.mode === 'circuit') coachUpdate(dt); }
   }
 
@@ -2679,6 +2696,7 @@
       setSignal: function (i, j, axis, s) { signals.set(city.nodes[i][j], axis, s); },
       signal: function (i, j, axis) { return signals.state(city.nodes[i][j], axis); },
       override: function (o) { G.testOverride = o; },
+      clockHold: function (on) { G.testClockHold = !!on; }, clockOn: function () { return !!G.clockOn; },
       siren: function (on) { if (player.siren !== on) toggleSiren(); },
       dispatch: function (code, i, j) { return G.dispatch ? G.dispatch.call(code, i !== undefined ? city.nodes[i][j] : undefined) : null; },
       setSpawning: function (on) { C.TRAFFIC_MAX = on ? 18 : 0; C.PED_MAX = on ? 22 : 0; },

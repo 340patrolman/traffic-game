@@ -23,3 +23,8 @@ TG.headingToDir = function (h) {
   if (Math.abs(fx) > Math.abs(fz)) return fx > 0 ? 1 : 3;
   return fz > 0 ? 0 : 2;
 };
+// 시설물 자리 기록(점검용) — 기둥·표지·가로수·교각처럼 차가 부딪힐 수 있는 것.
+// 그리는 코드와 **같은 변수**로 적는다(점검이 그림과 다른 자리를 보면 소용이 없다).
+// y0·y1 = 세로 범위(월드 y). meta = 링크 번호 등 점검이 가를 때 쓰는 값.
+TG.FAC = [];
+TG.facReg = function (kind, x, z, r, y0, y1, meta) { TG.FAC.push({ kind: kind, x: x, z: z, r: r, y0: y0, y1: y1, meta: meta || null }); };

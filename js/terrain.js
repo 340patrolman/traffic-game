@@ -258,8 +258,15 @@ TG.buildTerrain = function (scene, city, cfg) {
     var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
     var end = [J.x - rad[0] * 15, J.z - rad[1] * 15];
     // 도시에서 곧게 나가는 길이는 첫 경유점까지 거리의 절반까지만(고정 45m 면 경유점을 지나쳐 스플라인이 꺾인다 — 차가 튕겨 나가던 원인)
-    var v0 = ic.via[0], run = Math.min(45, Math.max(12, Math.hypot(v0[0] - start[0], v0[1] - start[1]) * 0.45));
-    var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(ic.via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
+    // 경유점은 **기본 지도(격자 0~320 · 링 중심 160,160) 기준 좌표**다. 다른 지도에서는 격자와 링이 옮겨 가므로
+    // 경유점도 따라 옮긴다 — 도시 쪽 경유점은 이 교차로가 옮긴 만큼, 링 쪽 경유점은 링 중심이 옮긴 만큼 섞어서.
+    // 옮기지 않으면 디지털 트윈(남쪽 끝 364.6)에서 선암IC·양재IC 경유점이 연결로 **시작점 뒤**에 놓여
+    // 연결로가 출발하자마자 되돌아 꺾였다(머리핀) — 되돌아온 도로 위에 안내 갠트리·다리 난간이 섰다(2026-09-17 전체 점검).
+    var bx = 320 * ic.node[0] / (city.xs.length - 1) + dv[0] * city.EXT, bz = 320 * ic.node[1] / (city.zs.length - 1) + dv[1] * city.EXT;
+    var nsx = start[0] - bx, nsz = start[1] - bz, rsx = CXC - 160, rsz = CZC - 160, nv = ic.via.length;
+    var via = ic.via.map(function (v, k) { var w = (k + 1) / (nv + 1); return [v[0] + nsx * (1 - w) + rsx * w, v[1] + nsz * (1 - w) + rsz * w]; });
+    var v0 = via[0], run = Math.min(45, Math.max(12, Math.hypot(v0[0] - start[0], v0[1] - start[1]) * 0.45));
+    var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
     var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);
     trimLink(conn, [start[0] - dv[0] * 4, start[1] - dv[1] * 4], end);   // 도시 스텁 포장과 4m 겹치게 시작한다(사이에 잔디가 보였다)
     // 램프 분기점은 **다리 위에 두지 않는다**. 한남대교 연결로는 링 접속점에서 56m 뒤가 한강 한복판이어서
@@ -341,7 +348,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     var g = gate, y = groundAt(g.x, g.z), o = g.out, rgt = [-o[1], o[0]];
     props.box(g.x, y + 0.06, g.z, 26, 0.12, 26, 0x9aa2ab, {});                                  // 광장 바닥
     for (var s2 = -1; s2 <= 1; s2 += 2) {                                                        // 문기둥 둘
-      props.box(g.x + rgt[0] * 9 * s2, y + 2.6, g.z + rgt[1] * 9 * s2, 1.2, 5.2, 1.2, 0x2b3442, {});
+      props.box(g.x + rgt[0] * 9 * s2, y + 2.6, g.z + rgt[1] * 9 * s2, 1.2, 5.2, 1.2, 0x2b3442, {}); TG.facReg('gatePillar', g.x + rgt[0] * 9 * s2, g.z + rgt[1] * 9 * s2, 0.85, y, y + 5.6);
       props.box(g.x + rgt[0] * 9 * s2, y + 5.4, g.z + rgt[1] * 9 * s2, 1.6, 0.5, 1.6, 0x39455a, {});
     }
     var txt = isTwin ? '기본 지도로|놀이·교육 서초구' : '서초구 디지털 트윈|실제 자료 시뮬레이션';
@@ -480,7 +487,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   function clearSpot(x, z, L, ux, uz) {
     for (var k = 0; k <= 6; k++) {
       var sx = x + ux * 3 * k, sz = z + uz * 3 * k, q = nearest(sx, sz, true);
-      if (!q || q.link === L || q.dist > q.p.half + 0.9) return [sx, sz];
+      if ((!q || q.link === L || q.dist > q.p.half + 0.9) && !(city && city.onRoad && city.onRoad(sx, sz))) return [sx, sz];   // 도시 격자(스텁) 차도도 피한다
     }
     return null;
   }
@@ -661,18 +668,19 @@ TG.buildTerrain = function (scene, city, cfg) {
           if (barOk) wallQuad(props, p, q, side * (half - 0.4), 0.55, 0.85, 0xd9dde2);   // 벽만 지우고 말뚝을 남겨 램프가 말뚝으로 막혀 있었다(소유자 지적)
           if (barOk && i % 2 === 0) { var gp = Pt(p, side * (half - 0.4), 0); props.box(gp[0], gp[1] + 0.4, gp[2], 0.12, 0.8, 0.12, 0x8f959c, {}); }
           var w0 = Pt(p, side * (half - 0.4), 0), w1 = Pt(q, side * (half - 0.4), 0);
-          if (barOk) walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2] });
+          if (barOk) walls.push({ x1: w0[0], z1: w0[2], x2: w1[0], z2: w1[2], lk: L.id, y: p.y, kind: 'rail' });
         }
         var medNose = noseZone || (L.cityStart && p.s < 70);   // 도시 진입부 70m · 램프 분기부: 중앙분리대를 세우지 않는다
+        p.med = !medNose;   // 점검용 — 이 점에 중앙분리대가 서 있는가
         if (!medNose) {
           wallQuad(props, p, q, -0.35, 0, 0.85, 0xb9b6ad); wallQuad(props, p, q, 0.35, 0, 0.85, 0xb9b6ad); ribbon(props, p, q, -0.35, 0.35, 0.85, 0xc8c5bc);
-          var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2] });
+          var m0 = Pt(p, 0, 0), m1 = Pt(q, 0, 0); walls.push({ x1: m0[0], z1: m0[2], x2: m1[0], z2: m1[2], lk: L.id, y: p.y, kind: 'med' });
         } else {                                               // 벽 대신 황색 복선(도시 도로와 같은 표시)
           ribbon(mark, p, q, -0.40, -0.24, LIFT, YEL); ribbon(mark, p, q, 0.24, 0.40, LIFT, YEL);
         }
-        if (i % 10 === 0) {
+        if (i % 10 === 0 && !medNose) {   // 가로등은 **중앙분리대 위에만** — 분리대가 없는 도시 진입부·분기부에서는 차로 한가운데 기둥이 됐다(2026-09-17 전체 점검)
           var pp = Pt(p, 0, 0), rot = Math.atan2(p.rx, p.rz);
-          props.cylinder(pp[0], pp[1] + 0.8, pp[2], 0.14, 0.1, 11, 6, 0x8f959c);
+          props.cylinder(pp[0], pp[1] + 0.8, pp[2], 0.14, 0.1, 11, 6, 0x8f959c); TG.facReg('hwLamp', pp[0], pp[2], 0.14, pp[1] + 0.8, pp[1] + 11.8, { link: L.id, i: i, med: !medNose });
           props.box(pp[0] + p.rx * 3, pp[1] + 11.6, pp[2] + p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot }); props.box(pp[0] - p.rx * 3, pp[1] + 11.6, pp[2] - p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot });
           props.box(pp[0] + p.rx * 5.6, pp[1] + 11.4, pp[2] + p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {}); props.box(pp[0] - p.rx * 5.6, pp[1] + 11.4, pp[2] - p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {});
         }
@@ -687,7 +695,7 @@ TG.buildTerrain = function (scene, city, cfg) {
           var bp = Pt(p, s3 * (half + 0.2), 0), bq = Pt(q, s3 * (half + 0.2), 0);
           var railOk = !L.oneWay && !noseZone && !rampGap(L, p, s3);
           if (railOk) props.box(bp[0], bp[1] + 0.55, bp[2], 0.16, 1.1, 0.16, 0x8f959c, {});
-          if (railOk) walls.push({ x1: bp[0], z1: bp[2], x2: bq[0], z2: bq[2] });   // 램프 난간·램프 합류부 난간은 충돌 없음(시각만)
+          if (railOk) walls.push({ x1: bp[0], z1: bp[2], x2: bq[0], z2: bq[2], lk: L.id, y: p.y, kind: 'bridge' });   // 램프 난간·램프 합류부 난간은 충돌 없음(시각만)
         }
         ribbon(props, p, q, -half - 0.3, half + 0.3, -0.9, 0xa9a59c);
         if (i % 5 === 0) { var pc = Pt(p, 0, 0); props.box(pc[0], pc[1] - 4, pc[2], half * 1.2, 8, 1.6, 0x9d9a91, { rotY: Math.atan2(p.tx, p.tz) }); }
@@ -698,7 +706,7 @@ TG.buildTerrain = function (scene, city, cfg) {
         var offS = dn * (half + 1.6), spotS = clearSpot(p.x + p.rx * offS, p.z + p.rz * offS, L, p.rx * dn, p.rz * dn);
         if (!spotS) continue;
         var sx = spotS[0], sz = spotS[1], rotS = Math.atan2(p.tx * dn, p.tz * dn) + Math.PI;
-        props.cylinder(sx, p.y, sz, 0.06, 0.05, 2.9, 5, 0x8f959c);
+        props.cylinder(sx, p.y, sz, 0.06, 0.05, 2.9, 5, 0x8f959c); TG.facReg('limitSign', sx, sz, 0.06, p.y, p.y + 2.9, { link: L.id, i: i });
         var lim = L === ring ? ringRoadAt(p.x, p.z).limit : (L.limit || limitOf(p.kind));   // 순환 구간마다 제한속도가 다르다(올림픽대로·강남순환로 80) face(lim === 100 ? 'limit100' : lim === 80 ? 'limit80' : 'limit60', sx, p.y + 2.75, sz, rotS, 0.9, 0.9);
       }
     }
@@ -712,7 +720,7 @@ TG.buildTerrain = function (scene, city, cfg) {
       var offG = dn2 * (p5.half + 1.2), spotG = clearSpot(p5.x + p5.rx * offG, p5.z + p5.rz * offG, L, p5.rx * dn2, p5.rz * dn2);
       if (!spotG) continue;                                     // 다리를 세울 자리가 차로 안뿐이면 세우지 않는다
       var gx = spotG[0], gz = spotG[1];
-      props.cylinder(gx, p5.y, gz, 0.18, 0.15, 6.5, 6, 0x4a4f55);
+      props.cylinder(gx, p5.y, gz, 0.18, 0.15, 6.5, 6, 0x4a4f55); TG.facReg('gantry', gx, gz, 0.18, p5.y, p5.y + 6.5, { link: L.id, i: i });
       var rotG = Math.atan2(p5.tx * dn2, p5.tz * dn2) + Math.PI, cxg = p5.x + p5.rx * dn2 * (p5.half * 0.5), czg = p5.z + p5.rz * dn2 * (p5.half * 0.5);
       props.box((gx + cxg) / 2, p5.y + 6.6, (gz + czg) / 2, 0.2, 0.2, Math.hypot(gx - cxg, gz - czg), 0x4a4f55, { rotY: Math.atan2(p5.rx, p5.rz) });
       face('hw:' + txt, cxg, p5.y + 5.4, czg, rotG, 6, 2.2);
@@ -764,7 +772,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   function tree(x, z, sc, dark) {
     if (!treeOK(x, z)) { treeSkip++; return; }
     var y = groundAt(x, z), col = dark ? [0x3f6b32, 0x476f38, 0x385f2c][placed % 3] : [0x4f8a3a, 0x5c9a42, 0x437a33][placed % 3];
-    trees.cylinder(x, y, z, 0.22 * sc, 0.16 * sc, 2.4 * sc, 5, 0x6b4a2b);
+    trees.cylinder(x, y, z, 0.22 * sc, 0.16 * sc, 2.4 * sc, 5, 0x6b4a2b); TG.facReg('tree', x, z, 0.22 * sc, y, y + 2.4 * sc);
     trees.cylinder(x, y + 1.6 * sc, z, 2.1 * sc, 0.9 * sc, 2.2 * sc, 6, col, false);
     trees.cylinder(x, y + 3.2 * sc, z, 1.6 * sc, 0.6 * sc, 2.0 * sc, 6, col, false);
     trees.cylinder(x, y + 4.6 * sc, z, 1.1 * sc, 0.1, 1.8 * sc, 6, col, true);
@@ -863,7 +871,7 @@ TG.buildTerrain = function (scene, city, cfg) {
       props.box(mx2, gy + 3.0, mz2, 18, 6.0, 12, 0xe6e0d2, {});     // 기념관 본관
       props.box(mx2, gy + 6.4, mz2, 19, 0.8, 13, 0x8b6f4a, { noBottom: true });
       props.box(mx2, gy + 0.9, mz2 - 7.4, 6.0, 1.8, 1.0, 0xd7d3c8, {});
-      props.cylinder(mx2 + 11, gy, mz2 - 9, 0.13, 0.11, 9, 6, 0x8f959c); props.box(mx2 + 11.8, gy + 8.1, mz2 - 9, 1.6, 1.0, 0.05, 0xffffff, {});
+      props.cylinder(mx2 + 11, gy, mz2 - 9, 0.13, 0.11, 9, 6, 0x8f959c); TG.facReg('flag', mx2 + 11, mz2 - 9, 0.13, gy, gy + 9); props.box(mx2 + 11.8, gy + 8.1, mz2 - 9, 1.6, 1.0, 0.05, 0xffffff, {});
       scenery.push({ kind: 'park', x: (YJ.x0 + YJ.x1) / 2, z: (YJ.z0 + YJ.z1) / 2, name: '양재시민의숲' });
     }
 
@@ -875,7 +883,7 @@ TG.buildTerrain = function (scene, city, cfg) {
         var deck = Math.max(0.4, p.y);
         for (var sg = -1; sg <= 1; sg += 2) {
           var qx = p.x + p.rx * sg * (p.half * 0.55), qz = p.z + p.rz * sg * (p.half * 0.55);
-          props.cylinder(qx, -6.4, qz, 1.35, 1.6, deck + 6.4, 10, 0x9aa0a8, false);
+          props.cylinder(qx, -6.4, qz, 1.35, 1.6, deck + 6.4, 10, 0x9aa0a8, false); TG.facReg('pier', qx, qz, 1.6, -6.4, deck - 0.8, { link: L.id, i: i });
         }
         props.box(p.x, deck - 0.55, p.z, p.half * 1.5, 0.5, 2.2, 0xa9afb6, { rotY: Math.atan2(p.tx, p.tz) });   // 가로보
       }
