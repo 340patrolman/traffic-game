@@ -9,7 +9,7 @@
 //      ② 세로·가로 화면은 크기가 달라서(css) 자리도 **따로** 기억한다. ③ 저장은 이 기기에만(`tg_hudPos`).
 TG.hudpos = (function () {
   var POS = TG.save.get('hudPos', {}) || {}, items = [], HOLD = 420, MOVE = 12, held = null;
-  function orient() { return document.body.classList.contains('portrait') ? 'port2' : 'land';   // v0.9.98 세로 배치를 새로 짜서 옛 세로 자리(port)는 버린다 }
+  function orient() { return document.body.classList.contains('portrait') ? 'port2' : 'land'; }   // v0.9.98 세로 배치를 새로 짜서 옛 세로 자리(port)는 버린다
   function key(el) { return el.id + ':' + orient(); }
   function freeW(el) { return Math.max(0, window.innerWidth - (el.offsetWidth || 40)); }
   function freeH(el) { return Math.max(0, window.innerHeight - (el.offsetHeight || 40)); }
@@ -33,6 +33,9 @@ TG.hudpos = (function () {
   }
   function register(id) {
     var el = document.getElementById(id); if (!el || items.indexOf(el) >= 0) return null;
+    // 누르고 있는 동안 일하는 단추(후진·꾹 걷기·자전거 브레이크 — data-btn)는 옮기지 않는다.
+    // 길게 누르는 것이 곧 그 단추의 기능이라, 여기서 누름을 잡으면 떼는 순간에만 한 번 눌린다(후진이 안 됐다).
+    if (el.hasAttribute('data-btn')) return null;
     items.push(el);
     el.addEventListener('pointerdown', function (e) {
       if (e.tgPass) return;                                   // 내가 되쏜 탭 — 그대로 지나간다
