@@ -26,7 +26,16 @@ TG.hud = (function () {
     el.gap.className = sec < 1 ? 'gap danger' : sec < 2 ? 'gap warn' : 'gap';
   }
   // 좁은 폰에서 한 줄에 들어가야 한다 — 도로 이름의 괄호(왕복 N차로)는 뗀다(계기 칸이 두 줄로 커졌다)
-  function setSection(name, limit) { var t = String(name).replace(RE_PAREN, '') + ' · 제한 ' + ((limit === '—' || limit >= 999) ? '없음' : limit); if (el._sec !== t) { el._sec = t; el.section.textContent = t; } }
+  function setSection(name, limit) {
+    var nm = String(name).replace(RE_PAREN, ''), lim = (limit === '—' || limit >= 999) ? '없음' : limit, t = nm + ' · 제한 ' + lim;
+    if (el._sec !== t) {
+      el._sec = t; el.section.textContent = t;
+      // 세로 화면 한 줄 계기 칸(v0.9.98): 제한속도 표지 · 도로명을 따로 보인다
+      var lb = document.getElementById('limitBadge'), rn = document.getElementById('roadName');
+      if (lb) { lb.textContent = lim === '없음' ? '—' : lim; lb.classList.toggle('none', lim === '없음'); }
+      if (rn) rn.textContent = nm.replace(/\s*·\s*어린이보호구역/, ' 🚸');
+    }
+  }
   function setGear(g) { if (el._gear !== g) { el._gear = g; el.gear.textContent = g === 'R' ? 'R 후진' : ''; el.gear.style.display = g === 'R' ? '' : 'none'; } }
   function setScore(n) { el.score.textContent = n; }
   function setTimer(sec) { var m = Math.floor(sec / 60), s = Math.floor(sec % 60); el.timer.textContent = m + ':' + (s < 10 ? '0' : '') + s; }
@@ -52,6 +61,8 @@ TG.hud = (function () {
   }
   function tick(dt) {
     if (noticeT > 0) { noticeT -= dt; if (noticeT <= 0) { el.notice.style.opacity = 0; pushKidChips(); } }
+    var non = noticeT > 0; if (el._non !== non) { el._non = non; document.body.classList.toggle('noticeon', non); }
+    var hon = hintT > 0; if (el._hon !== hon) { el._hon = hon; document.body.classList.toggle('hinton', hon); }   // 세로 화면: 알림이 떠 있으면 안내 줄을 잠깐 감춘다(같은 자리)
     if (hintT > 0) { hintT -= dt; if (hintT <= 0) el.hint.style.opacity = 0; }
     if (hintGap > 0) hintGap -= dt;
   }

@@ -9,7 +9,7 @@
 //      ② 세로·가로 화면은 크기가 달라서(css) 자리도 **따로** 기억한다. ③ 저장은 이 기기에만(`tg_hudPos`).
 TG.hudpos = (function () {
   var POS = TG.save.get('hudPos', {}) || {}, items = [], HOLD = 420, MOVE = 12, held = null;
-  function orient() { return document.body.classList.contains('portrait') ? 'port' : 'land'; }
+  function orient() { return document.body.classList.contains('portrait') ? 'port2' : 'land';   // v0.9.98 세로 배치를 새로 짜서 옛 세로 자리(port)는 버린다 }
   function key(el) { return el.id + ':' + orient(); }
   function freeW(el) { return Math.max(0, window.innerWidth - (el.offsetWidth || 40)); }
   function freeH(el) { return Math.max(0, window.innerHeight - (el.offsetHeight || 40)); }

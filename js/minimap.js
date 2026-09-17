@@ -92,7 +92,17 @@ TG.Minimap = function (canvas, city, terrain) {
   this.cycleZoom = function () { var i = this.levels.indexOf(this.zoom); this.zoom = this.levels[(i + 1) % this.levels.length]; return this.zoom; };
   this.setZoom = function (z) { this.zoom = TG.clamp(z, 1, 4); };
   var self = this;
-  canvas.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); self.cycleZoom(); });
+  // 세로 화면(v0.9.98): 지도는 **48px 아이콘으로 접혀** 있다 — 누르면 펼치고, 펼친 뒤에는 확대 1→2→4, 한 바퀴 돌면 다시 접는다
+  canvas.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    var B = document.body;
+    if (B.classList.contains('portrait') && !B.classList.contains('totmode')) {
+      if (!B.classList.contains('mmopen')) { B.classList.add('mmopen'); self.zoom = 1; return; }
+      if (self.cycleZoom() === 1) B.classList.remove('mmopen');
+      return;
+    }
+    self.cycleZoom();
+  });
   this.draw = function (player, cars, target, marker) {
     ctx.clearRect(0, 0, W, H);
     var zm = self.zoom;

@@ -257,6 +257,15 @@
   G.hudHeightVar = hudHeightVar;
   G.kidStageBlock = function () { return kidStageBlock(); };   // 교실 모듈(bike.js)이 같은 무대(서초역 사거리 블록)를 쓴다
   G.endShift = function (why) { endShift(why); };
+  // 세로 화면 계기 칸의 온디맨드 칸(v0.9.98 · 0.5초마다): 최고 속도 · 남은 시간 1분 전 경고 · 랩 측정 중 자동 노출(끝나면 3초 뒤 접힘)
+  function portraitHudTick() {
+    var B = document.body;
+    if (player && !onFoot()) { var kmh = player.speedKmh(); if (!(G.topKmh >= kmh)) G.topKmh = kmh; var ts = document.getElementById('topSpeed'); if (ts) ts.textContent = Math.round(G.topKmh || 0); }
+    B.classList.toggle('timewarn', (G.mode === 'patrol' || G.mode === 'chase' || G.mode === 'duty') && G.timeLeft < 60);
+    var on = !!(lap && lap.link && lap.on && player && player.telemetry.speed > 0.5);
+    if (on) G.lapOffT = 0; else G.lapOffT = (G.lapOffT || 0) + 0.5;
+    B.classList.toggle('lapon', on || G.lapOffT < 3);
+  }
   // ---------- 시작 화면(부트 게이트) ----------
   // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
   function bootGate() {
@@ -473,6 +482,12 @@
     // 배속 단추와 판: 1.0~3.0배 · 0.1 단위와 0.5 단위 · 1배 되돌리기. 키보드 [ ] (Shift 와 함께 0.5) · \ = 1배
     var bSp = $('btnSpeed'), pSp = $('speedPanel');
     if (bSp && pSp) {
+    // 세로 화면 한 줄 계기 칸(v0.9.98): 누르면 온디맨드 칸(남은 시간·단속·최고 속도·정지거리·랩)을 펼치고 다시 누르면 접는다
+    input.bindTap($('hudbar'), function () { if (document.body.classList.contains('portrait')) document.body.classList.toggle('hudmore'); });
+    // 메뉴 안으로 모은 작은 단추들(시점 · 조작 설명 · 배속)
+    input.bindTap($('pmView'), function () { setPaused(false, 'menu'); if (G.state === 'play') applyView(settings.cam === 'cockpit' ? 'chase' : 'cockpit', true); });
+    input.bindTap($('pmHelp'), function () { setPaused(false, 'menu'); showCtlHelp(); });
+    input.bindTap($('pmSpeed'), function () { setPaused(false, 'menu'); var ps = $('speedPanel'); if (ps) ps.hidden = false; });
       input.bindTap(bSp, function () { pSp.hidden = !pSp.hidden; });
       // 늦게 · 보통 · 빨리 — 소유자 「어린이 보행교실 안에서 실제 신호값으로 진행하면 너무 많이 기다리게 되므로
       // 진행되는 시간을 늦게 보통 빨리 등으로 속도를 조절할 수 있게 해서 빠른 진행도 되게 하자」.
@@ -834,6 +849,7 @@
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
     document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit'); document.body.classList.remove('beast');   // 속도선·경광등 테두리·비스트는 내리고 시작한다
     hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1);   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
+    document.body.classList.remove('hudmore'); document.body.classList.remove('mmopen'); document.body.classList.remove('timewarn'); G.topKmh = 0; G.lapOffT = 9;   // 세로 계기 칸은 접은 채로 시작한다
     if (G.praise) { G.praise.reset(); G.praise.showBar(); }   // 🎖 근무를 시작하면 콤보는 0 부터, 계급은 이어서(경험치는 기기에 남는다)
     if (G.story) G.story.resetShift();                        // 🔗 사슬은 아래에서 모드를 정한 뒤에 시작한다
 
@@ -2335,7 +2351,8 @@
       // 운전석 눈 위치에서 전방. 차체 피치·롤을 살짝만 따라가고(멀미 방지) 요는 즉시 따른다.
       var E = player.layout.eye, yaw = G.lookYaw || 0;
       // 둘러보기: 눈을 중심으로 머리를 yaw 만큼 돌린 방향(차체 로컬)으로 14m 앞을 본다
-      var eye = player.eyeWorld(E), ahead = player.eyeWorld({ x: E.x + Math.sin(yaw) * 14 * 1.0 + (yaw === 0 ? -E.x * 0.5 : 0), y: E.y - 14 * Math.tan(C.CAM_COCKPIT.lookDown), z: E.z + Math.cos(yaw) * 14 });
+      var ld = C.CAM_COCKPIT.lookDown + (portrait ? C.CAM_PORTRAIT_TILT : 0);   // 세로 화면은 조금 더 숙여 소실점을 위로(v0.9.98)
+      var eye = player.eyeWorld(E), ahead = player.eyeWorld({ x: E.x + Math.sin(yaw) * 14 * 1.0 + (yaw === 0 ? -E.x * 0.5 : 0), y: E.y - 14 * Math.tan(ld), z: E.z + Math.cos(yaw) * 14 });
       if (!camInit) { camPos.copy(eye); camLook.copy(ahead); camInit = true; }
       var kc = 1 - Math.exp(-30 * dt);
       camPos.lerp(eye, kc); camLook.lerp(ahead, kc);
@@ -2347,7 +2364,8 @@
     var wide = window.innerWidth / window.innerHeight >= 1.6;
     var back = C.CAM_BACK + 1.0 + sp * C.CAM_BACK_PER_MS + (portrait ? 1.8 : 0) + (wide ? 1.4 : 0), up = C.CAM_UP + 0.4 + sp * 0.02 + (portrait ? 1.4 : 0) + (wide ? 0.5 : 0);
     var tx = player.pos.x - f[0] * back, tz = player.pos.z - f[1] * back, ty = player.y + up;
-    var lx = player.pos.x + f[0] * 7, lz = player.pos.z + f[1] * 7, ly = player.y + 1.0;
+    // 세로 화면: 전방 도로의 소실점을 화면 위에서 35~45% 에 둔다(v0.9.98) — 바라보는 점을 낮춰 아래 조작 칸 위로 길이 넓게 보이게
+    var lx = player.pos.x + f[0] * 7, lz = player.pos.z + f[1] * 7, ly = player.y + 1.0 - (portrait ? C.CAM_PORTRAIT_DROP : 0);
     if (!camInit) { camPos.set(tx, ty, tz); camLook.set(lx, ly, lz); camInit = true; }
     var k = 1 - Math.exp(-C.CAM_LERP * dt);
     camPos.x += (tx - camPos.x) * k; camPos.y += (ty - camPos.y) * k; camPos.z += (tz - camPos.z) * k;
@@ -2594,7 +2612,7 @@
       if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); playStep(dt); }
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
       G.hudhT = (G.hudhT || 0) + dt;
-      if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
+      if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); portraitHudTick(); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
     } else if (G.state === 'intro') {
       var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = (TG.audio.running || G.bootGated) ? 'none' : 'block';   // 시작 화면에서 소리를 이미 골랐으면 「터치하면 소리」 안내를 띄우지 않는다(누르면 건너뛴다)
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;

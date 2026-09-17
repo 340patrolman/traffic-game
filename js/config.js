@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.9.97';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.9.98';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -61,6 +61,8 @@ TG.CONFIG = {
 
   // --- 카메라 ---
   CAM_BACK: 6.2, CAM_UP: 2.9, CAM_BACK_PER_MS: 0.11, CAM_LERP: 6,
+  CAM_PORTRAIT_DROP: -0.3,  // 세로 화면에서 바라보는 점을 낮추는 양(m, 음수면 올림) — 소실점을 화면 위 35~45% 에 두는 게임 설계값(v0.9.98 · 실측 0 이면 38~39%)
+  CAM_PORTRAIT_TILT: 0.14,  // 세로 화면 차내 시점에서 더 숙이는 각(rad) — 차내 소실점 47.9% → 43% 안팎(v0.9.98)
 
   // --- 플레이어 차량 ---
   // latMax: 교차로 우회전(R≈8m)이 30km/h 는 여유, 40km/h 는 아슬아슬하도록 잡은 값(실차 감각보다 조금 관대한 아케이드 튜닝)

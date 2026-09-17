@@ -1039,3 +1039,119 @@ body.replaying .tbtn,body.replaying #xpCol,body.replaying #praiseLine{opacity:0;
 @media (prefers-reduced-motion:reduce){#sigAlert .sa-lamp i.r{animation:none}}
 @media (max-height:700px){#sigAlert .sa-lamp i{width:34px;height:34px}}
 body.replaying #sigAlert{display:none}
+
+/* ==================== v0.9.98 세로 화면 HUD 재설계 ====================
+   소유자: 「안드로이드 세로화면(약 360x800)에서 HUD 가 화면 상단 절반을 덮어 전방 도로가 보이지 않는다.
+   폰트만 줄이지 말고 구조를 바꿔라」. 통과 기준: 상단 UI ≤ 15dvh · 가운데 띠(20%~65%)에 UI 0개 · 소실점 35~45%.
+   · 상시(한 줄 · 최대 8dvh): 속도 · 제한속도 · 도로명 · 점수 — 그 왼쪽 ☰(메뉴 하나로 통합), 오른쪽 48px 지도 아이콘
+   · 온디맨드(계기 칸을 누르면): 남은 시간 · 단속 수 · 최고 속도 · 정지거리 · 주행 모드 · 계급
+   · 랩 스톱워치는 **재는 동안만** 저절로 뜨고, 끝나면 3초 뒤 접힌다(body.lapon)
+   · 알림·칭찬·목표는 한 줄 아래 **띠 안(20% 위)** 에서만, 조작 단추는 **아래 35%** 에서만
+   · 고정 px 자리 대신 dvh/clamp · safe-area · **가로 화면은 건드리지 않는다**(@media orientation:portrait 로만 건다) */
+@media (orientation:portrait){
+  body.portrait{--h1:clamp(48px,8dvh,64px)}
+  /* ① 한 줄 계기 칸 */
+  body.portrait #hudbar{top:var(--sa-t);left:calc(var(--sa-l) + 58px);right:calc(var(--sa-r) + 60px);max-width:none;min-height:var(--h1);
+    padding:3px 8px;border-radius:0 0 12px 12px;display:flex;flex-direction:column;justify-content:center;gap:1px}
+  body.portrait #hudbar .hb-top{align-items:center;gap:6px;overflow:hidden;min-width:0}
+  body.portrait #hudbar #speed{font-size:clamp(22px,3.6dvh,30px);line-height:1}
+  body.portrait #hudbar .unit{font-size:10px;margin-left:-3px}
+  body.portrait #hudbar .limitb{display:inline-flex}
+  body.portrait #hudbar .roadn{display:block}
+  body.portrait #hudbar #sigL,body.portrait #hudbar #sigR,body.portrait #hudbar #driveMode,body.portrait #hudbar #sirenState,
+  body.portrait #hudbar .hb-kv{display:none}
+  body.portrait #hudbar .hb-kv.hb-score{display:inline-flex;margin-left:0}   /* 점수는 상시 */
+  body.portrait #hudbar .hb-bot .section{display:none}
+  body.portrait #hudbar .hb-bot{min-height:0}
+  body.portrait #hudbar #stopbarWrap{display:none!important}
+  body.portrait #hudbar .gap{display:none}
+  /* 온디맨드 — 계기 칸을 누르면 펼친다 */
+  body.portrait.hudmore #hudbar .hb-top{flex-wrap:wrap;row-gap:2px}
+  body.portrait.hudmore #hudbar .hb-kv,body.portrait.hudmore #hudbar #driveMode{display:inline-flex}
+  body.portrait.hudmore #hudbar #stopbarWrap{display:flex!important}
+  body.portrait.hudmore #hudbar .gap{display:block}
+  body.portrait.timewarn #hudbar .hb-kv.hb-timer{display:inline-flex;color:var(--warn)}   /* 남은 시간 1분 전부터는 저절로 */
+  body.portrait #hudbar::after{content:'▾';position:absolute;right:4px;bottom:1px;font-size:9px;opacity:.55}
+  body.portrait.hudmore #hudbar::after{content:'▴'}
+  /* 랩 스톱워치는 재는 동안만 */
+  body.portrait.laptime:not(.lapon):not(.hudmore) #lapPanel{display:none!important}
+  /* 모드 패널(사건 사슬·추격·자전거)은 한 줄로 낮춘다 */
+  body.portrait #missionBar{font-size:11px;max-height:18px;overflow:hidden}
+  /* ② 지도: 48px 아이콘으로 접어 두고, 누르면 펼친다 */
+  body.portrait #minimap{top:calc(var(--sa-t) + (var(--h1) - 48px) / 2);right:calc(var(--sa-r) + 6px);width:48px;height:48px;border-radius:12px}
+  body.portrait.mmopen #minimap{top:calc(var(--sa-t) + var(--h1) + 4px);width:min(64dvw,260px);height:min(64dvw,260px);z-index:30}
+  /* ③ 작은 단추 다섯 → ☰ 하나(시점·?·배속은 메뉴 안에) */
+  body.portrait .tbtn.small{display:none!important}
+  body.portrait .tbtn.small.menu{display:flex!important;top:calc(var(--sa-t) + (var(--h1) - 48px) / 2);left:calc(var(--sa-l) + 6px);right:auto;width:48px;height:48px;border-radius:12px}
+  body.portrait .speedpanel{top:calc(var(--sa-t) + var(--h1) + 6px);left:calc(var(--sa-l) + 8px);right:auto}
+  /* ④ 알림·목표·안내·칭찬은 한 줄 아래 띠(20% 위)에서만 */
+  body.portrait #target{top:calc(var(--sa-t) + var(--hudh,64px) + 4px);max-width:92dvw;font-size:12px;padding:2px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.portrait .notice,body.portrait #hint,body.portrait.chasing #hint{top:calc(var(--sa-t) + var(--hudh,64px) + 4px);max-width:94dvw;font-size:12.5px;line-height:1.3;
+    padding:4px 12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  body.portrait.noticeon #hint,body.portrait.noticeon #target,body.portrait.praising #target,body.portrait.hinton #target{opacity:0!important}
+  body.portrait #praiseLine{top:calc(var(--sa-t) + var(--hudh,64px) + 4px);transform:translate(-50%,0);z-index:31}
+  body.portrait #praiseLine.on{transform:translate(-50%,0)}
+  body.portrait #praiseLine b{font-size:17px}
+  body.portrait #praiseLine i{display:none}
+  body.portrait #xpCol{display:none}
+  body.portrait.hudmore #xpCol{display:flex;top:calc(var(--sa-t) + var(--hudh,64px) + 6px);bottom:auto;right:calc(var(--sa-r) + 8px);max-width:calc(100dvw - 16px);overflow:hidden}
+  body.portrait.hudmore #xpCol #xpName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48dvw}
+  /* ⑤ 조작은 아래 35% 안에서만 — 조이스틱 영역 · 방향지시등 · 후진 · 하차 한 줄 */
+  body.portrait #stickZone{top:65dvh;bottom:0;height:auto}
+  body.portrait .sigs{top:calc(65dvh + 4px);bottom:auto;left:calc(var(--sa-l) + 10px);gap:6px}
+  body.portrait .tbtn.sig{width:46px;height:44px}
+  body.portrait .tbtn.revbtn{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 112px);right:auto;width:48px;height:48px}
+  body.portrait .tbtn.footbtn{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 164px);right:auto;width:48px;height:48px}
+  body.portrait .tbtn.revbtn .ico,body.portrait .tbtn.footbtn .ico{font-size:19px}
+  body.portrait .cluster.right{bottom:calc(var(--sa-b) + 14px);gap:8px}
+  body.portrait .tbtn.revbtn{left:calc(var(--sa-l) + 126px)}
+  body.portrait .tbtn.footbtn{left:calc(var(--sa-l) + 178px)}
+  /* 모드별 단추도 아래 35% 로 — 도보(걷기·손), 교차로 근무(제어함), 어린이(손·살피기) */
+  body.portrait .tbtn.runbtn{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 10px);width:56px;height:56px}
+  body.portrait .tbtn.hand{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 74px);right:auto;width:64px;height:64px}
+  body.portrait .tbtn.boxbtn{top:calc(65dvh + 2px);bottom:auto;left:auto;right:calc(var(--sa-r) + 16px);width:56px;height:56px}
+  body.portrait.dutymode:not(.onfoot) .tbtn.boxbtn{right:calc(var(--sa-r) + 16px)}
+  body.portrait.kidmode .tbtn.hand{top:calc(65dvh + 4px);bottom:auto;left:auto;right:calc(var(--sa-r) + 12px);width:84px;height:84px}
+  body.portrait.kidmode .tbtn.look{top:calc(65dvh + 4px);bottom:auto;right:calc(var(--sa-r) + 104px);width:84px;height:84px}
+  body.portrait.kidmode .tbtn.look .ico,body.portrait.kidmode .tbtn.hand .ico{font-size:34px}
+  body:not(.bikemode) .tbtn.bkbtn{display:none!important}
+  /* 어린이 교실: 지도·메뉴는 한 줄에 그대로, 네 단계 칩은 계기 칸 바로 아래 */
+  body.portrait.kidmode #minimap{top:calc(var(--sa-t) + (var(--h1) - 48px) / 2)}
+  body.portrait.kidmode.mmopen #minimap{top:calc(var(--sa-t) + var(--h1) + 4px)}
+  body.portrait.kidmode .tbtn.small.menu{top:calc(var(--sa-t) + (var(--h1) - 48px) / 2)}
+  body.portrait #kidSteps{top:calc(var(--sa-t) + var(--hudh,64px) + 2px)}
+  body.portrait #kidNow{font-size:15px;margin-top:1px}
+  body.portrait #kidSteps .chip{font-size:11px;padding:2px 6px}
+  body.portrait.chasing .notice,body.portrait.bikemode .notice{-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;display:block}
+  body.portrait.kidmode .notice{top:calc(var(--sa-t) + var(--hudh,64px) + 52px)}
+  body.portrait .tbtn.boxbtn{width:48px;height:48px}
+  /* 그때그때 뜨는 단추(비스트·현장 차단·견인·관문)는 오른쪽 큰 단추 무리 **위 한 줄**에 따로 — 무리 안에 넣으면 무리가 가운데 띠로 자란다 */
+  body.portrait .tbtn.beast,body.portrait .tbtn.cone,body.portrait .tbtn.tow,body.portrait .tbtn.gate{position:fixed;top:calc(65dvh + 2px);bottom:auto;width:48px;height:48px;margin:0}
+  body.portrait .tbtn.beast,body.portrait .tbtn.cone{right:calc(var(--sa-r) + 16px)}
+  body.portrait .tbtn.tow,body.portrait .tbtn.gate{right:calc(var(--sa-r) + 70px)}
+  body.portrait .tbtn.beast .ico,body.portrait .tbtn.cone .ico,body.portrait .tbtn.tow .ico,body.portrait .tbtn.gate .ico{font-size:18px}
+  /* 자전거 교실 패널은 두 줄로(단계 점·실황은 알림이 대신 말한다) */
+  body.portrait #bikeHud{margin-top:2px;padding:3px 7px 4px}
+  body.portrait #bikeHud .bk-stage{font-size:12px}
+  body.portrait #bikeHud .bk-goal{font-size:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.portrait #bikeHud .bk-row{display:none}
+  body.portrait #bikeHud .bk-risk{margin-top:3px;height:10px}
+  body.portrait #bikeHud .bk-rtxt{font-size:8.5px;line-height:10px}
+  /* 추격 패널은 세 줄로 낮춘다(이름·칩은 안내 줄이 대신 말한다) */
+  body.portrait #chaseHud{margin-top:2px;padding:3px 6px 4px}
+  body.portrait #chaseHud .ch-top,body.portrait #chaseHud .ch-chips{display:none}
+  body.portrait #chaseHud .ch-bar{height:13px;margin-top:0}
+  body.portrait #chaseHud .ch-mark{height:17px}
+  body.portrait #chaseHud .ch-num{font-size:10.5px;top:0}
+  body.portrait #chaseHud .ch-prog,body.portrait #chaseHud .ch-beast{height:9px;margin-top:3px}
+  body.portrait #chaseHud .ch-ptxt{font-size:8.5px;line-height:9px}
+}
+/* 한 줄 계기 칸의 제한속도 표지·도로명(가로 화면에서는 숨긴다 — 가로는 종전 배치 그대로) */
+#hudbar .limitb{display:none;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;border:3px solid #e03a3a;background:#fff;
+  color:#111;font-size:12px;font-weight:900;font-variant-numeric:tabular-nums;flex:none}
+#hudbar .limitb.none{border-color:#8a94a3;color:#555}
+#hudbar .roadn{display:none;flex:1 1 auto;min-width:0;font-size:12px;font-weight:700;color:#dfe8f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hudbar .hb-topspeed{display:none!important}
+body.portrait.hudmore #hudbar .hb-topspeed{display:inline-flex!important}
+.pm-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.pm-row button{flex:1 1 30%;min-height:44px}
