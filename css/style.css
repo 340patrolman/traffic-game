@@ -1009,3 +1009,16 @@ body.replaying .tbtn,body.replaying #xpCol,body.replaying #praiseLine{opacity:0;
 #end .chain{margin-top:8px;font-size:12px;font-weight:800;color:#cfe2ff;background:rgba(77,163,255,.12);border:1px solid rgba(77,163,255,.35);border-radius:10px;padding:7px 9px;text-align:left;word-break:keep-all}
 #end .chain b{color:#9ad8ff}
 #end .chain span{display:block;margin-top:4px;font-size:11.5px;font-weight:700;color:#ffe9b0}
+
+/* 🛴 이건 자전거일까?(v0.9.93) — 청소년 교실 퀴즈. `#touch` 안의 누르는 판이므로 pointer-events:auto 필수 */
+#bikeQuiz{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:36;pointer-events:auto;
+  flex-direction:column;gap:8px;width:min(92vw,440px);padding:14px 14px 16px;border-radius:16px;
+  background:rgba(10,16,30,.9);border:1.5px solid rgba(120,220,160,.55);box-shadow:0 10px 32px rgba(0,0,0,.55)}
+#bikeQuiz .bq-n{font-size:12px;font-weight:900;color:#8fe0b0;letter-spacing:.3px}
+#bikeQuiz .bq-q{font-size:17px;font-weight:900;color:#fff;line-height:1.42;margin-bottom:4px;word-break:keep-all}
+#bikeQuiz button{min-height:48px;padding:10px 12px;border-radius:12px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);
+  color:#eaf2ff;font-size:15px;font-weight:800;text-align:left;word-break:keep-all;touch-action:manipulation;cursor:pointer;font-family:inherit}
+#bikeQuiz button.ok{background:rgba(58,190,110,.35);border-color:#5fe093}
+#bikeQuiz button.no{background:rgba(220,70,60,.35);border-color:#ff7a6e}
+#bikeQuiz button:disabled{opacity:.85;cursor:default}
+@media (max-height:700px){#bikeQuiz .bq-q{font-size:15px}#bikeQuiz button{min-height:42px;font-size:14px}}

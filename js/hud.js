@@ -32,9 +32,11 @@ TG.hud = (function () {
   function setTimer(sec) { var m = Math.floor(sec / 60), s = Math.floor(sec % 60); el.timer.textContent = m + ':' + (s < 10 ? '0' : '') + s; }
   function setStops(n) { el.stops.textContent = n; }
   function setSiren(on) { el.sirenState.textContent = on ? '경광등 ON' : ''; el.sirenState.classList.toggle('on', on); if (el.btnSiren) el.btnSiren.classList.toggle('active', on); }
-  function setTarget(text) { el.target.textContent = text || ''; el.target.style.display = text ? '' : 'none'; }
+  // 안내 글은 textContent 로 그린다 — 코드 곳곳의 `**강조**` 표시가 **별표 그대로** 화면에 찍혔다(v0.9.93 에서 발견). 한 곳에서 걷어 낸다.
+  function plain(t) { return String(t == null ? '' : t).replace(/\*\*/g, ''); }
+  function setTarget(text) { el.target.textContent = plain(text); el.target.style.display = text ? '' : 'none'; }
   function notice(text, kind, ms) {
-    el.notice.textContent = text; el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000;
+    el.notice.textContent = plain(text); el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000;
     pushKidChips();
   }
   // 좁은 화면에서는 안내문이 두세 줄이 되어 **어린이 4단계 칩을 덮었다**(화면 점검에서 발견).
@@ -46,7 +48,7 @@ TG.hud = (function () {
   }
   function hint(text) {
     if (!settings.hints || hintGap > 0) return;
-    hintGap = 2.5; el.hint.textContent = text; el.hint.style.opacity = 1; hintT = 3.2;
+    hintGap = 2.5; el.hint.textContent = plain(text); el.hint.style.opacity = 1; hintT = 3.2;
   }
   function tick(dt) {
     if (noticeT > 0) { noticeT -= dt; if (noticeT <= 0) { el.notice.style.opacity = 0; pushKidChips(); } }

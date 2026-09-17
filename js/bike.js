@@ -20,12 +20,15 @@ TG.BikeClass = function (game) {
     { id: 'cross', icon: '🚸', name: '횡단보도는 끌고',   goal: '🚶 내려서 끌고, 초록불에 건너요',                     card: 'ride-cross' },
     { id: 'lane',  icon: '🛣️', name: '어디로 달릴까',     goal: '',                                                    card: 'ride-lane' },
     { id: 'brake', icon: '🛑', name: '멈추는 거리',       goal: '힘껏 달리다가 🛑 선 앞에서 멈춰요',                   card: 'ride-check' },
+    // 🛴 이건 자전거일까?(v0.9.93) — 소유자: 「자토바이 — 전기자전거이지만 스로틀이 있어서 페달을 밟지 않고 주행되면 이륜차로 분류되어
+    //   면허증이 있어야 하고 더 엄격한 도로교통법이 적용됨에도 그냥 자전거인 줄 아는 경우 … 세상은 모른다고 봐주지 않는다.」
+    { id: 'class', icon: '🛴', name: '이건 자전거일까?', goal: '네 가지를 맞혀요 — 모르고 타도 봐주지 않아요',       card: 'ride-ebike-class' },
     // 🛣 자유 주행(v0.9.90) — 소유자: 「청소년 모드에 **자전거 자유주행**을 넣어야 하네, **자전거 주행 원칙에 맞춰서**」.
     // 교실이 아니라 **그냥 신나게 타는 판**이다. 대신 원칙이 살아 있고, 사람을 치면 그 자리에서 절차가 시작된다.
     { id: 'free',  icon: '🛣', name: '자유 주행',         goal: '목적지 세 곳을 찍어요 — 오른쪽 가장자리 · 신호 · 횡단보도는 끌고', card: 'ride-lane' },
   ];
   // 위험 게이지 — **게임 설계값**(법령·통계 수치가 아니다). 60 을 넘으면 「다시 도전」.
-  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40 };
+  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40, quiz: 8 };
   var RISK_PASS = 60, LANE_SEC = 8;
 
   function el(id) { return document.getElementById(id); }
@@ -141,6 +144,8 @@ TG.BikeClass = function (game) {
     if (G.walker && G.walker.setMarker) G.walker.setMarker(null);
     if (st.holdNode && G.signals && G.signals.restoreReal) { G.signals.restoreReal(st.holdNode); st.holdNode = null; }
     if (G.walker && G.walker.ride) G.walker.ride.dec = 3.5;
+    setPassenger(false);
+    quizShow(false);
   }
   function goalOf(S) {
     if (S.id === 'lane') return st.grade === 'teen' ? '차도 오른쪽 가장자리로 ' + LANE_SEC + '초 달려요 — 중·고등학생은 보도로 달리지 않아요' : '보도로 천천히 — 사람 옆에서는 멈추거나 비켜 가요';
@@ -207,7 +212,24 @@ TG.BikeClass = function (game) {
         kid.homeX = kid.pos.x; st.actors.push(kid);
       }
       st.actors.forEach(function (a) { a.pos.x = a.homeX || a.pos.x; a.target = null; });
-      if (st.brake.sub === 1) notice('🚲 이번에는 **브레이크 없는 픽시 자전거**예요 — 같은 곳에서 멈춰 봐요', 'warn', 4200);
+      if (st.brake.sub === 1) notice('🚲 이번에는 브레이크 없는 픽시 자전거예요 — 같은 곳에서 멈춰 봐요', 'warn', 4200);
+      // 👥 셋째: 친구를 뒤에 태웠을 때(v0.9.93) — 소유자: 「자전거 2인 탑승하면 왜 문제가 되는지」.
+      // 무게가 늘면 같은 브레이크로도 더 멀리 간다(게임 설계값 — 제동 감속을 줄여 보여 준다). 뒤에 탄 친구가 실제로 보인다.
+      setPassenger(st.brake.sub === 2);
+      if (st.brake.sub === 2) {
+        W.ride.dec = 2.3;
+        notice('👥 이번에는 친구를 뒤에 태웠어요 — 같은 곳에서 멈춰 봐요', 'warn', 4200);
+      }
+    } else if (id === 'class') {
+      // 🛴 보도 한쪽에 세 대를 세워 두고(보통 전기자전거 · 스로틀 전기자전거 · 전동킥보드) 네 문제를 푼다. 조작은 멈춘다.
+      var zq = clearZ(nA.x + g.half + 2.4, nA.z, [34, 40, 28, 46]);
+      W.setBike('walk'); W.teleport(nA.x + g.sideOff, zq, 0); W.v = 0;
+      if (first) {
+        var sx = nA.x + g.sideOff + 1.4;
+        parkCars([{ x: sx, z: zq + 2.2, h: Math.PI / 2, type: 'bike' }, { x: sx, z: zq + 3.8, h: Math.PI / 2, type: 'bike' }, { x: sx, z: zq + 5.4, h: Math.PI / 2, type: 'pm' }]);
+      }
+      st.quiz = { i: 0, wrong: 0, lock: 0 };
+      quizShow(true); quizPaint();
     } else if (id === 'free') {
       // 🛣 자유 주행 — 교실이 아니라 **그냥 타는 판**. 대신 원칙이 살아 있고, 사람을 치면 그 자리에서 절차가 시작된다.
       var B = g.B, dests = [];
@@ -352,10 +374,102 @@ TG.BikeClass = function (game) {
       b.sub = 1; st.retryT = 2.6;                                                           // 같은 자리에서 한 번 더(픽시)
       return;
     }
-    b.d[1] = { d: d, v: b.bv || b.maxV };
-    var ratio = b.d[0] && b.d[0].d > 0.3 ? d / b.d[0].d : 0;
+    if (b.sub === 1) {
+      b.d[1] = { d: d, v: b.bv || b.maxV };
+      var ratio = b.d[0] && b.d[0].d > 0.3 ? d / b.d[0].d : 0;
+      notice('😨 픽시: ' + d.toFixed(1) + 'm' + (ratio ? ' — 보통의 약 ' + ratio.toFixed(1) + '배' : '') + '. 브레이크 없는 자전거는 타지 않아요', 'warn', 4400);
+      b.sub = 2; st.retryT = 2.6;                                                           // 셋째: 친구를 뒤에 태우고
+      return;
+    }
+    b.d[2] = { d: d, v: b.bv || b.maxV };
+    var r2 = b.d[0] && b.d[0].d > 0.3 ? d / b.d[0].d : 0;
+    setPassenger(false);
     var cl2 = cardLine('ride-inertia'); if (cl2) setTimeout(function () { if (st) hint(cl2); }, 2600);   // 소유자(2026-09-16): 「바퀴 달린 물건은 차 — 관성 때문에 바로 못 멈춘다 → 안전운전의무」
-    pass('보통 ' + (b.d[0] ? b.d[0].d.toFixed(1) : '?') + 'm · 픽시 ' + d.toFixed(1) + 'm' + (ratio ? ' — 약 ' + ratio.toFixed(1) + '배' : '') + '. 브레이크 없는 자전거는 타지 않아요');
+    var cl3 = cardLine('ride-two-bike'); if (cl3) setTimeout(function () { if (st) hint(cl3); }, 6200);
+    pass('보통 ' + (b.d[0] ? b.d[0].d.toFixed(1) : '?') + 'm · 픽시 ' + (b.d[1] ? b.d[1].d.toFixed(1) : '?') + 'm · 둘이 탔을 때 ' + d.toFixed(1) + 'm' +
+         (r2 ? '(보통의 약 ' + r2.toFixed(1) + '배)' : '') + '. 무게가 늘면 바로 못 멈춰요');
+  }
+  // 👥 뒤에 탄 친구 — 자전거 메시에 사람 리그를 붙인다(뒤 짐받이 자리)
+  var passenger = null;
+  function setPassenger(on) {
+    var W = G.walker; if (!W || !W.bike) return;
+    if (on && !passenger && TG.Character && TG.Character.build) {
+      passenger = TG.Character.build('kid', { shirt: 0xf2b134 });
+      if (TG.Character.pose) TG.Character.pose(passenger, 'ride');
+      passenger.group.position.set(0, 0.46, -0.95);         // 자전거 메시는 사람보다 0.5m 앞에 붙어 있다(walker.setBike) — 탄 사람 0.45m 뒤
+      passenger.group.scale.setScalar(1.3);                     // 어린이 리그(0.62배)를 청소년 키로 — 앞사람보다 조금 낮게 앉는다
+      W.bike.add(passenger.group);
+    }
+    if (passenger) passenger.group.visible = !!on;
+  }
+  self.passengerOn = function () { return !!(passenger && passenger.group.visible); };
+
+  // ---------- 🛴 이건 자전거일까?(v0.9.93) ----------
+  // 문항은 짧게, 정답의 근거는 카드(laws.json)가 말한다 — 조문 번호를 코드에 적지 않는다.
+  var QUIZ = [
+    { q: '🚲 페달을 밟아야만 모터가 돕는 전기자전거\n(시속 25km 넘으면 모터가 멈추고, 30kg 미만)', a: ['면허 없이 탄다 — 자전거다', '원동기장치자전거 면허가 필요하다', '자동차 면허가 필요하다'], ok: 0, card: 'ride-ebike-class' },
+    { q: '🛵 손잡이(스로틀)만 돌려도\n페달 없이 굴러가는 전기자전거', a: ['그냥 자전거다', '원동기장치자전거다 — 면허·안전모가 필요하다', '아무 규칙도 없다'], ok: 1, card: 'ride-ebike-class' },
+    { q: '🛴 전동킥보드에 친구와 둘이 탔다', a: ['가까운 거리면 괜찮다', '안 된다 — 킥보드 정원은 1명이다', '헬멧만 쓰면 된다'], ok: 1, card: 'ride-seats' },
+    { q: '🪪 전동킥보드, 타기 전에 챙길 것은?', a: ['아무것도 없다', '원동기장치자전거 면허(만 16세) · 안전모 · 보험 확인', '자전거라서 필요 없다'], ok: 1, card: 'ride-insurance' }
+  ];
+  self.QUIZ_N = QUIZ.length;
+  function quizShow(on) {
+    var b = el('bikeQuiz'); if (!b) return;
+    b.style.display = on ? 'flex' : 'none';
+    if (on && !b._bound) {
+      b._bound = true;
+      b.addEventListener('pointerdown', function (e) {
+        var t = e.target && e.target.closest ? e.target.closest('button[data-i]') : null;
+        if (!t) return;
+        e.preventDefault(); e.stopPropagation(); TG.audio.resume();
+        if (G.bike) G.bike.quizPick(+t.getAttribute('data-i'));
+      });
+    }
+  }
+  function quizPaint(mark) {
+    var b = el('bikeQuiz'); if (!b || !st || !st.quiz) return;
+    var Q = QUIZ[st.quiz.i]; if (!Q) return;
+    var h = '<div class="bq-n">🛴 ' + (st.quiz.i + 1) + ' / ' + QUIZ.length + '</div><div class="bq-q">' + esc(Q.q).replace(/\n/g, '<br>') + '</div>';
+    Q.a.forEach(function (txt, k) {
+      var cls = mark && mark.pick === k ? (k === Q.ok ? ' ok' : ' no') : (mark && mark.show && k === Q.ok ? ' ok' : '');
+      h += '<button type="button" data-i="' + k + '" class="' + cls + '"' + (st.quiz.lock > 0 ? ' disabled' : '') + '>' + esc(txt) + '</button>';
+    });
+    b.innerHTML = h;
+  }
+  self.quizPick = function (k) {
+    if (!st || !st.quiz || st.quiz.lock > 0) return false;
+    var Q = QUIZ[st.quiz.i]; if (!Q) return false;
+    var right = k === Q.ok, cl = cardLine(Q.card);
+    if (right) {
+      st.quiz.lock = 1.4; quizPaint({ pick: k });
+      if (G.praise) G.praise.cheer('quiz', 15, { feed: '🛴 ' + (st.quiz.i + 1) + '번 정답' });
+      if (TG.audio.good) TG.audio.good();
+      if (cl) hint(cl);
+    } else {
+      st.quiz.lock = 1.8; st.quiz.wrong++;
+      addRisk(RISK.quiz, '헷갈렸어요 — ' + Q.a[Q.ok]);
+      quizPaint({ pick: k, show: true });
+      notice('❌ 정답은 「' + Q.a[Q.ok] + '」 — 모른다고 봐주지 않아요', 'bad', 4200);
+      if (G.praise) G.praise.miss();
+      if (cl) hint(cl);
+    }
+    st.quiz.next = right;
+    return right;
+  };
+  function updClass(dt, W) {
+    var qz = st.quiz; if (!qz) return;
+    W.v = 0;
+    if (qz.lock > 0) {
+      qz.lock -= dt;
+      if (qz.lock <= 0) {
+        qz.lock = 0;
+        if (qz.next) {
+          qz.i++; qz.next = false;
+          if (qz.i >= QUIZ.length) { quizShow(false); pass('세상은 모른다고 봐주지 않는다 — 알고 타야 해요'); return; }
+        }
+        quizPaint();
+      }
+    }
   }
 
   // ---------- 🛣 자유 주행(v0.9.90) ----------
@@ -527,7 +641,7 @@ TG.BikeClass = function (game) {
       var n = st.tries[S.id] || 0;
       return '<li class="' + (st.done[S.id] ? 'ok' : 'no') + '">' + S.icon + ' ' + esc(S.name) + ' <b>' + (st.done[S.id] ? '✓' : '—') + '</b>' + (n ? ' <i>다시 ' + n + '번</i>' : '') + '</li>';
     }).join('');
-    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'crash-bike-is-car', 'crash-crosswalk', 'crash-sidewalk', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
+    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'ride-two-bike', 'ride-seats', 'ride-insurance', 'crash-bike-is-car', 'crash-crosswalk', 'crash-sidewalk', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
     var cards = ids.map(function (id) {
       var c = law(id); if (!c) return '';
       return '<div class="bk-card"><b>' + esc(c.name) + (c.verified === false ? ' <em>확인 중</em>' : '') + '</b><small>' + esc(c.law || '') + '</small><p>' + esc(c.tip || c.situation || '') + '</p></div>';
@@ -610,7 +724,7 @@ TG.BikeClass = function (game) {
       retry(); return stop();
     }
     var id = SCENES[st.i] ? SCENES[st.i].id : null;
-    if (id === 'gap') updGap(dt, W); else if (id === 'cross') updCross(dt, W); else if (id === 'lane') updLane(dt, W); else if (id === 'brake') updBrake(dt, W); else if (id === 'free') updFree(dt, W);
+    if (id === 'gap') updGap(dt, W); else if (id === 'cross') updCross(dt, W); else if (id === 'lane') updLane(dt, W); else if (id === 'brake') updBrake(dt, W); else if (id === 'class') updClass(dt, W); else if (id === 'free') updFree(dt, W);
     paintLive();
     return mv;
   };
