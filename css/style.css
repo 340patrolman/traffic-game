@@ -1162,15 +1162,78 @@ body.portrait.hudmore #hudbar .hb-topspeed{display:inline-flex!important}
 #title .workbtn small{font-size:12.5px;font-weight:700;opacity:.82;letter-spacing:.2px}
 @keyframes workPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
 @media (prefers-reduced-motion:reduce){#title .workbtn{animation:none}}
-.drawers{gap:8px!important}
-.drawer{border:1.5px solid rgba(120,160,230,.32);border-radius:14px;background:rgba(255,255,255,.03);pointer-events:auto;text-align:left}
-.drawer.edu{border-color:rgba(110,210,150,.4)}
-.drawer>summary{list-style:none;cursor:pointer;padding:10px 12px;min-height:44px;box-sizing:border-box;display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:900;color:#bcd2ff;-webkit-user-select:none;user-select:none}
-.drawer.edu>summary{color:#aee8c4}
-.drawer>summary::-webkit-details-marker{display:none}
-.drawer>summary::after{content:'▾';margin-left:auto;opacity:.7;transition:transform .15s}
-.drawer[open]>summary::after{transform:rotate(180deg)}
-.drawer>summary small{font-size:11px;font-weight:700;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.drawer .mgroup{border:0;background:none;padding:0 8px 10px}
-@media (max-width:380px){#title .workbtn{font-size:23px;padding:14px 14px 11px}.drawer>summary small{display:none}}
-.drawer .mpick{min-height:44px}
+#title .mgroup .mpick{min-height:44px}
+@media (max-width:380px){#title .workbtn{font-size:23px;padding:14px 14px 11px}}
+
+/* 🎬 정차 캠(#3) — 위아래 영화 띠 + 세 항목 등급이 하나씩 켜진다 */
+body.stopcam #hud,body.stopcam #touch,body.stopcam #minimap,body.stopcam #xpCol{opacity:0;transition:opacity .15s}
+#stopBars{display:none}
+body.stopcam #stopBars{display:block}
+#stopBars::before,#stopBars::after{content:'';position:fixed;left:0;right:0;height:7vh;background:#000;z-index:60;pointer-events:none}
+#stopBars::before{top:0}#stopBars::after{bottom:0}
+.stopgrade{position:fixed;left:50%;top:calc(7vh + 14px);transform:translateX(-50%);z-index:61;pointer-events:none;min-width:220px;max-width:calc(100vw - 32px);box-sizing:border-box;padding:10px 16px 12px;border-radius:14px;background:rgba(8,14,28,.82);border:1.5px solid rgba(120,170,255,.45);color:#fff;text-align:left;font-weight:800}
+.stopgrade[hidden]{display:none}
+.stopgrade .sg-h{display:block;font-size:20px;margin-bottom:6px;color:#cfe0ff;animation:sgPop .35s ease-out both}
+.stopgrade .sg-h.gold{color:#ffd35a}
+.stopgrade .sg-r{font-size:15px;line-height:1.6;opacity:0;animation:sgIn .3s ease-out both}
+.stopgrade .sg-r.ok{color:#8ff0a8}.stopgrade .sg-r.no{color:#9aa6ba}
+@keyframes sgPop{0%{transform:scale(1.6);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes sgIn{0%{transform:translateX(-14px);opacity:0}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.stopgrade .sg-h,.stopgrade .sg-r{animation:none;opacity:1}}
+
+/* ⭐ 근무 별 세 개 · 다음 근무 떡밥(#4) */
+#endStats .stars.three span{font-size:44px;margin:0 4px}
+#endStats .stars.three span.on{animation:starPop .45s ease-out both}
+#endStats .stars.three span.on:nth-child(2){animation-delay:.25s}
+#endStats .stars.three span.on:nth-child(3){animation-delay:.5s}
+@keyframes starPop{0%{transform:scale(0) rotate(-40deg);opacity:0}70%{transform:scale(1.3)}100%{transform:none;opacity:1}}
+#endStats .goals{display:flex;flex-direction:column;gap:4px;margin:6px auto 8px;max-width:340px;text-align:left}
+#endStats .goal{padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.05);font-size:14px}
+#endStats .goal.ok b{color:#ffd35a}
+#endStats .goal.no b{color:#aab4c6}
+#endStats .goal span{display:block;font-size:12px;color:#9fb3d6;margin-top:2px}
+#endStats .teaser{margin:4px auto 10px;max-width:360px;padding:8px 12px;border-radius:10px;border:1px dashed rgba(255,211,90,.5);color:#ffe9a8;font-size:13.5px;font-weight:700;text-align:left}
+@media (prefers-reduced-motion:reduce){#endStats .stars.three span.on{animation:none}}
+#endStats .stars.three span.on{color:#ffd35a;text-shadow:0 0 14px rgba(255,200,60,.65)}
+
+/* 🚓 첫 출근(#2) — 지금 누를 단추 하나만 빛나고, 할 일 한 줄이 화면 가운데 위에 뜬다 */
+.coachline{position:fixed;left:50%;top:calc(var(--hudh,90px) + 18px);transform:translateX(-50%);z-index:40;pointer-events:none;max-width:calc(100vw - 32px);box-sizing:border-box;padding:10px 16px;border-radius:14px;background:rgba(12,24,52,.88);border:2px solid #ffd35a;color:#fff;font-size:18px;font-weight:900;text-align:center;word-break:keep-all;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.coachline[hidden]{display:none}
+.coachline.pop{animation:coachPop .35s ease-out both}
+@keyframes coachPop{0%{transform:translateX(-50%) scale(.7);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+.coachpulse{animation:coachGlow 1s ease-in-out infinite!important;box-shadow:0 0 0 4px rgba(255,211,90,.9),0 0 22px 6px rgba(255,211,90,.7)!important;z-index:41!important}
+@keyframes coachGlow{0%,100%{box-shadow:0 0 0 3px rgba(255,211,90,.9),0 0 10px 2px rgba(255,211,90,.5)}50%{box-shadow:0 0 0 6px rgba(255,211,90,1),0 0 28px 10px rgba(255,211,90,.8)}}
+@media (prefers-reduced-motion:reduce){.coachpulse{animation:none!important}.coachline.pop{animation:none}}
+body.portrait .coachline{top:calc(var(--hudh,56px) + 70px);font-size:16px}
+
+/* 🏎 주행 모드(노멀 ↔ 스포츠) — 차 안에서만. 자리: 세로 = 후진·하차 줄 끝 · 눕힌 폰 = 후진 왼쪽 · 그 밖 = 후진 위 */
+.tbtn.sportbtn{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(438px + var(--sa-b));width:60px;height:60px;flex-direction:column;background:rgba(255,255,255,.08)}
+.tbtn.sportbtn .ico{font-size:20px}
+.tbtn.sportbtn .sp-t{font-size:10.5px;font-weight:900}
+.tbtn.sportbtn.on{background:rgba(255,80,60,.28);border-color:rgba(255,110,80,.95);box-shadow:0 0 14px rgba(255,90,60,.55)}
+body.can-foot .tbtn.sportbtn,body.desktop .tbtn.sportbtn{display:flex}
+body.onfoot .tbtn.sportbtn,body.afoot .tbtn.sportbtn,body.kidmode .tbtn.sportbtn,body.totmode .tbtn.sportbtn,body.bikemode .tbtn.sportbtn{display:none}
+@media (orientation:landscape){.tbtn.sportbtn{right:calc(160px + var(--sa-r));bottom:calc(100px + var(--sa-b))}}
+@media (orientation:portrait){body.portrait .tbtn.sportbtn{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 230px);right:auto;width:48px;height:48px}
+  body.portrait .tbtn.sportbtn .ico{font-size:17px}}
+
+/* 👮 내 경찰관 고르기(타이틀 ⚙ 안) */
+.avpick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit;min-height:36px}
+.avpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}
+.avrow .avnote{width:100%;text-align:center;font-size:11px}
+
+/* 📖 캠페인 — 타이틀 장 카드 · 결과 카드 장 결과 */
+.chaptercard{margin:10px auto 0;max-width:360px;padding:9px 12px;border-radius:14px;background:rgba(255,211,90,.08);border:1px solid rgba(255,211,90,.45);text-align:left}
+.chaptercard:empty{display:none}
+.chaptercard b{display:block;font-size:13.5px;color:#ffe29a;word-break:keep-all}
+.chaptercard span{display:block;font-size:12px;color:#d9e2f1;margin-top:3px;word-break:keep-all}
+.chaptercard .cc-dots{display:flex;gap:6px;margin-top:6px}
+.chaptercard .cc-dots i{font-style:normal;font-size:10.5px;font-weight:900;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#8e9ab0}
+.chaptercard .cc-dots i.on{background:#ffd35a;color:#1a1a1a}
+.chaptercard .cc-dots i.cur{border:2px solid #ffd35a;color:#ffe29a}
+#endStats .chapres{max-width:340px;margin:4px auto 8px;padding:8px 12px;border-radius:12px;text-align:left;background:rgba(255,211,90,.08);border:1px solid rgba(255,211,90,.4)}
+#endStats .chapres.ok{background:rgba(120,230,150,.1);border-color:rgba(120,230,150,.55)}
+#endStats .chapres b{display:block;font-size:15px}
+#endStats .chapres span{display:block;font-size:12.5px;color:#cfe0f5}
+.mpick.locked{opacity:.62}
+.mpick.locked::after{content:' 🔒'}

@@ -59,6 +59,7 @@ TG.Praise = function (game) {
   function lvOf(xp) { var l = 0; for (var i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) l = i; return l; }
   this.rank = function (lv) { return RANKS[TG.clamp(lv === undefined ? lvOf(self.data.xp) : lv, 0, RANKS.length - 1)]; };
   this.ranks = RANKS;
+  this.level = function () { return lvOf(self.data.xp); };
   this.next = function () { var l = lvOf(self.data.xp); return l + 1 < RANKS.length ? RANKS[l + 1] : null; };
   this.progress = function () {                                             // 다음 계급까지 0~1
     var l = lvOf(self.data.xp), nx = RANKS[l + 1];

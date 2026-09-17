@@ -111,6 +111,7 @@ TG.Enforcement = function (game) {
         delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines(answer)); TG.audio.bad();
       } else {
         kind = 'warn'; lines.push((choice === 'timeout' ? '시간 초과' : '오답') + ' — 정답은 「' + NAMES[answer] + '」'); lines = lines.concat(lawLines(lawId, '승용')); lines.push('다시 관찰하고 단속하세요.'); TG.audio.bad();
+        if (game.crew) game.crew.say('wrong', 3.5, 60);
         if (game.praise) game.praise.miss();   // 콤보만 끊는다 — 틀렸다고 벌하지 않는다(오답 노트가 따로 맡는다)
       }
       game.stats.stops++; if (sel.kind === 'ped') game.stats.warned++;
@@ -137,7 +138,7 @@ TG.Enforcement = function (game) {
     var pl = me();
     if (car.mode !== 'drive' && car.mode !== 'release') return;
     if (!onFoot() && !pl.siren) { pl.setSiren(true); TG.audio.setSiren(true); game.hud.setSiren(true); }
-    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0; notifyT = 0;
+    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0; notifyT = 0; if (game.stopcam) game.stopcam.resetSignal();
     game.traffic.setYield(car, true);
     if (onFoot()) { game.hud.notice('수신호 정차 — 차량이 우측에 섭니다. 운전석 옆(3m 안)으로 걸어가면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하세요. 수신호입니다'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하세요. 수신호입니다', 'info', 2600); }
     else { game.hud.notice('정차 유도 — 대상이 우측으로 정차합니다. 그 뒤 갓길에 안전하게 정차하면 고지 완료', 'info', 4200); TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하십시오'); game.hud.notice('📢 앰프 — 앞 차량, 우측 가장자리에 정차하십시오', 'info', 2600); }
@@ -219,6 +220,7 @@ TG.Enforcement = function (game) {
     if (self.state === 'idle' || self.state === 'quiz') return;
     if (self.state === 'yielding' || self.state === 'stopped' || self.state === 'await') {
       if (distToTarget() > 130) { cancel('대상을 놓쳤습니다 — 정차 유도 취소'); game.hud.setTarget(null); return; }
+      if (!onFoot() && game.stopcam) game.stopcam.noteSignal(pl.signal);
       if (!onFoot()) { if (!pl.siren) { sirenOffT += dt; if (sirenOffT > 3) { cancel('경광등을 꺼서 정차 유도가 취소되었습니다'); game.hud.setTarget(null); return; } } else sirenOffT = 0; }
       var c2 = self.target;
       if (c2.mode === 'stopped') {
@@ -246,6 +248,7 @@ TG.Enforcement = function (game) {
             // 소유자 지시(2026-09-12): 단속 **장면**은 보여주지 않는다. 세운 뒤 **하차해서 운전석 옆으로 가면** 고지가 끝난다.
             if (cfg.ENF_SCENE && sceneStart(c2)) return;
             if (cfg.ENF_SCENE) { completePullover(c2); self.target = null; return; }
+            if (self.state !== 'await' && game.stopcam) { var sc = game.stopcam.start(c2, pl); if (sc && game.praise) game.praise.cheer('stop_ok', sc.score === 3 ? 15 : 6, { feed: sc.grade }); }
             if (self.state !== 'await') { self.state = 'await'; game.hud.setTarget('✅ 정차 완료 — 🚶 하차하면 고지가 끝납니다'); game.hud.hintNow('🚶 하차 단추를 누르세요(뒤에서 차가 오면 지나간 뒤에 내립니다)'); }
             return;
           }

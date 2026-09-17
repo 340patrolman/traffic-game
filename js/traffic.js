@@ -276,7 +276,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var L, i, dirA;
         if (opts.atLink) { L = opts.atLink.link; i = opts.atLink.i; dirA = opts.atLink.dirA; }
         else { L = TG.pick(rng, [T.ring, T.ring, T.ring, T.ring, TG.pick(rng, T.conns), TG.pick(rng, T.conns)]); i = Math.floor(rng() * L.N); dirA = L.oneWay ? true : rng() < 0.5; if (!L.closed && (i < 12 || i > L.N - 14)) continue; }
-        var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES); if (type === 'bike' && !opts.type) type = 'sedan';   // 교외 링크엔 자전거 없음
+        var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES); if ((type === 'bike' || type === 'moto' || type === 'pm') && !opts.type) type = 'sedan';   // 고속도로·연결로(고속도로등)에는 이륜차·자전거·PM 을 놓지 않는다 — 도로교통법 제63조
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         var nHW = self.terrain.laneOffsets(L.pts[0]).length;
         var isCargoT = type === 'truck' || type === 'pickup';
@@ -726,8 +726,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.mode === 'yield' || car.mode === 'stopped') {
       var frame = city.frameAt(car.pos.x, car.pos.z, car.heading);
       var shoulder = onLink ? self.terrain.shoulderOf(cur.lp) : frame.shoulder;
-      var laneOffNow = onLink ? cur.off : (frame.kind === 'grid' ? city.laneOff(frame.axis, frame.idx, car.laneIdx) : LANE);   // 경로점 기준 차로(현재 위치가 아니라) — 진동 방지
-      extraT = shoulder - laneOffNow;
+      var laneOffNow = onLink ? cur.off : (frame.kind === 'grid' ? frame.lateral - car.extra : LANE);   // 경로점 기준 차로(현재 위치가 아니라) — 진동 방지
+      // ↑ 경로점의 차로 = 지금 가로 위치 − 지금 옆 이동량. laneIdx 로 계산하면 차로를 바꾼 차(경로점은 옛 차로에 남는다)가 갓길 3.5m 앞에서 멈춰 「정차」가 끝내 안 됐다(2026-09-17 첫 출근 검사에서 찾음)
+      extraT = TG.clamp(shoulder - laneOffNow, 0, shoulder);   // 교차로 안에서는 다른 도로의 가로값이 잡힐 수 있다 — 범위를 묶는다
       car.yieldT += dt; target = Math.min(target, 5);
       var moved = frame.lateral >= shoulder - 0.8;
       var clear = (onLink || !city.nearIntersectionZone(car.pos.x, car.pos.z)) && car.yieldT > 1.2 && moved;

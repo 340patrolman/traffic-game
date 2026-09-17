@@ -85,9 +85,20 @@ TG.hud = (function () {
   function showEnd(stats) {
     var acc = stats.stops ? Math.round(stats.correct / stats.stops * 100) : 0, starsN = stats.stars === undefined ? 0 : stats.stars, sh = '';
     for (var si = 0; si < 5; si++) sh += '<span class="' + (si < starsN ? 'on' : 'off') + '">★</span>';
+    // ⭐ 경찰 근무는 **이름이 붙은 별 세 개**로 보인다(재미 설계 #4) — 무엇을 하면 별이 켜지는지 보여야 다시 한다
+    var gh = '';
+    // 📖 캠페인 장 결과(출근하기로 연 판)
+    var chh = stats.chapter ? '<div class="chapres ' + (stats.chapter.ok ? 'ok' : 'no') + '"><b>📖 ' + stats.chapter.month + ' 「' + stats.chapter.title + '」 ' + (stats.chapter.ok ? '완료!' : '— 아직') + '</b>' +
+      stats.chapter.goals.map(function (g) { return '<span>' + (g.ok ? '✔ ' : '— ') + g.t + '</span>'; }).join('') + '</div>' : '';
+    if (stats.goals) {
+      sh = ''; stats.goals.forEach(function (g) { sh += '<span class="' + (g.ok ? 'on' : 'off') + '">★</span>'; });
+      gh = '<div class="goals">' + stats.goals.map(function (g) {
+        return '<div class="goal ' + (g.ok ? 'ok' : 'no') + '"><b>' + (g.ok ? '★' : '☆') + ' ' + g.t + '</b>' + (g.ok ? '' : '<span>다음엔 · ' + g.hint + '</span>') + '</div>';
+      }).join('') + '</div>';
+    }
     var bh = (stats.badges || []).map(function (b) { return '<span class="badge2' + (b.gold ? ' gold' : '') + '">' + b.text + '</span>'; }).join('');
     el.endStats.innerHTML =
-      '<div class="stars">' + sh + '</div>' + (bh ? '<div class="badges">' + bh + '</div>' : '') +
+      chh + '<div class="stars' + (stats.goals ? ' three' : '') + '">' + sh + '</div>' + gh + (stats.teaser ? '<div class="teaser">' + stats.teaser + '</div>' : '') + (bh ? '<div class="badges">' + bh + '</div>' : '') +
       '<div class="row"><span>점수</span><b>' + stats.score + '</b></div>' +
       '<div class="row"><span>단속</span><b>' + stats.stops + '건 (정답률 ' + acc + '%)</b></div>' +
       '<div class="row"><span>보행자 계도</span><b>' + (stats.warned || 0) + '건</b></div>' +
@@ -155,6 +166,6 @@ TG.hud = (function () {
   function clearHint() { hintGap = 0; hintT = 0; el.hint.textContent = ''; el.hint.style.opacity = 0; noticeT = 0; el.notice.style.opacity = 0; }
   return { init: init, setTimerText: setTimerText, setSectionText: setSectionText, pop: pop, flash: flash, burst: burst, hintNow: hintNow, setSpeed: setSpeed, setGap: setGap, setScore: setScore, setTimer: setTimer, setStops: setStops, setSiren: setSiren, setSection: setSection, setGear: setGear,
            setTarget: setTarget, notice: notice, hint: hint, clearHint: clearHint, vignette: vignette, showTitle: showTitle, hideTitle: hideTitle, showIntro: showIntro, introLines: introLines, showPause: showPause,
-           showEnd: showEnd, hideEnd: hideEnd, showTicket: showTicket, ticketTimer: ticketTimer, ticketResult: ticketResult, hideTicket: hideTicket,
+           showEnd: showEnd, hideEnd: hideEnd, noticeLeft: function () { return noticeT; }, showTicket: showTicket, ticketTimer: ticketTimer, ticketResult: ticketResult, hideTicket: hideTicket,
            closeTicketNow: closeTicketNow, setHints: setHints, setStopbar: setStopbar, showTouch: showTouch, showHud: showHud, tick: tick };
 })();

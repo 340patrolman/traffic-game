@@ -28,7 +28,7 @@ TG.BikeClass = function (game) {
     { id: 'free',  icon: '🛣', name: '자유 주행',         goal: '목적지 세 곳을 찍어요 — 오른쪽 가장자리 · 신호 · 횡단보도는 끌고', card: 'ride-lane' },
   ];
   // 위험 게이지 — **게임 설계값**(법령·통계 수치가 아니다). 60 을 넘으면 「다시 도전」.
-  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40, quiz: 8, redLight: 15 };
+  var RISK = { expressway: 40, miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40, quiz: 8, redLight: 15 };
   var RISK_PASS = 60, LANE_SEC = 8;
 
   function el(id) { return document.getElementById(id); }
@@ -410,7 +410,25 @@ TG.BikeClass = function (game) {
   //    적색에 정지선을 넘으면 적색등을 크게 보여 준다.
   //  · **내려서 끌고 있으면 보행자** — 보행 신호를 따른다. 적색 횡단보도에 들어서면 같은 경고.
   var sw = { along: null, node: null, onRedCross: false };
+  // 🚫 고속도로·자동차전용도로(순환 본선 · 진입·진출 램프)에는 자전거·킥보드·보행자가 들어갈 수 없다(laws.json rideSafe ride-expressway).
+  // 들어서면 알리고 마지막으로 괜찮던 자리로 되돌린다. 교외 연결로(도시 도로의 연장)는 막지 않는다.
+  function hwWatch(W) {
+    var fr = city.frameAt(W.pos.x, W.pos.z, W.heading), k = fr.kind === 'link' && fr.onRoad && fr.link ? fr.link.kind : null;
+    var banned = k === 'highway' || k === 'onramp' || k === 'offramp' || k === 'ramp';
+    if (!banned) { sw.safe = { x: W.pos.x, z: W.pos.z, h: W.heading }; sw.onHw = false; return false; }
+    if (!sw.onHw) {
+      sw.onHw = true;
+      addRisk(RISK.expressway, '자동차만 다니는 길에 들어갔어요');
+      notice('🚫 여기는 자동차만 다니는 길(고속도로·자동차전용도로)이에요 — 자전거·킥보드·사람은 들어갈 수 없어요', 'bad', 4600);
+      var cl = cardLine('ride-expressway'); if (cl && G.hud && G.hud.hintNow) G.hud.hintNow(cl);
+      say('여기는 자동차만 다니는 길이에요. 돌아가요', true);
+      if (TG.haptic) TG.haptic([30, 60, 30]);
+    }
+    if (sw.safe) { W.teleport(sw.safe.x, sw.safe.z, sw.safe.h + Math.PI); }
+    return true;
+  }
   function signalWatch(W) {
+    if (hwWatch(W)) return;
     if (!G.signals || !G.sigAlert) return;
     var pl = TG.walkerPlace(city, G.signals, W.pos.x, W.pos.z);
     if (!W.riding) {                                                   // 끌고 걷는 중 = 보행자

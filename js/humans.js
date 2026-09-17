@@ -17,6 +17,24 @@ TG.Humans = (function () {
     // 어린이 = prototype-v3(파이프라인 7절): 바가지 머리·삐친 머리 · 노란 목 스카프 · 파란 반팔·검정 반바지·흰 양말·빨간 운동화(스킨)
     kid:     { skin: 'kid',      height: 1.20, head: 1.45, leg: 0.86, chest: 1.08, hips: 1.06, arm: 0.90, acc: ['bowl', 'scarf'] }
   };
+  // 👮 내 경찰관 변형(소유자: 「내가 준비한 것에 바리에이션만」) — 같은 모델·같은 스킨에 **체형과 선글라스만** 바꾼다.
+  //  이름: officer_<체형>[_sh]. 새 그림·새 모델은 들여오지 않는다(파이프라인 1절 결정 전).
+  var BUILDS = {
+    std:    { name: '보통',   over: {} },
+    tall:   { name: '큰 키',   over: { height: 1.86, leg: 1.20, chest: 1.04 } },
+    short:  { name: '작은 키', over: { height: 1.68, head: 0.84, leg: 1.08 } },
+    sturdy: { name: '다부진',  over: { height: 1.78, chest: 1.16, hips: 1.10, arm: 1.05 } }
+  };
+  Object.keys(BUILDS).forEach(function (b) {
+    [false, true].forEach(function (sh) {
+      var k = 'officer' + (b === 'std' ? '' : '_' + b) + (sh ? '_sh' : ''); if (KIND[k]) return;
+      var P = {}; Object.keys(KIND.officer).forEach(function (x) { P[x] = KIND.officer[x]; });
+      Object.keys(BUILDS[b].over).forEach(function (x) { P[x] = BUILDS[b].over[x]; });
+      if (sh) P.acc = ['shades'];
+      KIND[k] = P;
+    });
+  });
+  function avatarKind(av) { av = av || TG.save.get('avatar', null) || {}; var b = BUILDS[av.build] ? av.build : 'std'; return 'officer' + (b === 'std' ? '' : '_' + b) + (av.shades ? '_sh' : ''); }
   // 코드 리그 관절 → 모델 뼈. 팔은 모델 공간에서 T포즈 → 차렷 보정(왼팔 +x → 아래, 오른팔 −x → 아래)
   var MAP = {
     Spine: 'torso', Neck: 'neck',
@@ -93,7 +111,7 @@ TG.Humans = (function () {
   var lams = {};
   function lam(hex) { if (!lams[hex]) { lams[hex] = new THREE.MeshLambertMaterial({ color: hex }); lams[hex].color.convertSRGBToLinear(); } return lams[hex]; }
   // 부품(prototype-v3 proto.html 과 같은 모양): 모델 공간에서 만들고 뼈 기준 로컬 행렬로 적어 둔다
-  function accParts(list, B) {
+  function accParts(list, B, HB) {
     var out = [], hp = new THREE.Vector3(), he = new THREE.Vector3();
     B.Head.getWorldPosition(hp); B.Head_end.getWorldPosition(he);
     var center = hp.clone().lerp(he, 0.5), R = hp.distanceTo(he) * 0.5, inv = new THREE.Matrix4(), tmp = new THREE.Object3D();
@@ -110,6 +128,14 @@ TG.Humans = (function () {
         add('hair', new THREE.CylinderGeometry(R * 1.12, R * 1.1, R * 0.62, 32, 1, true, Math.PI * 0.34, Math.PI * 1.32), HAIR, off(0, -0.09, -0.02), null, [1.0, 1, 1.04]);
         add('hair', new THREE.CylinderGeometry(R * 1.125, R * 1.125, R * 0.08, 32, 1, true, -Math.PI * 0.34, Math.PI * 0.68), HAIR, off(0, 0.2, -0.02), null, [1.0, 1, 1.05]);
         add('hair', new THREE.TorusGeometry(R * 0.17, R * 0.04, 6, 14, Math.PI * 1.1), HAIR, off(0, 1.36, -0.15), [0, Math.PI / 2, 0.9]);
+      }
+      if (a === 'shades' && HB) {   // 선글라스: **머리 정점 상자**에서 자리를 잰다(뼈 길이로 잡은 반지름은 캐릭터형 큰 머리보다 작아 안에 묻혔다) · 모델 앞 = +z
+        var SH = 0x15181c, hw = (HB.max.x - HB.min.x), hh = (HB.max.y - HB.min.y), cx = (HB.min.x + HB.max.x) / 2, ey = HB.min.y + hh * 0.44, fz = HB.max.z + hw * 0.01;
+        add('shades', new THREE.BoxGeometry(hw * 0.30, hh * 0.13, hw * 0.03), SH, new THREE.Vector3(cx - hw * 0.19, ey, fz));
+        add('shades', new THREE.BoxGeometry(hw * 0.30, hh * 0.13, hw * 0.03), SH, new THREE.Vector3(cx + hw * 0.19, ey, fz));
+        add('shades', new THREE.BoxGeometry(hw * 0.10, hh * 0.025, hw * 0.03), SH, new THREE.Vector3(cx, ey + hh * 0.03, fz));
+        add('shades', new THREE.BoxGeometry(hw * 0.02, hh * 0.025, hw * 0.55), SH, new THREE.Vector3(HB.min.x - hw * 0.005, ey + hh * 0.03, fz - hw * 0.27));
+        add('shades', new THREE.BoxGeometry(hw * 0.02, hh * 0.025, hw * 0.55), SH, new THREE.Vector3(HB.max.x + hw * 0.005, ey + hh * 0.03, fz - hw * 0.27));
       }
       if (a === 'scarf' && B.Neck) {   // 노란 목 스카프(고리)
         var n = new THREE.Vector3(); B.Neck.getWorldPosition(n);
@@ -134,7 +160,7 @@ TG.Humans = (function () {
     function bw(n) { var p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); c.bones[n].matrixWorld.decompose(p, q, s); return { p: p, s: s.x }; }
     var hp = new THREE.Vector3(); c.bones.Hips.getWorldPosition(hp);
     return (S.measure[kind] = { H: all.max.y - all.min.y, minY: all.min.y, hipY: hp.y, head: head, torso: torso, headBone: bw('Head'), chestBone: bw('Chest'),
-                                acc: P.acc ? accParts(P.acc, c.bones) : [] });
+                                acc: P.acc ? accParts(P.acc, c.bones, head) : [] });
   }
 
   var partMat = null;
@@ -273,5 +299,5 @@ TG.Humans = (function () {
   function heightLocal(R) { return R && R.glb ? KIND[R.glb.kind].height / (R.group.scale.y || 1) : null; }
 
   load();
-  return { state: S, attach: attach, sync: sync, ready: function () { return S.ready; }, kinds: KIND, measure: measure, vest: vest, heightLocal: heightLocal };
+  return { state: S, attach: attach, sync: sync, ready: function () { return S.ready; }, kinds: KIND, builds: BUILDS, avatarKind: avatarKind, measure: measure, vest: vest, heightLocal: heightLocal };
 })();

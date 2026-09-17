@@ -166,7 +166,7 @@ TG.Character = (function () {
     if (kid) g.scale.set(0.62, 0.62, 0.62);   // 머리를 크게 한 만큼 전체를 조금 줄여 아이 키를 유지한다
     R.hipY = HIP; R.torsoY = HIP + 0.4;
     // 외부 사람 모델(CC0, humans.js)이 준비돼 있으면 입힌다 — 이 리그는 조종간으로 남고 메시는 숨는다. 없으면 지금 그대로.
-    if (TG.Humans && !opts.noModel) TG.Humans.attach(R, kind);
+    if (TG.Humans && !opts.noModel) { if (!(opts.model && TG.Humans.attach(R, opts.model))) TG.Humans.attach(R, kind); }   // opts.model: 내 경찰관 변형(humans.js)
     return R;
   }
   function lerp(a, b, k) { return a + (b - a) * k; }

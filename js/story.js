@@ -256,6 +256,19 @@ TG.Story = function (game) {
     stepDone(0);
   };
   // 근무 결과 카드에 넣을 값
+  // 📻 다음 근무 떡밥(재미 설계 #4) — 끝나지 않은 일이 기억에 남는다. 아직 안 바뀐 얼굴이 있으면 그 제보, 없으면 오늘 안 한 사슬의 신고.
+  this.teaser = function () {
+    var open = FACES.filter(function (f) { return !rec(f.id).fixed; });
+    var done = {}; shiftLog.forEach(function (c) { done[c.name] = 1; });
+    var todo = CHAINS.filter(function (c) { return !done[c.name]; });
+    var seed = (shiftLog.length * 7 + self.faces.fixedCount() * 3 + new Date().getDate()) % 11;
+    if (open.length && (seed % 2 === 0 || !todo.length)) {
+      var f = open[seed % open.length];
+      return '👤 제보 — ' + f.name + ' · 「' + f.what + '」 — 다음 근무에 만날지도 모릅니다.';
+    }
+    if (todo.length) { var c = todo[seed % todo.length]; return '📻 다음 근무 — 「' + c.name + '」 ' + c.open.replace(/^📻\s*상황실\s*—\s*/, ''); }
+    return '📻 다음 근무 — 오늘 바꾼 동네에서 새 신고를 기다리고 있습니다.';
+  };
   this.summary = function () {
     // 한 근무에 사슬이 여러 개 돌 수 있다 — 끝낸 것을 모두 세고, 마지막(또는 돌고 있는) 사슬을 이름으로 보인다.
     var cur = st && !st.done ? { name: st.name, done: st.log.length, steps: st.steps.length, ok: false, changed: [] } : null;

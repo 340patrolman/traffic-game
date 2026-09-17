@@ -10,7 +10,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.telemetry = { speed: 0, ratio: 0, understeer: false, oversteer: false, skid: 0, stopDist: 0, kappa: 0, offroad: false, slope: 0, limit: 1 };
   this.spec = { name: this.kid ? '어린이 보행' : '도보 순찰', maxSpeed: 4.2, powertrain: 'foot', latMax: 1 };
   this.gear = 'D'; this.walkT = 0; this.moving = false;
-  var rig = TG.Character.build(this.kid ? 'kid' : 'officer'), g = rig.group;
+  var rig = TG.Character.build(this.kid ? 'kid' : 'officer', this.kid || !TG.Humans || !TG.Humans.avatarKind ? {} : { model: TG.Humans.avatarKind() }), g = rig.group;   // 걷는 나는 「내 경찰관」
   this.rig = rig; g.userData.walker = this; scene.add(g); this.mesh = g;
   // 목적지 표지: 높은 빛기둥 + 바닥 고리
   var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 40, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcf3f, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
