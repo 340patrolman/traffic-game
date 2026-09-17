@@ -93,6 +93,24 @@
     if (TG.Replay) G.replay = new TG.Replay(G);
     // 🔗 사건 사슬 · 👤 아는 얼굴 — 한 근무를 하나의 이야기로 엮는다(순찰 근무에서만 돈다)
     if (TG.Story) G.story = new TG.Story(G);
+    // 🔴 내 앞 신호 — 보행자·자전거·PM 이 제 신호가 아닐 때 들어서면 적색등을 크게 보여 주고 완곡하게 말한다(소유자 문구 그대로)
+    var saT = 0, saCd = 0;
+    G.sigAlert = function (kind) {
+      var now = (traffic && isFinite(traffic.time)) ? traffic.time : performance.now() / 1000;   // 게임 시간으로 잰다(배속·시험에서도 같은 간격)
+      if (now >= saCd - 7 && now < saCd) return false;
+      saCd = now + 6;
+      var box = document.getElementById('sigAlert'); if (!box) return false;
+      box.className = 'on ' + (kind === 'ped' ? 'ped' : 'veh');
+      var t = box.querySelector('.sa-t'), s = box.querySelector('.sa-s');
+      if (t) t.textContent = '적색 신호에서는 신호를 기다려야 합니다. 내 앞의 신호에 맞춰서 진행 바랍니다.';
+      if (s) s.textContent = kind === 'ped' ? '보행 신호가 초록일 때 건넙니다 · 자전거·킥보드는 내려서 끌고 가야 보행자입니다'
+                                             : '자전거·킥보드는 차량 신호를 따릅니다 — 녹색일 때 직진·우회전, 적색이면 정지선 앞에서 기다립니다';
+      clearTimeout(saT); saT = setTimeout(function () { box.className = ''; }, 3200);
+      if (TG.audio.bad) TG.audio.bad();
+      buzz(TG.HAPTIC ? TG.HAPTIC.warn : 80);
+      if (G.praise) G.praise.miss(true);
+      return true;
+    };
     minimap.layers = layers;   // 미니맵에도 레이어를 겹쳐 그린다
     TG.audio.setMuted(!settings.sound);
     TG.perf.onChange(function (scale, shadows) { world.sun.castShadow = shadows; });
@@ -1429,6 +1447,7 @@
         walker.pos.x = walk.safe.x; walker.pos.z = walk.safe.z; walker.v = 0; walker.sync();
         if (walk.curbCd <= 0) {
           walk.curbCd = 2.6;
+          if (p.where === 'crosswalk' && G.sigAlert) G.sigAlert('ped');   // 🔴 적색 횡단보도로 들어서려 했다 — 내 앞 신호를 크게
           hud.notice(p.where === 'crosswalk' ? '🔴 빨간불이에요 — 인도에서 기다려요' : '🚸 차도로 내려가지 않아요 — 인도로 걸어요', 'warn', 2400);
           kidVoice(p.where === 'crosswalk' ? 'red' : 'road', true);
         }
@@ -1441,11 +1460,11 @@
         var blinkIn = p.walk && !!p.flash;                            // 녹색 점멸에 들어섰다(점멸은 횡단 거리에 비례해 길다 — v0.9.48)
         walk.cross.blink = blinkIn;
         if (kid) {
-          if (!p.walk) { kidVoice('red', true); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); }
+          if (!p.walk) { kidVoice('red', true); if (G.sigAlert) G.sigAlert('ped'); hud.notice('🔴 빨간불이에요! 초록불을 기다려요', 'bad', 2600); }
           else if (blinkIn) { kidVoice('blink', true); hud.notice('🟡 초록불이 깜빡여요! 지금 들어가면 위험해요 — 다음 초록불을 기다려요', 'warn', 3400); TG.audio.bad(); }
           else { kidVoice('green', true); if (walk.blinkWaited) { walk.blinkWaited = false; addScore(10, null); hud.notice('👏 깜빡일 때 기다렸다가 건넜어요 — 아주 잘했어요 (+10)', 'good', 3000); TG.audio.jingle(2); } }
         }
-        else if (!p.walk) penalize('walkRed', '신호위반 보행 — 적색 보행 신호에 횡단보도 진입', '보행 신호(녹색 걷는 사람)를 기다린다 · ' + lawLine('jaywalk-red', '도로교통법 제5조'));
+        else if (!p.walk) { if (G.sigAlert) G.sigAlert('ped'); penalize('walkRed', '신호위반 보행 — 적색 보행 신호에 횡단보도 진입', '보행 신호(녹색 걷는 사람)를 기다린다 · ' + lawLine('jaywalk-red', '도로교통법 제5조')); }
         else if (blinkIn) penalize('walkBlink', '녹색 점멸에 횡단 시작', '녹색 점멸에는 횡단을 시작할 수 없다 — 다음 신호를 기다린다(시행규칙 별표2)');
         else hud.hint('보행 신호 — 좌우를 살피고 횡단보도 안으로 건넌다 (남은 ' + Math.ceil(p.remain) + '초)');
       }

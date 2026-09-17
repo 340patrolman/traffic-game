@@ -28,7 +28,7 @@ TG.BikeClass = function (game) {
     { id: 'free',  icon: '🛣', name: '자유 주행',         goal: '목적지 세 곳을 찍어요 — 오른쪽 가장자리 · 신호 · 횡단보도는 끌고', card: 'ride-lane' },
   ];
   // 위험 게이지 — **게임 설계값**(법령·통계 수치가 아니다). 60 을 넘으면 「다시 도전」.
-  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40, quiz: 8 };
+  var RISK = { miss: 35, blind: 15, rideCross: 20, sidewalk: 12, fastPed: 15, wrongWay: 10, lanes: 5, overshoot: 8, crash: 40, quiz: 8, redLight: 15 };
   var RISK_PASS = 60, LANE_SEC = 8;
 
   function el(id) { return document.getElementById(id); }
@@ -404,6 +404,34 @@ TG.BikeClass = function (game) {
   }
   self.passengerOn = function () { return !!(passenger && passenger.group.visible); };
 
+  // ---------- 🔴 내 앞 신호(v0.9.94) ----------
+  // 소유자(2026-09-17): 「자기 신호가 아닐 경우 도로에 진입했을 때는 자전거·PM·보행자일 경우 위험 신호를 줘야 해」.
+  //  · **타고 있으면 「차」** — 차량 신호를 따른다(시행규칙 별표 2: 녹색 = 직진·우회전, 적색 = 정지선·횡단보도·교차로 직전 정지).
+  //    적색에 정지선을 넘으면 적색등을 크게 보여 준다.
+  //  · **내려서 끌고 있으면 보행자** — 보행 신호를 따른다. 적색 횡단보도에 들어서면 같은 경고.
+  var sw = { along: null, node: null, onRedCross: false };
+  function signalWatch(W) {
+    if (!G.signals || !G.sigAlert) return;
+    var pl = TG.walkerPlace(city, G.signals, W.pos.x, W.pos.z);
+    if (!W.riding) {                                                   // 끌고 걷는 중 = 보행자
+      var redCross = pl.where === 'crosswalk' && !pl.walk;
+      if (redCross && !sw.onRedCross) { G.sigAlert('ped'); addRisk(RISK.redLight, '적색 보행 신호에 횡단보도로 들어갔어요'); }
+      sw.onRedCross = redCross; sw.along = null;
+      return;
+    }
+    sw.onRedCross = false;
+    if (W.v < 0.6) { sw.along = null; return; }
+    var d = TG.headingToDir(W.heading), f = TG.DIR_VEC[d];
+    var nd = city.nearestNode ? city.nearestNode(W.pos.x, W.pos.z) : null; if (!nd) return;
+    var along = (nd.x - W.pos.x) * f[0] + (nd.z - W.pos.z) * f[1];        // 앞쪽 교차로까지(음수면 이미 지남)
+    var stopAt = city.stopDist(nd, d);
+    if (sw.node === nd && sw.along !== null && sw.along > stopAt && along <= stopAt && along > 0) {
+      var ms = G.signals.moveState ? G.signals.moveState(nd, d, 'S') : null;
+      if (ms && ms.s === 'red') { G.sigAlert('veh'); addRisk(RISK.redLight, '적색 신호에 정지선을 넘었어요'); if (G.praise) G.praise.miss(true); }
+    }
+    sw.node = nd; sw.along = along;
+  }
+
   // ---------- 🛴 이건 자전거일까?(v0.9.93) ----------
   // 문항은 짧게, 정답의 근거는 카드(laws.json)가 말한다 — 조문 번호를 코드에 적지 않는다.
   var QUIZ = [
@@ -546,6 +574,7 @@ TG.BikeClass = function (game) {
   function updFree(dt, W) {
     var F = st.free, g = st.g, pl = TG.walkerPlace(city, G.signals, W.pos.x, W.pos.z);
     if (F.crash) return;                                   // 조사 카드가 떠 있는 동안은 멈춘다
+    signalWatch(W);                                        // 🔴 내 앞 신호 — 타면 차량 신호, 끌면 보행 신호
     // ① 사람과 부딪히면 — 어디서 쳤는지로 조문이 갈린다
     if (W.riding && W.v > 1.2) {
       var hitP = pedNear(W);
@@ -641,7 +670,7 @@ TG.BikeClass = function (game) {
       var n = st.tries[S.id] || 0;
       return '<li class="' + (st.done[S.id] ? 'ok' : 'no') + '">' + S.icon + ' ' + esc(S.name) + ' <b>' + (st.done[S.id] ? '✓' : '—') + '</b>' + (n ? ' <i>다시 ' + n + '번</i>' : '') + '</li>';
     }).join('');
-    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'ride-two-bike', 'ride-seats', 'ride-insurance', 'crash-bike-is-car', 'crash-crosswalk', 'crash-sidewalk', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
+    var ids = SCENES.map(function (S) { return S.card; }).concat(['ride-inertia', 'ride-signal', 'ride-two-bike', 'ride-seats', 'ride-insurance', 'crash-bike-is-car', 'crash-crosswalk', 'crash-sidewalk', 'ride-helmet', 'ride-visible', st.grade === 'teen' ? 'ride-license' : 'ride-age13']);
     var cards = ids.map(function (id) {
       var c = law(id); if (!c) return '';
       return '<div class="bk-card"><b>' + esc(c.name) + (c.verified === false ? ' <em>확인 중</em>' : '') + '</b><small>' + esc(c.law || '') + '</small><p>' + esc(c.tip || c.situation || '') + '</p></div>';

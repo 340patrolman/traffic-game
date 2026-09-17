@@ -1022,3 +1022,20 @@ body.replaying .tbtn,body.replaying #xpCol,body.replaying #praiseLine{opacity:0;
 #bikeQuiz button.no{background:rgba(220,70,60,.35);border-color:#ff7a6e}
 #bikeQuiz button:disabled{opacity:.85;cursor:default}
 @media (max-height:700px){#bikeQuiz .bq-q{font-size:15px}#bikeQuiz button{min-height:42px;font-size:14px}}
+
+/* 🔴 내 앞 신호(v0.9.94) — 소유자: 「자기 신호가 아닐 경우 도로에 진입했을 때는(자전거·PM·보행자) 위험 신호를 줘야 해. 적색을 확대해 주고
+   『적색 신호에서는 신호를 기다려야 합니다. 내 앞의 신호에 맞춰서 진행 바랍니다』라고 완곡하게」. 잠깐 떴다 사라지고, 누르는 것이 아니다. */
+#sigAlert{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) scale(.9);z-index:31;pointer-events:none;opacity:0;
+  transition:opacity .18s,transform .18s;display:flex;flex-direction:column;align-items:center;gap:8px;width:min(90vw,460px);
+  padding:14px 16px 16px;border-radius:18px;background:rgba(20,6,8,.84);border:2px solid rgba(255,80,70,.75);box-shadow:0 0 40px rgba(255,40,40,.35);text-align:center}
+#sigAlert.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#sigAlert .sa-lamp{display:flex;gap:10px;padding:8px 12px;border-radius:14px;background:#15181e;border:2px solid #2c323c}
+#sigAlert .sa-lamp i{width:44px;height:44px;border-radius:50%;background:#2a2d33}
+#sigAlert .sa-lamp i.r{background:#ff2a2a;box-shadow:0 0 22px 6px rgba(255,42,42,.8);animation:saPulse .8s ease-in-out infinite}
+#sigAlert.ped .sa-lamp i.y{display:none}
+#sigAlert .sa-t{font-size:clamp(17px,4.4vw,22px);font-weight:900;color:#fff;line-height:1.4;word-break:keep-all}
+#sigAlert .sa-s{font-size:clamp(13px,3.3vw,15px);font-weight:700;color:#ffd6d0;line-height:1.45;word-break:keep-all}
+@keyframes saPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+@media (prefers-reduced-motion:reduce){#sigAlert .sa-lamp i.r{animation:none}}
+@media (max-height:700px){#sigAlert .sa-lamp i{width:34px;height:34px}}
+body.replaying #sigAlert{display:none}
