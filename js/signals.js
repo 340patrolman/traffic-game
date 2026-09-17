@@ -131,6 +131,11 @@ TG.Signals = function (city, world, cfg) {
     }
     return n;
   }
+  // 🧪 시뮬레이션: 모든 교차로 시계를 처음 값으로(실측 현시 교차로는 주기의 처음으로) · 보행 연장·수동 요청을 지운다
+  function resetClock() {
+    for (var k in ctrl) { var c = ctrl[k], kn = k.split(','); c.t = c.realPlan ? 0 : ((+kn[0] * 7 + +kn[1] * 11) % 10) * 3; c.req = null; }
+    for (var h in hold) delete hold[h];
+  }
   function restoreReal(node) { ctrl[keyOf(node)].realOff = false; }
   // 한 교차로만 **실측 현시를 끄고 일반형**으로 돌린다 — 영아·어린이 교실은 화면이 신호를 직접 잡아야 하기 때문이다.
   // (실측 현시는 도면의 보행 표시를 근사로만 옮겨 두어 `set(…,'green')` 으로도 보행 초록이 안 켜지는 교차로가 있다 · v0.9.50)
@@ -427,7 +432,7 @@ TG.Signals = function (city, world, cfg) {
   }
   raiseToPedMin();   // 어느 교차로에서도 보행 시간이 차량 녹색에 밀려 줄어들지 않게, 처음부터 녹색을 충분히 준다
   applyCycles();     // 그 위에서 실측 주기까지 녹색을 늘린다(보행 하한은 건드리지 않는다)
-  return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, pedFlash: pedFlash, flashTime: flashTime, update: update, force: force, set: set, CYCLE: CYCLE, phase: ph,
+  return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, pedFlash: pedFlash, flashTime: flashTime, update: update, resetClock: resetClock, force: force, set: set, CYCLE: CYCLE, phase: ph,
            holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
            greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod,

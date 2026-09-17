@@ -48,6 +48,7 @@ TG.Campaign = function (game) {
   this.paint = function () {
     var box = document.getElementById('chapterCard'), c = self.current(), bs = document.getElementById('btnStart');
     if (!box) return;
+    if (TG.mode && TG.mode.sim) { box.innerHTML = ''; return; }   // 🧪 시뮬레이션에는 캠페인이 없다
     var dots = CH.map(function (x, k) { return '<i class="' + (k < db.i ? 'on' : k === db.i ? 'cur' : '') + '">' + x.month.replace('월', '') + '</i>'; }).join('');
     if (!c) {
       box.innerHTML = '<b>📖 서초, 1년 · ' + ACT_END.name + '</b><span>' + ACT_END.next + '</span><div class="cc-dots">' + dots + '</div>';

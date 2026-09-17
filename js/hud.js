@@ -45,6 +45,7 @@ TG.hud = (function () {
   function plain(t) { return String(t == null ? '' : t).replace(/\*\*/g, ''); }
   function setTarget(text) { el.target.textContent = plain(text); el.target.style.display = text ? '' : 'none'; }
   function notice(text, kind, ms) {
+    if (TG.metricsNotice) TG.metricsNotice(text, ms || 2600);   // 📏 F5 안내문 시간(보기만 한다)
     el.notice.textContent = plain(text); el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000;
     pushKidChips();
   }
@@ -111,11 +112,11 @@ TG.hud = (function () {
       // 틀린 것을 그냥 지나치지 않는다 — 무엇을 다시 봐야 하는지 여기서 말해 준다
       (stats.review ? '<div class="review">📕 다시 볼 것 · ' + stats.review + '</div>' : '') +
       // 🎖 계급 막대 — 오늘 얼마나 올랐고 다음 계급까지 얼마 남았는지. 아이들이 다음 판을 시작하는 이유가 된다.
-      (stats.rank ? '<div class="rankrow"><span class="rk-ic">' + stats.rank.icon + '</span><span class="rk-nm">' + stats.rank.name + '</span>' +
+      (stats.rank ? '<div class="rankrow"><span class="rk-ic">' + (stats.rankImg ? '<img alt="' + stats.rank.name + ' 계급장" src="' + stats.rankImg + '">' : '🎖') + '</span><span class="rk-nm">' + stats.rank.name + '</span>' +
         '<span class="rk-bar"><i style="width:' + Math.round(stats.rankPct * 100) + '%"></i></span>' +
-        '<span class="rk-xp">+' + (stats.rankXp || 0) + ' XP</span></div>' +
-        '<div class="rankfoot">' + (stats.rankUps ? '🎉 오늘 ' + stats.rankUps + '번 승급! ' : '') +
-        (stats.rankNext ? '다음 계급 ' + stats.rankNext.icon + ' ' + stats.rankNext.name + '까지 ' + stats.rankLeft + ' XP' : '최고 계급') +
+        '<span class="rk-xp">' + (stats.rankPts || 0) + '점' + (stats.rankGain ? ' (+' + stats.rankGain + ')' : '') + '</span></div>' +
+        '<div class="rankfoot">' + (stats.rankUps ? '🎉 오늘 진급! ' : '') +
+        (stats.rankNext ? '다음 계급 ' + stats.rankNext.name + '까지 ' + stats.rankLeft + '점(진급 점수 ' + stats.rankNext.pt + '점)' : '최고 계급 경감') +
         (stats.bestCombo >= 2 ? ' · 최고 연속 🔥 ' + stats.bestCombo : '') + '</div>' : '') +
       // 🔗 오늘의 작전(사건 사슬)과 👤 내가 바꾼 얼굴 — 「다음 판」의 이유가 된다
       (stats.story ? '<div class="chain">📋 ' + stats.story.name + ' — ' + stats.story.done + '/' + stats.story.steps + ' 단계' +

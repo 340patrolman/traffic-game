@@ -1,0 +1,352 @@
+{
+ "when": "2026-09-17T12:08:08.285Z",
+ "version": "0.10.6",
+ "map": "seocho",
+ "pass": {
+  "F1": 10,
+  "F2": 45,
+  "F3max": 20,
+  "F3avg": 12,
+  "F4p50": 100,
+  "F5": 0.15,
+  "F6": 3
+ },
+ "shifts": [
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T12:07:02.481Z",
+   "reason": "자동 재생",
+   "m": {
+    "F1": 1.22,
+    "F2": 12.35,
+    "F3max": 43.3,
+    "F3avg": 8.2,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.602,
+    "F5long": 57,
+    "F5n": 79,
+    "F6": null,
+    "dur": 181.4,
+    "events": 22
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     11.93,
+     "violationSeen"
+    ],
+    [
+     12.35,
+     "praise"
+    ],
+    [
+     12.37,
+     "violationSeen"
+    ],
+    [
+     13,
+     "praise"
+    ],
+    [
+     18.35,
+     "violationSeen"
+    ],
+    [
+     18.9,
+     "praise"
+    ],
+    [
+     23.67,
+     "violationSeen"
+    ],
+    [
+     25.02,
+     "incident"
+    ],
+    [
+     25.3,
+     "praise"
+    ],
+    [
+     25.33,
+     "violationSeen"
+    ],
+    [
+     25.95,
+     "praise"
+    ],
+    [
+     35.12,
+     "violationSeen"
+    ],
+    [
+     40.35,
+     "violationSeen"
+    ],
+    [
+     40.85,
+     "praise"
+    ],
+    [
+     41.5,
+     "praise"
+    ],
+    [
+     63.15,
+     "praise"
+    ],
+    [
+     100.73,
+     "violationSeen"
+    ],
+    [
+     117.7,
+     "violationSeen"
+    ],
+    [
+     119.3,
+     "praise"
+    ],
+    [
+     125.2,
+     "praise"
+    ],
+    [
+     137.65,
+     "violationSeen"
+    ],
+    [
+     138.1,
+     "praise"
+    ]
+   ]
+  },
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T12:07:14.089Z",
+   "reason": "보행자 사고 — 사람을 치면 즉시 임무 실패",
+   "m": {
+    "F1": 1.22,
+    "F2": 28.35,
+    "F3max": 61.3,
+    "F3avg": 10.3,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.712,
+    "F5long": 48,
+    "F5n": 58,
+    "F6": 0.02,
+    "dur": 165.4,
+    "events": 16
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     25.02,
+     "incident"
+    ],
+    [
+     28.35,
+     "praise"
+    ],
+    [
+     50.75,
+     "dispatch"
+    ],
+    [
+     66.32,
+     "violationSeen"
+    ],
+    [
+     66.75,
+     "praise"
+    ],
+    [
+     128.02,
+     "violationSeen"
+    ],
+    [
+     128.65,
+     "praise"
+    ],
+    [
+     133.22,
+     "violationSeen"
+    ],
+    [
+     135.88,
+     "violationSeen"
+    ],
+    [
+     141.17,
+     "pulloverDone"
+    ],
+    [
+     141.17,
+     "praise"
+    ],
+    [
+     145.02,
+     "pulloverDone"
+    ],
+    [
+     145.02,
+     "praise"
+    ],
+    [
+     145.02,
+     "praise"
+    ],
+    [
+     162.45,
+     "violationSeen"
+    ],
+    [
+     164.15,
+     "praise"
+    ]
+   ]
+  },
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T12:07:32.411Z",
+   "reason": "자동 재생",
+   "m": {
+    "F1": 1.22,
+    "F2": 20.1,
+    "F3max": 30.8,
+    "F3avg": 7.9,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.497,
+    "F5long": 44,
+    "F5n": 61,
+    "F6": 0.01,
+    "dur": 181.4,
+    "events": 23
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     17.97,
+     "violationSeen"
+    ],
+    [
+     20.1,
+     "praise"
+    ],
+    [
+     25.02,
+     "incident"
+    ],
+    [
+     39.83,
+     "violationSeen"
+    ],
+    [
+     40.25,
+     "praise"
+    ],
+    [
+     46.27,
+     "pulloverDone"
+    ],
+    [
+     46.27,
+     "praise"
+    ],
+    [
+     50.12,
+     "pulloverDone"
+    ],
+    [
+     50.12,
+     "praise"
+    ],
+    [
+     50.12,
+     "praise"
+    ],
+    [
+     63.9,
+     "dispatch"
+    ],
+    [
+     88.8,
+     "violationSeen"
+    ],
+    [
+     90.25,
+     "praise"
+    ],
+    [
+     91.58,
+     "violationSeen"
+    ],
+    [
+     92.15,
+     "praise"
+    ],
+    [
+     100.58,
+     "violationSeen"
+    ],
+    [
+     102.05,
+     "praise"
+    ],
+    [
+     125.2,
+     "praise"
+    ],
+    [
+     127.6,
+     "violationSeen"
+    ],
+    [
+     128.1,
+     "praise"
+    ],
+    [
+     158.85,
+     "violationSeen"
+    ],
+    [
+     158.92,
+     "violationSeen"
+    ],
+    [
+     177.9,
+     "praise"
+    ]
+   ]
+  }
+ ],
+ "probe": {
+  "F4samples": 10,
+  "F4p50": 37,
+  "F4max": 53,
+  "againVisibleNoScroll": false,
+  "againTop": 813,
+  "viewH": 844,
+  "againLabel": "다시 근무",
+  "afterAgain": "title",
+  "F6restartMs": 7,
+  "F6taps": 3
+ },
+ "realSec": 65.9,
+ "note": "자동 재생 3판(게임 시간 180초) · F4·F6 은 probe 로 따로 잰다 · 헤드리스(swiftshader) 수치는 참고용"
+}

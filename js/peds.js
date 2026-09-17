@@ -276,6 +276,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   }
 
   var spawnT = 0;
+  this.resetSpawn = function () { spawnT = 0; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계를 처음으로
   // 무단횡단 표식: 방금 무단횡단한 보행자 머리 위에 위반 표식(차량과 같은 모양) — 60m 안에서만.
   // 전에는 차에만 표식이 떠서 무단횡단자를 눈으로 찾을 수가 없었다(소유자: 「보행자 무단횡단도 단속할 수 있어야」).
   var jayMarkMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });

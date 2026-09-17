@@ -21,7 +21,7 @@ TG.FirstShift = function (game) {
     game.hud.notice('📻 사수 — ' + text, 'info', 4200);
     TG.audio.say(text, { kind: 'pa', queue: true });
   }
-  this.eligible = function () { return game.mode === 'patrol' && !game.firstOff && !TG.save.get('firstshift', false); };
+  this.eligible = function () { return game.mode === 'patrol' && !(TG.mode && TG.mode.sim) && !game.firstOff && !TG.save.get('firstshift', false); };
   this.on = function () { return !!st; };
   this.state = function () { return st; };
   this.start = function () {

@@ -1166,7 +1166,7 @@ body.portrait.hudmore #hudbar .hb-topspeed{display:inline-flex!important}
 @media (max-width:380px){#title .workbtn{font-size:23px;padding:14px 14px 11px}}
 
 /* 🎬 정차 캠(#3) — 위아래 영화 띠 + 세 항목 등급이 하나씩 켜진다 */
-body.stopcam #hud,body.stopcam #touch,body.stopcam #minimap,body.stopcam #xpCol{opacity:0;transition:opacity .15s}
+body.stopcam #hud > *:not(#stopBars):not(#stopGrade),body.stopcam #touch,body.stopcam #minimap,body.stopcam #xpCol{opacity:0;transition:opacity .15s}   /* 등급 카드·영화 띠는 #hud 안에 있다 — 통째로 숨기면 같이 사라졌다(기준선 찍다가 찾음) */
 #stopBars{display:none}
 body.stopcam #stopBars{display:block}
 #stopBars::before,#stopBars::after{content:'';position:fixed;left:0;right:0;height:7vh;background:#000;z-index:60;pointer-events:none}
@@ -1237,3 +1237,39 @@ body.onfoot .tbtn.sportbtn,body.afoot .tbtn.sportbtn,body.kidmode .tbtn.sportbtn
 #endStats .chapres span{display:block;font-size:12.5px;color:#cfe0f5}
 .mpick.locked{opacity:.62}
 .mpick.locked::after{content:' 🔒'}
+
+/* 🎖 계급장(순경~경감) — 캔버스로 그린 그림 */
+#xpIcon img{height:26px;width:auto;display:block;border-radius:5px}
+#endStats .rk-ic img{height:30px;width:auto;display:block;border-radius:5px}
+
+/* ▶ 다시(A-P1 · F6) — 결과 카드 아래에 붙어 있다(카드가 스크롤돼도 보인다) */
+#end .endbtns{position:sticky;bottom:-22px;margin:10px -20px -22px;padding:10px 20px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;background:linear-gradient(180deg,rgba(14,18,28,0),rgba(14,18,28,.96) 30%)}
+#end .endbtns #btnRetry{flex:2;margin:0;min-height:52px;font-size:20px}
+#end .endbtns #btnAgain{flex:1;margin:0;min-height:52px;font-size:14px}
+
+/* 🚓 순찰차 카드(B2) — 보이는 제원 = 물리값 · △ 는 게임 설계값(출처는 누르고 있으면 뜬다) */
+.carpick.unitcard i{display:block;font-style:normal;font-size:11.5px;color:#cfe0f5;margin-top:3px}
+.carpick.unitcard em{display:block;font-style:normal;font-size:10.5px;margin-top:2px;opacity:.8}
+.carpick.unitcard em.ok{color:#8ff0a8}
+.carpick.unitcard em.dv{color:#c9b98a}
+
+/* 🚸 보행 신호 표시(걸어 다닐 때 · 계기 칸 한 줄 안) — 적 · 녹 · 「지금 건너지 마세요」(깜빡) */
+#hudbar .pedsig{display:inline-flex;align-items:center;gap:6px;margin:0 6px;padding:3px 10px 3px 4px;border-radius:999px;background:rgba(0,0,0,.35);border:2px solid #6b7686;white-space:nowrap;min-width:0}
+#hudbar .pedsig[hidden]{display:none}
+#hudbar .pedsig .ps-lamp{width:22px;height:22px;border-radius:50%;background:#555;box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
+#hudbar .pedsig .ps-txt{font-size:14px;font-weight:900;color:#fff;overflow:hidden;text-overflow:ellipsis}
+#hudbar .pedsig .ps-sec{font-style:normal;font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;color:#fff}
+#hudbar .pedsig.red{border-color:#ff4d4d}#hudbar .pedsig.red .ps-lamp{background:#ff3b30;box-shadow:0 0 10px #ff3b30}
+#hudbar .pedsig.green{border-color:#3ee07a}#hudbar .pedsig.green .ps-lamp{background:#2fdc6d;box-shadow:0 0 10px #2fdc6d}
+#hudbar .pedsig.warn{border-color:#ffd23f;animation:psBlink .5s steps(1,end) infinite}#hudbar .pedsig.warn .ps-lamp{background:#2fdc6d}
+@keyframes psBlink{50%{border-color:#6b7686}}
+#hudbar .pedsig.warn .ps-lamp{animation:psLamp .5s steps(1,end) infinite}
+@keyframes psLamp{50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){#hudbar .pedsig.warn,#hudbar .pedsig.warn .ps-lamp{animation:none}}
+body.onfoot #hudbar .limitb,body.onfoot #hudbar .roadn,body.onfoot #hudbar .unit,body.onfoot #hudbar #speed{display:none!important}
+body.onfoot #hudbar .hb-score .lbl{display:none}
+
+/* 🧪 시뮬레이션 모드(E1) — 계기 칸 오른쪽 위 작은 표시 · 방식 고르기 */
+body.simmode #hudbar::after{content:'🧪 시뮬';position:absolute;top:-8px;right:10px;font-size:10px;font-weight:900;padding:1px 6px;border-radius:8px;background:#20304a;color:#9fd0ff;border:1px solid #4d7fbf}
+.simpick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit;min-height:36px}
+.simpick.sel{border-color:var(--blue);background:rgba(77,141,255,.18);color:#fff}

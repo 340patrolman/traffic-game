@@ -79,7 +79,7 @@ TG.Input = function () {
 
   this.bindTap = function (el, fn) {
     if (!el) return;
-    el.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); TG.audio.resume(); TG.haptic(8); fn(); });   // 누르는 손에 8ms 짧은 되울림
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); if (TG.metricsTap) TG.metricsTap(e.timeStamp); TG.audio.resume(); TG.haptic(8); fn(); });   // 누르는 손에 8ms 짧은 되울림
     el.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
   };
   this.onKey = function (code, fn) { this.handlers[code] = fn; };

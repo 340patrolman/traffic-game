@@ -84,6 +84,7 @@ TG.Enforcement = function (game) {
   function pedViolationOf(p) { var recent = p.jayLive || (p.jayDone && p.jayT < 14); if (!recent) return 'none'; return p.jayKind === 'red' ? 'jaywalk-red' : 'jaywalk'; }
 
   // ---------- 퀴즈(터치한 대상의 위반 고르기) ----------
+  this.answer = function () { return ticket ? ticket.answer : null; };   // 검사·자동 재생용(읽기만)
   this.quiz = function (sel) {
     var pl = me();
     if (self.state === 'quiz') return false;
@@ -190,6 +191,7 @@ TG.Enforcement = function (game) {
   }
   self.sceneOn = function () { return !!scn; };
   function completePullover(car) {
+    if (game.metrics) game.metrics.ev('pulloverDone');
     var bonus = 10;
     game.addScore(bonus, null);
     game.hud.notice('고지 완료 — ' + (onFoot() ? '운전자에게 위반 고지' : '안전한 위치에 정차') + ' (+' + bonus + ')', 'good', 3200);

@@ -46,6 +46,7 @@ TG.Dispatch = function (game) {
                     (code <= 1 ? '긴급 출동: 경광등·사이렌, 교차로는 서행' : '일반 출동: 신호·속도를 지킨다'), 'alert', 6000);
     if (TG.audio.squelch) TG.audio.squelch();
     if (game.crew) game.crew.say('dispatch', 6, 90);
+    if (game.metrics) game.metrics.ev('dispatch');
     TG.audio.say('상황실에서 알립니다. ' + ct.name + ', ' + self.active.name + ' 부근 신고입니다', { kind: 'narrator', queue: true });
     game.stats.dispatches = (game.stats.dispatches || 0) + 1;
     return self.active;

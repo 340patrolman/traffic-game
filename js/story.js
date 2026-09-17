@@ -208,6 +208,7 @@ TG.Story = function (game) {
     var c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : CHAINS[0];
     st = { id: c.id, name: c.name, steps: c.steps, i: 0, t: 0, log: [], touched: {}, done: false, node: null, car: null, openT: 0 };
     notice(c.open, 'alert', 5600);
+    if (game.metrics) game.metrics.ev('radio');
     if (TG.audio.squelch) TG.audio.squelch();
     TG.audio.pa(c.open.replace('📻 상황실 — ', ''));
     begin();

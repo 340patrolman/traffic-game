@@ -13,16 +13,65 @@
 //  ③ 대사는 **돌려 쓴다.** 같은 말이 두 번 이어 나오면 그 순간 재미가 죽는다(pick 이 직전 것을 피한다).
 TG.Praise = function (game) {
   var self = this;
-  // 계급(등업) — 아이가 **자기 실력으로 읽는 이름**이다. 실제 경찰 계급을 흉내 내지 않는다.
+  // 계급 — **실제 경찰 계급 순경 → 경장 → 경사 → 경위 → 경감**(소유자 2026-09-17: 「순경부터 경감까지, 실제 이미지와 똑같이,
+  //  10점 20점 30점 40점 이런 식으로 진급」). 진급 점수 1점 = 경험치 30. 경감이 맨 위다.
+  // 계급장 모양은 「경찰복제에 관한 규칙」 별표 4(2021.12.31. 개정 · 국가법령정보센터 원문 대조 2026-09-17)의 글 그대로 그린다:
+  //  순경·경장·경사 = 태극장 위에 무궁화 잎 2개로 싸인 **무궁화 봉오리 2·3·4개** / 경위·경감 = 가운데 태극장을 둔 **무궁화 1·2개** · 재질 황동판 크롬 도금(은색).
+  //  그림 파일은 쓰지 않는다(에셋 0) — 캔버스로 그린다.
+  var XP_PER_POINT = 30;
   var RANKS = [
-    { xp: 0,    icon: '🌱', name: '새싹 대원' },
-    { xp: 120,  icon: '🚸', name: '횡단보도 지킴이' },
-    { xp: 300,  icon: '👀', name: '살피기 달인' },
-    { xp: 560,  icon: '🚦', name: '신호 박사' },
-    { xp: 900,  icon: '🚲', name: '두 바퀴 고수' },
-    { xp: 1350, icon: '🛡', name: '안전 반장' },
-    { xp: 1900, icon: '⭐', name: '교통안전 대장' }
+    { pt: 0,  name: '순경', kind: 'bud',    n: 2 },
+    { pt: 10, name: '경장', kind: 'bud',    n: 3 },
+    { pt: 20, name: '경사', kind: 'bud',    n: 4 },
+    { pt: 30, name: '경위', kind: 'flower', n: 1 },
+    { pt: 40, name: '경감', kind: 'flower', n: 2 }
   ];
+  RANKS.forEach(function (r) { r.xp = r.pt * XP_PER_POINT; r.icon = '🎖'; });
+  var insCache = {};
+  // 계급장 그림(data URL) — 짙은 남색 바탕판 위 은색 계급장
+  function insignia(r) {
+    var key = r.kind + r.n; if (insCache[key]) return insCache[key];
+    var W = 64 * Math.max(2, r.n) + 24, H = 88, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+    g.fillStyle = '#1b2a4a'; roundRect(g, 2, 2, W - 4, H - 4, 14); g.fill();
+    g.strokeStyle = '#0d1528'; g.lineWidth = 3; g.stroke();
+    var silver = g.createLinearGradient(0, 10, 0, H - 10); silver.addColorStop(0, '#ffffff'); silver.addColorStop(0.45, '#c9ced6'); silver.addColorStop(1, '#8c939e');
+    var span = W - 24, step = span / r.n;
+    for (var i = 0; i < r.n; i++) { var cx = 12 + step * (i + 0.5); if (r.kind === 'bud') bud(g, cx, H / 2 + 2, silver); else flower(g, cx, H / 2, silver); }
+    return (insCache[key] = cv.toDataURL('image/png'));
+  }
+  function roundRect(g, x, y, w, h, rr) { g.beginPath(); g.moveTo(x + rr, y); g.arcTo(x + w, y, x + w, y + h, rr); g.arcTo(x + w, y + h, x, y + h, rr); g.arcTo(x, y + h, x, y, rr); g.arcTo(x, y, x + w, y, rr); g.closePath(); }
+  function taegeuk(g, x, y, R) {   // 태극장: 위 적·아래 청(계급장은 은색 판이라 옅게)
+    g.save(); g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fillStyle = '#e8ecf2'; g.fill(); g.strokeStyle = '#7d8591'; g.lineWidth = 1.5; g.stroke();
+    g.beginPath(); g.arc(x, y, R * 0.8, Math.PI, 0); g.arc(x + R * 0.4, y, R * 0.4, 0, Math.PI, true); g.arc(x - R * 0.4, y, R * 0.4, 0, Math.PI, false); g.fillStyle = '#c8323c'; g.fill();
+    g.beginPath(); g.arc(x, y, R * 0.8, 0, Math.PI); g.arc(x - R * 0.4, y, R * 0.4, Math.PI, 0, true); g.arc(x + R * 0.4, y, R * 0.4, Math.PI, 0, false); g.fillStyle = '#2a4fa0'; g.fill();
+    g.restore();
+  }
+  function bud(g, x, y, fill) {   // 태극장 위 · 잎 2개로 싸인 봉오리
+    g.save(); g.fillStyle = fill; g.strokeStyle = '#5c636d'; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(x, y - 30); g.bezierCurveTo(x + 13, y - 18, x + 11, y + 2, x, y + 6); g.bezierCurveTo(x - 11, y + 2, x - 13, y - 18, x, y - 30); g.closePath(); g.fill(); g.stroke();   // 봉오리
+    [-1, 1].forEach(function (s) {   // 봉오리를 감싼 잎
+      g.beginPath(); g.moveTo(x, y + 12); g.bezierCurveTo(x + s * 22, y + 6, x + s * 20, y - 14, x + s * 7, y - 20); g.bezierCurveTo(x + s * 11, y - 6, x + s * 7, y + 4, x, y + 12); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(x + s * 2, y + 8); g.quadraticCurveTo(x + s * 13, y - 2, x + s * 9, y - 14); g.stroke();   // 잎맥
+    });
+    g.restore();
+    taegeuk(g, x, y + 20, 8);
+  }
+  function flower(g, x, y, fill) {   // 다섯 잎 무궁화 · 가운데 태극장
+    g.save(); g.fillStyle = fill; g.strokeStyle = '#5c636d'; g.lineWidth = 1.6;
+    for (var k = 0; k < 5; k++) {   // 넓고 둥근 꽃잎 다섯 장(서로 조금씩 겹친다)
+      var a = -Math.PI / 2 + k * Math.PI * 2 / 5, ca = Math.cos(a), sa = Math.sin(a);
+      g.save(); g.translate(x + ca * 17, y + sa * 17); g.rotate(a);
+      g.beginPath(); g.ellipse(0, 0, 16, 12.5, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(-10, 0); g.lineTo(9, 0); g.moveTo(-8, -1.5); g.lineTo(6, -7); g.moveTo(-8, 1.5); g.lineTo(6, 7); g.stroke();   // 꽃잎 결
+      g.restore();
+    }
+    g.restore();
+    taegeuk(g, x, y, 9);
+  }
+  this.insignia = function (lv) { return insignia(self.rank(lv)); };
+  this.points = function () { return Math.floor(self.data.xp / XP_PER_POINT); };
+  this.XP_PER_POINT = XP_PER_POINT;
   // 재치 있는 짧은 대사. 길면 못 읽는다 — 화면에서 0.6초 안에 읽히는 길이로 적었다.
   var LINES = {
     stop:    ['멈춤! 그게 진짜 고수지', '브레이크는 겁쟁이가 아니라 프로가 밟는 거야', '딱 멈췄다. 교과서가 울고 갔다'],
@@ -92,10 +141,11 @@ TG.Praise = function (game) {
     self.shift();                                        // 안내문이 떠 있으면 오른쪽 열이 그 아래로 비켜선다
     var r = self.rank(), nx = self.next();
     var ic = EL('xpIcon'), nm = EL('xpName'), fl = EL('xpFill'), tx = EL('xpText');
-    if (ic) ic.textContent = r.icon;
+    if (ic) ic.innerHTML = '<img alt="' + r.name + ' 계급장" src="' + insignia(r) + '">';
     if (nm) nm.textContent = r.name;
     if (fl) fl.style.width = (self.progress() * 100).toFixed(1) + '%';
-    if (tx) tx.textContent = (nx ? (self.data.xp - r.xp) + ' / ' + (nx.xp - r.xp) : '최고 계급') + (gain ? '  (+' + gain + ')' : '');
+    var pt = self.points();
+    if (tx) tx.textContent = (nx ? '진급 ' + pt + ' / ' + nx.pt + '점' : pt + '점 · 최고 계급');
     w.className = 'on';
     clearTimeout(xT); xT = setTimeout(function () { w.className = ''; }, 2800);
   }
@@ -122,8 +172,10 @@ TG.Praise = function (game) {
   };
   // 🎖 메달 — 한 근무에 한 번만. 「처음으로 해낸 일」에 준다(콜오브듀티의 메달 팝업).
   this.medal = function (id, name, xp) {
+    if (TG.mode && TG.mode.sim) return false;
     if (self.session.medals.indexOf(id) >= 0) return false;
     self.session.medals.push(id);
+    if (game.metrics) game.metrics.ev('praise');
     self.data.medals[id] = (self.data.medals[id] || 0) + 1; save();
     banner('🎖 ' + name, self.data.medals[id] > 1 ? self.data.medals[id] + '번째' : '처음 받았다', true);
     self.feed('🎖 ' + name, xp || 0);
@@ -146,20 +198,22 @@ TG.Praise = function (game) {
   function rankUp(lv) {
     var r = RANKS[lv];
     self.session.rankUps++;
-    banner('🎉 승급! ' + r.icon + ' ' + r.name, '규칙을 지킨 값이다 — 다음 단계로', true);
+    banner('🎉 진급! ' + r.name, '규칙을 지킨 값이다 — 계급장이 바뀌었다', true);
     game.slowmo = Math.max(game.slowmo || 0, 0.9); game.punch = 1.2;
-    if (game.hud && game.hud.burst) game.hud.burst(r.icon, 10);
+    if (game.hud && game.hud.burst) game.hud.burst('🎖', 10);
     if (TG.audio.totFanfare) TG.audio.totFanfare(); else if (TG.audio.jingle) TG.audio.jingle(4);
     if (TG.haptic) TG.haptic([20, 50, 20, 50, 30]);
-    TG.audio.say('승급! 이제 ' + r.name + '이에요', { kind: (game.mode === 'tot' || game.mode === 'kid') ? 'narrator' : 'officer', queue: true });
+    TG.audio.say('진급! 이제 ' + r.name + '입니다', { kind: (game.mode === 'tot' || game.mode === 'kid') ? 'narrator' : 'officer', queue: true });
   }
 
   // ---- 칭찬 한 번 ----
   // kind: LINES 의 열쇠 · xp: 경험치 · opts.feed: 피드에 적을 짧은 말 · opts.voice: 소리내어 말한다
   this.cheer = function (kind, xp, opts) {
+    if (TG.mode && TG.mode.sim) return 0;   // 🧪 시뮬레이션: 칭찬·경험치 없음
     opts = opts || {};
     var line = pick(kind);
     self.combo++; self.session.praises++;
+    if (game.metrics) game.metrics.ev('praise');
     if (self.combo > self.session.bestCombo) self.session.bestCombo = self.combo;
     if (self.combo > (self.data.bestCombo || 0)) { self.data.bestCombo = self.combo; save(); }
     // 콤보 문턱에서는 대사를 바꿔 준다 — 숫자가 커지는 맛
@@ -195,7 +249,7 @@ TG.Praise = function (game) {
   // 근무 결과 카드에 넣을 값
   this.summary = function () {
     var r = self.rank(), nx = self.next();
-    return { rank: r, next: nx, pct: self.progress(), xp: self.session.xp, total: self.data.xp,
+    return { rank: r, next: nx, pct: self.progress(), points: self.points(), img: insignia(r), nextImg: nx ? insignia(nx) : null, xp: self.session.xp, total: self.data.xp,
              praises: self.session.praises, combo: self.session.bestCombo, rankUps: self.session.rankUps, medals: self.session.medals.slice() };
   };
 };

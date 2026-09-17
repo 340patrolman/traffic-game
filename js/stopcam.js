@@ -14,7 +14,7 @@ TG.StopCam = function (game) {
 
   this.active = function () { return on; };
   this.start = function (target, pl) {
-    if (!target || !pl) return null;
+    if (!target || !pl || (TG.mode && TG.mode.sim)) return null;   // 🧪 시뮬레이션: 연출 없음
     var cf = [Math.sin(target.heading), Math.cos(target.heading)], rx = -cf[1], rz = cf[0];
     var dx = pl.pos.x - target.pos.x, dz = pl.pos.z - target.pos.z, along = -(dx * cf[0] + dz * cf[1]), lat = Math.abs(dx * rx + dz * rz);
     var dh = Math.abs(TG.wrapAngle(pl.heading - target.heading));
@@ -34,6 +34,7 @@ TG.StopCam = function (game) {
     pos = [pl.pos.x - pf[0] * 6.5 + rx * 2.8, (pl.y || 0) + 2.5, pl.pos.z - pf[1] * 6.5 + rz * 2.8];
     look = [pl.pos.x + (target.pos.x - pl.pos.x) * 0.6, (target.y || 0) + 0.8, pl.pos.z + (target.pos.z - pl.pos.z) * 0.6];   // 두 차 사이(세운 차 쪽)
     from = [pos[0] - pf[0] * 3 + rx * 1.2, pos[1] + 1.6, pos[2] - pf[1] * 3 + rz * 1.2];
+    if (game.metrics) game.metrics.ev('pulloverDone');
     game.hitstop = 0.12;
     game.slowmo = Math.max(game.slowmo || 0, 1.2);
     document.body.classList.add('stopcam');

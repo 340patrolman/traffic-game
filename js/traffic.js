@@ -788,6 +788,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   };
 
   var spawnT = 0;
+  this.resetSpawn = function () { spawnT = 0; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계를 처음으로
   this.update = function (dt, budget) {
     self.time += dt; spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.5; if (cars.length < budget) spawn(); }

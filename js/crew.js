@@ -23,7 +23,7 @@ TG.Crew = function (game) {
     end: [['sasu', '수고했다. 오늘 한 것 한 번 돌아봐라.'], ['peer', '오늘도 무사히! 내일 또 보자.']]
   };
   var MODES = { patrol: 1, chase: 1, duty: 1, free: 1 };
-  function on() { return !game.crewOff && !!MODES[game.mode]; }   // 검사 모드는 기본으로 끈다(안내문을 읽는 검사를 흔들지 않게)
+  function on() { return !game.crewOff && !(TG.mode && TG.mode.sim) && !!MODES[game.mode]; }   // 검사 모드는 기본으로 끈다(안내문을 읽는 검사를 흔들지 않게)
   function now() { return game.traffic ? game.traffic.time : 0; }
   function pick(key) {
     var L = LINES[key]; if (!L || !L.length) return null;
@@ -48,6 +48,7 @@ TG.Crew = function (game) {
     if (TG.audio.squelch) TG.audio.squelch();
     TG.audio.say(ln[1], { kind: w.kind, pitch: w.pitch, rate: w.rate, queue: true });
     self.said.push({ key: key, who: ln[0], text: ln[1] });
+    if (game.metrics) game.metrics.ev('radio');
     gap = 6; idleT = 80 + Math.random() * 40;
   }
   this.now = function (key) { if (on()) speak(key); };   // 근무 끝처럼 기다릴 수 없을 때

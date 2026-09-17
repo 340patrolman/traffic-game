@@ -1,0 +1,114 @@
+﻿[
+    {
+        "shot":  1,
+        "name":  "title",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"title\",\"calls\":144,\"triangles\":209046,\"frameMs\":16.7,\"cars\":1,\"peds\":1,\"state\":\"title\"}"
+    },
+    {
+        "shot":  2,
+        "name":  "patrol-start",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"patrol-start\",\"calls\":181,\"triangles\":205970,\"frameMs\":16.7,\"cars\":5,\"peds\":3,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  3,
+        "name":  "red-wait",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"red-wait\",\"calls\":154,\"triangles\":200256,\"frameMs\":16.7,\"cars\":3,\"peds\":2,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  4,
+        "name":  "violation",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"violation\",\"calls\":198,\"triangles\":212810,\"frameMs\":16.7,\"cars\":1,\"peds\":0,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  5,
+        "name":  "pullover",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"pullover\",\"calls\":116,\"triangles\":201840,\"frameMs\":16.7,\"cars\":1,\"peds\":0,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  6,
+        "name":  "chase",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"chase\",\"calls\":140,\"triangles\":204162,\"frameMs\":16.7,\"cars\":10,\"peds\":6,\"mode\":\"chase\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  7,
+        "name":  "result",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"result\",\"calls\":147,\"triangles\":211130,\"frameMs\":16.7,\"cars\":0,\"peds\":0,\"mode\":\"patrol\",\"state\":\"end\"}"
+    },
+    {
+        "shot":  8,
+        "name":  "kid-class",
+        "size":  "port",
+        "ok":  true,
+        "info":  "{\"name\":\"kid-class\",\"calls\":186,\"triangles\":205138,\"frameMs\":16.7,\"cars\":3,\"peds\":1,\"mode\":\"kid\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  1,
+        "name":  "title",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"title\",\"calls\":289,\"triangles\":211248,\"frameMs\":16.7,\"cars\":1,\"peds\":1,\"state\":\"title\"}"
+    },
+    {
+        "shot":  2,
+        "name":  "patrol-start",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"patrol-start\",\"calls\":349,\"triangles\":215088,\"frameMs\":16.7,\"cars\":5,\"peds\":4,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  3,
+        "name":  "red-wait",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"red-wait\",\"calls\":350,\"triangles\":215860,\"frameMs\":16.7,\"cars\":2,\"peds\":2,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  4,
+        "name":  "violation",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"violation\",\"calls\":396,\"triangles\":213364,\"frameMs\":16.7,\"cars\":1,\"peds\":0,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  5,
+        "name":  "pullover",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"pullover\",\"calls\":312,\"triangles\":213092,\"frameMs\":16.7,\"cars\":1,\"peds\":0,\"mode\":\"patrol\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  6,
+        "name":  "chase",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"chase\",\"calls\":322,\"triangles\":218116,\"frameMs\":16.7,\"cars\":8,\"peds\":7,\"mode\":\"chase\",\"state\":\"play\"}"
+    },
+    {
+        "shot":  7,
+        "name":  "result",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"result\",\"calls\":276,\"triangles\":211534,\"frameMs\":16.7,\"cars\":0,\"peds\":0,\"mode\":\"patrol\",\"state\":\"end\"}"
+    },
+    {
+        "shot":  8,
+        "name":  "kid-class",
+        "size":  "land",
+        "ok":  true,
+        "info":  "{\"name\":\"kid-class\",\"calls\":374,\"triangles\":218070,\"frameMs\":16.7,\"cars\":3,\"peds\":2,\"mode\":\"kid\",\"state\":\"play\"}"
+    }
+]
