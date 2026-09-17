@@ -119,6 +119,7 @@ TG.Response = function (game) {
     game.addScore(t === 'C' ? S.video : S.videoLow, null);
     self.state.videos++; car.videoed = true;
     game.stats.videos = (game.stats.videos || 0) + 1;
+    if (game.story) game.story.onVideo(car);       // 🔗 사건 사슬: 영상으로 남기는 단계였다면 다음으로
     var lines = ['📹 영상 단속 — ' + kn + ' ' + nm, '번호판·시각·위치 기록 → 통고처분 의뢰'];
     if (t === 'C') lines.push('추격하지 않고 처리했습니다 (+' + S.video + ')');
     game.hud.notice(lines.join(' · '), 'good', 4200);
@@ -142,7 +143,7 @@ TG.Response = function (game) {
       return false;
     }
     if (car.incident && !car.incident.handled) {   // 현장: 견인·구급 요청 무전
-      car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1;
+      car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1; if (game.story) game.story.onRadio(car);
       var it = car.incident.kind === 'crash' ? '교통사고' : '고장차량', wi = placeName(car);
       // **후미 안전조치 순찰차**가 같이 온다(T-Book 「순찰차를 후방 방패로」 · 소유자 「되도록 후미 안전조치 순찰차가 있어야」).
       if (game.iscene && game.iscene.callBackup) { var bk = game.iscene.callBackup(car); if (bk && bk.ok) { game.addScore(S.towBackup || 10, null); game.stats.backups = (game.stats.backups || 0) + 1; } }
@@ -152,7 +153,7 @@ TG.Response = function (game) {
       return true;
     }
     var t = tierOf(car), nm = vName(car), kn = kindName(car), where = placeName(car);
-    car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1;
+    car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1; if (game.story) game.story.onRadio(car);
     var msg = kn + ' ' + nm + ', ' + where + '. ' + (t === 'A' ? '중대 위반 — 인접 순찰차 지원 요청, 정차 유도합니다' : '인접 순찰차 확인 요청합니다');
     self.state.lastRadio = msg;
     game.addScore(S.radio, null);

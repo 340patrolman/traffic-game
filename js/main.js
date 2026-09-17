@@ -91,6 +91,8 @@
     if (TG.Praise) G.praise = new TG.Praise(G);
     // 👁 두 시점 되돌려 보기 — 「하지 말라는 걸 하면 무슨 일이 벌어지는가」(아이 눈 · 운전자 눈)
     if (TG.Replay) G.replay = new TG.Replay(G);
+    // 🔗 사건 사슬 · 👤 아는 얼굴 — 한 근무를 하나의 이야기로 엮는다(순찰 근무에서만 돈다)
+    if (TG.Story) G.story = new TG.Story(G);
     minimap.layers = layers;   // 미니맵에도 레이어를 겹쳐 그린다
     TG.audio.setMuted(!settings.sound);
     TG.perf.onChange(function (scale, shadows) { world.sun.castShadow = shadows; });
@@ -811,6 +813,7 @@
     document.body.classList.remove('fastlines'); document.body.classList.remove('sirenlit'); document.body.classList.remove('startlit'); document.body.classList.remove('beast');   // 속도선·경광등 테두리·비스트는 내리고 시작한다
     hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1);   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
     if (G.praise) { G.praise.reset(); G.praise.showBar(); }   // 🎖 근무를 시작하면 콤보는 0 부터, 계급은 이어서(경험치는 기기에 남는다)
+    if (G.story) G.story.resetShift();                        // 🔗 사슬은 아래에서 모드를 정한 뒤에 시작한다
 
     if (player) scene.remove(player.mesh);
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
@@ -885,6 +888,8 @@
       var hb = layers.hourBrief();
       if (hb) setTimeout(function () { if (G.state === 'play') { hud.notice('⏰ ' + hb.line + ' (' + hb.years + ')', 'info', 5200); hud.hint('💭 ' + hb.lead + ' — 이 시간대에 무엇을 볼지 정하고 나간다'); } }, 4600);
     }
+    // 🔗 순찰 근무는 **하나의 사건 사슬**로 시작한다 — 무전 한 건이 다음 사건을 부른다(6초 뒤: 상황실 브리핑과 겹치지 않게)
+    if (G.story && G.mode === 'patrol') setTimeout(function () { if (G.state === 'play' && G.mode === 'patrol') G.story.start(); }, 6000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
@@ -2072,6 +2077,8 @@
       st.rankLeft = ps.next ? Math.max(0, ps.next.xp - ps.total) : 0; st.bestCombo = ps.combo;
       G.praise.hide();
     }
+    // 🔗 사건 사슬 · 👤 아는 얼굴 — 오늘의 작전과, 내가 바꾼 얼굴
+    if (G.story && G.story.summary) { st.story = G.story.summary(); G.story.stop(); }
     if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
   }
@@ -2400,7 +2407,7 @@
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt);
     if (G.iscene) {
       G.iscene.update(dt);
       var tw = G.iscene.towUpdate(dt);

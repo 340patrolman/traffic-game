@@ -93,6 +93,13 @@ TG.hud = (function () {
         '<div class="rankfoot">' + (stats.rankUps ? '🎉 오늘 ' + stats.rankUps + '번 승급! ' : '') +
         (stats.rankNext ? '다음 계급 ' + stats.rankNext.icon + ' ' + stats.rankNext.name + '까지 ' + stats.rankLeft + ' XP' : '최고 계급') +
         (stats.bestCombo >= 2 ? ' · 최고 연속 🔥 ' + stats.bestCombo : '') + '</div>' : '') +
+      // 🔗 오늘의 작전(사건 사슬)과 👤 내가 바꾼 얼굴 — 「다음 판」의 이유가 된다
+      (stats.story ? '<div class="chain">📋 ' + stats.story.name + ' — ' + stats.story.done + '/' + stats.story.steps + ' 단계' +
+        (stats.story.ok ? ' <b>작전 완료</b>' : ' (미완)') +
+        ((stats.story.cleared || 0) > 1 ? ' · 오늘 작전 ' + stats.story.cleared + '건' : '') +
+        (stats.story.changed && stats.story.changed.length
+          ? '<span>👤 ' + stats.story.changed.map(function (c) { return c.name + ' — 다음에는 ' + c.fix; }).join(' · ') + '</span>' : '') +
+        '</div>' : '') +
       (stats.career ? '<div class="career">📒 ' + stats.career + '</div>' : '');
     show('end', true);
   }

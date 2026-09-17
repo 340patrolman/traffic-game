@@ -194,6 +194,7 @@ TG.Enforcement = function (game) {
     game.hud.notice('고지 완료 — ' + (onFoot() ? '운전자에게 위반 고지' : '안전한 위치에 정차') + ' (+' + bonus + ')', 'good', 3200);
     game.hud.hint(onFoot() ? '차도 쪽에 등을 보이지 않는다 — 차 뒤쪽·보도 쪽에서 응대' : '단속 뒤에는 차로로 안전하게 복귀한다');
     TG.audio.good();
+    if (game.story) game.story.onEnforced(car);   // 🔗 사건 사슬: 그 차가 사슬의 대상이면 다음 단계로
     if (game.praise) {   // 🎖 한 대 정리 — 첫 단속에는 메달이 붙는다(콜오브듀티식 「처음 해낸 일」)
       game.praise.cheer('stop_ok', 25, { feed: '정차 유도 완료' });
       if ((game.stats.stops || 0) >= 1) game.praise.medal('first-stop', '첫 단속 완료', 20);
