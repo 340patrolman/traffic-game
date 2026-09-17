@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>캐릭터 쇼룸 — SEOUL PATROL</title>
+<meta name="description" content="사람 모델 검수용 쇼룸: 회전·앞뒤옆·폰 크기·밤/비 조명·동작 재생. 전용 모델은 이 화면에서 OK 를 받은 뒤에만 게임에 들어간다(CHARACTER_ART_PIPELINE ⑤).">
+<style>
+  :root { --bg:#0f141c; --panel:#171e29; --line:#2a3445; --ink:#e8eef7; --ink2:#9fb0c7; --ok:#3ecf8e; --ng:#ff6b6b; --acc:#ffcf3f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  body { display: flex; flex-direction: row; }
+  #side { width: 320px; flex: none; height: 100%; overflow: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 12px 14px 40px; }
+  #stageWrap { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0a0e14; }
+  #stage { position: relative; width: 100%; height: 100%; background: #cfd8e3; overflow: hidden; }
+  #stage.phoneP { width: 375px; height: 812px; max-height: 96%; border-radius: 28px; border: 6px solid #222; }
+  #stage.phoneL { width: 812px; height: 375px; max-width: 96%; border-radius: 28px; border: 6px solid #222; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  h1 { font-size: 17px; margin: 2px 0 2px; }
+  .sub { color: var(--ink2); font-size: 12px; margin-bottom: 10px; }
+  h2 { font-size: 13px; color: var(--acc); margin: 14px 0 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button, select, input[type=text] { font: inherit; color: var(--ink); background: #222b3a; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px; }
+  button { cursor: pointer; }
+  button.on { background: #2f5fd1; border-color: #4d7cf0; }
+  button.ok { background: #16432f; border-color: var(--ok); }
+  button.ng { background: #4a1f25; border-color: var(--ng); }
+  input[type=text] { width: 100%; }
+  .stat { font-size: 12px; color: var(--ink2); white-space: pre-wrap; background: #111823; border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 6px; }
+  .stat b.pass { color: var(--ok); } .stat b.fail { color: var(--ng); }
+  #log { font-size: 12px; margin-top: 6px; max-height: 180px; overflow: auto; }
+  #log div { border-bottom: 1px dashed var(--line); padding: 3px 0; }
+  #hint { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: #334; background: rgba(255,255,255,.7); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
+  @media (max-width: 760px) { body { flex-direction: column-reverse; } #side { width: 100%; height: 46%; border-right: 0; border-top: 1px solid var(--line); } #stageWrap { height: 54%; } #stage.phoneP, #stage.phoneL { width: 100%; height: 100%; border: 0; border-radius: 0; } }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>🧍 캐릭터 쇼룸</h1>
+  <div class="sub">검수 순서: 쇼룸 → OK → 인게임(파이프라인 ⑤). 여기서 보는 모델은 게임과 <b>같은 코드</b>(js/humans.js)로 입힌다.</div>
+
+  <h2>캐릭터</h2>
+  <div class="row" id="kinds"></div>
+  <div class="row" style="margin-top:6px"><label><input type="checkbox" id="procCmp"> 코드 리그 나란히 보기</label></div>
+
+  <h2>동작</h2>
+  <div class="row" id="acts"></div>
+
+  <h2>보기</h2>
+  <div class="row" id="views"></div>
+  <div class="row" style="margin-top:6px"><button id="spin" class="on">⟳ 자동 회전</button><button id="far">🔭 게임 거리(12m)</button></div>
+
+  <h2>화면 크기</h2>
+  <div class="row" id="sizes"></div>
+
+  <h2>조명</h2>
+  <div class="row" id="lights"></div>
+
+  <h2>전용 모델 검수(GLB 넣기)</h2>
+  <div class="sub" style="margin:0">이미지→3D 로 만든 GLB 를 골라 기준을 잰다. 파일은 이 기기 안에서만 읽는다(업로드 없음).</div>
+  <input type="file" id="glbFile" accept=".glb,.gltf,model/gltf-binary" style="margin-top:6px;max-width:100%">
+  <div class="row" style="margin-top:6px"><button id="limit8">주인공·경찰 ≤ 8,000</button><button id="limit4">행인·어린이 ≤ 4,000</button></div>
+  <div class="stat" id="glbStat">아직 고른 파일이 없습니다.</div>
+
+  <h2>검수 기록</h2>
+  <input type="text" id="note" placeholder="메모(예: 정모 챙이 작다 · 뒤 글씨 읽힘)">
+  <div class="row" style="margin-top:6px"><button id="btnOk" class="ok">✅ OK</button><button id="btnNg" class="ng">❌ NG</button><button id="btnCopy">📋 기록 복사</button><button id="btnClear">지우기</button></div>
+  <div id="log"></div>
+  <div class="stat" id="info"></div>
+</div>
+<div id="stageWrap"><div id="stage"><div id="hint">끌어서 돌리기 · 휠/두 손가락으로 확대</div></div></div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/GLTFLoader.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/rng.js"></script>
+<script src="../js/emblem.js"></script>
+<script src="../js/textures.js"></script>
+<script src="../js/world.js"></script>
+<script src="../js/humans-data.js"></script>
+<script src="../js/humans.js"></script>
+<script src="../js/character.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $('stage');
+  var renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.outputEncoding = THREE.sRGBEncoding;      // 게임과 같은 색 공간
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.02;
+  renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  stage.appendChild(renderer.domElement);
+  var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 1, 0.05, 200);
+  var hemi = new THREE.HemisphereLight(0xffffff, 0x8a94a0, 0.9); scene.add(hemi);
+  var sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(3, 6, 5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -3; sun.shadow.camera.right = 3; sun.shadow.camera.top = 3; sun.shadow.camera.bottom = -3; scene.add(sun);
+  var ground = new THREE.Mesh(new THREE.CircleGeometry(4, 48), new THREE.MeshLambertMaterial({ color: 0x9aa3ad })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  // 보도블록 줄(크기 감)
+  var grid = new THREE.GridHelper(8, 16, 0x7d8792, 0x87919c); grid.position.y = 0.002; scene.add(grid);
+  // 비
+  var rainGeo = new THREE.BufferGeometry(), RN = 900, rp = new Float32Array(RN * 3);
+  for (var i = 0; i < RN; i++) { rp[i * 3] = (Math.random() - 0.5) * 8; rp[i * 3 + 1] = Math.random() * 5; rp[i * 3 + 2] = (Math.random() - 0.5) * 8; }
+  rainGeo.setAttribute('position', new THREE.BufferAttribute(rp, 3));
+  var rain = new THREE.Points(rainGeo, new THREE.PointsMaterial({ color: 0xaac4ff, size: 0.03, transparent: true, opacity: 0.7 })); rain.visible = false; scene.add(rain);
+
+  var KINDS = [{ id: 'officer', ko: '👮 교통경찰' }, { id: 'kid', ko: '🧒 어린이' }];
+  var ACTS = [
+    { id: 'stand', ko: '서기', s: {} }, { id: 'walk', ko: '걷기', s: { speed: 1.4, moving: true } }, { id: 'run', ko: '뛰기', s: { speed: 3.6, moving: true } },
+    { id: 'hand', ko: '✋ 손 들기', s: { hand: 1 } }, { id: 'stop', ko: '🛑 정지 수신호', s: { gesture: 'stop' } }, { id: 'go', ko: '👉 가세요', s: { gesture: 'go' } },
+    { id: 'wave', ko: '👋 인사', s: { gesture: 'wave' } }, { id: 'operate', ko: '🎛 제어함 조작', s: { gesture: 'operate' } },
+    { id: 'look', ko: '👀 두리번', s: { lookScan: true } }, { id: 'talk', ko: '💬 말하기', s: { talking: true, smile: true } },
+    { id: 'ride', ko: '🚲 앉은 자세', pose: 'ride' }
+  ];
+  var VIEWS = [{ id: 'f', ko: '앞', a: 0 }, { id: 'q', ko: '¾', a: Math.PI / 4 }, { id: 's', ko: '옆', a: Math.PI / 2 }, { id: 'b', ko: '뒤', a: Math.PI }];
+  var SIZES = [{ id: '', ko: '전체' }, { id: 'phoneP', ko: '📱 폰 세로' }, { id: 'phoneL', ko: '📱 폰 가로' }];
+  var LIGHTS = [{ id: 'day', ko: '☀️ 낮' }, { id: 'dusk', ko: '🌇 석양' }, { id: 'night', ko: '🌙 밤' }, { id: 'rain', ko: '🌧 비' }];
+  var st = { kind: 'officer', act: 'stand', yaw: 0, spin: true, dist: 4.2, far: false, light: 'day', size: '', ext: null };
+  try { var sv = JSON.parse(localStorage.getItem('tg_showroom') || '{}'); if (sv.state) Object.assign(st, sv.state, { ext: null }); } catch (e) { }
+
+  function buttons(box, list, key, onPick) {
+    box.innerHTML = '';
+    list.forEach(function (it) {
+      var b = document.createElement('button'); b.textContent = it.ko; b.dataset.id = it.id;
+      b.onclick = function () { st[key] = it.id; paint(box, key); onPick && onPick(it); save(); };
+      box.appendChild(b);
+    });
+    paint(box, key);
+  }
+  function paint(box, key) { Array.prototype.forEach.call(box.children, function (b) { b.classList.toggle('on', b.dataset.id === String(st[key])); }); }
+
+  // ---- 인물 ----
+  var figs = [];
+  function clearFigs() { figs.forEach(function (f) { scene.remove(f.R ? f.R.group : f.obj); }); figs = []; }
+  function makeFigs() {
+    clearFigs();
+    if (st.ext) { figs.push({ obj: st.ext, ext: true }); scene.add(st.ext); return; }
+    var R = TG.Character.build(st.kind); figs.push({ R: R }); scene.add(R.group);
+    if ($('procCmp').checked) { var P = TG.Character.build(st.kind, { noModel: true }); P.group.position.x = 1.1; figs.push({ R: P, proc: true }); scene.add(P.group); figs[0].R.group.position.x = -0.55; P.group.position.x = 0.55; }
+    info();
+  }
+  function info() {
+    var H = TG.Humans, s = H.state, lines = [];
+    lines.push('모델 준비: ' + (H.ready() ? '예' : '아니오' + (s.reason ? ' — ' + s.reason : '')));
+    var f = figs[0];
+    if (f && f.R) {
+      lines.push('종류: ' + st.kind + ' · ' + (f.R.glb ? '모델(' + TG.Humans.kinds[st.kind].skin + ')' : '코드 리그'));
+      if (f.R.glb) {
+        var m = f.R.glb.mesh, tri = m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3;
+        lines.push('삼각형 ' + tri + ' · 뼈 ' + m.skeleton.bones.length + ' · 키 ' + TG.Humans.kinds[st.kind].height + 'm');
+        var M = f.R.glb.M; lines.push('부품: ' + [f.R.parts.cap ? '모자' : '', f.R.parts.baton ? '신호봉' : '', Object.keys(f.R.parts.acc || {}).join('·')].filter(Boolean).join(' · '));
+      }
+    }
+    lines.push('데이터 파일(js/humans-data.js) 문자 수: ' + (TG.HUMAN_DATA ? (TG.HUMAN_DATA.male.length + Object.keys(TG.HUMAN_DATA.skins).reduce(function (a, k) { return a + TG.HUMAN_DATA.skins[k].length; }, 0)).toLocaleString() : '없음'));
+    $('info').textContent = lines.join('\n');
+  }
+
+  // ---- 외부 GLB 검수 ----
+  var LIMIT = 8000;
+  $('limit8').onclick = function () { LIMIT = 8000; $('limit8').classList.add('on'); $('limit4').classList.remove('on'); if (lastStat) glbStat(lastStat); };
+  $('limit4').onclick = function () { LIMIT = 4000; $('limit4').classList.add('on'); $('limit8').classList.remove('on'); if (lastStat) glbStat(lastStat); };
+  $('limit8').classList.add('on');
+  var lastStat = null;
+  function pf(ok) { return '<b class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? '통과' : '넘침') + '</b>'; }
+  function glbStat(x) {
+    lastStat = x;
+    $('glbStat').innerHTML = [
+      '파일: ' + x.name,
+      '크기 ' + (x.bytes / 1024).toFixed(0) + 'KB (≤ 400KB) ' + pf(x.bytes <= 400 * 1024),
+      '삼각형 ' + x.tri.toLocaleString() + ' (≤ ' + LIMIT.toLocaleString() + ') ' + pf(x.tri <= LIMIT),
+      '텍스처 최대 ' + x.tex + 'px (≤ 1024) ' + pf(x.tex <= 1024),
+      'Draco 압축 ' + (x.draco ? '있음' : '없음') + ' (금지) ' + pf(!x.draco),
+      '스킨(뼈) ' + (x.bones ? x.bones + '개' : '없음') + ' · 동작 클립 ' + x.clips + '개',
+      '뼈 이름 Kenney 체계와 겹침: ' + x.match + '/10 (Hips·Spine·Neck·Head·팔·다리)'
+    ].join('\n');
+  }
+  $('glbFile').onchange = function (e) {
+    var file = e.target.files && e.target.files[0]; if (!file) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var buf = rd.result, draco = false;
+      try { var dv = new DataView(buf), len = dv.getUint32(12, true), js = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, len))); draco = (js.extensionsUsed || []).indexOf('KHR_draco_mesh_compression') >= 0; } catch (er) { }
+      if (draco) { glbStat({ name: file.name, bytes: buf.byteLength, tri: 0, tex: 0, draco: true, bones: 0, clips: 0, match: 0 }); return; }   // 로더 규칙상 Draco 는 읽지 않는다
+      new THREE.GLTFLoader().parse(buf, '', function (g) {
+        var tri = 0, tex = 0, bones = 0, names = {};
+        g.scene.traverse(function (o) {
+          if (o.isMesh) { tri += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; var mp = o.material && o.material.map; if (mp && mp.image) tex = Math.max(tex, mp.image.width || 0, mp.image.height || 0); o.castShadow = true; }
+          if (o.isBone) { bones++; names[o.name] = 1; }
+        });
+        var want = ['Hips', 'Spine', 'Neck', 'Head', 'LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg'];
+        var match = want.filter(function (n) { return names[n]; }).length;
+        // 키 1.7m 로 맞춰 세운다
+        var box = new THREE.Box3().setFromObject(g.scene), h = box.max.y - box.min.y || 1, k = 1.7 / h;
+        g.scene.scale.setScalar(k); g.scene.position.y = -box.min.y * k;
+        st.ext = g.scene; makeFigs();
+        glbStat({ name: file.name, bytes: buf.byteLength, tri: Math.round(tri), tex: tex, draco: false, bones: bones, clips: g.animations.length, match: match });
+      }, function (er) { $('glbStat').textContent = '읽지 못했습니다: ' + (er && er.message || er); });
+    };
+    rd.readAsArrayBuffer(file);
+  };
+
+  // ---- 검수 기록(이 기기 localStorage · tg_ 접두사) ----
+  var LOG = []; try { LOG = (JSON.parse(localStorage.getItem('tg_showroom') || '{}').log) || []; } catch (e) { }
+  function save() { try { localStorage.setItem('tg_showroom', JSON.stringify({ state: { kind: st.kind, act: st.act, light: st.light, size: st.size, spin: st.spin }, log: LOG })); } catch (e) { } }
+  function drawLog() { $('log').innerHTML = LOG.slice().reverse().map(function (l) { return '<div>' + (l.ok ? '✅' : '❌') + ' ' + l.t + ' · ' + l.who + ' · ' + l.light + (l.note ? ' — ' + l.note.replace(/</g, '&lt;') : '') + '</div>'; }).join(''); }
+  function mark(ok) {
+    var who = st.ext ? ('GLB ' + (lastStat ? lastStat.name : '')) : (st.kind + (figs[0] && figs[0].R && figs[0].R.glb ? ' 모델' : ' 코드 리그'));
+    LOG.push({ ok: ok, t: new Date().toLocaleString('ko-KR'), who: who, light: st.light + '/' + st.act, note: $('note').value.trim() });
+    $('note').value = ''; save(); drawLog();
+  }
+  $('btnOk').onclick = function () { mark(true); };
+  $('btnNg').onclick = function () { mark(false); };
+  $('btnClear').onclick = function () { if (confirm('검수 기록을 지울까요?')) { LOG = []; save(); drawLog(); } };
+  $('btnCopy').onclick = function () {
+    var txt = LOG.map(function (l) { return (l.ok ? 'OK' : 'NG') + '\t' + l.t + '\t' + l.who + '\t' + l.light + '\t' + (l.note || ''); }).join('\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { $('btnCopy').textContent = '📋 복사됨'; setTimeout(function () { $('btnCopy').textContent = '📋 기록 복사'; }, 1200); });
+  };
+  drawLog();
+
+  // ---- 조명 ----
+  function applyLight() {
+    var L = st.light;
+    scene.background = new THREE.Color(L === 'night' ? 0x0d1424 : L === 'dusk' ? 0xe7a577 : L === 'rain' ? 0x7c8794 : 0xcfd8e3);
+    hemi.intensity = L === 'night' ? 0.28 : L === 'rain' ? 0.6 : 0.9;
+    hemi.color.setHex(L === 'dusk' ? 0xffd2a8 : L === 'night' ? 0x6f86c7 : 0xffffff);
+    sun.intensity = L === 'night' ? 0.25 : L === 'rain' ? 0.35 : L === 'dusk' ? 0.9 : 0.8;
+    sun.color.setHex(L === 'dusk' ? 0xffa060 : L === 'night' ? 0x9fb4ff : 0xffffff);
+    sun.position.set(L === 'dusk' ? 5 : 3, L === 'dusk' ? 1.6 : 6, 5);
+    rain.visible = L === 'rain';
+    scene.fog = L === 'rain' ? new THREE.Fog(0x7c8794, 6, 30) : null;
+  }
+
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---- 끌어서 돌리기 · 확대 ----
+  var drag = null, pinch = null, pts = {};
+  renderer.domElement.addEventListener('pointerdown', function (e) { pts[e.pointerId] = { x: e.clientX, y: e.clientY }; drag = { x: e.clientX, yaw: st.yaw }; st.spin = false; $('spin').classList.remove('on'); renderer.domElement.setPointerCapture(e.pointerId); });
+  renderer.domElement.addEventListener('pointermove', function (e) {
+    if (!pts[e.pointerId]) return; pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pts);
+    if (ids.length === 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) st.dist = THREE.MathUtils.clamp(st.dist * pinch / d, 1.4, 14); pinch = d; return; }
+    if (drag) st.yaw = drag.yaw + (e.clientX - drag.x) * 0.01;
+  });
+  function up(e) { delete pts[e.pointerId]; if (Object.keys(pts).length < 2) pinch = null; if (!Object.keys(pts).length) drag = null; }
+  renderer.domElement.addEventListener('pointerup', up); renderer.domElement.addEventListener('pointercancel', up);
+  renderer.domElement.addEventListener('wheel', function (e) { e.preventDefault(); st.dist = THREE.MathUtils.clamp(st.dist * (e.deltaY > 0 ? 1.1 : 0.9), 1.4, 14); }, { passive: false });
+
+  buttons($('kinds'), KINDS, 'kind', function () { st.ext = null; makeFigs(); });
+  buttons($('acts'), ACTS, 'act', function () { makeFigs(); });
+  buttons($('views'), VIEWS, 'view', function (v) { st.yaw = v.a; st.spin = false; $('spin').classList.remove('on'); });
+  buttons($('sizes'), SIZES, 'size', function () { stage.className = st.size; setTimeout(resize, 30); });
+  buttons($('lights'), LIGHTS, 'light', applyLight);
+  $('spin').onclick = function () { st.spin = !st.spin; this.classList.toggle('on', st.spin); save(); };
+  $('far').onclick = function () { st.far = !st.far; this.classList.toggle('on', st.far); };
+  $('procCmp').onchange = makeFigs;
+  $('spin').classList.toggle('on', st.spin);
+  stage.className = st.size; applyLight();
+
+  // 모델은 비동기로 준비된다 — 준비되면 다시 만든다
+  (function waitReady(n) { if (TG.Humans.ready() || TG.Humans.state.failed || n > 100) { makeFigs(); return; } setTimeout(function () { waitReady(n + 1); }, 50); })(0);
+
+  var last = performance.now(), rt = 0;
+  function loop(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now; rt += dt;
+    if (st.spin) st.yaw += dt * 0.6;
+    var A = ACTS.filter(function (a) { return a.id === st.act; })[0] || ACTS[0];
+    figs.forEach(function (f) {
+      if (!f.R) return;
+      if (A.pose) { if (f.R.poseKind !== A.pose) TG.Character.pose(f.R, A.pose); f.R.group.position.y = 0; return; }
+      f.R.poseKind = null; f.R.frozen = false;
+      var s = Object.assign({ speed: 0, moving: false }, A.s); if (s.hand) s.hand = 1;
+      TG.Character.animate(f.R, s, dt);
+    });
+    if (rain.visible) { var p = rain.geometry.attributes.position; for (var i = 0; i < RN; i++) { var y = p.getY(i) - dt * 9; if (y < 0) y += 5; p.setY(i, y); } p.needsUpdate = true; }
+    var d = st.far ? 12 : st.dist, ty = st.kind === 'kid' && !st.ext ? 0.62 : 0.95;
+    camera.position.set(Math.sin(st.yaw) * d, ty + d * 0.12, Math.cos(st.yaw) * d); camera.lookAt(0, ty, 0);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  resize(); requestAnimationFrame(loop);
+  window.SHOWROOM = { st: st, figs: function () { return figs; }, render: function () { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', 0.85); } };
+})();
+</script>
+</body>
+</html>

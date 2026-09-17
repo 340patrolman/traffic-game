@@ -325,6 +325,8 @@ TG.Tot = function (game) {
   // 밝은 옷 = **야광 조끼**를 덧입힌다(몸통은 정점색 메시라 material.color 로는 색이 안 바뀐다 — 실측)
   function makeVest() {
     var W = G.walker; if (!W || !W.rig || st.vest) return;
+    var mv = TG.Humans && TG.Humans.vest(W.rig);                       // 사람 모델이면 가슴 뼈에 붙인다
+    if (mv) { mv.group.visible = false; st.vest = mv.group; st.vestBody = mv.body; return; }
     var g = new THREE.Group();
     var body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.30), new THREE.MeshLambertMaterial({ color: 0xffd93d }));
     body.position.set(0, 1.30, 0); g.add(body); st.vestBody = body;

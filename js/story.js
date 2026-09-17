@@ -91,14 +91,24 @@ TG.Story = function (game) {
   }
   // 교차로로 다가오는 차를 만든다(진행 방향 우측 차로). 얼굴(face)이 있으면 그 습관·위반을 달고 나온다.
   // **이미 고친 얼굴은 위반을 달지 않는다** — 계도한 뒤에는 헬멧을 쓰고, 깜빡이를 켜고 나타난다(그것이 이 층의 보람이다).
-  function spawnFace(face, node, d, dist) {
-    if (!G.traffic || !face) return null;
+  function spawnOne(face, node, d, dist) {
+    // 차는 **앞 교차로(prev) → 무대(node)** 사이에서 d 방향으로 달려온다. traffic.spawn 의 at.node 는 「출발 교차로」라서
+    // 무대를 넘겨 주면 그 너머 교차로를 찾다가 지도 가장자리 무대에서 null 이 됐다(얼굴이 안 나오던 원인).
+    var prev = city.nodeFrom(node, (d + 2) % 4); if (!prev) return null;
+    dist = Math.min(dist, Math.hypot(node.x - prev.x, node.z - prev.z) * 0.7);
     var f = TG.DIR_VEC[d], r = [-f[1], f[0]];
     var axis = (d === 0 || d === 2) ? 'v' : 'h', idx = axis === 'v' ? node.i : node.j;
     var lanes = city.lanesOf(axis, idx), off = city.laneOff(axis, idx, Math.max(0, lanes - 1));
     var x = node.x - f[0] * dist + r[0] * off, z = node.z - f[1] * dist + r[1] * off;
-    var car = G.traffic.spawn({ at: { x: x, z: z, d: d, node: node }, type: face.type, trait: face.trait,
-                                violator: false, straight: true, v: 7, cruise: 9 });
+    if (city.onRoad && !city.onRoad(x, z)) return null;              // 무대가 지도 가장자리면 그 뒤는 길이 아니다
+    return G.traffic.spawn({ at: { x: x, z: z, d: d, node: prev }, type: face.type, trait: face.trait,
+                             violator: false, straight: true, v: 7, cruise: 9 });
+  }
+  function spawnFace(face, node, d, dist) {
+    if (!G.traffic || !face) return null;
+    // 정한 방향·거리에서 안 되면(지도 가장자리 교차로 · 그 자리를 다른 차가 막음) 다른 접근로·가까운 거리로 — 전에는 남쪽 끝 교차로에서 얼굴이 안 나왔다
+    var car = null, dirs = [d, (d + 2) % 4, (d + 1) % 4, (d + 3) % 4], dists = [dist, dist * 0.6, 30];
+    for (var a = 0; a < dirs.length && !car; a++) for (var b = 0; b < dists.length && !car; b++) car = spawnOne(face, node, dirs[a], dists[b]);
     if (!car) return null;
     car.face = face.id;
     var rc = rec(face.id); rc.met++; saveDb();

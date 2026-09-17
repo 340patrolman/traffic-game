@@ -71,6 +71,8 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
       var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.78, 6), new THREE.MeshLambertMaterial({ color: 0x5a6a86 }));
       shaft.position.set(0, 1.26, 0); g.add(shaft);
       g.position.set(0.22, 0, 0.04);
+      var hl = TG.Humans && this.rig ? TG.Humans.heightLocal(this.rig) : null;   // 사람 모델은 키가 달라 우산 높이를 맞춘다(머리 위 0.28m)
+      if (hl) g.position.y = hl + 0.28 - 1.62;
       if (this.rig && this.rig.group) this.rig.group.add(g); else this.mesh.add(g);
       this.umbrella = g;
     }
@@ -88,7 +90,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.sync = function (dt) {
     this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z, this.y) : 0;
     rig.baseY = this.y; g.position.x = this.pos.x; g.position.z = this.pos.z; g.rotation.y = this.heading;
-    if (this.riding) { g.position.y = this.y + 0.02; g.rotation.z = this.leanZ || 0; if (rig.joints && rig.joints.neck) rig.joints.neck.rotation.y = this.look || 0; return; }
+    if (this.riding) { g.position.y = this.y + 0.02; g.rotation.z = this.leanZ || 0; if (rig.joints && rig.joints.neck) rig.joints.neck.rotation.y = this.look || 0; if (rig.glb) TG.Humans.sync(rig); return; }
     var sp = TG.audio.speaking, talking = sp === (this.kid ? 'kid' : 'officer');
     TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan, talking: talking, smile: !!this.smile }, dt || 0.016);
   };

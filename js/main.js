@@ -100,10 +100,11 @@
       if (now >= saCd - 7 && now < saCd) return false;
       saCd = now + 6;
       var box = document.getElementById('sigAlert'); if (!box) return false;
-      box.className = 'on ' + (kind === 'ped' ? 'ped' : 'veh');
+      box.className = 'on ' + (kind === 'veh' ? 'veh' : 'ped');
       var t = box.querySelector('.sa-t'), s = box.querySelector('.sa-s');
       if (t) t.textContent = '적색 신호에서는 신호를 기다려야 합니다. 내 앞의 신호에 맞춰서 진행 바랍니다.';
       if (s) s.textContent = kind === 'ped' ? '보행 신호가 초록일 때 건넙니다 · 자전거·킥보드는 내려서 끌고 가야 보행자입니다'
+                           : kind === 'ride' ? '🚲 자전거를 탄 채로 빨간불 횡단보도에 들어갔습니다 — 차가 달려오는 자리입니다. 멈추고, 내려서 초록불에 끌고 건넙니다'
                                              : '자전거·킥보드는 차량 신호를 따릅니다 — 녹색일 때 직진·우회전, 적색이면 정지선 앞에서 기다립니다';
       clearTimeout(saT); saT = setTimeout(function () { box.className = ''; }, 3200);
       if (TG.audio.bad) TG.audio.bad();
@@ -268,6 +269,7 @@
     box.style.display = 'flex';
     function go(sound) {
       box.style.display = 'none';
+      G.bootGated = true;
       if (sound) {
         TG.audio.setMuted(false); settings.sound = true; TG.save.set('settings', settings);
         TG.audio.resume();                                   // 이 호출은 **사용자 제스처 안**이라야 먹는다
@@ -424,7 +426,9 @@
     $('intro').addEventListener('pointerdown', function () {
       var was = TG.audio.running;
       TG.audio.resume();
-      if (!was) { if (intro.t > 1.2) startIntro(); return; }   // 소리를 푼 터치 — 건너뛰지 않는다
+      // 시작 화면을 거쳤으면(v0.9.59) 소리는 이미 그 터치에서 정해졌다 — 되감지 않는다.
+      // 「🔇 소리 없이 시작」이면 오디오가 끝내 안 열려서, 전에는 누를 때마다(건너뛰기까지) 인트로가 **처음부터 다시** 돌았다.
+      if (!was && !G.bootGated) { if (intro.t > 1.2) startIntro(); return; }   // 소리를 푼 터치 — 건너뛰지 않는다
       if (intro.t > 1.5) endIntro();
     });
     input.bindTap($('btnSiren'), toggleSiren);
@@ -2592,7 +2596,7 @@
       G.hudhT = (G.hudhT || 0) + dt;
       if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
     } else if (G.state === 'intro') {
-      var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = TG.audio.running ? 'none' : 'block';
+      var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = (TG.audio.running || G.bootGated) ? 'none' : 'block';   // 시작 화면에서 소리를 이미 골랐으면 「터치하면 소리」 안내를 띄우지 않는다(누르면 건너뛴다)
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;
       traffic.update(dt, 16); traffic.separate(); peds.update(dt, 12);
       if (cine) {

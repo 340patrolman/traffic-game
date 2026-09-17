@@ -165,6 +165,8 @@ TG.Character = (function () {
     R.height = HIP + 0.63 + 0.07 + HR * 2.2;
     if (kid) g.scale.set(0.62, 0.62, 0.62);   // 머리를 크게 한 만큼 전체를 조금 줄여 아이 키를 유지한다
     R.hipY = HIP; R.torsoY = HIP + 0.4;
+    // 외부 사람 모델(CC0, humans.js)이 준비돼 있으면 입힌다 — 이 리그는 조종간으로 남고 메시는 숨는다. 없으면 지금 그대로.
+    if (TG.Humans && !opts.noModel) TG.Humans.attach(R, kind);
     return R;
   }
   function lerp(a, b, k) { return a + (b - a) * k; }
@@ -221,6 +223,7 @@ TG.Character = (function () {
       R.smile = lerp(R.smile, s.smile ? 1 : 0, Math.min(1, dt * 4));
       R.parts.mouth.scale.set(1 + R.smile * 0.5, open, 1); R.parts.mouth.position.y = (R.parts.head.userData.my || (R.parts.head.userData.my = R.parts.mouth.position.y)) + R.smile * 0.012;
     }
+    if (R.glb) TG.Humans.sync(R);
   }
   // ---- 자율 배우(홍보 장면·어린이 교실 동행 경찰관): 목표점으로 걷고 바라보고 몸짓한다 ----
   function actor(scene, terrain, kind, x, z, h) {
@@ -283,7 +286,9 @@ TG.Character = (function () {
       J.elL.rotation.x = -0.22; J.elR.rotation.x = -0.22;
       J.neck.rotation.x = 0.06;
     }
+    rig.poseKind = kind;
     rig.frozen = true;
+    if (rig.glb) TG.Humans.sync(rig);
     return rig;
   }
   return { build: build, animate: animate, lite: lite, actor: actor, pose: pose, COLORS: C };

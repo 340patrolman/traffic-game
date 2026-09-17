@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.9.94">
+<link rel="stylesheet" href="css/style.css?v=0.9.95">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -294,7 +294,7 @@
         <div class="dim">차량·보행자를 터치(클릭)하면 「무슨 위반?」 객관식. 정답이면 차량은 우측 정차 → 그 뒤 갓길에 서면 고지 완료. 자세한 조작은 「❓ 조작 설명」.</div>
       </div>
     </details>
-    <div class="foot">빌드 0 · 서버 0 · 에셋 0 · three.js 로컬 · v0.7</div>
+    <div class="foot">빌드 0 · 서버 0 · 통신 0 · 사람 모델 CC0(Kenney) · three.js 로컬</div>
   </div>
 </div>
 
@@ -358,57 +358,65 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.9.94"></script>
-<script src="js/config.js?v=0.9.94"></script>
-<script src="js/rng.js?v=0.9.94"></script>
-<script src="js/save.js?v=0.9.94"></script>
-<script src="js/perf.js?v=0.9.94"></script>
-<script src="js/emblem.js?v=0.9.94"></script>
-<script src="js/textures.js?v=0.9.94"></script>
-<script src="js/audio.js?v=0.9.94"></script>
-<script src="js/city.js?v=0.9.94"></script>
-<script src="js/world.js?v=0.9.94"></script>
-<script src="js/terrain.js?v=0.9.94"></script>
-<script src="js/weather.js?v=0.9.94"></script>
-<script src="js/signals.js?v=0.9.94"></script>
-<script src="js/vehmesh.js?v=0.9.94"></script>
-<script src="js/vehicle.js?v=0.9.94"></script>
-<script src="js/traffic.js?v=0.9.94"></script>
-<script src="js/peds.js?v=0.9.94"></script>
-<script src="js/character.js?v=0.9.94"></script>
-<script src="js/vfx.js?v=0.9.94"></script>
-<script src="js/response.js?v=0.9.94"></script>
-<script src="js/junction.js?v=0.9.94"></script>
-<script src="js/chase.js?v=0.9.94"></script>
-<script src="js/incident.js?v=0.9.94"></script>
-<script src="js/dispatch.js?v=0.9.94"></script>
-<script src="js/intro.js?v=0.9.94"></script>
-<script src="js/walker.js?v=0.9.94"></script>
-<script src="js/rail.js?v=0.9.94"></script>
-<script src="js/enforcement.js?v=0.9.94"></script>
-<script src="js/signaltod.js?v=0.9.94"></script>
-<script src="js/facil.js?v=0.9.94"></script>
-<script src="js/layers.js?v=0.9.94"></script>
-<script src="js/study.js?v=0.9.94"></script>
-<script src="js/drunkproc.js?v=0.9.94"></script>
-<script src="js/kidcourse.js?v=0.9.94"></script>
-<script src="js/bike.js?v=0.9.94"></script>
-<script src="js/tot.js?v=0.9.94"></script>
-<script src="js/praise.js?v=0.9.94"></script>
-<script src="js/replay.js?v=0.9.94"></script>
-<script src="js/story.js?v=0.9.94"></script>
-<script src="js/career.js?v=0.9.94"></script>
-<script src="js/hudpos.js?v=0.9.94"></script>
-<script src="js/hud.js?v=0.9.94"></script>
-<script src="js/minimap.js?v=0.9.94"></script>
-<script src="js/input.js?v=0.9.94"></script>
-<script src="js/main.js?v=0.9.94"></script>
+<script src="lib/three.min.js?v=0.9.95"></script>
+<script src="lib/GLTFLoader.js?v=0.9.95"></script>
+<script src="js/config.js?v=0.9.95"></script>
+<script src="js/rng.js?v=0.9.95"></script>
+<script src="js/save.js?v=0.9.95"></script>
+<script src="js/perf.js?v=0.9.95"></script>
+<script src="js/emblem.js?v=0.9.95"></script>
+<script src="js/humans-data.js?v=0.9.95"></script>
+<script src="js/humans.js?v=0.9.95"></script>
+<script src="js/textures.js?v=0.9.95"></script>
+<script src="js/audio.js?v=0.9.95"></script>
+<script src="js/city.js?v=0.9.95"></script>
+<script src="js/world.js?v=0.9.95"></script>
+<script src="js/terrain.js?v=0.9.95"></script>
+<script src="js/weather.js?v=0.9.95"></script>
+<script src="js/signals.js?v=0.9.95"></script>
+<script src="js/vehmesh.js?v=0.9.95"></script>
+<script src="js/vehicle.js?v=0.9.95"></script>
+<script src="js/traffic.js?v=0.9.95"></script>
+<script src="js/peds.js?v=0.9.95"></script>
+<script src="js/character.js?v=0.9.95"></script>
+<script src="js/vfx.js?v=0.9.95"></script>
+<script src="js/response.js?v=0.9.95"></script>
+<script src="js/junction.js?v=0.9.95"></script>
+<script src="js/chase.js?v=0.9.95"></script>
+<script src="js/incident.js?v=0.9.95"></script>
+<script src="js/dispatch.js?v=0.9.95"></script>
+<script src="js/intro.js?v=0.9.95"></script>
+<script src="js/walker.js?v=0.9.95"></script>
+<script src="js/rail.js?v=0.9.95"></script>
+<script src="js/enforcement.js?v=0.9.95"></script>
+<script src="js/signaltod.js?v=0.9.95"></script>
+<script src="js/facil.js?v=0.9.95"></script>
+<script src="js/layers.js?v=0.9.95"></script>
+<script src="js/study.js?v=0.9.95"></script>
+<script src="js/drunkproc.js?v=0.9.95"></script>
+<script src="js/kidcourse.js?v=0.9.95"></script>
+<script src="js/bike.js?v=0.9.95"></script>
+<script src="js/tot.js?v=0.9.95"></script>
+<script src="js/praise.js?v=0.9.95"></script>
+<script src="js/replay.js?v=0.9.95"></script>
+<script src="js/story.js?v=0.9.95"></script>
+<script src="js/career.js?v=0.9.95"></script>
+<script src="js/hudpos.js?v=0.9.95"></script>
+<script src="js/hud.js?v=0.9.95"></script>
+<script src="js/minimap.js?v=0.9.95"></script>
+<script src="js/input.js?v=0.9.95"></script>
+<script src="js/main.js?v=0.9.95"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.log('[TG] 서비스워커 등록 실패: ' + e.message); }); });
   // 새 판이 올라와 서비스워커가 바뀌면 **한 번만** 새로고침한다 — 옛 화면을 보면서 「고쳤다는데 안 고쳐졌다」가 되는 것을 막는다.
+  // ⚠ 단, **시작 화면(「눌러서 시작」)이 떠 있을 때만** 한다. 서비스워커는 파일 60여 개를 미리 받은 뒤(수 초) 넘어오는데,
+  //   그때 이미 인트로가 돌고 있으면 새로고침이 인트로를 **처음부터 한 번 더** 틀었다(소유자 신고 「인트로가 두 번 나온다」 — 새 판이 올라올 때마다).
+  //   파일은 서비스워커가 네트워크 우선으로 주므로 새로고침을 안 해도 이미 새 판이다.
   navigator.serviceWorker.addEventListener('controllerchange', function () {
+    var g = window.TG && TG.game;
+    if (g && g.state !== 'boot') return;
     try { if (sessionStorage.getItem('tg_swReload')) return; sessionStorage.setItem('tg_swReload', '1'); } catch (e) { }
     location.reload();
   });

@@ -419,7 +419,17 @@ TG.BikeClass = function (game) {
       sw.onRedCross = redCross; sw.along = null;
       return;
     }
-    sw.onRedCross = false;
+    // 탄 채로 **빨간불 횡단보도**에 들어서면 — 가장 위험한 행동이다(차가 달려오는 자리 · 보행자도 아니다). 소유자 신고(2026-09-17):
+    //  「자전거를 타고 횡단보도 적색등에 바로 진입했는데도 위험하다는 반응이 없다」 — 전에는 정지선을 **진행 방향으로** 넘을 때만 봤다.
+    // **횡단보도를 따라(길을 가로질러)** 갈 때만 — 녹색에 차도를 곧게 달리며 줄무늬를 밟고 지나가는 것은 정상 주행이다
+    var across = pl.crossAxis === 'v' ? Math.abs(Math.sin(W.heading)) > 0.7 : Math.abs(Math.cos(W.heading)) > 0.7;
+    var redRide = pl.where === 'crosswalk' && !pl.walk && W.v > 0.3 && across;
+    if (redRide && !sw.onRedCross) {
+      G.sigAlert('ride'); addRisk(RISK.redLight + RISK.rideCross, '빨간불 횡단보도에 자전거를 탄 채로 들어갔어요');
+      notice('🔴 빨간불 횡단보도에 탄 채로 — 가장 위험한 자리예요. 멈추고 내려요', 'bad', 4200);
+      say('빨간불이에요. 멈추고, 자전거에서 내려요', true);
+    }
+    sw.onRedCross = redRide;
     if (W.v < 0.6) { sw.along = null; return; }
     var d = TG.headingToDir(W.heading), f = TG.DIR_VEC[d];
     var nd = city.nearestNode ? city.nearestNode(W.pos.x, W.pos.z) : null; if (!nd) return;
@@ -753,6 +763,7 @@ TG.BikeClass = function (game) {
       retry(); return stop();
     }
     var id = SCENES[st.i] ? SCENES[st.i].id : null;
+    if (id !== 'class' && id !== 'free' && W.bike) signalWatch(W);   // 🔴 내 앞 신호 — 자유 주행만이 아니라 **타고 있는 모든 마당**에서 본다(자유 주행은 updFree 가 부른다)
     if (id === 'gap') updGap(dt, W); else if (id === 'cross') updCross(dt, W); else if (id === 'lane') updLane(dt, W); else if (id === 'brake') updBrake(dt, W); else if (id === 'class') updClass(dt, W); else if (id === 'free') updFree(dt, W);
     paintLive();
     return mv;
