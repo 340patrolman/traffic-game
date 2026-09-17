@@ -1155,3 +1155,22 @@ body.replaying #sigAlert{display:none}
 body.portrait.hudmore #hudbar .hb-topspeed{display:inline-flex!important}
 .pm-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 .pm-row button{flex:1 1 30%;min-height:44px}
+
+/* 첫 화면(재미 설계서 #1) — 「🚓 출근하기」 하나가 크게, 나머지는 서랍(훈련소 · 교통안전 교실) */
+#title .workbtn{display:flex;flex-direction:column;align-items:center;gap:2px;width:min(100%,360px);margin:12px auto 10px;padding:16px 18px 13px;border-radius:20px;font-size:26px;line-height:1.1;box-shadow:0 0 0 3px rgba(77,141,255,.35),0 10px 28px rgba(20,60,160,.45);animation:workPulse 2.2s ease-in-out infinite}
+#title .workbtn b{font-size:inherit;font-weight:900;letter-spacing:.5px}
+#title .workbtn small{font-size:12.5px;font-weight:700;opacity:.82;letter-spacing:.2px}
+@keyframes workPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@media (prefers-reduced-motion:reduce){#title .workbtn{animation:none}}
+.drawers{gap:8px!important}
+.drawer{border:1.5px solid rgba(120,160,230,.32);border-radius:14px;background:rgba(255,255,255,.03);pointer-events:auto;text-align:left}
+.drawer.edu{border-color:rgba(110,210,150,.4)}
+.drawer>summary{list-style:none;cursor:pointer;padding:10px 12px;min-height:44px;box-sizing:border-box;display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:900;color:#bcd2ff;-webkit-user-select:none;user-select:none}
+.drawer.edu>summary{color:#aee8c4}
+.drawer>summary::-webkit-details-marker{display:none}
+.drawer>summary::after{content:'▾';margin-left:auto;opacity:.7;transition:transform .15s}
+.drawer[open]>summary::after{transform:rotate(180deg)}
+.drawer>summary small{font-size:11px;font-weight:700;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.drawer .mgroup{border:0;background:none;padding:0 8px 10px}
+@media (max-width:380px){#title .workbtn{font-size:23px;padding:14px 14px 11px}.drawer>summary small{display:none}}
+.drawer .mpick{min-height:44px}

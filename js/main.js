@@ -380,7 +380,7 @@
     document.addEventListener('pointerdown', function () { TG.audio.resume(); }, true);
     window.addEventListener('keydown', function () { TG.audio.resume(); }, true);
     window.addEventListener('resize', function () { resize(); });
-    input.bindTap($('btnStart'), function () { start(settings.car); });
+    input.bindTap($('btnStart'), function () { applyMode('patrol'); start(settings.car); });   // 🚓 출근하기 = 늘 순찰 근무(다른 근무는 훈련소 서랍에서 한 번에 시작)
     // 타이틀: 인트로 다시 보기(홍보용으로 인트로만 보여 줄 때 쓴다)
     var lnkI = $('lnkIntroAgain');
     if (lnkI) lnkI.addEventListener('click', function (e) { e.preventDefault(); if (G.state === 'title') startIntro(); });
@@ -399,7 +399,8 @@
       TG.save.set('settings', settings);
       document.querySelectorAll('.mpick').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-mode') === settings.mode); });
     }
-    document.querySelectorAll('.mpick').forEach(function (b) { input.bindTap(b, function () { applyMode(b.getAttribute('data-mode')); }); });
+    document.querySelectorAll('.mpick').forEach(function (b) { input.bindTap(b, function () { var m = b.getAttribute('data-mode'); applyMode(m); if (MODES[m] && G.state === 'title') start(settings.car); }); });   // 서랍 안 근무·교실은 누르면 바로 시작한다(고르고 또 누르지 않게)
+    document.querySelectorAll('details.drawer').forEach(function (d) { d.addEventListener('toggle', function () { if (d.open) document.querySelectorAll('details.drawer').forEach(function (o) { if (o !== d) o.open = false; }); }); });   // 서랍은 하나만 열린다
     applyMode(settings.mode || 'patrol');
     // 조작 배치: 조이스틱(원형 스틱 + 버튼) / 게임패드(십자키 + △○×□ + L1·R1). 타이틀 버튼 · 일시정지 선택 · 설명 창에서 고른다
     function applyCtl(name) {
