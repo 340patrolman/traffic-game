@@ -56,9 +56,10 @@ TG.Dispatch = function (game) {
   this.crossConflict = function (node, d) {
     var f = TG.DIR_VEC[d], hit = false;
     (game.traffic.cars || []).forEach(function (c) {
-      if (hit || c.v < 2 || c.mode !== 'drive') return;
+      // 소유자(현장): 「신호를 뚫고 갈 수 있지만 안전이 확보된 뒤 **차량들이 정지한 것을 확인하고** 이동」 — 아직 움직이는 차(0.5m/s 넘게)는 다 센다
+      if (hit || c.v < 0.5 || c.mode !== 'drive') return;
       var dx = c.pos.x - node.x, dz = c.pos.z - node.z;
-      if (Math.hypot(dx, dz) > 32) return;
+      if (Math.hypot(dx, dz) > 60) return;   // 달려오는 차도 멈춰야 「확인」이다(40m 로는 먼 차를 못 보고 「정지 확인」이 먼저 떴다)
       var cf = [Math.sin(c.heading), Math.cos(c.heading)];
       if (Math.abs(cf[0] * f[0] + cf[1] * f[1]) < 0.5 && (-dx * cf[0] - dz * cf[1]) > -2) hit = true;   // 교차 방향이면서 교차로 쪽으로 오는 중
     });

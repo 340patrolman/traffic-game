@@ -25,6 +25,7 @@
   function run() {
     var T = TG.test, G = T.game, city = T.city, xs = city.xs, zs = city.zs;
     G.firstOff = true; G.crewOff = true;
+    G.directorOff = shot !== 'metrics';   // 사건 감독(A-P2)은 게임의 일부 — 자동 재생 계측에서는 켠다(고정 8컷은 끈다)
     if (shot === 'metrics') return metrics(T, G);
     var s = +shot;
     if (s === 1) {   // ① 타이틀

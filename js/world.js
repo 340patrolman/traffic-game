@@ -408,10 +408,11 @@
 
     // 신호등: 접근로마다 교차로 건너편 우측 모서리 기둥 + 암 + 머리(차로 위). 4차로면 암을 길게 뽑아 두 차로를 덮는다.
     // 보행등은 **더 크게** 그린다 — 길 건너에서 읽어야 하는데 작아서 잘 안 보였다(소유자: 「보행자신호등도 잘 보이게」).
-    var sigProps = new GeoBuilder(), heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.66, 1.98);   // 3구(적색 사람 · 녹색 사람 · 초 표시판)
+    var sigPoles = {}, heads = [], headGeo = new THREE.PlaneGeometry(2.0, 0.56), pedGeo = new THREE.PlaneGeometry(0.66, 1.98);   // 3구(적색 사람 · 녹색 사람 · 초 표시판)
     // 신호등 머리 재질은 signals.update 가 매 프레임 갈아 끼운다. 그 전에 렌더하면 material 이 null 이라 three 가 죽는다 — 보이지 않는 임시 재질을 물려 둔다.
     var headHold = new THREE.MeshBasicMaterial({ visible: false });
     for (var hi = 0; hi < xs.length; hi++) for (var hj = 0; hj < zs.length; hj++) {
+      var sp = new GeoBuilder();   // 이 교차로의 기둥·팔·함체
       var nd = city.nodes[hi][hj];
       for (var hd = 0; hd < 4; hd++) {
         // 이 접근로로 차가 올 수 있으면 신호등을 세운다 — 옆 교차로에서 오거나(nodeFrom),
@@ -427,11 +428,11 @@
         var stopA = city.stopDist(nd, hd) + 0.9, sideA = city.sideOff(rd2.axis, rd2.idx) + 1.0;
         var px2 = nd.x - f2[0] * stopA + r2[0] * sideA, pz2 = nd.z - f2[1] * stopA + r2[1] * sideA;
         TG.facReg('signal', px2, pz2, 0.16, 0.2, 6.6, { node: nd.i + ',' + nd.j, d: hd });
-        sigProps.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.4, 6, 0x4a4f55);   // 가로등은 달지 않는다(소유자 지시) - 가로등은 별도 기둥
+        sp.cylinder(px2, 0.2, pz2, 0.16, 0.13, 6.4, 6, 0x4a4f55);   // 가로등은 달지 않는다(소유자 지시) - 가로등은 별도 기둥
         var headOff = cfg.LANE_OFF + cfg.LANE_W * (lanes - 1) / 2, armLen = sideA - headOff + 0.6;
-        sigProps.box(px2 - r2[0] * armLen / 2, 6.1, pz2 - r2[1] * armLen / 2, 0.14, 0.14, armLen, 0x4a4f55, { rotY: TG.DIR_HEADING[hd] + Math.PI / 2 });
+        sp.box(px2 - r2[0] * armLen / 2, 6.1, pz2 - r2[1] * armLen / 2, 0.14, 0.14, armLen, 0x4a4f55, { rotY: TG.DIR_HEADING[hd] + Math.PI / 2 });
         var hx = nd.x - f2[0] * stopA + r2[0] * headOff, hz = nd.z - f2[1] * stopA + r2[1] * headOff;
-        sigProps.box(hx - f2[0] * 0.18, 5.6, hz - f2[1] * 0.18, 2.1, 0.66, 0.3, 0x1d2126, { rotY: TG.DIR_HEADING[hd] });
+        sp.box(hx - f2[0] * 0.18, 5.6, hz - f2[1] * 0.18, 2.1, 0.66, 0.3, 0x1d2126, { rotY: TG.DIR_HEADING[hd] });
         var head = new THREE.Mesh(headGeo, headHold); head.position.set(hx, 5.6, hz); head.rotation.y = TG.DIR_HEADING[hd]; head.matrixAutoUpdate = false; head.updateMatrix(); scene.add(head);
         heads.push({ node: nd, d: hd, mesh: head, kind: 'veh', axis: (hd === 0 || hd === 2) ? 'v' : 'h' });
         // **건너기 전(정지선 앞) 4색 신호등.** 한국 교차로는 정지선 앞에도 있고 그 너머에도 있다
@@ -457,10 +458,10 @@
         // (소유자: 「모든 교통표지판과 보행자 신호등이 기둥에 가려져 있어, 표지판과 신호등만 잘 보이게」).
         // 실제 설치도 기둥에 브래킷으로 내어 단다. 0.42m 내면 함체(깊이 0.14)가 기둥 표면에서 0.19m 떨어진다.
         var OUTP = 0.42;
-        sigProps.box(px2 - r2[0] * (OUTP - 0.21), 3.55, pz2 - r2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawP });   // 브래킷 팔
-        sigProps.box(px2 - r2[0] * OUTP, 3.20, pz2 - r2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게, 3구)
-        for (var vkP = 0; vkP < 3; vkP++) sigProps.box(px2 - r2[0] * (OUTP + 0.08), 4.19 - vkP * 0.66, pz2 - r2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawP });   // 칸마다 차양
-        sigProps.box(px2 - r2[0] * 0.20, 1.15, pz2 - r2[1] * 0.20, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });   // 보행자 작동 버튼함(기둥에 붙인다)
+        sp.box(px2 - r2[0] * (OUTP - 0.21), 3.55, pz2 - r2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawP });   // 브래킷 팔
+        sp.box(px2 - r2[0] * OUTP, 3.20, pz2 - r2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawP });   // 보행등 함체(얕게, 3구)
+        for (var vkP = 0; vkP < 3; vkP++) sp.box(px2 - r2[0] * (OUTP + 0.08), 4.19 - vkP * 0.66, pz2 - r2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawP });   // 칸마다 차양
+        sp.box(px2 - r2[0] * 0.20, 1.15, pz2 - r2[1] * 0.20, 0.12, 0.16, 0.08, 0xf3c418, { rotY: yawP });   // 보행자 작동 버튼함(기둥에 붙인다)
         var ph = new THREE.Mesh(pedGeo, headHold);
         // 판을 함체보다 **0.07m** 앞으로 뺀다 — 전에는 0.01m 차이라 거리가 멀어지면 함체에 묻혀 녹색이 안 보였다
         ph.position.set(px2 - r2[0] * (OUTP + 0.14), 3.20, pz2 - r2[1] * (OUTP + 0.14)); ph.rotation.y = yawP;
@@ -477,9 +478,9 @@
         // 기둥을 늘리지 않고 보행등 수를 늘린다(소유자: 「기둥 하나에 90도로 2곳에 신호를 보여줄 수 있고」).
         // 이쪽도 브래킷으로 내어 단다 — 전에는 둘이 기둥 자리에서 서로를 뚫고 지나갔다.
         var yawQ = Math.atan2(-f2[0], -f2[1]);
-        sigProps.box(px2 - f2[0] * (OUTP - 0.21), 3.55, pz2 - f2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawQ });
-        sigProps.box(px2 - f2[0] * OUTP, 3.20, pz2 - f2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawQ });
-        for (var vkQ = 0; vkQ < 3; vkQ++) sigProps.box(px2 - f2[0] * (OUTP + 0.08), 4.19 - vkQ * 0.66, pz2 - f2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawQ });
+        sp.box(px2 - f2[0] * (OUTP - 0.21), 3.55, pz2 - f2[1] * (OUTP - 0.21), 0.07, 0.07, 0.42, 0x4a4f55, { rotY: yawQ });
+        sp.box(px2 - f2[0] * OUTP, 3.20, pz2 - f2[1] * OUTP, 0.74, 2.06, 0.14, 0x1d2126, { rotY: yawQ });
+        for (var vkQ = 0; vkQ < 3; vkQ++) sp.box(px2 - f2[0] * (OUTP + 0.08), 4.19 - vkQ * 0.66, pz2 - f2[1] * (OUTP + 0.08), 0.70, 0.05, 0.22, 0x1d2126, { rotY: yawQ });
         var ph2 = new THREE.Mesh(pedGeo, headHold);
         ph2.position.set(px2 - f2[0] * (OUTP + 0.14), 3.20, pz2 - f2[1] * (OUTP + 0.14)); ph2.rotation.y = yawQ;
         ph2.matrixAutoUpdate = false; ph2.updateMatrix(); scene.add(ph2);
@@ -489,8 +490,9 @@
         ph2B.matrixAutoUpdate = false; ph2B.updateMatrix(); scene.add(ph2B);
         heads.push({ node: nd, d: (hd + 1) % 4, mesh: ph2B, kind: 'ped', back: true, axis: (hd === 0 || hd === 2) ? 'h' : 'v' });
       }
+      if (!sp.empty()) { var spM = lambertVC.clone(); TG.mats.ground.push(spM); sigPoles[nd.i + ',' + nd.j] = addMesh(sp.build(), spM, true, false); }
     }
-    addMesh(sigProps.build(), lambertVC, true, false);
+    // (기둥·팔·함체는 교차로마다 따로 그린다 — 걸을 때 신호등을 가리는 기둥만 흐리게 하려고. 드로콜 +24)
 
 
     var hemi = new THREE.HemisphereLight(0xd6e6ff, 0x7f7256, 0.75); scene.add(hemi);
@@ -500,6 +502,6 @@
     sun.shadow.camera.left = -90; sun.shadow.camera.right = 90; sun.shadow.camera.top = 90; sun.shadow.camera.bottom = -90; sun.shadow.bias = -0.0012;
     scene.add(sun); scene.add(sun.target);
     scene.fog = new THREE.Fog(0xcfe0f3, 220, 1500);
-    return { statics: statics, heads: heads, sun: sun, hemi: hemi, followSun: function (x, z) { sun.position.set(x + 60, this.sunHeight || 110, z + 40); sun.target.position.set(x, 0, z); sun.target.updateMatrixWorld(); } };
+    return { statics: statics, heads: heads, sigPoles: sigPoles, sun: sun, hemi: hemi, followSun: function (x, z) { sun.position.set(x + 60, this.sunHeight || 110, z + 40); sun.target.position.set(x, 0, z); sun.target.updateMatrixWorld(); } };
   };
 })();

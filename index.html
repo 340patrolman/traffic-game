@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.10.10">
+<link rel="stylesheet" href="css/style.css?v=0.10.13">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -274,9 +274,9 @@
     <div id="chapterCard" class="chaptercard"></div>
     <button id="btnStart" class="primary workbtn"><b>🚓 출근하기</b><small>순찰 근무 한 판 · 5분</small></button>
     <div class="views modes mgroups">
-      <div class="mgroup cop"><div class="mg-title">🚓 경찰 근무</div><div class="mg-btns"><button class="mpick" data-mode="free">🏁 자유 주행</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="chase">🚨 추격전</button><button class="mpick" data-mode="walk">🚶 도보 근무</button></div></div>
+      <div class="mgroup cop"><div class="mg-title">🚓 경찰 근무</div><div class="mg-btns"><button class="mpick" data-mode="patrol">🚓 순찰 근무</button><button class="mpick" data-mode="circuit">🎓 연습 서킷</button><button class="mpick" data-mode="duty">🚦 교차로 근무</button><button class="mpick" data-mode="chase">🚨 추격전</button><button class="mpick" data-mode="walk">🚶 도보 근무</button></div></div>
       <div class="mgroup edu"><div class="mg-title">🏫 교통안전 교실</div><div class="mg-btns"><button class="mpick" data-mode="bike">🚲 청소년 교실<small>중·고등 · 자전거</small></button><button class="mpick" data-mode="kid">🧒 어린이 교실<small>초등 · 보행</small></button><button class="mpick" data-mode="tot">👶 영아 교실<small>4세 · 얼음땡</small></button></div></div>
-      <div class="mg-more"><button class="mpick" data-mode="study">📖 학습·교통안전교실</button><button class="mpick" data-mode="plan">🏗 교통시설</button></div>
+      <div class="mg-more"><button class="mpick" data-mode="study">📖 학습·교통안전교실</button><button class="mpick" data-mode="plan">🏗 교통시설</button><button class="mpick" data-mode="hood">🗺 우리 동네</button><button class="mpick" data-mode="dex">📚 도감</button></div>
     </div>
     <div class="titlelinks"><a id="lnkPromo" href="promo.html" target="_blank" rel="noopener">📣 교통안전 홍보 영상</a><a id="lnkIntroAgain" href="#">▶ 인트로 다시 보기</a><a id="lnkFull" href="#">⛶ 전체화면</a></div>
     <div id="best" class="best"></div>
@@ -297,6 +297,10 @@
       <div class="views simrow"><span class="lbl">방식</span>
         <button class="simpick" data-sim="0">🎮 게임</button><button class="simpick" data-sim="1">🧪 시뮬레이션</button>
         <span class="dim avnote">시뮬레이션: 운전 보조·칭찬·무전·캠페인·연출을 끄고 같은 시드로 돈다(바꾸면 다시 불러옵니다)</span>
+      </div>
+      <div class="views camprow"><span class="lbl">캠페인</span>
+        <select id="campPick" class="camppick" aria-label="캠페인 장 고르기"></select><button class="cpbtn" id="campReset">처음부터</button>
+        <span class="dim avnote">이미 연 장은 골라서 다시 할 수 있다 — 「출근하기」가 그 장을 연다</span>
       </div>
       <div class="views avrow"><span class="lbl">내 경찰관</span>
         <button class="avpick" data-build="std">보통</button><button class="avpick" data-build="tall">큰 키</button><button class="avpick" data-build="short">작은 키</button><button class="avpick" data-build="sturdy">다부진</button><button class="avpick" id="avShades">🕶 선글라스</button>
@@ -355,7 +359,7 @@
     <h2>근무 결과</h2>
     <div id="endStats" class="stats"></div>
     <!-- F6(끝→다시 ≤ 3초 · 탭 1번): 「▶ 다시」를 카드 아래 엄지 자리에 붙여 둔다 — 스크롤하지 않아도 보이고, 누르면 같은 근무가 바로 시작된다 -->
-    <div class="endbtns"><button id="btnRetry" class="primary">▶ 다시</button><button id="btnAgain" class="ghost">처음 화면</button></div>
+    <div class="endbtns"><button id="btnRetry" class="primary">▶ 다시</button><button id="btnShare" class="ghost">📤 결과 카드</button><button id="btnAgain" class="ghost">처음 화면</button></div>
   </div>
 </div>
 
@@ -376,62 +380,67 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.10.10"></script>
-<script src="lib/GLTFLoader.js?v=0.10.10"></script>
-<script src="data/units.js?v=0.10.10"></script>
-<script src="js/config.js?v=0.10.10"></script>
-<script src="js/rng.js?v=0.10.10"></script>
-<script src="js/save.js?v=0.10.10"></script>
-<script src="js/simmode.js?v=0.10.10"></script>
-<script src="js/perf.js?v=0.10.10"></script>
-<script src="js/emblem.js?v=0.10.10"></script>
-<script src="js/humans-data.js?v=0.10.10"></script>
-<script src="js/humans.js?v=0.10.10"></script>
-<script src="js/textures.js?v=0.10.10"></script>
-<script src="js/audio.js?v=0.10.10"></script>
-<script src="js/city.js?v=0.10.10"></script>
-<script src="js/world.js?v=0.10.10"></script>
-<script src="js/terrain.js?v=0.10.10"></script>
-<script src="js/weather.js?v=0.10.10"></script>
-<script src="js/signals.js?v=0.10.10"></script>
-<script src="js/vehmesh.js?v=0.10.10"></script>
-<script src="js/patrolev.js?v=0.10.10"></script>
-<script src="js/vehicle.js?v=0.10.10"></script>
-<script src="js/traffic.js?v=0.10.10"></script>
-<script src="js/peds.js?v=0.10.10"></script>
-<script src="js/character.js?v=0.10.10"></script>
-<script src="js/vfx.js?v=0.10.10"></script>
-<script src="js/response.js?v=0.10.10"></script>
-<script src="js/junction.js?v=0.10.10"></script>
-<script src="js/chase.js?v=0.10.10"></script>
-<script src="js/incident.js?v=0.10.10"></script>
-<script src="js/dispatch.js?v=0.10.10"></script>
-<script src="js/intro.js?v=0.10.10"></script>
-<script src="js/walker.js?v=0.10.10"></script>
-<script src="js/rail.js?v=0.10.10"></script>
-<script src="js/enforcement.js?v=0.10.10"></script>
-<script src="js/signaltod.js?v=0.10.10"></script>
-<script src="js/facil.js?v=0.10.10"></script>
-<script src="js/layers.js?v=0.10.10"></script>
-<script src="js/study.js?v=0.10.10"></script>
-<script src="js/drunkproc.js?v=0.10.10"></script>
-<script src="js/kidcourse.js?v=0.10.10"></script>
-<script src="js/bike.js?v=0.10.10"></script>
-<script src="js/tot.js?v=0.10.10"></script>
-<script src="js/praise.js?v=0.10.10"></script>
-<script src="js/replay.js?v=0.10.10"></script>
-<script src="js/stopcam.js?v=0.10.10"></script>
-<script src="js/firstshift.js?v=0.10.10"></script>
-<script src="js/crew.js?v=0.10.10"></script>
-<script src="js/campaign.js?v=0.10.10"></script>
-<script src="js/metrics.js?v=0.10.10"></script>
-<script src="js/story.js?v=0.10.10"></script>
-<script src="js/career.js?v=0.10.10"></script>
-<script src="js/hudpos.js?v=0.10.10"></script>
-<script src="js/hud.js?v=0.10.10"></script>
-<script src="js/minimap.js?v=0.10.10"></script>
-<script src="js/input.js?v=0.10.10"></script>
-<script src="js/main.js?v=0.10.10"></script>
+<script src="lib/three.min.js?v=0.10.13"></script>
+<script src="lib/GLTFLoader.js?v=0.10.13"></script>
+<script src="data/units.js?v=0.10.13"></script>
+<script src="js/config.js?v=0.10.13"></script>
+<script src="js/rng.js?v=0.10.13"></script>
+<script src="js/save.js?v=0.10.13"></script>
+<script src="js/simmode.js?v=0.10.13"></script>
+<script src="js/perf.js?v=0.10.13"></script>
+<script src="js/emblem.js?v=0.10.13"></script>
+<script src="js/humans-data.js?v=0.10.13"></script>
+<script src="js/humans.js?v=0.10.13"></script>
+<script src="js/textures.js?v=0.10.13"></script>
+<script src="js/audio.js?v=0.10.13"></script>
+<script src="js/city.js?v=0.10.13"></script>
+<script src="js/world.js?v=0.10.13"></script>
+<script src="js/terrain.js?v=0.10.13"></script>
+<script src="js/weather.js?v=0.10.13"></script>
+<script src="js/signals.js?v=0.10.13"></script>
+<script src="js/vehmesh.js?v=0.10.13"></script>
+<script src="js/patrolev.js?v=0.10.13"></script>
+<script src="js/vehicle.js?v=0.10.13"></script>
+<script src="js/traffic.js?v=0.10.13"></script>
+<script src="js/peds.js?v=0.10.13"></script>
+<script src="js/character.js?v=0.10.13"></script>
+<script src="js/vfx.js?v=0.10.13"></script>
+<script src="js/response.js?v=0.10.13"></script>
+<script src="js/junction.js?v=0.10.13"></script>
+<script src="js/chase.js?v=0.10.13"></script>
+<script src="js/incident.js?v=0.10.13"></script>
+<script src="js/dispatch.js?v=0.10.13"></script>
+<script src="js/intro.js?v=0.10.13"></script>
+<script src="js/walker.js?v=0.10.13"></script>
+<script src="js/rail.js?v=0.10.13"></script>
+<script src="js/enforcement.js?v=0.10.13"></script>
+<script src="js/signaltod.js?v=0.10.13"></script>
+<script src="js/facil.js?v=0.10.13"></script>
+<script src="js/layers.js?v=0.10.13"></script>
+<script src="js/study.js?v=0.10.13"></script>
+<script src="js/drunkproc.js?v=0.10.13"></script>
+<script src="js/kidcourse.js?v=0.10.13"></script>
+<script src="js/bike.js?v=0.10.13"></script>
+<script src="js/tot.js?v=0.10.13"></script>
+<script src="js/praise.js?v=0.10.13"></script>
+<script src="js/replay.js?v=0.10.13"></script>
+<script src="js/stopcam.js?v=0.10.13"></script>
+<script src="js/firstshift.js?v=0.10.13"></script>
+<script src="js/crew.js?v=0.10.13"></script>
+<script src="js/campaign.js?v=0.10.13"></script>
+<script src="js/metrics.js?v=0.10.13"></script>
+<script src="js/story.js?v=0.10.13"></script>
+<script src="js/director.js?v=0.10.13"></script>
+<script src="js/hood.js?v=0.10.13"></script>
+<script src="js/dex.js?v=0.10.13"></script>
+<script src="js/qr.js?v=0.10.13"></script>
+<script src="js/sharecard.js?v=0.10.13"></script>
+<script src="js/career.js?v=0.10.13"></script>
+<script src="js/hudpos.js?v=0.10.13"></script>
+<script src="js/hud.js?v=0.10.13"></script>
+<script src="js/minimap.js?v=0.10.13"></script>
+<script src="js/input.js?v=0.10.13"></script>
+<script src="js/main.js?v=0.10.13"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

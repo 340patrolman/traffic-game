@@ -1,0 +1,612 @@
+{
+ "when": "2026-09-17T13:11:20.727Z",
+ "version": "0.10.11",
+ "map": "seocho",
+ "pass": {
+  "F1": 10,
+  "F2": 45,
+  "F3max": 20,
+  "F3avg": 12,
+  "F4p50": 100,
+  "F5": 0.15,
+  "F6": 3
+ },
+ "shifts": [
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T13:10:05.165Z",
+   "reason": "자동 재생",
+   "m": {
+    "F1": 1.22,
+    "F2": 22.35,
+    "F3max": 16.6,
+    "F3avg": 3.2,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.42,
+    "F5long": 39,
+    "F5n": 55,
+    "F6": null,
+    "dur": 181.2,
+    "events": 57
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     9.53,
+     "violationSeen"
+    ],
+    [
+     22.35,
+     "praise"
+    ],
+    [
+     24.1,
+     "violationSeen"
+    ],
+    [
+     26.37,
+     "busy"
+    ],
+    [
+     30.38,
+     "busy"
+    ],
+    [
+     32.37,
+     "pulloverDone"
+    ],
+    [
+     32.37,
+     "praise"
+    ],
+    [
+     36.22,
+     "pulloverDone"
+    ],
+    [
+     36.22,
+     "praise"
+    ],
+    [
+     36.22,
+     "praise"
+    ],
+    [
+     36.65,
+     "busy"
+    ],
+    [
+     40.23,
+     "busy"
+    ],
+    [
+     45.07,
+     "violationSeen"
+    ],
+    [
+     58.23,
+     "violationSeen"
+    ],
+    [
+     59.6,
+     "praise"
+    ],
+    [
+     59.9,
+     "violationSeen"
+    ],
+    [
+     60.5,
+     "praise"
+    ],
+    [
+     64.52,
+     "busy"
+    ],
+    [
+     68.53,
+     "busy"
+    ],
+    [
+     72.55,
+     "busy"
+    ],
+    [
+     76.57,
+     "busy"
+    ],
+    [
+     80.58,
+     "busy"
+    ],
+    [
+     84.6,
+     "busy"
+    ],
+    [
+     88.62,
+     "busy"
+    ],
+    [
+     92.63,
+     "busy"
+    ],
+    [
+     94.25,
+     "violationSeen"
+    ],
+    [
+     96.65,
+     "busy"
+    ],
+    [
+     97.82,
+     "violationSeen"
+    ],
+    [
+     100.67,
+     "busy"
+    ],
+    [
+     103.77,
+     "busy"
+    ],
+    [
+     104.4,
+     "praise"
+    ],
+    [
+     121.03,
+     "violationSeen"
+    ],
+    [
+     121.55,
+     "praise"
+    ],
+    [
+     122.87,
+     "violationSeen"
+    ],
+    [
+     125.57,
+     "busy"
+    ],
+    [
+     129.58,
+     "busy"
+    ],
+    [
+     130.27,
+     "violationSeen"
+    ],
+    [
+     132.98,
+     "violationSeen"
+    ],
+    [
+     133.6,
+     "busy"
+    ],
+    [
+     137.62,
+     "busy"
+    ],
+    [
+     141.63,
+     "busy"
+    ],
+    [
+     145.65,
+     "busy"
+    ],
+    [
+     149.67,
+     "busy"
+    ],
+    [
+     153.68,
+     "busy"
+    ],
+    [
+     157.7,
+     "busy"
+    ],
+    [
+     161.72,
+     "busy"
+    ],
+    [
+     163.25,
+     "pulloverDone"
+    ],
+    [
+     163.25,
+     "praise"
+    ],
+    [
+     164.87,
+     "busy"
+    ],
+    [
+     165.45,
+     "praise"
+    ],
+    [
+     169.47,
+     "busy"
+    ],
+    [
+     173.48,
+     "busy"
+    ],
+    [
+     177.5,
+     "busy"
+    ],
+    [
+     180.97,
+     "violationSeen"
+    ],
+    [
+     180.97,
+     "violationSeen"
+    ],
+    [
+     180.97,
+     "pulloverDone"
+    ],
+    [
+     180.97,
+     "praise"
+    ]
+   ]
+  },
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T13:10:22.769Z",
+   "reason": "자동 재생",
+   "m": {
+    "F1": 1.22,
+    "F2": 3.85,
+    "F3max": 14.3,
+    "F3avg": 3.9,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.389,
+    "F5long": 35,
+    "F5n": 45,
+    "F6": 0.03,
+    "dur": 181.2,
+    "events": 46
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     3.2,
+     "violationSeen"
+    ],
+    [
+     3.85,
+     "praise"
+    ],
+    [
+     17,
+     "violationSeen"
+    ],
+    [
+     17.5,
+     "praise"
+    ],
+    [
+     21.52,
+     "busy"
+    ],
+    [
+     25.53,
+     "busy"
+    ],
+    [
+     28.83,
+     "violationSeen"
+    ],
+    [
+     29.55,
+     "busy"
+    ],
+    [
+     33.57,
+     "busy"
+    ],
+    [
+     37.58,
+     "busy"
+    ],
+    [
+     41.6,
+     "busy"
+    ],
+    [
+     45.62,
+     "busy"
+    ],
+    [
+     49.63,
+     "busy"
+    ],
+    [
+     53.65,
+     "busy"
+    ],
+    [
+     54.63,
+     "violationSeen"
+    ],
+    [
+     57.67,
+     "busy"
+    ],
+    [
+     60.77,
+     "busy"
+    ],
+    [
+     61.4,
+     "praise"
+    ],
+    [
+     75.68,
+     "violationSeen"
+    ],
+    [
+     76.3,
+     "praise"
+    ],
+    [
+     80.32,
+     "busy"
+    ],
+    [
+     84.33,
+     "busy"
+    ],
+    [
+     88.35,
+     "busy"
+    ],
+    [
+     92.37,
+     "busy"
+    ],
+    [
+     96.38,
+     "busy"
+    ],
+    [
+     100.4,
+     "busy"
+    ],
+    [
+     104.42,
+     "busy"
+    ],
+    [
+     108.43,
+     "busy"
+    ],
+    [
+     112.45,
+     "busy"
+    ],
+    [
+     116.47,
+     "busy"
+    ],
+    [
+     119.57,
+     "busy"
+    ],
+    [
+     131.73,
+     "violationSeen"
+    ],
+    [
+     132.25,
+     "violationSeen"
+    ],
+    [
+     132.77,
+     "violationSeen"
+    ],
+    [
+     133.2,
+     "praise"
+    ],
+    [
+     137.22,
+     "busy"
+    ],
+    [
+     141.23,
+     "busy"
+    ],
+    [
+     145.25,
+     "busy"
+    ],
+    [
+     149.27,
+     "busy"
+    ],
+    [
+     153.28,
+     "busy"
+    ],
+    [
+     157.3,
+     "busy"
+    ],
+    [
+     161.32,
+     "busy"
+    ],
+    [
+     165.33,
+     "busy"
+    ],
+    [
+     169.35,
+     "busy"
+    ],
+    [
+     173.37,
+     "busy"
+    ],
+    [
+     176.47,
+     "busy"
+    ]
+   ]
+  },
+  {
+   "mode": "patrol",
+   "date": "2026-09-17T13:10:55.418Z",
+   "reason": "보행자 사고 — 사람을 치면 즉시 임무 실패",
+   "m": {
+    "F1": 1.22,
+    "F2": 13.6,
+    "F3max": 15.7,
+    "F3avg": 4.6,
+    "F4p50": null,
+    "F4max": null,
+    "F4n": 0,
+    "F5": 0.243,
+    "F5long": 11,
+    "F5n": 18,
+    "F6": 0.01,
+    "dur": 104.9,
+    "events": 23
+   },
+   "ev": [
+    [
+     1.22,
+     "firstInput"
+    ],
+    [
+     13.17,
+     "violationSeen"
+    ],
+    [
+     13.6,
+     "praise"
+    ],
+    [
+     14.25,
+     "praise"
+    ],
+    [
+     18.27,
+     "busy"
+    ],
+    [
+     22.28,
+     "busy"
+    ],
+    [
+     26.3,
+     "busy"
+    ],
+    [
+     30.32,
+     "busy"
+    ],
+    [
+     34.33,
+     "busy"
+    ],
+    [
+     38.35,
+     "busy"
+    ],
+    [
+     42.37,
+     "busy"
+    ],
+    [
+     46.38,
+     "busy"
+    ],
+    [
+     50.4,
+     "busy"
+    ],
+    [
+     54.42,
+     "busy"
+    ],
+    [
+     57.52,
+     "busy"
+    ],
+    [
+     73.27,
+     "violationSeen"
+    ],
+    [
+     73.9,
+     "praise"
+    ],
+    [
+     77.92,
+     "busy"
+    ],
+    [
+     81.93,
+     "busy"
+    ],
+    [
+     85.95,
+     "busy"
+    ],
+    [
+     89.97,
+     "busy"
+    ],
+    [
+     93.98,
+     "busy"
+    ],
+    [
+     98,
+     "busy"
+    ],
+    [
+     102.02,
+     "busy"
+    ]
+   ]
+  }
+ ],
+ "probe": {
+  "F4samples": 0,
+  "F4p50": null,
+  "F4max": null,
+  "againVisibleNoScroll": true,
+  "againTop": 747,
+  "viewH": 844,
+  "againLabel": "▶ 다시",
+  "afterAgain": "play",
+  "F6restartMs": 4,
+  "F6taps": 1
+ },
+ "realSec": 76.1,
+ "note": "자동 재생 3판(게임 시간 180초) · F4·F6 은 probe 로 따로 잰다 · 헤드리스(swiftshader) 수치는 참고용"
+}

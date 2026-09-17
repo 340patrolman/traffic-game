@@ -80,7 +80,7 @@ TG.Response = function (game) {
     if (inc.t > 2) {
       near.incident.handled = true; inc.car = null; inc.t = 0;
       if (pl.setSign) { pl.setSign(false); inc.signOn = false; }
-      game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1;
+      game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1; if (game.story && game.story.onIncident) game.story.onIncident(near);
       // 순찰차 방패(후방 30~50m · 약 15도)로 섰으면 가점 — T-Book 「순찰차를 방패로」
       if (crash && sc && shield && shield.ok) { game.addScore(S.sceneShield || 10, null); game.stats.shields = (game.stats.shields || 0) + 1; }
       game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
@@ -100,7 +100,12 @@ TG.Response = function (game) {
 
   }
   this.target = target;
-  function vName(car) { return car.violation ? game.enforcement.nameOf(car.violation.type) : (car.wanted ? '수배차량' : '위반 없음'); }
+  function vName(car) {
+    if (!car.violation) return car.wanted ? '수배차량' : '위반 없음';
+    var n = game.enforcement.nameOf(car.violation.type);
+    (car.violation.also || []).forEach(function (a) { n += ' · ' + game.enforcement.nameOf(a); });   // 함께 위반(킥보드 2인 + 헬멧)
+    return n;
+  }
 
   // ---------- 📹 블랙박스 영상 단속 ----------
   // 정차시키지 않고 영상으로 기록해 통고처분을 의뢰한다. 이륜차·자전거·PM 의 단순 위반은 이것이 정답.
@@ -119,6 +124,8 @@ TG.Response = function (game) {
     game.addScore(t === 'C' ? S.video : S.videoLow, null);
     self.state.videos++; car.videoed = true;
     game.stats.videos = (game.stats.videos || 0) + 1;
+    if (car.isPM) game.stats.pmVideos = (game.stats.pmVideos || 0) + 1;
+    if (car.violation && car.violation.type) { game.stats.videoTypes = game.stats.videoTypes || {}; game.stats.videoTypes[car.violation.type] = (game.stats.videoTypes[car.violation.type] || 0) + 1; }   // 📚 도감   // 📖 10월 장 목표
     if (game.story) game.story.onVideo(car);       // 🔗 사건 사슬: 영상으로 남기는 단계였다면 다음으로
     var lines = ['📹 영상 단속 — ' + kn + ' ' + nm, '번호판·시각·위치 기록 → 통고처분 의뢰'];
     if (t === 'C') lines.push('추격하지 않고 처리했습니다 (+' + S.video + ')');

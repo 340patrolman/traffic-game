@@ -53,7 +53,7 @@ TG.Enforcement = function (game) {
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
                 drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
                 pm: '개인형 이동장치 보도 통행', pmHelmet: 'PM 인명보호장구 미착용', pmTwo: 'PM 2인 이상 탑승',
-                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
+                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', gridlock: '교차로 통행방법 위반(꼬리물기)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
   this.nameOf = function (id) { return NAMES[id] || id; };
   this.optionsFor = function (car) { return carOptions(car); };   // 검증에서 보기 목록을 직접 본다
   function carOptions(car) {
@@ -76,7 +76,7 @@ TG.Enforcement = function (game) {
     if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
     else if (!forced && !v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
     else if (!forced && !v && car.mount && ids.indexOf('phone') < 0) ids[ids.length - 1] = 'phone';   // 거치대 차량 — 「휴대전화」가 보기에 있어야 적법·위반을 가려 볼 수 있다
-    else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'solidline', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger'][Math.floor(Math.random() * 9)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
+    else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'nosignal', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger', 'gridlock'][Math.floor(Math.random() * 10)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
     var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
     return out;
@@ -95,6 +95,7 @@ TG.Enforcement = function (game) {
     if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
     if (sel.kind === 'ped' && e.warned) { game.hud.notice('이미 계도한 보행자입니다', 'warn', 1800); return false; }
     var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : 'none') : pedViolationOf(e);
+    function alsoOf(x) { return (sel.kind === 'car' && x && x.violation && x.violation.also) || []; }
     var opts = sel.kind === 'car' ? carOptions(e) : [{ id: 'jaywalk', name: '무단횡단 — 횡단보도가 아닌 곳을 건넘(§10)' }, { id: 'jaywalk-red', name: '보행자 신호위반 — 차량 녹색·보행 적색인데 횡단보도를 건넘(§5)' }, { id: 'none', name: '위반 없음' }];
     self.state = 'quiz'; game.setPaused(true, 'ticket');
     ticket = { sel: sel, answer: answer, t: cfg.TICKET_SECONDS, done: false };
@@ -105,8 +106,14 @@ TG.Enforcement = function (game) {
         if (choice === 'none') { delta = 5; lines.push('정답 · 위반 없음 — 잘 봤습니다 (+5)'); lines.push('위반을 직접 목격한 대상만 단속합니다.'); TG.audio.good(); game.stats.correct++; }
         else { delta = S.noViolation; kind = 'warn'; lines.push('위반 없음 — 무작위 단속은 감점 (' + delta + ')'); TG.audio.bad(); }
         var mNote = e.mount && lawById('phone'); if (mNote && mNote.mountNote) lines.push(mNote.mountNote);   // 거치대 차량이면 왜 적법인지(티북 문구)
-      } else if (choice === answer) {
-        delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
+      } else if (choice === answer || alsoOf(e).indexOf(choice) >= 0) {
+        // 함께 위반(예: 킥보드 2인 탑승 + 인명보호장구 미착용)이면 어느 쪽을 골라도 정답이고, 둘 다 알려 준다
+        var alsoL = alsoOf(e).concat([answer]).filter(function (x) { return x !== choice; });
+        if (choice !== answer) { lawId = choice; answer = choice; }
+        delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + (alsoL.length ? ' · 함께 위반: ' + alsoL.map(function (x) { return NAMES[x] || x; }).join(', ') : '') + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
+        // 📖 캠페인 장 목표가 위반 종류를 본다(8월 음주 · 9월 고속도로 등)
+        game.stats.byType = game.stats.byType || {}; game.stats.byType[answer] = (game.stats.byType[answer] || 0) + 1;
+        if (sel.kind === 'car' && e && game.city && game.city.frameAt(e.pos.x, e.pos.z, e.heading).kind === 'link') game.stats.hwStops = (game.stats.hwStops || 0) + 1;
         if (game.praise) game.praise.cheer('quiz', 22, { feed: '정확한 판단 · ' + NAMES[answer] });   // 🎖 재치 있는 한마디 + 경험치(콤보가 쌓인다)
       } else if (choice !== 'none' && choice !== 'timeout' && (choice === 'jaywalk' || choice === 'jaywalk-red') && (answer === 'jaywalk' || answer === 'jaywalk-red')) {
         delta = S.wrongChoice; act = true; kind = 'warn'; lines.push('부분 정답 — 정확히는 「' + NAMES[answer] + '」 (+' + delta + ')'); lines = lines.concat(lawLines(answer)); TG.audio.bad();

@@ -182,6 +182,12 @@ TG.Layers = function (game, city, cfg, scene) {
   // 순위를 비교한다(점수 자체는 단위가 다르다). 표본이 적을 때는 「아직 이르다」고 말한다 — 없는 결론을 만들지 않는다.
   function realScore(n) { return (n.total || 0) + (n.death || 0) * 6 + (n.serious || 0) * 0.6; }
   function simScore(r) { return (r.brake || 0) + (r.near || 0) * 3 + (r.red || 0) * 2; }
+  // 🗺 동네 안전 지수(재미 설계 #6)가 읽는 교차로별 실제 사고 점수 — 자료가 없으면 빈 배열
+  self.realNodes = function () {
+    if (!nodes || !nodes.nodes) return [];
+    return nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: n.name, total: n.total || 0, death: n.death || 0, score: realScore(n) }; });
+  };
+  self.realYears = function () { return (nodes && nodes.years) || ''; };
   self.compare = function (topN) {
     topN = topN || 8;
     if (!nodes || !nodes.nodes) return null;

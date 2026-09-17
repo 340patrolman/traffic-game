@@ -10,7 +10,8 @@ TG.Metrics = function (game) {
   this.cur = function () { return cur; };
   this.history = load;
   // 사건 = 플레이어가 「무슨 일이 있다」고 느끼는 것(F3 의 빈 시간을 끊는다)
-  var EVENT = { praise: 1, violationSeen: 1, pulloverDone: 1, radio: 1, incident: 1, dispatch: 1, chase: 1 };
+  // busy = 맡은 일(정차 유도·추격·출동·하차)을 하는 중 — 사건 감독이 4초마다 남긴다(한가한 시간이 아니다)
+  var EVENT = { praise: 1, violationSeen: 1, pulloverDone: 1, radio: 1, incident: 1, dispatch: 1, chase: 1, busy: 1 };
   this.begin = function (mode) {
     cur = { mode: mode, date: new Date().toISOString(), t0: gt(), ev: [], firstInput: null, noticeSec: 0, noticeEnd: 0, noticeN: 0, noticeLong: 0, taps: [], retry: null };
     if (lastEndAt !== null) { cur.retry = +((performance.now() - lastEndAt) / 1000).toFixed(2); lastEndAt = null; }
@@ -18,7 +19,9 @@ TG.Metrics = function (game) {
   this.ev = function (name) {
     if (!cur) return;
     var t = +(gt() - cur.t0).toFixed(2);
-    cur.ev.push([t, name]);
+    if (cur.ev.length < 400) cur.ev.push([t, name]);
+    if (EVENT[name] && game.director) game.director.mark();
+    if (game.hood) game.hood.onEv(name);
     if (name === 'firstInput' && cur.firstInput === null) cur.firstInput = t;
   };
   // 안내문이 떠 있는 시간(겹치면 겹친 만큼만 센다) · 한 줄 22자 넘는 안내 수

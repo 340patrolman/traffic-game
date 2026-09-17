@@ -99,6 +99,8 @@ TG.hud = (function () {
     }
     var bh = (stats.badges || []).map(function (b) { return '<span class="badge2' + (b.gold ? ' gold' : '') + '">' + b.text + '</span>'; }).join('');
     el.endStats.innerHTML =
+      (stats.dexNew && stats.dexNew.length ? '<div class="hoodres dexres">📚 도감에 새 칸 — ' + stats.dexNew.slice(0, 3).join(' · ') + '</div>' : '') +
+      (stats.hood && stats.hood.length ? '<div class="hoodres">🗺 동네 안전 지수 — ' + stats.hood.slice(0, 2).map(function (h) { return h.name.replace(/ ?(사거리|교차로)$/, '') + ' ' + h.before + '→<b>' + h.after + '</b>'; }).join(' · ') + '</div>' : '') +
       chh + '<div class="stars' + (stats.goals ? ' three' : '') + '">' + sh + '</div>' + gh + (stats.teaser ? '<div class="teaser">' + stats.teaser + '</div>' : '') + (bh ? '<div class="badges">' + bh + '</div>' : '') +
       '<div class="row"><span>점수</span><b>' + stats.score + '</b></div>' +
       '<div class="row"><span>단속</span><b>' + stats.stops + '건 (정답률 ' + acc + '%)</b></div>' +

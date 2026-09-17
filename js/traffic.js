@@ -29,7 +29,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var phoneGlowMat = new THREE.SpriteMaterial({ map: TG.tex.flare(), color: 0xcfe8ff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
   var DRV_SHIRT = [0x2b2f38, 0xe8e2d4, 0x3b6fd1, 0x6b5a48, 0xd94f4f, 0x2fa36b, 0x8a8f98], DRV_SKIN = [0xf1c9a5, 0xd9a06e, 0xb5794f], DRV_HAIR = [0x1a1a1a, 0x3a2a1a, 0x5a3a2a];
   this.rail = null;   // TG.Rail(철길건널목) — main 이 붙인다
-  this.control = { closed: [], hand: [], zones: [] };   // zones = 사고 현장 차로 차단(js/incident.js 가 채운다)   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
+  this.control = { closed: [], hand: [], zones: [], emerg: null };   // zones = 사고 현장 차로 차단(js/incident.js 가 채운다)   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
   // ---------- 격자 경로 ----------
@@ -197,12 +197,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       car.sigRunner = rng() < (cfg.TWOW_SIGNAL_RATE || 0.22);
       // 보도 통행은 드물게(대부분 차도 우측). 아래 두 줄이 주석에 먹혀 있어서 edgeOff·edgeT 가 undefined 였고,
       // 그 값이 계산에 섞여 이륜차·자전거·PM 의 heading 과 좌표가 NaN 이 됐다(차가 사라지거나 화면이 검게 나오던 원인).
-      car.edgeRider = rng() < (car.isPM ? 0.26 : car.isBike ? 0.24 : 0.14);
+      // 자전거는 보도로 올리지 않는다 — 소유자(현장): 「자전거 보도 주행은 잘 단속하지 않는다. 대신 이륜차·자전거는 맨 우측 차로로 다녀야 한다」(v0.10.11).
+      //   자전거는 차로에서 차량 신호를 따른다(rightLane). 보도 통행은 이륜차(14%)·개인형 이동장치(26%)만 남긴다(단속 소재).
+      car.edgeRider = car.isBike ? false : rng() < (car.isPM ? 0.26 : 0.14);
       car.edgeOff = car.edgeRider ? 5.4 : 0;
       car.edgeT = rng() * 5;
       car.crossRider = (car.isBike || car.isPM) && rng() < 0.28;   // 일부만 타고 건넌다(위반) — 대부분은 내려서 끌고 걷는다(제13조의2 제6항)
       if (car.isBike) { car.cruise = 5.5; car.speedK = 0.6; car.violator = false; }
-      else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = rng() < 0.35; car.pmTwo = rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
+      else if (car.isPM) { car.cruise = 6.2; car.speedK = 0.7; car.violator = false; car.pmHelmet = opts.pmHelmet !== undefined ? !!opts.pmHelmet : rng() < 0.35; car.pmTwo = opts.pmTwo !== undefined ? !!opts.pmTwo : rng() < 0.22; car.pmT = rng() * 4; }   // 개인형 이동장치: 헬멧 착용 35%, 2인 탑승 22%
       else if (car.violator) car.pedViolator = false;
     }
     // 수배차량(절도·강도 등 중대 사건): 아주 드물게. 겉으로는 표시가 없고 무전 조회(📡)로만 드러난다 → 등급 A(적극 대응)
@@ -309,7 +311,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       }
       if (tooClose(gx, gz)) continue;
       var ctype = opts.type || TG.pick(rng, CITY_TYPES);
-      car = makeCar(ctype, gx, gz, TG.DIR_HEADING[d], { violator: opts.violator, pedViolator: opts.pedViolator, straight: opts.straight, cruise: opts.cruise, wantsExit: opts.wantsExit, laneIdx: laneIdx, trait: opts.trait, noLicense: opts.noLicense, color: opts.color, mount: opts.mount });
+      car = makeCar(ctype, gx, gz, TG.DIR_HEADING[d], { violator: opts.violator, pedViolator: opts.pedViolator, straight: opts.straight, cruise: opts.cruise, wantsExit: opts.wantsExit, laneIdx: laneIdx, trait: opts.trait, noLicense: opts.noLicense, color: opts.color, mount: opts.mount, pmHelmet: opts.pmHelmet, pmTwo: opts.pmTwo });
       if (opts.at && opts.laneIdx === undefined) { var lf = city.laneFrame(gx, gz, TG.DIR_HEADING[d]); car.laneIdx = lf.lateral > 4 ? 1 : 0; }
       car.path.push(approachPoint(car, N2, d));
       car.lastNode = N2; car.lastDir = d;
@@ -429,7 +431,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     while (path.length - car.idx < 6 && (car.route || car.lastNode)) { var before = path.length; extend(car); if (path.length === before) break; }
     var fx = Math.sin(car.heading), fz = Math.cos(car.heading), rx = -fz, rz = fx;
     while (car.idx < path.length - 1) {
-      var p = path[car.idx], dx = p.x - car.pos.x, dz = p.z - car.pos.z, along = dx * fx + dz * fz;
+      // 정지점은 **도로 방향**으로 지났는지 본다 — 차 방향으로 재면 차로를 옮기느라 비스듬히 선 이륜차가 정지선 4m 앞에서 정지점을 「지난」 것으로 쳐서
+      // 적색·긴급차 정지를 그대로 통과했다(v0.10.13 검증에서 찾음).
+      var p = path[car.idx], dx = p.x - car.pos.x, dz = p.z - car.pos.z, pf = (p.stop && p.d !== undefined && car.mode === 'drive') ? TG.DIR_VEC[p.d] : null;   // 정차 유도(yield)는 종전대로 차 방향
+      var along = pf ? dx * pf[0] + dz * pf[1] : dx * fx + dz * fz;
       if (p.stop ? along < -0.8 : (along < 0.6 || Math.hypot(dx, dz) < 1.2)) car.idx++; else break;
     }
     if (car.idx > 40) { path.splice(0, car.idx); car.idx = 0; }
@@ -517,6 +522,17 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
             if (H.node === ap.node && H.d === ap.d) target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL));
           }
         }
+        // 🚨 긴급자동차 접근(도로교통법 제29조 제4항): 교차로나 그 부근에서 긴급자동차가 접근하면 **교차로를 피하여 일시정지**한다.
+        //  main 이 control.emerg = {node, d} 를 채운다(사이렌 + 112 코드0·1 출동 또는 추격 중일 때만). 들은 뒤 0.8초에 반응하고,
+        //  **설 수 있는 차만** 정지선 앞에 선다 — 이미 정지선을 넘었거나 급제동으로도 못 서는 차는 교차로를 빠져나간다(세우면 교차로 한가운데 선다).
+        //  긴급차와 같은 접근로의 차는 신호대로 둔다(앞을 막으면 긴급차가 중앙으로 비켜 간다 — 제29조 제1항).
+        var EM = self.control && self.control.emerg;
+        if (EM && EM.node === ap.node && ap.d !== EM.d && car.mode === 'drive') {
+          car.emergT = (car.emergNode === ap.node ? car.emergT : 0) + dt; car.emergNode = ap.node;
+          var needE = car.v * car.v / 2, cantE = (car.v > 2 && dStopF - 0.3 < needE / cfg.AI_EMERGENCY) || (car.v > 0.3 && dStopF < 0.1);
+          if (car.emergT > 0.8 && !cantE && car.emergGo !== ap.node) { target = Math.min(target, stopProfile(dStopF, cfg.AI_DECEL)); if (dStopF - 1.3 < needE / cfg.AI_DECEL) emergency = true; car.emergStop = true; }
+          else if (cantE && car.emergT <= 0.8) car.emergGo = ap.node;
+        } else if (car.emergNode) { car.emergNode = null; car.emergT = 0; car.emergStop = false; }
         // 임시 차단한 바깥 차로: 40m 앞에서 안쪽 차로로 옮긴다(라바콘 구간을 피한다)
         if (self.control && self.control.closed.length && distStop < 42 && distStop > 6 && car.mode === 'drive') {
           for (var cc = 0; cc < self.control.closed.length; cc++) {
@@ -615,7 +631,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         car.laneIdx = newL; car.lcShift += offNew - offOld; car.lcCd = 14 + rng() * 22;
         if (car.noSignalViolator) { car.signal = null; self.stats.violations++; flag(car, 'nosignal', ap.node, self.witness(car)); }
         else { car.signal = newL > oldL ? 'R' : 'L'; car.signalT = 3; }
-        if (distStop < 32) { self.stats.violations++; flag(car, 'solidline', ap.node, self.witness(car)); }   // 정지선 앞 실선 구간
+        // 정지선 앞 실선 구간 진로변경은 **일반도로에서는 잘 단속하지 않는다**(소유자 현장 지시 2026-09-17) — 기록하지 않는다(조문 카드는 학습용으로 남긴다)
       }
     }
     // 보도 주행 차량(sidewalk 습관): 30초마다 7초 동안 보도로 올라갔다 내려온다. 이륜차·자전거는 계속(edgeRider).
@@ -651,7 +667,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     // 개인형 이동장치: 인명보호장구(헬멧) 미착용 · 2인 이상 탑승 — 목격 3초면 기록(보도 통행과 별개)
     if (car.isPM && car.mode === 'drive' && car.v > 1.5 && self.witness(car)) {
       car.pmT += dt;
-      if (car.pmT > 3) { car.pmT = -20; var pv = !car.pmHelmet ? 'pmHelmet' : (car.pmTwo ? 'pmTwo' : null); if (pv && !car.violation) { self.stats.violations++; flag(car, pv, null, true); } }   // 보도 통행이 이미 기록됐으면 덮지 않는다
+      // 둘이 탔으면 **2인 탑승(§50⑩)** 을 먼저 기록하고, 헬멧도 없으면 함께 위반(also)으로 붙인다 — 전에는 헬멧부터 봐서 둘이 탄 킥보드가 「인명보호장구 미착용」으로만 나왔다(소유자 신고)
+      if (car.pmT > 3) { car.pmT = -20; var pv = car.pmTwo ? 'pmTwo' : (!car.pmHelmet ? 'pmHelmet' : null); if (pv && !car.violation) { self.stats.violations++; if (pv === 'pmTwo' && !car.pmHelmet) car.pendingAlso = ['pmHelmet']; flag(car, pv, null, true); } }   // 보도 통행이 이미 기록됐으면 덮지 않는다
     }
     // 음주 의심: 차로 안에서 좌우로 비틀거리고 속도가 들쭉날쭉. 목격 5초면 「음주운전 의심」 기록
     if (car.trait === 'drunk' && car.mode === 'drive') { car.weaveT += dt; car.weave = Math.sin(car.weaveT * 1.1) * 1.25 + Math.sin(car.weaveT * 2.7) * 0.35; target *= 0.82 + 0.28 * Math.sin(car.weaveT * 0.8); if (self.witness(car)) { car.drunkSeen = (car.drunkSeen || 0) + dt; if (car.drunkSeen > 5 && (!car.violation || car.violation.type !== 'drunk')) { self.stats.violations++; flag(car, 'drunk', null, true); car.drunkSeen = -40; } } }
@@ -749,6 +766,13 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (tgt) {
       var tx = tgt.x + rx * car.extra, tz = tgt.z + rz * car.extra, dh = TG.wrapAngle(Math.atan2(tx - car.pos.x, tz - car.pos.z) - car.heading), maxYaw = Math.max(0.9, car.v * 0.42);
       if (car.v > 0.05) car.heading += TG.clamp(dh, -maxYaw * dt, maxYaw * dt);
+      // 정지선 앞(격자)에서는 차 방향을 도로 방향 ±35° 안에 묶는다 — 느린 속도에서 차로를 크게 옮기면(맨 우측 차로로 가는 이륜차)
+      // 앞을 보는 거리가 짧아 제자리에서 빙글 돌았다(v0.10.13 검증에서 찾음). 교차로 안 회전은 정지선을 지난 뒤라 묶지 않는다.
+      //  교차로 부근(회전을 마치는 중)에서는 묶지 않고, 묶을 때도 한 번에 꺾지 않고 초당 1.5rad 로 되돌린다(회전 직후 54° 씩 튀었다).
+      if (ap && !onLink && car.mode === 'drive' && distStop > 1 && !city.nearIntersectionZone(car.pos.x, car.pos.z)) {
+        var rdH = TG.DIR_HEADING[ap.d], off = TG.wrapAngle(car.heading - rdH);
+        if (Math.abs(off) > 0.6) car.heading -= Math.sign(off) * Math.min(Math.abs(off) - 0.6, 1.5 * dt);
+      }
     }
     var fx3 = Math.sin(car.heading), fz3 = Math.cos(car.heading);
     car.pos.x += fx3 * car.v * dt; car.pos.z += fz3 * car.v * dt;
@@ -777,6 +801,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   function flag(car, type, node, seen) {
     if (car.violation && car.violation.seen && !seen) return;
     car.violation = { type: type, t: self.time, node: node, seen: !!seen }; car.marker.visible = !!seen;
+    if (car.pendingAlso) { car.violation.also = car.pendingAlso; car.pendingAlso = null; }   // 함께 위반 — 알림이 나가기 전에 붙인다
     if (seen) { self.stats.witnessed++; self.onEvent('witness', car); } else car.unseen++;
   }
   this.witness = function (car) {
