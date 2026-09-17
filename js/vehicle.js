@@ -25,6 +25,9 @@
     this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.08 }));
     this.body.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(this.body);
+    // 전기 SUV 순찰차는 실물 사진대로 만든 차체(js/patrolev.js)를 쓴다 — 바퀴·경광등·등화·실내는 아래 공통 코드 그대로
+    var ev = type === 'psuv' && TG.PatrolEV ? TG.PatrolEV : null;
+    if (ev) { this.body.visible = false; var evg = ev.build(); evg.rotation.y = -Math.PI / 2; g.add(evg); this.evBody = evg; }
     var LAY = TG.vehmesh.layout(T); this.layout = LAY;
     // 차내 시점 실내(추적 시점에서는 숨김)
     this.interior = new THREE.Mesh(TG.vehmesh.interior(T), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.02, color: 0x6a6f76 }));   // color 는 정점색에 곱해진다(실내는 햇빛 노출을 낮춰 어둡게)
@@ -75,13 +78,15 @@
       df.position.set(sgn * LAY.screen.x, LAY.screen.y, LAY.screen.z + 0.015); df.rotation.y = sgn * 0.30; df.visible = false;
       g.add(dm); g.add(df); this.mirrorMeshes.push(dm, df);
     }
-    var roofY = TG.vehmesh.roofY(T), barY = roofY + 0.15, l = T.l, w = T.w, bz = -l * 0.04;
+    var roofY = ev ? ev.ROOF : TG.vehmesh.roofY(T), barY = roofY + 0.15, l = T.l, w = T.w, bz = ev ? 0.05 : -l * 0.04;
     // 경광등 바(참고 사진): 낮은 받침 + 적(우)·청(좌) LED 바 + 흰 중앙 모듈 + 앞쪽 카메라 돔. 사이렌 시 좌우 번갈아 스트로브.
     var barBase = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.05, 0.30), new THREE.MeshLambertMaterial({ color: 0x1a1e24 }));
     barBase.position.set(0, roofY + 0.085, bz); g.add(barBase);
     this.barR = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.13, 0.26), new THREE.MeshBasicMaterial({ color: 0x7a1010 }));
     this.barB = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.13, 0.26), new THREE.MeshBasicMaterial({ color: 0x102270 }));
     this.barR.position.set(-0.32, barY, bz); this.barB.position.set(0.32, barY, bz);
+    // 전기 SUV 는 실물 사진대로 — **앞에서 볼 때 왼쪽 청 · 오른쪽 적** = 조수석(−x) 청 · 운전석(+x) 적
+    if (ev) { this.barR.position.x = 0.32; this.barB.position.x = -0.32; }
     var barW = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.24), new THREE.MeshBasicMaterial({ color: 0xe8edf2 }));
     barW.position.set(0, barY, bz);
     var barTop = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.02, 0.30), new THREE.MeshLambertMaterial({ color: 0x2b2f35 }));
@@ -125,27 +130,30 @@
     var tint = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.92, wsLen * 0.16), new THREE.MeshBasicMaterial({ color: 0x1a2a44, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
     tint.position.set(0, wsLen * 0.42, 0.001); this.windshield.add(tint);
     this.mirrorMeshes.push(this.windshield);
-    var pr = TG.vehmesh.profile(T), topR = pr.top(pr.zr), hy = Math.min(topR - 0.12, T.belt - 0.15);
+    var pr = TG.vehmesh.profile(T), topR = pr.top(pr.zr), hy = ev ? 0.88 : Math.min(topR - 0.12, T.belt - 0.15);   // 전기 SUV: 뒤 픽셀 램프 높이
     this.brakeLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.86, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
-    this.brakeLamp.position.set(0, hy, -l / 2 - 0.02); this.brakeLamp.visible = false; g.add(this.brakeLamp);
+    this.brakeLamp.position.set(0, hy, ev ? -2.43 : -l / 2 - 0.02);   // 전기 SUV 는 후면 도색 판(−2.40)보다 뒤에 this.brakeLamp.visible = false; g.add(this.brakeLamp);
     this.revLamp = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    this.revLamp.position.set(0, hy - 0.12, -l / 2 - 0.02); this.revLamp.visible = false; g.add(this.revLamp);
+    this.revLamp.position.set(0, hy - 0.12, ev ? -2.43 : -l / 2 - 0.02); this.revLamp.visible = false; g.add(this.revLamp);
     // 방향지시등(앞뒤 모서리 4개, 주황). this.signal = 'L'|'R'|null, 0.5초 주기로 깜빡인다. +x 가 왼쪽
     var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }); this.blinkL = []; this.blinkR = []; this.signal = null; this.sigT = 0;
     [[1, l / 2 + 0.01], [1, -l / 2 - 0.01], [-1, l / 2 + 0.01], [-1, -l / 2 - 0.01]].forEach(function (bp) {
-      var b = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.09, 0.05), blinkMat); b.position.set(bp[0] * w * 0.40, hy + 0.10, bp[1]); b.visible = false; g.add(b); (bp[0] > 0 ? this.blinkL : this.blinkR).push(b);
+      var b = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.09, 0.05), blinkMat);
+      b.position.set(bp[0] * w * 0.40, ev ? (bp[1] > 0 ? 0.80 : 0.90) : hy + 0.10, ev ? (bp[1] > 0 ? 2.43 : -2.43) : bp[1]);   // 전기 SUV: 앞은 전조등 옆, 뒤는 램프 바 끝
+      b.visible = false; g.add(b); (bp[0] > 0 ? this.blinkL : this.blinkR).push(b);
     }, this);
     // 바퀴(앞바퀴 조향)
     this.wheels = [];
     var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
     var pairs = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
     for (var i = 0; i < 4; i++) {
-      var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - 0.07), T.wheelR, pairs[i][1] * l * 0.31);
+      var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - (ev ? 0.10 : 0.07)), T.wheelR, pairs[i][1] * (T.wb ? T.wb / 2 : l * 0.31));   // 축거가 정해진 차(전기 SUV 3.0m)는 그대로
       wh.rotation.order = 'YXZ';   // 조향(Y)을 먼저, 구름(X)을 나중에 — XYZ 이면 조향이 구름축에 끌려가 바퀴가 비틀린다
       g.add(wh); this.wheels.push(wh);
     }
     // 도색 데칼(참고 사진 순찰차): 옆면 청색 스우시 띠 + 황색 테두리 + 앞문 엠블럼 + 뒷문 「경찰 POLICE」, 후드 청색 쐐기 + 엠블럼, 트렁크 「112」
     // +x 는 차 왼쪽(운전석). 왼쪽 데칼은 u 가 뒤→앞으로 가며 +z 로 진행, 오른쪽은 글자가 거꾸로 보이지 않게 flip 텍스처.
+    if (!ev) {   // 전기 SUV 는 차체가 제 도색(측면·후면·전면·보닛)을 갖고 있다
     var decalOpts = { transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
     var decL = new THREE.Mesh(TG.vehmesh.sideDecal(T, 1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(true) }, decalOpts)));
     var decR = new THREE.Mesh(TG.vehmesh.sideDecal(T, -1), new THREE.MeshLambertMaterial(Object.assign({ map: TG.tex.liverySide(false) }, decalOpts)));
@@ -160,8 +168,9 @@
       var rear = new THREE.Mesh(new THREE.PlaneGeometry(rw, rw * 0.25), new THREE.MeshBasicMaterial({ map: TG.tex.liveryRear(), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
       rear.position.set(0, 0.72, rearZ); rear.rotation.y = Math.PI; g.add(rear); this.rearDecal = rear;
     }
+    }
     // ---- 승강식 전광판: 경광등 뒤에서 올라와 글자와 화살표를 보여 준다(사고·고장 현장) ----
-    var roofY = TG.vehmesh.roofY(T), sg = new THREE.Group();
+    roofY = ev ? ev.ROOF : TG.vehmesh.roofY(T); var sg = new THREE.Group();
     sg.position.set(0, roofY + 0.06, -l * 0.10);
     var armMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ab });
     var arms = new THREE.Group();
@@ -355,6 +364,7 @@
     this.interior.visible = c; this.cluster.visible = c; this.nav.visible = c; this.mdt.visible = c; this.steer3d.visible = c;
     for (var i = 0; i < this.mirrorMeshes.length; i++) this.mirrorMeshes[i].visible = c;
     this.brakeLamp.visible = false; this.revLamp.visible = false;
+    if (this.evBody && this.evBody.userData.glass) this.evBody.userData.glass.forEach(function (m) { m.visible = !c; });   // 차내에서는 바깥 유리판을 숨긴다
     if (c) { this.drawCluster(); this.drawMDT(); }
   };
   // 디지털 계기판: 왼쪽 큰 속도 숫자 + 위쪽 속도 아크, 가운데 제한속도 표지, 오른쪽 기어·경광등·정지거리·남은 시간
