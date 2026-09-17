@@ -64,6 +64,8 @@ TG.Minimap = function (canvas, city, terrain) {
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2';
     lab('올림픽대로', mx(160), mz(-262) - 3); lab('경부고속도로', mx(160), mz(585) + 8);
     lab('경부고속도로', mx(160) + 9, mz(470), -Math.PI / 2);
+    // 서쪽 호 = 강남순환로(소유자 2026-09-17) — 링의 가장 서쪽 점 옆에 세로로
+    if (terrain.ring) { var wp = terrain.ring.pts.reduce(function (a, p) { return p.x < a.x ? p : a; }, terrain.ring.pts[0]); lab('강남순환로', mx(wp.x) + 9, mz(wp.z), -Math.PI / 2); }
     // ② 다리
     g.fillStyle = '#e6f0ff'; lab('반포대교', mx(160) + 30, mz(-70)); lab('한남대교', mx(320) - 26, mz(-70));
     // ③ 지하철역 — 점은 늘 찍고 이름만 겹침을 피한다

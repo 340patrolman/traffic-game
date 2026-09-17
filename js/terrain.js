@@ -295,9 +295,10 @@ TG.buildTerrain = function (scene, city, cfg) {
   conns[2].name = '경부고속도로'; conns[2].limit = 100; conns[2].busLane = true;
   conns[1].name = '반포대로 · 반포대교'; conns[1].limit = 80;
   conns[5].name = '동작대로 · 동작대교'; conns[5].limit = 80;
-  conns[3].name = '서초대로 연장 · 사당 방향'; conns[0].name = '서초대로 연장 · 테헤란로 방향';
+  // IC 이름(소유자 2026-09-17): 올림픽대로 = 동작대교·반포대교·한남대교 진출입로 · 경부고속도로 = 한남·잠원·반포·서초·양재IC · 강남순환로 = 선암·사당IC
+  conns[3].name = '서초대로 연장 · 사당IC'; conns[0].name = '서초대로 연장 · 서초IC';
   conns[4].name = '강남대로 · 한남대교'; conns[4].limit = 80;   // 강남대로 북단 = 한남대교(소유자 지시: 다리 둘은 반포대교·한남대교)
-  conns[6].name = '강남대로 연장 · 도곡 방향'; conns[7].name = '동작대로 연장 · 남태령 방향';
+  conns[6].name = '강남대로 연장 · 양재IC'; conns[7].name = '동작대로 연장 · 선암IC';
   // 연습 서킷(도시 동쪽 해안 평지, 링 바깥): 긴 직선 → 헤어핀 → S 커브 → 스위퍼. 교통 없음. AI 는 오지 않는다(연결 없음).
   // 전에는 x 180~318 · z 400~536 에 있어서 **경부고속도로 연결로와 양재IC 램프를 22m 파고들었다** —
   // 고속도로 옆에 적·백 코너 연석과 서킷 노면이 겹쳐 보였고, frameAt 이 고속도로 위를 「연습 서킷(반폭 7.5m) 밖」으로
@@ -698,7 +699,7 @@ TG.buildTerrain = function (scene, city, cfg) {
         if (!spotS) continue;
         var sx = spotS[0], sz = spotS[1], rotS = Math.atan2(p.tx * dn, p.tz * dn) + Math.PI;
         props.cylinder(sx, p.y, sz, 0.06, 0.05, 2.9, 5, 0x8f959c);
-        var lim = limitOf(p.kind); face(lim === 100 ? 'limit100' : lim === 80 ? 'limit80' : 'limit60', sx, p.y + 2.75, sz, rotS, 0.9, 0.9);
+        var lim = L === ring ? ringRoadAt(p.x, p.z).limit : (L.limit || limitOf(p.kind));   // 순환 구간마다 제한속도가 다르다(올림픽대로·강남순환로 80) face(lim === 100 ? 'limit100' : lim === 80 ? 'limit80' : 'limit60', sx, p.y + 2.75, sz, rotS, 0.9, 0.9);
       }
     }
   });
@@ -719,11 +720,20 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
   gantry(ring, (jE + 20) % ring.N, '경부고속도로 · 제한 100'); gantry(ring, (jN + 20) % ring.N, '올림픽대로 · 제한 80');   // 버스전용차로는 경부고속도로 남쪽 연결로(link.busLane)에만 있다
   // IC 안내표지(강남·서초 축약): 연결로 도시 쪽 「순환고속도로 → ○○IC」, 분기 54m 전 「↱ ○○IC 진입」, 링 위 출구 500m·직전 「↗ ○○IC 출구」. 시내 방향 면에는 「강남역·시내 방향」.
-  var IC_INFO = { E: ['강남IC', '강남역·테헤란로 방향'], N: ['반포IC', '반포대교·용산 방향'], S: ['경부고속도로 시점', '양재·판교 방향'], W: ['사당IC', '사당·동작 방향'],
-                  NE: ['신논현IC', '논현·신사 방향'], NW: ['동작대교IC', '이촌·용산 방향'], SE: ['양재IC', '양재천·도곡 방향'], SW: ['방배IC', '방배·남태령 방향'] };
+  // [이름, 행선, 붙는 순환 구간] — 소유자 2026-09-17: 올림픽대로 = 동작대교·반포대교·한남대교 진출입로 · 경부고속도로 = 한남·잠원·반포·서초·양재IC ·
+  // 강남순환로 = 선암·사당IC. 축약 지도에는 연결로가 8개뿐이라 **한남·잠원IC 는 아직 자리가 없다**(연결로를 더 내는 일은 다음 층).
+  var IC_INFO = { E: ['서초IC', '서초대로·서초역 방향', '경부고속도로'], N: ['반포대교 진출입로', '반포대로·반포대교', '올림픽대로'], S: ['반포IC', '반포대로·고속터미널 방향', '경부고속도로'],
+                  W: ['사당IC', '서초대로·사당 방향', '강남순환로'], NE: ['한남대교 진출입로', '강남대로·한남대교', '올림픽대로'], NW: ['동작대교 진출입로', '동작대로·동작대교', '올림픽대로'],
+                  SE: ['양재IC', '강남대로·양재 방향', '경부고속도로'], SW: ['선암IC', '동작대로·선암 방향', '강남순환로'] };
+  // 순환 고속도로 구간 이름: 북쪽 호 = 올림픽대로 · 서쪽 = 강남순환로 · 동쪽·남쪽 = 경부고속도로
+  function ringRoadAt(x, z) {
+    if (z < -120) return { name: '올림픽대로', limit: 80 };
+    if (x < CXC - RA * 0.35) return { name: '강남순환로', limit: 80 };
+    return { name: '경부고속도로', limit: cfg.HW_LIMIT_KMH };
+  }
   conns.forEach(function (c) {
     var info = IC_INFO[c.ic] || [c.id, '']; c.icName = info[0]; c.icDest = info[1];
-    gantry(c, Math.min(6, c.N - 1), '경부고속도로 →|' + info[0] + ' · ' + info[1], '서초 · 시내 방향|' + (c.name || '') );
+    gantry(c, Math.min(6, c.N - 1), (info[2] || '고속도로') + ' →|' + info[0] + ' · ' + info[1], '서초 · 시내 방향|' + (c.name || '') );
     gantry(c, Math.max(2, c.N - 18), '↱ ' + info[0] + ' 진입|' + info[1] + ' · 우측 램프', '강남역 · 시내 방향|직진');
   });
   ring.exitsA.forEach(function (ex) {
@@ -926,7 +936,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   return {
     links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
-    heightAt: surfaceAt, groundAt: groundAt, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, ringRoadAt: ringRoadAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

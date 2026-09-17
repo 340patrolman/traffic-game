@@ -333,8 +333,9 @@ TG.buildCity = function (cfg) {
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
         var hwN = (cfg.HW_LANES ? cfg.HW_LANES.length : 3) * 2;   // 실제 차로 수로 표기한다(고정 「6차로」 였다)
-        var name = k === 'highway' ? (z < -120 ? '올림픽대로(왕복 ' + hwN + '차로)' : '경부고속도로(왕복 ' + hwN + '차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '연결로' : k === 'circuit' ? '연습 서킷' : k === 'onramp' ? '진입로(램프)' : '진출로(램프)';
-        var lim2 = k === 'highway' ? (z < -120 ? 80 : terrain.limitOf(k)) : terrain.limitOf(k);
+        var rr = k === 'highway' && terrain.ringRoadAt ? terrain.ringRoadAt(x, z) : null;   // 순환 구간 이름(올림픽대로·강남순환로·경부고속도로)
+        var name = k === 'highway' ? ((rr ? rr.name : '경부고속도로') + '(왕복 ' + hwN + '차로)') : k === 'suburb' ? '교외 도로(왕복 2차로)' : k === 'ramp' ? '연결로' : k === 'circuit' ? '연습 서킷' : k === 'onramp' ? '진입로(램프)' : '진출로(램프)';
+        var lim2 = k === 'highway' ? (rr ? rr.limit : terrain.limitOf(k)) : terrain.limitOf(k);
         if (q.link.name) name = q.link.name + (k === 'suburb' ? '(왕복 2차로)' : '');
         if (q.link.limit) lim2 = q.link.limit;
         var oneLane = p.f < 0.5;
