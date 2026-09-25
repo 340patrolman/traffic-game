@@ -55,7 +55,11 @@ TG.Layers = function (game, city, cfg, scene) {
   function load(cb) {
     var saved = TG.save.get('layers', null);
     if (location.protocol.indexOf('http') !== 0) { defsBuild(); if (cb) cb('file:// — data/taas.json 을 읽을 수 없습니다'); return; }
-    var tf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taas) || (TG.MAP && TG.MAP.taas) || 'data/taas.json';   // 지도마다 다른 사고 자료 파일
+    // 지도마다 다른 사고 자료 파일. ⚠ **기본값으로 물러서지 않는다** — TAAS 항목의 `xz` 는 **그 지도 좌표로 구운 값**이라
+    //  다른 지도에 얹으면 엉뚱한 자리에 찍힌다(실측: 1:1 정밀 지도에서 양재동 다발지가 서초역 28m 옆에 나왔다).
+    //  지도 항목이 taas 를 적지 않았으면 그 지도에는 사고 층을 두지 않는다. 틀린 자리에 점을 찍지 않는다.
+    var tf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taas) || (TG.MAP && TG.MAP.taas) || null;
+    if (!tf) { defsBuild(); if (cb) cb(null, null); return; }
     fetch(tf).then(function (r) { return r.json(); }).then(function (j) {
       taas = j;
       // 교차로별 사고 집계(있으면). 개별 사고가 아니라 집계값이다 — 개인 속성은 애초에 담지 않았다.
@@ -412,6 +416,36 @@ TG.Layers = function (game, city, cfg, scene) {
         var r = radOf(it);
         if (Math.hypot(p[0] - x, p[1] - z) <= r) return { layer: d, it: it };
       }
+    }
+    return null;
+  };
+  // 📍 이 자리에 대해 **알려진 것 전부**(v0.10.32) — 소유자 「그 지역을 다니면서 알고 싶을 경우 필요한 만큼의 데이터를 보여줄 수 있어야 한다」.
+  //  `hotAt` 과 다르다: hotAt 은 **켜 둔 층만** 본다(주행 중 경고용). 이것은 **층을 켜 두었든 아니든 전부** 본다(조회용).
+  //  자료를 만들지 않는다 — 이미 파일에 있는 것을 그 자리 기준으로 모아 줄 뿐이다.
+  self.allAt = function (x, z, r) {
+    r = r || 60;
+    var hits = [];
+    defs.forEach(function (d) {
+      if (d.kind !== 'taas') return;
+      (d.src.items || []).forEach(function (it) {
+        var p = posOf(it); if (!p) return;
+        var dist = Math.hypot(p[0] - x, p[1] - z);
+        // 지점 자료는 그 원 안, 교차로 집계는 그 교차로 가까이
+        var lim = Math.max(radOf(it), it.node ? 46 : 0, 0);
+        if (dist <= Math.max(lim, 0) || dist <= r * 0.5) {
+          hits.push({ layer: d.id, layerName: d.name, color: d.color, dist: Math.round(dist), it: it, example: !!it.example });
+        }
+      });
+    });
+    hits.sort(function (a, b) { return a.dist - b.dist; });
+    return hits;
+  };
+  // 그 교차로의 TAAS 집계 한 건(있으면)
+  self.nodeStat = function (i, j) {
+    if (!nodes || !nodes.nodes) return null;
+    for (var k = 0; k < nodes.nodes.length; k++) {
+      var n = nodes.nodes[k];
+      if (n.node && n.node[0] === i && n.node[1] === j) return n;
     }
     return null;
   };

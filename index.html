@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SEOUL PATROL">
-<link rel="stylesheet" href="css/style.css?v=0.10.31">
+<link rel="stylesheet" href="css/style.css?v=0.10.32">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -79,8 +79,10 @@
   <!-- 🎬 연출(v0.10.16) — 장 브리핑 카드 · 스타일 스탬프 · 액션 락온. 전부 조작을 막지 않는다(pointer-events:none) -->
   <div id="cineCard"><span class="ci-kick"></span><b class="ci-ttl"></b><span class="ci-sub"></span><span class="ci-goal"></span></div>
   <div id="cineStamp"><b></b><i></i></div>
+  <!-- 📍 이 자리(v0.10.32) — 지도가 품은 자료를 그 자리 기준으로 모아 보인다(사고·인구·신호·학사·국가유산) -->
+  <div id="hereCard"></div>
   <!-- 🔍 확대 보기(v0.10.20) — 위반자를 터치하면 화면이 당겨지고 판단할 틈이 생긴다 -->
-  <div id="inspectCard"><b class="ip-name"></b><span class="ip-vio"></span><span class="ip-hint"></span>
+<div id="inspectCard"><b class="ip-name"></b><span class="ip-vio"></span><span class="ip-hint"></span>
     <div class="ip-btns"><button id="btnInspectGo" class="ip-go">🚨 단속</button><button id="btnInspectX" class="ip-x">닫기</button></div></div>
   <div id="lockOn"><span class="lk-br tl"></span><span class="lk-br tr"></span><span class="lk-br bl"></span><span class="lk-br br"></span><b></b></div>
   <!-- 🎖 칭찬·콤보·등업·임무 피드(v0.9.89) — 자리를 늘 차지하지 않는다. 얻을 때만 떠서 스스로 사라진다 -->
@@ -106,6 +108,7 @@
     <div class="tbtn pa" id="btnPA" title="앰프(확성기) 안내"><span class="ico">📢</span><span>앰프</span></div>
     <div class="tbtn cam" id="btnCam" title="블랙박스 영상 단속(B): 이륜차·자전거·킥보드의 단순 위반은 추격하지 않고 영상으로 기록해 통고처분을 의뢰합니다"><span class="ico">📹</span><span>블랙박스</span></div>
     <div class="tbtn beast" id="btnBeast" title="비스트 모드(H): 원칙(경광등 ON · 대상이 앞 · 9~42m)을 지키는 동안 충전됩니다. 가득 차면 잠깐 추진력이 올라갑니다"><span class="ico">🔥</span><span>비스트</span></div>
+    <div class="tbtn here" id="btnHere" title="이 자리(I): 지금 서 있는 자리에 대해 이 지도가 가진 자료를 모두 보여 줍니다 — 사고·인구·신호·학사·국가유산"><span class="ico">📍</span><span>이 자리</span></div>
     <div class="tbtn kics" id="btnKics" title="발생보고(KICS · Y): 이륜차 등이 정차 요구에 불응하고 달아났을 때 — 추격하지 않고 채증한 뒤 도로교통법위반 발생보고를 올립니다. 사고조사팀이 운전자를 불러 통고처분하고, 사안에 따라 난폭운전으로 처벌합니다"><span class="ico">📋</span><span>발생보고</span></div>
     <div class="tbtn radio" id="btnRadio" title="무전 상황 전파(T): 상황실·인접 순찰차에 알립니다. 번호판 조회도 함께"><span class="ico">📡</span><span>무전</span></div>
     <div class="tbtn cone" id="btnCone" title="현장 안전조치(K): 라바콘으로 차로를 차단하고, 야간·악천후에는 불꽃신호기를 점화합니다"><span class="ico">🚧</span><span>라바콘</span></div>
@@ -389,75 +392,77 @@ window.addEventListener('load', function () {
   }, 4000);
 });
 </script>
-<script src="lib/three.min.js?v=0.10.31"></script>
-<script src="lib/GLTFLoader.js?v=0.10.31"></script>
-<script src="data/units.js?v=0.10.31"></script>
-<script src="js/config.js?v=0.10.31"></script>
-<script src="js/rng.js?v=0.10.31"></script>
-<script src="js/save.js?v=0.10.31"></script>
-<script src="js/simmode.js?v=0.10.31"></script>
-<script src="js/perf.js?v=0.10.31"></script>
-<script src="js/emblem.js?v=0.10.31"></script>
-<script src="js/humans-data.js?v=0.10.31"></script>
-<script src="js/humans.js?v=0.10.31"></script>
-<script src="js/textures.js?v=0.10.31"></script>
-<script src="js/audio.js?v=0.10.31"></script>
-<script src="js/city.js?v=0.10.31"></script>
-<script src="js/world.js?v=0.10.31"></script>
-<script src="js/terrain.js?v=0.10.31"></script>
-<script src="js/weather.js?v=0.10.31"></script>
-<script src="js/signals.js?v=0.10.31"></script>
-<script src="js/vehmesh.js?v=0.10.31"></script>
-<script src="js/patrolev.js?v=0.10.31"></script>
-<script src="js/vehicle.js?v=0.10.31"></script>
-<script src="js/traffic.js?v=0.10.31"></script>
-<script src="js/peds.js?v=0.10.31"></script>
-<script src="js/character.js?v=0.10.31"></script>
-<script src="js/vfx.js?v=0.10.31"></script>
-<script src="js/response.js?v=0.10.31"></script>
-<script src="js/junction.js?v=0.10.31"></script>
-<script src="js/chase.js?v=0.10.31"></script>
-<script src="js/incident.js?v=0.10.31"></script>
-<script src="js/dispatch.js?v=0.10.31"></script>
-<script src="js/intro.js?v=0.10.31"></script>
-<script src="js/walker.js?v=0.10.31"></script>
-<script src="js/rail.js?v=0.10.31"></script>
-<script src="js/enforcement.js?v=0.10.31"></script>
-<script src="js/signaltod.js?v=0.10.31"></script>
-<script src="js/facil.js?v=0.10.31"></script>
-<script src="js/layers.js?v=0.10.31"></script>
-<script src="js/study.js?v=0.10.31"></script>
-<script src="js/drunkproc.js?v=0.10.31"></script>
-<script src="js/kidcourse.js?v=0.10.31"></script>
-<script src="js/bike.js?v=0.10.31"></script>
-<script src="js/tot.js?v=0.10.31"></script>
-<script src="js/praise.js?v=0.10.31"></script>
-<script src="js/cinema.js?v=0.10.31"></script>
-<script src="js/inspect.js?v=0.10.31"></script>
-<script src="js/crazy.js?v=0.10.31"></script>
-<script src="js/realbuild.js?v=0.10.31"></script>
-<script src="js/schooltime.js?v=0.10.31"></script>
-<script src="js/pop.js?v=0.10.31"></script>
-<script src="js/risk.js?v=0.10.31"></script>
-<script src="js/demand.js?v=0.10.31"></script>
-<script src="js/replay.js?v=0.10.31"></script>
-<script src="js/stopcam.js?v=0.10.31"></script>
-<script src="js/firstshift.js?v=0.10.31"></script>
-<script src="js/crew.js?v=0.10.31"></script>
-<script src="js/campaign.js?v=0.10.31"></script>
-<script src="js/metrics.js?v=0.10.31"></script>
-<script src="js/story.js?v=0.10.31"></script>
-<script src="js/director.js?v=0.10.31"></script>
-<script src="js/hood.js?v=0.10.31"></script>
-<script src="js/dex.js?v=0.10.31"></script>
-<script src="js/qr.js?v=0.10.31"></script>
-<script src="js/sharecard.js?v=0.10.31"></script>
-<script src="js/career.js?v=0.10.31"></script>
-<script src="js/hudpos.js?v=0.10.31"></script>
-<script src="js/hud.js?v=0.10.31"></script>
-<script src="js/minimap.js?v=0.10.31"></script>
-<script src="js/input.js?v=0.10.31"></script>
-<script src="js/main.js?v=0.10.31"></script>
+<script src="lib/three.min.js?v=0.10.32"></script>
+<script src="lib/GLTFLoader.js?v=0.10.32"></script>
+<script src="data/units.js?v=0.10.32"></script>
+<script src="js/config.js?v=0.10.32"></script>
+<script src="js/rng.js?v=0.10.32"></script>
+<script src="js/save.js?v=0.10.32"></script>
+<script src="js/simmode.js?v=0.10.32"></script>
+<script src="js/perf.js?v=0.10.32"></script>
+<script src="js/emblem.js?v=0.10.32"></script>
+<script src="js/humans-data.js?v=0.10.32"></script>
+<script src="js/humans.js?v=0.10.32"></script>
+<script src="js/textures.js?v=0.10.32"></script>
+<script src="js/audio.js?v=0.10.32"></script>
+<script src="js/city.js?v=0.10.32"></script>
+<script src="js/world.js?v=0.10.32"></script>
+<script src="js/terrain.js?v=0.10.32"></script>
+<script src="js/weather.js?v=0.10.32"></script>
+<script src="js/signals.js?v=0.10.32"></script>
+<script src="js/vehmesh.js?v=0.10.32"></script>
+<script src="js/patrolev.js?v=0.10.32"></script>
+<script src="js/vehicle.js?v=0.10.32"></script>
+<script src="js/traffic.js?v=0.10.32"></script>
+<script src="js/peds.js?v=0.10.32"></script>
+<script src="js/character.js?v=0.10.32"></script>
+<script src="js/vfx.js?v=0.10.32"></script>
+<script src="js/response.js?v=0.10.32"></script>
+<script src="js/junction.js?v=0.10.32"></script>
+<script src="js/chase.js?v=0.10.32"></script>
+<script src="js/incident.js?v=0.10.32"></script>
+<script src="js/dispatch.js?v=0.10.32"></script>
+<script src="js/intro.js?v=0.10.32"></script>
+<script src="js/walker.js?v=0.10.32"></script>
+<script src="js/rail.js?v=0.10.32"></script>
+<script src="js/enforcement.js?v=0.10.32"></script>
+<script src="js/signaltod.js?v=0.10.32"></script>
+<script src="js/facil.js?v=0.10.32"></script>
+<script src="js/layers.js?v=0.10.32"></script>
+<script src="js/study.js?v=0.10.32"></script>
+<script src="js/drunkproc.js?v=0.10.32"></script>
+<script src="js/kidcourse.js?v=0.10.32"></script>
+<script src="js/bike.js?v=0.10.32"></script>
+<script src="js/tot.js?v=0.10.32"></script>
+<script src="js/praise.js?v=0.10.32"></script>
+<script src="js/cinema.js?v=0.10.32"></script>
+<script src="js/inspect.js?v=0.10.32"></script>
+<script src="js/crazy.js?v=0.10.32"></script>
+<script src="js/heritage.js?v=0.10.32"></script>
+<script src="js/here.js?v=0.10.32"></script>
+<script src="js/realbuild.js?v=0.10.32"></script>
+<script src="js/schooltime.js?v=0.10.32"></script>
+<script src="js/pop.js?v=0.10.32"></script>
+<script src="js/risk.js?v=0.10.32"></script>
+<script src="js/demand.js?v=0.10.32"></script>
+<script src="js/replay.js?v=0.10.32"></script>
+<script src="js/stopcam.js?v=0.10.32"></script>
+<script src="js/firstshift.js?v=0.10.32"></script>
+<script src="js/crew.js?v=0.10.32"></script>
+<script src="js/campaign.js?v=0.10.32"></script>
+<script src="js/metrics.js?v=0.10.32"></script>
+<script src="js/story.js?v=0.10.32"></script>
+<script src="js/director.js?v=0.10.32"></script>
+<script src="js/hood.js?v=0.10.32"></script>
+<script src="js/dex.js?v=0.10.32"></script>
+<script src="js/qr.js?v=0.10.32"></script>
+<script src="js/sharecard.js?v=0.10.32"></script>
+<script src="js/career.js?v=0.10.32"></script>
+<script src="js/hudpos.js?v=0.10.32"></script>
+<script src="js/hud.js?v=0.10.32"></script>
+<script src="js/minimap.js?v=0.10.32"></script>
+<script src="js/input.js?v=0.10.32"></script>
+<script src="js/main.js?v=0.10.32"></script>
 <script>
 // 설치형 앱(PWA): http(s)에서만 서비스워커 등록. file:// 에서는 그냥 실행된다.
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

@@ -5,6 +5,7 @@
 //  없으면 **바닥 넓이로 어림한다**(그것은 설계값이라고 화면에 적는다).
 TG.RealBuild = function () {
   var self = this, group = null, info = { count: 0, withLevels: 0, source: '' };
+  var named = [];   // 이름이 있는 건물(OSM name 태그) — 「이 자리」 조회가 쓴다
 
   function area2(p) {   // 다각형 넓이(신발끈) — 방향(시계/반시계)도 여기서 나온다
     var s = 0;
@@ -90,6 +91,7 @@ TG.RealBuild = function () {
   this.build = function (scene, data, terrain, city) {
     self.clear(scene);
     if (!data || !data.buildings || !window.THREE || !TG.GeoBuilder) return info;
+    named = [];
     var gb = new TG.GeoBuilder(), roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0;
     data.buildings.forEach(function (b, bi) {
       var p = b.p; if (!p || p.length < 3) return;
@@ -146,6 +148,8 @@ TG.RealBuild = function () {
         roof.quad([c[0], y0 + h, c[1]], [s0[0], y0 + h, s0[1]], [s1[0], y0 + h, s1[1]], [c[0], y0 + h, c[1]],
                   [0, 1, 0], 0x3a3f47, null);
       }
+      // ⚠ c 는 **이미 비킨 뒤의** 윤곽에서 낸 무게중심이다 — off 를 또 더하면 두 번 밀린다
+      if (b.n) named.push({ name: b.n, x: c[0], z: c[1], lv: b.lv || 0 });
       n++;
     });
     group = new THREE.Group();
@@ -161,4 +165,14 @@ TG.RealBuild = function () {
   };
   this.clear = function (scene) { if (group && scene) scene.remove(group); group = null; };
   this.info = function () { return info; };
+  // 이 자리 가까운 **이름 있는** 건물(OSM name) — 「📍 이 자리」 조회용
+  this.near = function (x, z, rad) {
+    rad = rad || 120; var out = [];
+    named.forEach(function (b) {
+      var d = Math.hypot(b.x - x, b.z - z);
+      if (d <= rad) out.push({ name: b.name, lv: b.lv, dist: Math.round(d) });
+    });
+    out.sort(function (a, b) { return a.dist - b.dist; });
+    return out;
+  };
 };

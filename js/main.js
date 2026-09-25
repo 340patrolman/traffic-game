@@ -99,7 +99,15 @@
     if (TG.Inspect) G.inspect = new TG.Inspect(G);
     if (TG.SchoolTime) { G.school = new TG.SchoolTime(G); G.school.load('data/schooltime.json'); }
     if (TG.Pop) { G.pop = new TG.Pop(G); G.pop.load('data/pop-seocho.json'); }              // 👥 동별 인구·연령(행안부)
-    if (TG.Risk) { G.risk = new TG.Risk(G); G.risk.load('data/incidents-seocho.json'); }   // 🧭 시각·요일·날씨로 잦은 신고(자료 대기)              // 👥 동별 인구·연령(행안부)   // 🏫 학사일정(NEIS 실제 값)
+    if (TG.Risk) { G.risk = new TG.Risk(G); G.risk.load('data/incidents-seocho.json'); }
+    // 🏛 국가유산(역사·흥미) · 📍 이 자리(종합 조회) — v0.10.32
+    if (TG.Heritage) {
+      G.heritage = new TG.Heritage();
+      G.heritage.load('data/heritage-seocho.json', function (err, placed, all) {
+        if (!err) console.log('[TG] 국가유산 ' + all + '건(이 지도에 찍히는 것 ' + placed + ') · ' + G.heritage.src());
+      });
+    }
+    if (TG.Here) G.here = new TG.Here(G);          // 📍 이 자리 — 지도가 품은 자료를 그 자리 기준으로 모아 보인다
     // 🏢 실제 건물 윤곽(1:1 지도 전용) — 지도 항목에 buildings 가 있을 때만
     if (TG.RealBuild) {
       G.realBuild = new TG.RealBuild();
@@ -829,6 +837,11 @@
       }
       selectTarget(null);
     });
+    // 📍 이 자리 — 조회 창구.
+    //  ⚠ 자판을 고를 때 **onKey 뿐 아니라 input.held 도 본다** — KeyH 는 비스트·안내 토글이,
+    //     KeyQ·KeyE 는 시점 둘러보기가 이미 쓰고 있었다(v0.10.32 에서 실제로 겹칠 뻔했다). 남은 것이 KeyI 다.
+    input.bindTap($('btnHere'), function () { if (G.here) G.here.toggle(); });
+    input.onKey('KeyI', function () { if (G.here) G.here.toggle(); });
     input.bindTap($('btnKics'), function () { if (G.response) G.response.report(); });
     input.onKey('KeyY', function () { if (G.response) G.response.report(); });
     input.bindTap($('btnInspectGo'), function () {
