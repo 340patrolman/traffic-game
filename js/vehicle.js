@@ -20,7 +20,9 @@
   var P = TG.PlayerCar.prototype;
 
   P.buildMesh = function (scene) {
-    var s = this.spec, type = s.id === 'suv' ? 'psuv' : s.id === 'flag' ? 'pflag' : 'police', T = TG.vehmesh.TYPES[type];
+    // 🚓 등급마다 실루엣이 다르다(v0.10.18) — 중형 · 수소 SUV · 전기 SUV · 준대형 · 플래그십
+    var MESH = { sedan: 'police', hsuv: 'phsuv', suv: 'psuv', gsedan: 'pgsedan', flag: 'pflag' };
+    var s = this.spec, type = MESH[s.id] || 'police', T = TG.vehmesh.TYPES[type];
     this.T = T;
     this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.08 }));
     this.body.castShadow = true;

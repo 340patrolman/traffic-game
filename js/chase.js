@@ -141,7 +141,8 @@ TG.Chase = function (game) {
     var c = self.car; if (c) { c.flee = false; c.chase = false; c.cruise = 0; c.violation = c.violation || { type: self.kind.id === 'drunk' ? 'drunk' : 'license', seen: true }; }
     var bonus = S.chaseCatch + (coop ? 20 : 0);
     game.addScore(bonus, null); game.stats.chaseCatch = (game.stats.chaseCatch || 0) + 1;
-    game.hud.notice('✅ 대상 정차 — ' + (coop ? '📡 공조 검거(앞을 막았다)' : '단독 검거') + ' (+' + bonus + ')', 'good', 6000);
+    if (game.cinema) game.cinema.stamp('검거', coop ? '📡 공조 — 앞을 막았다' : '단독 검거', 'gold');   // 🎬 v0.10.16
+    game.hud.notice('✅ 대상 정차 — ' + (coop ? '📡 공조 검거' : '단독 검거') + ' (+' + bonus + ')', 'good', 3200);
     game.hud.pop('✅ +' + bonus, 'good'); TG.audio.jingle(4);
     game.hud.hint(coop ? '📡 공조로 검거했다 — 앞을 막으면 무리한 추격이 필요 없다' : '안전거리를 지켜 스스로 세웠다. 무전으로 공조하면 더 빨리 끝난다');
     if (coop && TG.audio.squelch) TG.audio.squelch();

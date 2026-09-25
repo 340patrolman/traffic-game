@@ -44,9 +44,14 @@ TG.hud = (function () {
   // 안내 글은 textContent 로 그린다 — 코드 곳곳의 `**강조**` 표시가 **별표 그대로** 화면에 찍혔다(v0.9.93 에서 발견). 한 곳에서 걷어 낸다.
   function plain(t) { return String(t == null ? '' : t).replace(/\*\*/g, ''); }
   function setTarget(text) { el.target.textContent = plain(text); el.target.style.display = text ? '' : 'none'; }
+  // 📏 안내문 표시 시간 상한(v0.10.15) — 화면 위쪽이 글로 덮여 있으면 앞 도로를 못 본다.
+  //  기준선 계측에서 안내문이 근무 시간의 24~42% 를 덮고 있었다(목표 15%). 긴 설명은 💭 안내 줄·학습 화면으로 보낸다.
+  //  이 값은 게임 설계값이다.
+  var NOTICE_MAX = { alert: 3200, bad: 3000, warn: 2400, good: 2400, info: 2200 };
   function notice(text, kind, ms) {
-    if (TG.metricsNotice) TG.metricsNotice(text, ms || 2600);   // 📏 F5 안내문 시간(보기만 한다)
-    el.notice.textContent = plain(text); el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = (ms || 2600) / 1000;
+    ms = Math.min(ms || 2200, NOTICE_MAX[kind || 'info'] || 2400);
+    if (TG.metricsNotice) TG.metricsNotice(text, ms);   // 📏 F5 안내문 시간(보기만 한다)
+    el.notice.textContent = plain(text); el.notice.className = 'notice ' + (kind || 'info'); el.notice.style.opacity = 1; noticeT = ms / 1000;
     pushKidChips();
   }
   // 좁은 화면에서는 안내문이 두세 줄이 되어 **어린이 4단계 칩을 덮었다**(화면 점검에서 발견).

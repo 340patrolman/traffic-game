@@ -14,6 +14,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var COLORS = { sedan: [0xc94d43, 0x3e6bb0, 0x9aa3ad, 0x2f3438, 0xe6e2d8, 0x6b8f5a, 0xb08a3e, 0x7d5a96],
                  hatch: [0xd77a3a, 0x5c8bd6, 0xbfb8aa, 0x7d5a96, 0xd9d34f, 0x2f3438],
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
+                 amb: [0xf2f5f7], fire: [0xc62a22], tow: [0xf0b429],
                  van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], pickup: [0xdcdcd4, 0x2f3438, 0x8e9aa6, 0x6d4f3a, 0x9a4a3a], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8], police: [0xf3f5f8] };   // police = 후미 안전조치 순찰차(현장 보호용, 주행하지 않는다)
   var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
@@ -29,6 +30,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var phoneGlowMat = new THREE.SpriteMaterial({ map: TG.tex.flare(), color: 0xcfe8ff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
   var DRV_SHIRT = [0x2b2f38, 0xe8e2d4, 0x3b6fd1, 0x6b5a48, 0xd94f4f, 0x2fa36b, 0x8a8f98], DRV_SKIN = [0xf1c9a5, 0xd9a06e, 0xb5794f], DRV_HAIR = [0x1a1a1a, 0x3a2a1a, 0x5a3a2a];
   this.rail = null;   // TG.Rail(철길건널목) — main 이 붙인다
+  this.wantedBoost = 1;
   this.control = { closed: [], hand: [], zones: [], emerg: null };   // zones = 사고 현장 차로 차단(js/incident.js 가 채운다)   // 교차로 근무: 임시 차단한 차로 · 꼬리 끊기 수신호(js/junction.js 가 채운다)
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
@@ -195,6 +197,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       // 신호위반 성향: 이륜차·자전거·PM 도 **차마**여서 신호를 지켜야 한다. 전에는 자전거·PM 의 violator 를 꺼 버려
       // 적색을 그냥 지나가는 장면이 아예 없었다 — 소유자 「킥보드 이륜차 오토바이 신호위반도 단속항목에 있어야 한다」.
       car.sigRunner = rng() < (cfg.TWOW_SIGNAL_RATE || 0.22);
+      // 🏍 위반한 이륜차의 일부는 **정차 요구에 불응하고 달아난다**(현장에서 흔한 일이다).
+      //  추격하지 않는 것이 원칙(등급 C)이고, 채증 → 발생보고로 처리한다. 값은 게임 설계값이다.
+      car.refuser = (type === 'moto') && rng() < (cfg.MOTO_REFUSE_RATE || 0.35);
       // 보도 통행은 드물게(대부분 차도 우측). 아래 두 줄이 주석에 먹혀 있어서 edgeOff·edgeT 가 undefined 였고,
       // 그 값이 계산에 섞여 이륜차·자전거·PM 의 heading 과 좌표가 NaN 이 됐다(차가 사라지거나 화면이 검게 나오던 원인).
       // 자전거는 보도로 올리지 않는다 — 소유자(현장): 「자전거 보도 주행은 잘 단속하지 않는다. 대신 이륜차·자전거는 맨 우측 차로로 다녀야 한다」(v0.10.11).
@@ -208,7 +213,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       else if (car.violator) car.pedViolator = false;
     }
     // 수배차량(절도·강도 등 중대 사건): 아주 드물게. 겉으로는 표시가 없고 무전 조회(📡)로만 드러난다 → 등급 A(적극 대응)
-    car.wanted = opts.wanted !== undefined ? !!opts.wanted : (!car.isMoto && !car.isBike && !car.isPM && !car.isBus && rng() < 0.02);
+    // 🌆 오픈 순찰에서는 수배 차량이 조금 더 자주 섞인다(wantedBoost) — 📡 조회로 드러나고 그때부터 추격이 정당해진다(v0.7.9 규칙 그대로)
+    car.wanted = opts.wanted !== undefined ? !!opts.wanted : (!car.isMoto && !car.isBike && !car.isPM && !car.isBus && rng() < 0.02 * (self.wantedBoost || 1));
     var twoW = car.isMoto || car.isBike || car.isPM;
     // 승용·소형 승합·픽업은 유리를 반투명으로 따로 그리고 운전자를 태운다 — 손에 든 휴대전화와 거치대를 밖에서 보고 가려야 한다
     var see = !twoW && type !== 'bus' && type !== 'truck';
@@ -258,6 +264,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     [[1, T.l / 2 + 0.02], [1, -T.l / 2 - 0.02], [-1, T.l / 2 + 0.02], [-1, -T.l / 2 - 0.02]].forEach(function (bp) {
       var b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.05), blinkMat); b.position.set(bp[0] * T.w * 0.40, hy2 + 0.06, bp[1]); b.visible = false; g.add(b); (bp[0] > 0 ? car.blinkL : car.blinkR).push(b);
     });
+    // 🚑 긴급차량 경광등 — 지붕 받침 위 적·청 램프(경찰차와 같은 자리). 현장에 서 있는 동안 깜빡인다.
+    if (T.emer) {
+      car.beacon = [];
+      [[-0.30, 0xff2a20], [0.30, 0x2a6cff]].forEach(function (bp) {
+        var lm = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.11, 0.30),
+          new THREE.MeshBasicMaterial({ color: bp[1] }));
+        lm.position.set(bp[0], TG.vehmesh.roofY(T) + 0.12, -T.l * 0.04);
+        lm.visible = false; g.add(lm); car.beacon.push(lm);
+      });
+    }
     // 습관 소품: 휴대전화(운전석 머리 옆, 밝은 화면) / 반려동물(운전석 창가, 갈색)
     if (car.trait === 'phone' && !see) { var ph = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 0.09), phoneMat); ph.position.set(T.w * 0.30, T.belt + 0.30, T.l * 0.06); ph.rotation.z = 0.3; g.add(ph); }
     // 트럭 짐칸의 상자(고정 안 됨 → 흘린다) / 버스 열린 문 + 문가에 선 승객
@@ -416,6 +432,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     c.incident = null; c.backup = true;
     return c;
   };
+  // 🚑🚒🛻 현장 출동 차량(v0.10.21) — 📡 무전으로 부르면 실제로 와서 선다.
+  //  kind: 'amb' 구급차 · 'fire' 소방차 · 'tow' 견인차. 달리지 않는다(mode 'incident') — 도착한 그림이다.
+  //  **경찰이 하는 일을 대신하지 않는다** — 안전조치 판정·점수는 종전 그대로이고, 이 차들은 현장을 채운다.
+  this.spawnResponder = function (kind, at) {
+    var c = makeCar(kind, at.x, at.z, at.heading, { violator: false, straight: true, trait: null, noLicense: false, mount: false });
+    c.mode = 'incident'; c.v = 0; c.cruise = 0; c.speedK = 0; c.path = []; c.route = null; c.lastNode = null;
+    c.incident = null; c.backup = true; c.responder = kind;
+    return c;
+  };
   this.clearIncidents = function () {
     for (var i = cars.length - 1; i >= 0; i--) if (cars[i].incident || cars[i].crashPart || cars[i].backup) remove(cars[i]);
     if (incidentGroup) { scene.remove(incidentGroup); incidentGroup = null; }
@@ -424,6 +449,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.mode === 'incident') {   // 현장 차량: 비상등(양쪽 깜빡이)만 켜고 정지
       var on = ((self.time * 1.4) % 1) < 0.5;
       for (var bi3 = 0; bi3 < car.blinkL.length; bi3++) { car.blinkL[bi3].visible = on; car.blinkR[bi3].visible = on; }
+      if (car.beacon) { var fast = ((self.time * 3.4) % 1) < 0.5; car.beacon[0].visible = fast; car.beacon[1].visible = !fast; }
       car.braking = true; car.brakeLamp.visible = true;
       return;
     }

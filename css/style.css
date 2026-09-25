@@ -1315,3 +1315,88 @@ body.simmode .camprow{display:none}
 .shimg{margin:8px auto;min-height:120px;display:flex;align-items:center;justify-content:center}
 .shimg img{width:100%;max-width:360px;max-height:56vh;object-fit:contain;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.5)}
 .share-card .small{font-size:12px;margin-top:6px}
+
+/* 🎬 연출(v0.10.16) — 장 브리핑 · 스타일 스탬프 · 액션 락온.
+   셋 다 pointer-events:none 이라 조작을 막지 않는다. 잠깐 떴다 스스로 사라지므로 늘 차지하는 자리가 없다.
+   세로 화면 규격(v0.9.98)을 깨지 않게 가운데 띠는 **연출이 떠 있는 동안만** 쓴다. */
+#cineCard{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.96);z-index:28;pointer-events:none;
+  opacity:0;transition:opacity .22s,transform .22s;text-align:center;max-width:min(90vw,560px);word-break:keep-all;
+  padding:14px 20px 13px;border-radius:14px;background:linear-gradient(180deg,rgba(8,14,28,.82),rgba(8,14,28,.62));
+  border:1px solid rgba(255,255,255,.16);border-left:4px solid var(--police-gold,#e8c268);box-shadow:0 10px 34px rgba(0,0,0,.5)}
+#cineCard.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#cineCard .ci-kick{display:block;font-size:12.5px;font-weight:900;letter-spacing:2.4px;color:#e8c268;text-transform:uppercase}
+#cineCard .ci-ttl{display:block;margin-top:5px;font-size:27px;font-weight:900;color:#fff;letter-spacing:-.3px;text-shadow:0 2px 12px rgba(0,0,0,.8)}
+#cineCard .ci-sub{display:block;margin-top:6px;font-size:14px;font-weight:700;color:#d8e2f2;line-height:1.35}
+#cineCard .ci-goal{display:block;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.14);font-size:12.5px;font-weight:800;color:#9fd9a6}
+/* 브리핑이 떠 있는 동안 위아래 얇은 시네마 띠 — 「지금은 이야기를 보는 시간」이라는 신호 */
+body.cine::before,body.cine::after{content:'';position:fixed;left:0;right:0;height:5vh;background:rgba(0,0,0,.72);z-index:27;pointer-events:none;animation:cineBar .22s ease-out}
+body.cine::before{top:0}body.cine::after{bottom:0}
+@keyframes cineBar{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+/* 🅰 스탬프 — 「순간」을 큰 글씨로 찍는다(코드1 출동 · 작전 종료 · 검거) */
+#cineStamp{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) rotate(-4deg) scale(1.25);z-index:29;pointer-events:none;
+  opacity:0;text-align:center;padding:7px 22px;border-radius:6px;border:2.5px solid #fff;background:rgba(10,16,30,.5);
+  transition:opacity .12s}
+#cineStamp.on{opacity:1;animation:stampIn .9s cubic-bezier(.15,1.5,.4,1) forwards}
+#cineStamp b{display:block;font-size:30px;font-weight:900;letter-spacing:5px;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.9)}
+#cineStamp i{display:block;margin-top:2px;font-size:12.5px;font-style:normal;font-weight:800;letter-spacing:1px;color:#e6eefc}
+#cineStamp.urgent{border-color:#ff5a4a;background:rgba(60,8,8,.5)}
+#cineStamp.urgent b{color:#ffd9d2;text-shadow:0 2px 14px rgba(255,60,40,.7)}
+#cineStamp.gold{border-color:#e8c268;background:rgba(48,34,6,.5)}
+#cineStamp.gold b{color:#ffe9b0}
+@keyframes stampIn{0%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.9);opacity:0}
+  18%{transform:translate(-50%,-50%) rotate(-4deg) scale(1);opacity:1}
+  72%{transform:translate(-50%,-50%) rotate(-4deg) scale(1);opacity:1}
+  100%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.06);opacity:0}}
+
+/* 🎯 락온 — 위반 차를 발견한 순간 대상 위에 브래킷이 조여든다 */
+#lockOn{position:fixed;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;z-index:26;pointer-events:none;opacity:0;
+  transform:scale(var(--lk,1));transition:opacity .1s}
+#lockOn.on{opacity:1}
+#lockOn .lk-br{position:absolute;width:20px;height:20px;border:2.5px solid #ffcf4a;filter:drop-shadow(0 1px 4px rgba(0,0,0,.8))}
+#lockOn .lk-br.tl{left:0;top:0;border-right:0;border-bottom:0}
+#lockOn .lk-br.tr{right:0;top:0;border-left:0;border-bottom:0}
+#lockOn .lk-br.bl{left:0;bottom:0;border-right:0;border-top:0}
+#lockOn .lk-br.br{right:0;bottom:0;border-left:0;border-top:0}
+#lockOn b{position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);white-space:nowrap;
+  font-size:12px;font-weight:900;color:#ffcf4a;text-shadow:0 1px 5px rgba(0,0,0,.9)}
+
+@media (orientation:portrait){
+  #cineCard{top:34%;max-width:min(92vw,420px);padding:12px 16px 11px}
+  #cineCard .ci-ttl{font-size:23px}
+  #cineStamp b{font-size:25px;letter-spacing:3.5px}
+  #lockOn{width:76px;height:76px;margin:-38px 0 0 -38px}
+}
+@media (prefers-reduced-motion:reduce){
+  #cineStamp.on{animation:none;opacity:1}
+  body.cine::before,body.cine::after{animation:none}
+}
+
+/* 🚓 순찰차 승급 사다리(v0.10.18) — 잠긴 등급은 흐리게, 안내 한 줄. 두 번 누르면 그냥 탄다(부드러운 잠금) */
+.carpick.locked{opacity:.62;border-style:dashed}
+.carpick.locked b{color:#cfd8e8}
+.carpick em.lk{display:block;margin-top:4px;font-size:11.5px;font-style:normal;font-weight:800;color:#e8c268}
+
+/* 🔍 확대 보기(v0.10.20) — 위반자를 터치하면 화면이 당겨지고 이 카드가 뜬다. 단추는 눌려야 하므로 pointer-events:auto */
+#inspectCard{display:none;position:fixed;left:50%;bottom:calc(20px + var(--sa-b));transform:translate(-50%,10px);z-index:30;pointer-events:none;
+  opacity:0;transition:opacity .18s,transform .18s;text-align:center;max-width:min(92vw,460px);word-break:keep-all;
+  padding:11px 16px 12px;border-radius:14px;background:linear-gradient(180deg,rgba(8,14,28,.9),rgba(8,14,28,.76));
+  border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 30px rgba(0,0,0,.55)}
+#inspectCard.on{display:block;opacity:1;transform:translate(-50%,0)}
+#inspectCard .ip-name{display:block;font-size:17px;font-weight:900;color:#fff}
+#inspectCard .ip-vio{display:block;margin-top:3px;font-size:13.5px;font-weight:800;color:#cfe0f5}
+#inspectCard .ip-vio.bad{color:#ffb4a8}
+#inspectCard .ip-hint{display:block;margin-top:3px;font-size:11.5px;font-weight:700;color:#9fb0c8}
+#inspectCard .ip-btns{display:flex;gap:8px;margin-top:9px}
+#inspectCard button{pointer-events:auto;flex:1;min-height:44px;border-radius:11px;font-size:15px;font-weight:900;border:2px solid transparent;cursor:pointer}
+#inspectCard .ip-go{background:rgba(255,60,48,.9);color:#fff;border-color:#ff8a7c}
+#inspectCard .ip-x{background:rgba(255,255,255,.12);color:#dbe6f5;border-color:rgba(255,255,255,.25)}
+/* 확대 중에는 화면 가장자리를 살짝 어둡게 — 대상에 눈이 간다 */
+body.inspecting::after{content:'';position:fixed;inset:0;z-index:9;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 38%,rgba(0,0,0,.42) 100%)}
+@media (orientation:portrait){#inspectCard{bottom:calc(74px + var(--sa-b));max-width:min(94vw,380px)}}
+
+/* 📋 발생보고(v0.10.29) — 이륜차 등이 정차 불응으로 달아났을 때. 채증이 된 대상이 있을 때만 나온다. */
+.tbtn.kics{width:60px;height:60px;background:rgba(255,200,120,.16);border-color:rgba(255,200,120,.78);margin-bottom:8px;display:none}
+.tbtn.kics .ico{font-size:20px}
+body.can-kics .tbtn.kics{display:flex}

@@ -43,6 +43,12 @@ TG.Crew = function (game) {
   };
   function speak(key) {
     var ln = pick(key); if (!ln) return;
+    // 🏫 v0.10.24 — 근무를 여는 인사와 한가할 때는 **오늘이 개학인지 방학인지, 지금이 등교·하교인지**를 보고 말한다.
+    //  날짜는 NEIS 학사일정(서초구 학교 실제 값)에서 오고, 시각 구간은 게임 설계값이다(data/schooltime.json 에 그렇게 적었다).
+    if ((key === 'start' || key === 'idle') && game.school && game.school.ready()) {
+      var sl = game.school.line();
+      if (sl) ln = ['sasu', sl];
+    }
     var w = WHO[ln[0]];
     game.hud.notice(w.tag + ' — ' + ln[1], 'info', 3800);
     if (TG.audio.squelch) TG.audio.squelch();

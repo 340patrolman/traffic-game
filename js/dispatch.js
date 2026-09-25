@@ -42,8 +42,9 @@ TG.Dispatch = function (game) {
     self.dest = { x: node.x, z: node.z, name: self.active.name };
     showMarker(true, node.x, node.z);
     var ct = codeText(code);
-    game.hud.notice('📡 112 ' + ct.name + (ct.what ? '(' + ct.what + ')' : '') + ' — ' + self.active.name + ' 부근. ' +
-                    (code <= 1 ? '긴급 출동: 경광등·사이렌, 교차로는 서행' : '일반 출동: 신호·속도를 지킨다'), 'alert', 6000);
+    if (game.cinema && code <= 1) game.cinema.stamp(ct.name, self.active.name + ' 부근', 'urgent');   // 🎬 v0.10.16 — 코드0·1 은 「출동」의 순간이다
+    game.hud.notice('📡 112 ' + ct.name + ' — ' + self.active.name + ' 부근', 'alert', 3200);   // 📏 v0.10.15 — 자리·남은 시간은 목표 줄에 계속 떠 있다
+    game.hud.hint(code <= 1 ? '긴급 출동 — 경광등·사이렌, 교차로는 서행' : '일반 출동 — 신호·속도를 지킨다');
     if (TG.audio.squelch) TG.audio.squelch();
     if (game.crew) game.crew.say('dispatch', 6, 90);
     if (game.metrics) game.metrics.ev('dispatch');
@@ -69,7 +70,7 @@ TG.Dispatch = function (game) {
   this.update = function (dt) {
     var pl = game.player; if (!pl || !pl.pos) return;
     if (!self.active) {
-      if (game.mode !== 'patrol' || game.state !== 'play' || game.afoot) return;
+      if (!(game.mode === 'patrol' || game.mode === 'open') || game.state !== 'play' || game.afoot) return;
       self.nextT -= dt;
       if (self.nextT <= 0) {
         var ev = cfg.DISPATCH_EVERY || [90, 150];

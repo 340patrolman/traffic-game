@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.10.13';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.10.29';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -31,7 +31,8 @@ TG.CONFIG = {
   BUSLANE_VIOLATOR_RATE: 0.14, // 고속도로 승용차 중 버스전용차로로 달리는 비율
   BUSLANE_WITNESS_SEC: 1.5,
   LANE_VIOLATOR_RATE: 0.18,    // 버스전용차로 없는 고속도로에서 화물·대형승합이 왼쪽 차로(1·2차로)로 달리는 비율
-  TWOW_SIGNAL_RATE: 0.22,      // 이륜차·자전거·개인형 이동장치 가운데 적색에 그대로 진입하는 비율(단속 소재 — 소유자 지시로 넣었다)
+  TWOW_SIGNAL_RATE: 0.22,
+  MOTO_REFUSE_RATE: 0.35,      // 위반한 이륜차 중 정차 요구에 불응하고 달아나는 비율(게임 설계값)      // 이륜차·자전거·개인형 이동장치 가운데 적색에 그대로 진입하는 비율(단속 소재 — 소유자 지시로 넣었다)
   // 단속 하차 「장면」(경찰관이 걸어가 위반사항을 말하는 연출)은 **지금 쓰지 않는다**.
   // 소유자(2026-09-12): 「게임 중 단속을 해서 정차시키고 **하차 후 단속이 완료되는 걸로**. 단속 중요 장면은 보여주지 말자, 그건 나중에.」
   // 코드는 남겨 둔다(js/enforcement.js sceneStart) — true 로 바꾸면 연출이 다시 돈다.

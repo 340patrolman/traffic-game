@@ -58,7 +58,7 @@ TG.Director = function (game) {
     return null;
   }
   this.update = function (dt) {
-    if (game.directorOff || game.mode !== 'patrol' || game.state !== 'play' || sim() || (game.first && game.first.on && game.first.on())) { lastT = now(); return; }   // 검사 모드는 기본으로 끈다(다른 검사에 차가 끼어들지 않게)
+    if (game.directorOff || !(game.mode === 'patrol' || game.mode === 'open') || game.state !== 'play' || sim() || (game.first && game.first.on && game.first.on())) { lastT = now(); return; }   // 검사 모드는 기본으로 끈다(다른 검사에 차가 끼어들지 않게)
     if (busy()) {
       busyT += dt; lastT = now(); wasBusy = true;
       if (busyT >= 4) { busyT = 0; if (game.metrics) game.metrics.ev('busy'); }

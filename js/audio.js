@@ -2,7 +2,7 @@
 TG.audio = (function () {
   var ctx = null, master = null, muted = false, ready = false, volume = 0.32;   // 기본 음량: 은은하게(전체 마스터 0.32)
   function setVolume(v) { volume = TG.clamp(v, 0, 1); if (master && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05); }
-  var engine = null, skid = null, siren = null, sirenOn = false, sirenMode = 'wail', wind = null, ambient = null;
+  var engine = null, skid = null, siren = null, sirenOn = false, sirenMode = 'wail', wind = null, road = null, ambient = null;
   // 현장 소리: 바람(속도에 비례한 저역 노이즈) + 도심 웅웅거림(저음 화음) — 모두 합성
   function buildAmbient() {
     var src = ctx.createBufferSource(); src.buffer = noiseBuffer(2.0); src.loop = true;
@@ -10,6 +10,12 @@ TG.audio = (function () {
     var g = ctx.createGain(); g.gain.value = 0;
     src.connect(f); f.connect(g); g.connect(master); src.start();
     wind = { g: g, f: f };
+    // 🛞 노면 소음: 넓은 저역 노이즈(포장) — 비포장에서는 필터를 열어 더 거칠게 들린다
+    var rsrc = ctx.createBufferSource(); rsrc.buffer = noiseBuffer(2.0); rsrc.loop = true;
+    var rf = ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 220; rf.Q.value = 0.6;
+    var rg = ctx.createGain(); rg.gain.value = 0;
+    rsrc.connect(rf); rf.connect(rg); rg.connect(master); rsrc.start();
+    road = { g: rg, f: rf };
     var g2 = ctx.createGain(); g2.gain.value = 0.012;
     [55, 82.4, 110].forEach(function (fr, i) { var o = ctx.createOscillator(); o.type = i === 1 ? 'triangle' : 'sine'; o.frequency.value = fr; var lf = ctx.createGain(); lf.gain.value = 0.5; o.connect(lf); lf.connect(g2); o.start(); });
     g2.connect(master);
@@ -33,6 +39,11 @@ TG.audio = (function () {
   var F_NAMES = /heami|sunhi|선희|여성|female|yuna|유나|nari|ji-?min|지민|아라|ara|mi-?jin/i;
   var M_NAMES = /injoon|인준|남성|male|minsu|민수|gook|국민|jinho|진호|bongjin/i;
   function voiceScore(v) {
+    // v0.10.23: 온라인(신경망) 목소리를 앞세운다 — 옛 로컬 합성음(SAPI)이 「기계음」의 정체다.
+    if (v && v.localService === false) return 20 + voiceScore0(v);
+    return voiceScore0(v);
+  }
+  function voiceScore0(v) {
     var n = v.name || '';
     var s = 1;
     if (/google/i.test(n)) s += 3;                       // Google 한국의 — 가장 사람 같다
@@ -89,6 +100,17 @@ TG.audio = (function () {
     t = t.replace(/[(]\s*[+\-\u2212]\s*\d+\s*[)]/g, ' ');   // 「(+30)」 같은 점수 표기는 읽지 않는다
     t = t.replace(/[\u2460-\u2473]/g, function (c) { return ' 제' + (c.charCodeAt(0) - 0x245F) + '항 '; });   // ①②③ → 제1항(조문을 또박또박 읽지 않게)
     t = t.replace(/[⚠️✅🚨🚧🔥📡📢🪝⭐🛑👀✋🚶🟢🟡🔴💭🕯🚸]/g, ' ');
+    // 🗣 v0.10.23 — 기계음의 절반은 「숫자를 글자대로 읽는 것」에서 온다(소유자: 「너무 기계적인 음성을 좀더 자연스럽게」).
+    t = t.replace(/\b112\b/g, '일일이').replace(/\b119\b/g, '일일구').replace(/\b182\b/g, '일팔이');   // 무전에서 「백십이」로 읽히던 것
+    t = t.replace(/(\d{1,2}):(\d{2})/g, function (m, h, mi) {   // 08:30 → 여덟 시 삼십 분
+      var KH = ['열두', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열한', '열두',
+                '열세', '열네', '열다섯', '열여섯', '열일곱', '열여덟', '열아홉', '스무', '스물한', '스물두', '스물세'];
+      var hh = KH[+h] || h;
+      return hh + ' 시' + (+mi ? ' ' + (+mi) + '분' : '');
+    });
+    t = t.replace(/(\d+)\s*~\s*(\d+)/g, '$1에서 $2').replace(/%/g, '퍼센트');
+    t = t.replace(/(\d+)\s*조\s*(\d+)\s*항/g, '제$1조 제$2항');
+    t = t.replace(/\.{3}|…/g, ', ');                   // 말줄임은 쉼으로 읽는다
     t = t.replace(/\(\s*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
     if (t && !/[.!?…]$/.test(t)) t += '.';        // 끝에 마침표가 있으면 문장을 닫아 억양이 내려간다
     return t;
@@ -113,8 +135,10 @@ TG.audio = (function () {
         if (!parts[i]) continue;
         var u = new SpeechSynthesisUtterance(parts[i]);
         u.lang = 'ko-KR';
-        u.rate = (opts.rate || kind.rate) + jitter * 0.5;
-        u.pitch = (opts.pitch || kind.pitch) + jitter;
+        // 🗣 토막마다 살짝 내려간다 — 사람은 문장 끝으로 갈수록 음이 낮아진다(단조로움이 기계음의 정체다)
+        var fall = parts.length > 1 ? (i / (parts.length - 1)) : 0;
+        u.rate = (opts.rate || kind.rate) + jitter * 0.5 - fall * 0.02;
+        u.pitch = (opts.pitch || kind.pitch) + jitter - fall * 0.05;
         u.volume = muted ? 0 : (opts.volume || 1);
         if (v) u.voice = v;
         if (first) { u.onstart = function () { speaking = opts.kind || 'officer'; }; first = false; }
@@ -218,7 +242,7 @@ TG.audio = (function () {
   }
   function setPowertrain(kind) { powertrain = kind === 'ev' ? 'ev' : 'ice'; gear = 1; rpmSm = 0.2; }
   // 매 프레임: speedNorm 0..1(최고속 대비), throttle 0..1, skidLevel 0..1, kmh, decel(감속 중이면 true)
-  function update(dt, speedNorm, throttle, skidLevel, kmh, decel) {
+  function update(dt, speedNorm, throttle, skidLevel, kmh, decel, roughN) {
     if (!ready) return;
     // Web Audio 는 non-finite 값을 받으면 예외를 던져 그 프레임을 죽인다 — 들어오는 값을 먼저 막는다.
     function fin(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; }
@@ -264,6 +288,11 @@ TG.audio = (function () {
     }
     skid.g.gain.setTargetAtTime(skidLevel > 0 ? 0.05 + skidLevel * 0.22 : 0, ctx.currentTime, 0.05);
     if (wind) { wind.g.gain.setTargetAtTime(speedNorm * speedNorm * 0.09, ctx.currentTime, 0.2); wind.f.frequency.setTargetAtTime(300 + speedNorm * 900, ctx.currentTime, 0.2); }
+    if (road) {   // 🛞 노면 소음 — 속도에 비례(정지하면 0), 비포장은 더 크고 거칠다
+      var rough = TG.clamp(roughN || 0, 0, 1), rl = kmh > 1 ? Math.min(1, kmh / 90) : 0;
+      road.g.gain.setTargetAtTime(rl * (0.02 + rough * 0.06), ctx.currentTime, 0.12);
+      road.f.frequency.setTargetAtTime(180 + rl * 260 + rough * 700, ctx.currentTime, 0.2);
+    }
     skid.f.frequency.setTargetAtTime(1400 + skidLevel * 900, ctx.currentTime, 0.1);
     if (turbo) {   // 🔥 터보 스풀 — 회전수·속도에 따라 휘파람이 올라간다(비스트 모드에서만 들린다)
       turbo.o.frequency.setTargetAtTime(420 + rpmSm * 2400 + kmh * 7, now, 0.08);
@@ -559,6 +588,7 @@ TG.audio = (function () {
     var send = ctx.createGain(); send.gain.value = 0.28;
     bus.connect(comp); comp.connect(master); bus.connect(send); send.connect(reverb());
     bus.gain.linearRampToValueAtTime(0.62, ctx.currentTime + 1.2);
+    dutyMute(true);   // 🎵 두 곡이 겹치지 않게 — 추격 음악이 도는 동안 근무 스코어는 숨는다
     chase = { bus: bus, nodes: [], timer: null, k: 0, tension: 0 };
     var BPM = 132, beat = 60 / BPM, N = { D1: 36.71, A1: 55, Bb1: 58.27, D2: 73.42, F2: 87.31, A2: 110, Bb2: 116.54, D3: 146.83, F3: 174.61 };
     // 저음 드론(계속) — 긴장도로 밝기가 바뀐다
@@ -616,12 +646,85 @@ TG.audio = (function () {
     chase.bus.gain.setTargetAtTime(0.5 + chase.tension * 0.35, ctx.currentTime, 0.3);
   }
   function stopChaseTheme(fade) {
+    dutyMute(false);
     if (!chase) return;
     var th = chase; chase = null; var f = fade === undefined ? 1.2 : fade, now = ctx.currentTime;
     if (th.timer) clearTimeout(th.timer);
     th.bus.gain.setValueAtTime(th.bus.gain.value, now); th.bus.gain.linearRampToValueAtTime(0, now + f + 0.001);
     setTimeout(function () { th.nodes.forEach(function (n) { try { n.stop(); } catch (e) { } }); try { th.bus.disconnect(); } catch (e) { } }, (f + 0.05) * 1000);
   }
+  // 🎵 근무 스코어(v0.10.17) — 순찰 중 낮게 깔리다가 **일이 생기면 올라오는** 적응형 음악.
+  //  ① 드론(늘)  ② 낮은 맥박(1초)  ③ 셰이커(긴장 0.35~)  ④ 두 음 오스티나토(긴장 0.6~)
+  //  음량은 **말소리를 덮지 않게** 낮게 잡았다 — 말하는 동안에는 스스로 더 낮춘다(더킹). 전부 합성이고 오디오 파일은 0개다.
+  var duty = null;
+  function dutyScore() {
+    if (!ensure() || ctx.state !== 'running' || duty) return false;
+    var now = ctx.currentTime + 0.05, bus = ctx.createGain(); bus.gain.value = 0.0001;
+    var send = ctx.createGain(); send.gain.value = 0.4;
+    bus.connect(master); bus.connect(send); send.connect(reverb());
+    bus.gain.linearRampToValueAtTime(0.26, now + 2.2);
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 460; lp.Q.value = 0.8; lp.connect(bus);
+    duty = { bus: bus, lp: lp, nodes: [], timer: null, k: 0, tension: 0, duck: 1, muted: false };
+    var N = { D1: 36.71, A1: 55, D2: 73.42, F2: 87.31, A2: 110, D3: 146.83 };
+    [N.D1, N.D2, N.A1].forEach(function (f, i) {
+      var o = ctx.createOscillator(); o.type = i === 2 ? 'triangle' : 'sine'; o.frequency.value = f;
+      var g = ctx.createGain(); g.gain.value = i === 0 ? 0.26 : i === 1 ? 0.13 : 0.05;
+      o.connect(g); g.connect(lp); o.start(now); duty.nodes.push(o);
+    });
+    var STEP = 1.0, base = now + 0.4;
+    function tick() {
+      if (!duty) return;
+      var t = base + duty.k * STEP; if (t < ctx.currentTime) { base = ctx.currentTime; t = base; }
+      var T = duty.tension, k = duty.k;
+      var d = ctx.createOscillator(); d.type = 'sine';
+      d.frequency.setValueAtTime(92, t); d.frequency.exponentialRampToValueAtTime(46, t + 0.26);
+      var dg = ctx.createGain(); dg.gain.setValueAtTime(0.0001, t);
+      dg.gain.exponentialRampToValueAtTime(0.05 + T * 0.13, t + 0.014); dg.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      d.connect(dg); dg.connect(bus); d.start(t); d.stop(t + 0.75);
+      if (T > 0.35) {
+        [0, 0.5].forEach(function (off) {
+          var hs = ctx.createBufferSource(); hs.buffer = noiseBuffer(0.05);
+          var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 6400;
+          var hg = ctx.createGain(); var hv = (off ? 0.012 : 0.02) * (T - 0.2);
+          hg.gain.setValueAtTime(hv, t + off); hg.gain.exponentialRampToValueAtTime(0.0001, t + off + 0.05);
+          hs.connect(hp); hp.connect(hg); hg.connect(bus); hs.start(t + off); hs.stop(t + off + 0.07);
+        });
+      }
+      if (T > 0.6) {
+        var f2 = (k % 2) ? N.D3 : N.A2, o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f2;
+        var g2 = ctx.createGain(), p2 = panner(k % 2 ? 0.3 : -0.3);
+        g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.03 + (T - 0.6) * 0.06, t + 0.04);
+        g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+        o2.connect(g2); g2.connect(p2); p2.connect(bus); o2.start(t); o2.stop(t + 1.0);
+      }
+      duty.k++;
+      duty.timer = setTimeout(tick, STEP * 1000);
+    }
+    tick();
+    return true;
+  }
+  // 긴장도 0~1 — 사이렌·단속·출동·현장이 겹칠수록 올라간다. 말하는 동안에는 더킹한다.
+  function dutyTension(v, ducking) {
+    if (!duty || !isFinite(v)) return;
+    duty.tension = Math.max(0, Math.min(1, v));
+    duty.duck = ducking ? 0.45 : 1;
+    if (duty.lp) duty.lp.frequency.setTargetAtTime(420 + duty.tension * 760, ctx.currentTime, 0.4);
+    var g = duty.muted ? 0.0001 : (0.20 + duty.tension * 0.30) * duty.duck;
+    duty.bus.gain.setTargetAtTime(g, ctx.currentTime, 0.45);
+  }
+  function dutyMute(on) {   // 추격 음악이 도는 동안에는 근무 스코어를 숨긴다(두 곡이 겹치면 소음이다)
+    if (!duty) return;
+    duty.muted = !!on;
+    duty.bus.gain.setTargetAtTime(on ? 0.0001 : (0.20 + duty.tension * 0.30) * duty.duck, ctx.currentTime, on ? 0.35 : 0.8);
+  }
+  function stopDutyScore(fade) {
+    if (!duty) return;
+    var th = duty; duty = null; var f = fade === undefined ? 1.0 : fade, now = ctx.currentTime;
+    if (th.timer) clearTimeout(th.timer);
+    th.bus.gain.setValueAtTime(th.bus.gain.value, now); th.bus.gain.linearRampToValueAtTime(0, now + f + 0.001);
+    setTimeout(function () { th.nodes.forEach(function (n) { try { n.stop(); } catch (e) { } }); try { th.bus.disconnect(); } catch (e) { } }, (f + 0.05) * 1000);
+  }
+  function dutyDebug() { return duty ? { on: true, g: +duty.bus.gain.value.toFixed(4), t: +duty.tension.toFixed(2), f: Math.round(duty.lp.frequency.value), muted: duty.muted } : null; }
   var titleTh = null;
   function titleTheme() {
     if (!ensure() || ctx.state !== 'running' || titleTh || theme) return false;
@@ -664,7 +767,9 @@ TG.audio = (function () {
   }
   function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : volume, ctx.currentTime, 0.05); }
 
-  return { resume: resume, update: update, setSiren: setSiren, sirenTone: sirenTone, beast: beast, blowOff: blowOff, passBy: passBy, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
-           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, skidBurst: skidBurst, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme, get running() { return ready && ctx.state === 'running'; },
+  function roadDebug() { return road ? { g: +road.g.gain.value.toFixed(4), f: Math.round(road.f.frequency.value) } : null; }   // 🛞 검사·점검용(읽기만)
+  return { sayDebug: sayText, roadDebug: roadDebug, resume: resume, update: update, setSiren: setSiren, sirenTone: sirenTone, beast: beast, blowOff: blowOff, passBy: passBy, setPowertrain: setPowertrain, setVolume: setVolume, thump: thump, ui: ui, squelch: squelch, bell: bell, say: say, good: good,
+           sayText: sayText, voices: voices, setVoice: setVoice, voiceName: voiceName, footstep: footstep, tick: tick, crossSignal: crossSignal, jingle: jingle, pop: pop, whoosh: whoosh, totIce: totIce, totGo: totGo, totDing: totDing, totBoing: totBoing, totClap: totClap, totFanfare: totFanfare, totCar: totCar, totBelt: totBelt, horn: horn, skidBurst: skidBurst, shutter: shutter, rain: rain, get speaking() { return speaking; }, bad: bad, alert: alert, pa: pa, introTheme: introTheme, stopIntro: stopIntro, titleTheme: titleTheme, stopTitleTheme: stopTitleTheme, chaseTheme: chaseTheme, chaseTension: chaseTension, stopChaseTheme: stopChaseTheme,
+           dutyScore: dutyScore, dutyTension: dutyTension, stopDutyScore: stopDutyScore, dutyDebug: dutyDebug, get running() { return ready && ctx.state === 'running'; },
            setMuted: setMuted, get muted() { return muted; }, get ready() { return ready; } };
 })();

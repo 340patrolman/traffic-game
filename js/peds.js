@@ -29,10 +29,18 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   }
   function limbGeo(color, len, w) { var key = 'l' + color + ':' + len + ':' + w; if (geo[key]) return geo[key]; var gb = new TG.GeoBuilder(); gb.box(0, -len / 2, 0, w, len, w, color, {}); return (geo[key] = gb.build()); }
   // 행인 몸: TG.Character.lite(얼굴·머리카락·신발·가방·모자·치마, 메시 5개). 옷·피부·머리색은 무작위
+  this.ageMix = null;   // { kid, senior } — 동별 연령 구성(행안부). null 이면 종전처럼 어른만.
   function makeMesh(p) {
     var shirt = TG.pick(rng, SHIRTS), pants = TG.pick(rng, PANTS), skin = TG.pick(rng, SKINS), hair = TG.pick(rng, HAIRS);
+    // 👥 v0.10.26 — 어린이는 작고 걸음이 짧다 · 노인은 흰머리에 걸음이 느리다. 비율은 그 동의 실제 연령 구성에서 온다.
+    var mx = self.ageMix, rr = rng();
+    p.age = 'adult';
+    if (mx) { if (rr < mx.kid) p.age = 'kid'; else if (rr < mx.kid + mx.senior) p.age = 'senior'; }
+    if (p.age === 'senior') hair = 0xd8d8d8;
     var r = TG.Character.lite({ shirt: shirt, pants: pants, skin: skin, hair: hair, bag: rng() < 0.3, hat: rng() < 0.12 ? TG.pick(rng, [0x2b2f38, 0xe0b84a, 0xd94f4f]) : 0, female: rng() < 0.45, shoe: rng() < 0.5 ? 0x2a2a2a : 0xe8e2d4 });
-    var g = r.group; p.limbs = r.limbs; p.scale = 0.9 + rng() * 0.2; g.scale.set(p.scale, p.scale, p.scale);
+    var g = r.group; p.limbs = r.limbs; p.scale = 0.9 + rng() * 0.2;
+    if (p.age === 'kid') p.scale *= 0.72; else if (p.age === 'senior') p.scale *= 0.96;
+    g.scale.set(p.scale, p.scale, p.scale);
     return g;
   }
   // 이 행인이 걷는 보도선의 오프셋(자기 도로 기준)
@@ -54,7 +62,10 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
                 // (소유자: 「인트로에서 사람들이 너무 많이 무단횡단을 한다. 좋은세상을 보여줘야지」).
                 jaywalker: opts.jaywalker !== undefined ? opts.jaywalker : (self.noJaywalk ? false : rng() < 0.07),
                 jayT: 0, jayDone: false, warned: false, jayLive: false };
-      var m = makeMesh(p); m.position.set(x, 0.2, z); m.rotation.y = TG.DIR_HEADING[d]; m.userData.ped = p; scene.add(m); p.mesh = m; peds.push(p);
+      var m = makeMesh(p);
+      // 나이에 따라 걸음이 다르다 — 어린이는 종종걸음, 노인은 느리다(보행 신호 시간 논의와 같은 결)
+      if (p.age === 'kid') p.speed *= 0.86; else if (p.age === 'senior') p.speed *= 0.78;
+      m.position.set(x, 0.2, z); m.rotation.y = TG.DIR_HEADING[d]; m.userData.ped = p; scene.add(m); p.mesh = m; peds.push(p);
       return p;
     }
     return null;

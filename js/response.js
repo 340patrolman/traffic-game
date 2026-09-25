@@ -66,7 +66,8 @@ TG.Response = function (game) {
     behind = along > 3 && along < farBack && Math.abs(dx2 * -pf2[1] + dz2 * pf2[0]) < (near.incident.kind === 'crash' ? 16 : 9);
     if (inc.notice <= 0) {
       inc.notice = 7;
-      game.hud.notice('⚠ ' + kindTxt + ' 발견 — 경광등 켜고 뒤에 정차 → 📡 무전으로 견인·구급 요청', 'alert', 4200);
+      game.hud.notice('⚠ ' + kindTxt + ' 발견', 'alert', 2600);
+      game.hud.hint('경광등을 켜고 현장 뒤에 정차 → 📡 무전으로 견인·구급 요청');
       game.hud.hint('현장 뒤에 서서 뒤차를 막아 준다. 삼각대 안쪽으로 들어가지 않는다');
     }
     // 사고 현장은 **안전조치가 갖춰져야** 끝난다(T-Book 2차사고 철칙: 라바콘 후방 3중 → 순찰차 쉴드 → 본선 체류 최소화).
@@ -83,7 +84,7 @@ TG.Response = function (game) {
       game.addScore(S.incident, null); game.stats.incidents = (game.stats.incidents || 0) + 1; if (game.story && game.story.onIncident) game.story.onIncident(near);
       // 순찰차 방패(후방 30~50m · 약 15도)로 섰으면 가점 — T-Book 「순찰차를 방패로」
       if (crash && sc && shield && shield.ok) { game.addScore(S.sceneShield || 10, null); game.stats.shields = (game.stats.shields || 0) + 1; }
-      game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 — 견인·구급 요청, 후방 보호 (+' + S.incident + ')', 'good', 4200);
+      game.hud.notice('✅ ' + kindTxt + ' 안전조치 완료 (+' + S.incident + ')', 'good', 2600);
       game.hud.pop('✅ +' + S.incident, 'good'); TG.audio.jingle(3);
       if (game.praise) { game.praise.cheer('help', 45, { feed: '현장 안전조치 🛠', voice: true }); game.praise.medal('scene-safe', '현장을 지켰다', 30); }   // 보람 — 어려운 사람을 돕는 쪽이 제일 크게 쳐 준다
       TG.audio.say(kindTxt + ' 안전조치 완료. 견인 요청했습니다', { kind: 'officer', queue: true });
@@ -109,6 +110,29 @@ TG.Response = function (game) {
 
   // ---------- 📹 블랙박스 영상 단속 ----------
   // 정차시키지 않고 영상으로 기록해 통고처분을 의뢰한다. 이륜차·자전거·PM 의 단순 위반은 이것이 정답.
+  // 📋 발생보고(KICS) — v0.10.29. 소유자 현장 지시(경찰 내부 게시판 실무 의견 2026-09):
+  //  「이륜차가 위반하고 정차를 거부할 시 **발생보고**로 처리하면 됨.」
+  //  추격하지 않고 채증한 뒤 도로교통법위반 발생보고를 올리면, 사고조사팀이 운전자를 불러 통고처분하고
+  //  사안에 따라 난폭운전(제46조의3)으로 간다. **순찰차 블랙박스로 안전신문고 신고는 안 된다**(현장 의견).
+  //  법령 문구는 코드에 없다 — laws.json 의 fieldReport 에서만 읽는다.
+  this.pending = null;
+  this.canReport = function () { return !!self.pending; };
+  this.report = function () {
+    if (game.state !== 'play' || game.paused) return false;
+    var p = self.pending;
+    if (!p) { game.hud.notice('발생보고: 채증한 정차 불응 대상이 없습니다', 'warn', 2200); return false; }
+    var F = game.laws && game.laws.fieldReport;
+    self.pending = null;
+    self.state.reports = (self.state.reports || 0) + 1;
+    game.stats.reports = (game.stats.reports || 0) + 1;
+    game.addScore(S.video, null);
+    var who = (p.name && p.name.indexOf(p.kind) === 0) ? p.name : (p.kind + ' ' + p.name);
+    game.hud.notice('📋 발생보고 — ' + who + ' · 도로교통법위반 발생보고 올림', 'good', 3200);
+    game.hud.hint('💭 사고조사팀이 운전자를 불러 통고처분한다 — 사안에 따라 난폭운전까지 간다' + (F && F.no ? ' · ' + F.no : ''));
+    TG.audio.say('상황실, ' + who + ', 정차 불응. 채증 완료, 도로교통법위반 발생보고 올리겠습니다', { kind: 'officer', queue: true });
+    if (game.praise) game.praise.cheer('help', '📋 추격하지 않고 정석대로');
+    return true;
+  };
   this.blackbox = function (only) {
     if (game.state !== 'play' || game.paused) return false;
     var car = only || target(70);
@@ -117,7 +141,8 @@ TG.Response = function (game) {
     game.hud.flash(); TG.audio.shutter();
     if (t === 'A') {   // 중대 위반은 영상만으로 끝내지 않는다
       game.addScore(S.videoLow, null);
-      game.hud.notice('📹 영상 기록 — ' + kn + ' ' + nm + '. 중대 위반은 영상만으로 끝내지 않습니다(무전 전파 → 정차 유도)', 'alert', 4200);
+      game.hud.notice('📹 영상 기록 — ' + kn + ' ' + nm, 'alert', 3200);
+      game.hud.hint('중대 위반은 영상만으로 끝내지 않는다 — 무전 전파 → 정차 유도');
       car.videoed = true; self.state.videos++;
       return true;
     }
@@ -132,6 +157,8 @@ TG.Response = function (game) {
     game.hud.notice(lines.join(' · '), 'good', 4200);
     game.hud.pop('📹 +' + (t === 'C' ? S.video : S.videoLow), 'good');
     TG.audio.say(kn + ' ' + nm + ', 영상 기록. 통고처분 의뢰합니다', { kind: 'officer', queue: true });
+    // 📋 정차 불응으로 달아난 이륜차 등은 **발생보고 대상**으로 남긴다(소유자 현장 지시 2026-09-25)
+    if (car.refused) self.pending = { kind: kn, name: nm, type: (car.violation && car.violation.type) || null, at: game.traffic ? game.traffic.time : 0 };
     // 영상으로 처리한 대상은 더 이상 쫓지 않는다(표시 해제)
     car.violation = null; if (car.marker) car.marker.visible = false;
     if (game.selected && game.selected.car === car) game.selectTarget && game.selectTarget(null);
@@ -153,6 +180,7 @@ TG.Response = function (game) {
       car.radioed = true; self.state.radios++; game.stats.radios = (game.stats.radios || 0) + 1; if (game.story) game.story.onRadio(car);
       var it = car.incident.kind === 'crash' ? '교통사고' : '고장차량', wi = placeName(car);
       // **후미 안전조치 순찰차**가 같이 온다(T-Book 「순찰차를 후방 방패로」 · 소유자 「되도록 후미 안전조치 순찰차가 있어야」).
+      if (game.iscene && game.iscene.callAfterRadio) game.iscene.callAfterRadio(car);   // 🚑 구급·견인차가 8~14초 뒤 도착
       if (game.iscene && game.iscene.callBackup) { var bk = game.iscene.callBackup(car); if (bk && bk.ok) { game.addScore(S.towBackup || 10, null); game.stats.backups = (game.stats.backups || 0) + 1; } }
       game.addScore(S.radio, null);
       game.hud.notice('📡 무전 — ' + wi + ' ' + it + '. ' + (it === '교통사고' ? '구급차·견인차 요청, 후방 차단합니다' : '견인차 요청, 후방 차단합니다'), 'alert', 4200);
@@ -179,6 +207,7 @@ TG.Response = function (game) {
   // 등급 C 를 사이렌 켜고 바짝 붙어 빠르게 쫓으면 경고 → 계속하면 감점(추격 금지 원칙). 등급 A 는 무전 전파 전 추격만 감점.
   this.update = function (dt) {
     incidentUpdate(dt);
+    document.body.classList.toggle('can-kics', !!self.pending);
     for (var i = pending.length - 1; i >= 0; i--) {
       var p = pending[i]; p.t -= dt;
       if (p.t <= 0) {
@@ -201,6 +230,14 @@ TG.Response = function (game) {
       if (d < bd && dx * pf[0] + dz * pf[1] > 0) { bd = d; near = c; }
     });
     var st = self.state;
+    // 🏍 정차 불응(v0.10.29) — 경광등을 켠 순찰차가 25m 안으로 붙으면 **달아나는 이륜차**가 있다.
+    //  추격하지 않는다(등급 C). 채증 → 발생보고가 정석이라고 화면이 먼저 알려 준다.
+    if (near && pl.siren && near.refuser && !near.refused && tierOf(near) === 'C' && bd < 25) {
+      near.refused = true; near.flee = true; near.fleeT = 0; near.speedK = Math.max(near.speedK || 1, 1.35);
+      game.hud.notice('🏍 정차 불응 — 달아납니다. 쫓지 말고 📹 채증 → 📋 발생보고', 'alert', 3200);
+      game.hud.hint('💭 승무석에서 휴대전화로 찍는 것이 블랙박스보다 낫다 — 번호만 특정되면 된다');
+      if (game.crew) game.crew.say('idle', 2.4, 40);
+    }
     if (near && pl.siren && kmh > 38) {
       var t2 = tierOf(near);
       if (t2 === 'C') {

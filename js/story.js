@@ -191,7 +191,7 @@ TG.Story = function (game) {
     b.className = 'on';
     b.innerHTML = '<i>📋 ' + esc(st.name) + ' ' + (st.i + 1) + '/' + st.steps.length + '</i><b>' + esc(s.goal) + '</b>';
   }
-  function notice(t, kind, ms) { if (G.hud) G.hud.notice(t, kind || 'info', ms || 4200); }
+  function notice(t, kind, ms) { if (G.hud) G.hud.notice(t, kind || 'info', ms || 2600); }
   function stepDone(bonus) {
     var s = st.steps[st.i];
     st.log.push({ goal: s.goal, ok: true });
@@ -214,7 +214,7 @@ TG.Story = function (game) {
     }
     if (s.k === 'go') {
       st.node = (st.spec && st.spec.place && nodeByName(st.spec.place)) || pickNode(null);
-      notice('📋 ' + st.name + ' — ' + s.goal + ' · ' + city.nodeName(st.node), 'alert', 5200);
+      notice('📋 ' + st.name + ' — ' + city.nodeName(st.node), 'alert', 2800);   // 📏 v0.10.15 — 목표 글은 목표 줄(#missionBar)에 계속 떠 있다
       if (G.hud && G.hud.setTarget) G.hud.setTarget('📋 ' + city.nodeName(st.node) + ' 으로');
     } else if (s.k === 'stop' || s.k === 'video') {
       var face = faceById(s.face);
@@ -227,7 +227,7 @@ TG.Story = function (game) {
       if (G.hud && G.hud.hintNow) G.hud.hintNow('🚦 녹색이어도 앞이 막히면 들어가지 않는다(§25⑤) — 교차로 안에 선 차를 🚨 단속');
     } else if (s.k === 'hw') {
       st.place = hwSpot(st.spec && st.spec.spot);
-      if (st.place) { notice('📋 ' + st.name + ' — ' + s.goal, 'alert', 5200); if (G.hud && G.hud.setTarget) G.hud.setTarget('📋 ' + st.place.name); }
+      if (st.place) { notice('📋 ' + st.name, 'alert', 2400); if (G.hud && G.hud.setTarget) G.hud.setTarget('📋 ' + st.place.name); }
       else { line(); setTimeout(function () { if (st && !st.done && st.steps[st.i] === s) stepDone(0); }, 10); return; }   // 이 지도에 서초IC 연결로가 없으면 다음 단계로
     } else if (s.k === 'scene') {
       var sp = st.place;
@@ -235,7 +235,7 @@ TG.Story = function (game) {
       st.incident = sp ? G.traffic.spawnIncident(kindS, { x: sp.x, z: sp.z, heading: sp.heading }) : null;
       notice(kindS === 'crash' ? '🚧 사고 현장 — 경광등을 켜고 현장 뒤에 세워 차로를 막는다' : '🚧 고장차량 발견 — 경광등을 켜고 현장 뒤에 세워 안전조치', 'warn', 4600);
     } else if (s.k === 'radio') {
-      notice('📋 ' + s.goal, 'alert', 4600);
+      notice('📋 ' + s.goal, 'alert', 2600);
       if (G.hud && G.hud.hintNow) G.hud.hintNow('📡 무전 단추(T)로 조회한다');
     } else if (s.k === 'again') {
       st.node = pickNode(st.node);
@@ -304,7 +304,8 @@ TG.Story = function (game) {
     });
     saveDb();
     if (ok) {
-      notice('✅ 작전 종료 — ' + st.name + ' (' + st.log.length + '/' + st.steps.length + ' 단계)', 'good', 5600);
+      if (G.cinema) G.cinema.stamp('작전 종료', st.name, 'gold');   // 🎬 v0.10.16
+      notice('✅ 작전 종료 — ' + st.name, 'good', 2400);
       if (G.praise) { G.praise.medal('chain-' + st.id, '작전 완료 · ' + st.name, 40); }
       changed.forEach(function (f) {
         notice('👤 ' + f.name + ' — 다음에는 ' + f.fix, 'good', 5200);
@@ -320,7 +321,7 @@ TG.Story = function (game) {
 
   // ---------- 바깥에서 부르는 것 ----------
   this.start = function () {
-    if (G.mode !== 'patrol') { st = null; line(); return false; }
+    if (!(G.mode === 'patrol' || G.mode === 'open')) { st = null; line(); return false; }
     if (st && !st.done) return false;                              // 이미 돌고 있으면 다시 시작하지 않는다(근무 시작 예약과 겹칠 수 있다)
     var prev = (TG.save.get('story', {}) || {}).last, h = hourNow(), doneNow = {};
     shiftLog.forEach(function (x) { doneNow[x.id] = 1; });

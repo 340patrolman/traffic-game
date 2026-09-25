@@ -34,7 +34,7 @@ TG.IncidentScene = function (game) {
   function begin(car) {
     var fr = frameOf(car); if (!fr) return null;
     S = { car: car, axis: fr.axis, idx: fr.idx, d: fr.d, lanes: fr.lanes, center: fr.center,
-          closed: 0, need: needOf(fr.lanes), cones: [], flares: [], group: null, zones: [] };
+          closed: 0, need: needOf(fr.lanes), cones: [], flares: [], group: null, zones: [], respT: 0, responders: null };
     return S;
   }
   self.state = function () { return S; };
@@ -153,6 +153,35 @@ TG.IncidentScene = function (game) {
     S.backup = c; return { ok: true, back: back };
   };
   self.hasBackup = function (car) { return !!(S && S.car === car && S.backup); };
+  // 무전을 받은 순간 도착 시계를 건다(현장이 아직 안 열렸으면 열고 건다)
+  self.callAfterRadio = function (car) {
+    if (!car) return false;
+    if (!S || S.car !== car) { if (!begin(car)) return false; }
+    if (S.responders || S.respT > 0) return false;
+    S.respT = 8 + Math.random() * 6;
+    return true;
+  };
+  // 🚑🚒🛻 무전으로 부른 차들이 실제로 온다(v0.10.21) — 고장차면 견인차, 사고면 구급차(+ 소방차).
+  //  **판정·점수는 이 차들과 무관하다** — 현장 안전조치는 여전히 경찰이 하는 일이다. 현장을 실제 그림으로 채우는 층이다.
+  self.callResponders = function (car) {
+    if (!car || !S || S.car !== car || S.responders) return { ok: false };
+    if (!game.traffic.spawnResponder) return { ok: false };
+    var crash = car.incident && car.incident.kind === 'crash';
+    var kinds = crash ? ['amb', 'tow'] : ['tow'];
+    if (crash && Math.random() < 0.45) kinds.push('fire');
+    var f = TG.DIR_VEC[S.d], r = [-f[1], f[0]], made = [];
+    for (var i = 0; i < kinds.length; i++) {
+      // 현장 **앞쪽** 갓길에 차례로 세운다(뒤는 순찰차 방패 자리다 — 겹치면 둘 다 못 본다)
+      var off = city.shoulderOff(S.axis, S.idx) - 0.6, ahead = 16 + i * 9, cx, cz;
+      if (S.axis === 'v') { cx = S.center + r[0] * off; cz = car.pos.z + f[1] * ahead; }
+      else { cz = S.center + r[1] * off; cx = car.pos.x + f[0] * ahead; }
+      var c = game.traffic.spawnResponder(kinds[i], { x: cx, z: cz, heading: TG.DIR_HEADING[S.d] });
+      if (c) made.push(c);
+    }
+    if (!made.length) return { ok: false };
+    S.responders = made;
+    return { ok: true, kinds: kinds };
+  };
   // ---------- 견인고리·견인줄 ----------
   // T-Book 「서초경찰서는 모든 순찰차에 견인고리·견인줄을 상시 적재한다 … 사고·고장 차량을 차로에 계속 두는 것 자체가
   // 2차사고를 부른다. 견인차 도착을 기다리며 본선에 세워 두는 것보다, 가능한 경우 순찰차로 즉시 안전한 곳까지 끌어내는 것이 원칙」.
@@ -267,6 +296,17 @@ TG.IncidentScene = function (game) {
   self.towDone = function () { if (TOW && TOW.car) TOW.car.towing = false; self.towCut(); TOW = null; };
   self.update = function (dt) {
     if (!S) return;
+    // 🚑 부른 차가 도착한다 — 무전 뒤 8~14초(게임 설계값). 즉시 나타나면 무전이 뜻을 잃는다.
+    if (S.respT > 0) {
+      S.respT -= dt;
+      if (S.respT <= 0) {
+        var rr = self.callResponders(S.car);
+        if (rr && rr.ok && game.hud) {
+          var nm = { amb: '구급차', fire: '소방차', tow: '견인차' };
+          game.hud.notice('🚑 ' + rr.kinds.map(function (k) { return nm[k]; }).join(' · ') + ' 도착 — 현장 앞 갓길', 'good', 2400);
+        }
+      }
+    }
     for (var i = 0; i < S.flares.length; i++) {
       var g = S.flares[i].userData.glow;
       if (g) { var p = 1 + 0.22 * Math.sin(game.time ? game.time * 9 + i : Date.now() / 90 + i); g.scale.set(2.6 * p, 2.6 * p, 1); }

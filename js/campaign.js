@@ -130,13 +130,21 @@ TG.Campaign = function (game) {
     var c = self.current(); game.chapterRun = c ? c.id : null;
     if (!c) return;
     if (c.setup) { try { c.setup(game); } catch (e) { console.warn('[campaign] setup', c.id, e); } }
-    game.hud.notice('📖 ' + c.month + ' 「' + c.title + '」 — ' + c.goals.map(function (g) { return g.t; }).join(' · '), 'info', 4500);
+    // 🎬 v0.10.16 — 안내문 두 줄로 알리던 것을 **시네마틱 카드 한 번**으로. 글은 그대로이고 자리와 연출만 바뀐다.
+    var brief = game.cinema && game.cinema.brief({
+      kick: ACTS[c.act] + ' · ' + c.month,
+      title: c.title,
+      sub: c.hook,
+      goal: '목표 — ' + c.goals.map(function (g) { return g.t; }).join(' · '),
+      ms: 2800
+    });
+    if (!brief) game.hud.notice('📖 ' + c.month + ' 「' + c.title + '」 — ' + c.goals.map(function (g) { return g.t; }).join(' · '), 'info', 2600);
     setTimeout(function () {
       if (game.state !== 'play' || game.chapterRun !== c.id) return;
-      game.hud.notice('📻 사수 — ' + c.hook, 'info', 4200);
       if (TG.audio.squelch) TG.audio.squelch();
       TG.audio.say(c.hook, { kind: 'pa', pitch: 0.86, rate: 0.94, queue: true });
-    }, 5200);
+      game.hud.hint('📻 사수 — ' + c.hook);
+    }, brief ? 1400 : 3000);
   };
   // 근무 끝: 목표를 채웠으면 다음 장. 결과 카드에 얹을 값을 돌려준다.
   this.finish = function (stats, pen, extra) {

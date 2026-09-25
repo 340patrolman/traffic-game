@@ -74,6 +74,8 @@
   // 길 끝(격자 가장자리)에 닿으면 반대 차로로 돌려 세운다. 판마다 게임 시간 180초.
   function metrics(T, G) {
     var city = T.city, xs = city.xs, zs = city.zs, recs = [], started = performance.now();
+    // 📏 F5 — 어떤 안내문이 화면을 덮는지 글까지 모은다(고치는 쪽을 고르려면 목록이 있어야 한다)
+    var NOTE = {}; if (TG.metricsNotice && !TG.__noteWrap) { TG.__noteWrap = 1; var mo = TG.metricsNotice; TG.metricsNotice = function (t2, ms2) { var k = String(t2 == null ? '' : t2).slice(0, 26); NOTE[k] = NOTE[k] || [0, 0]; NOTE[k][0]++; NOTE[k][1] += (ms2 || 0); return mo.apply(this, arguments); }; }
     for (var shiftN = 0; shiftN < 3; shiftN++) {
       T.startMode('sedan', 'patrol'); fix(T, G);
       T.step(1.2);                                        // 사람도 화면을 한 번 본다
@@ -136,6 +138,7 @@
       probe.F6restartMs = G.state === 'play' ? Math.round(performance.now() - t0) : null;
       probe.F6taps = (probe.afterAgain === 'title' ? 2 : 1) + (probe.againVisibleNoScroll ? 0 : 1);   // 타이틀을 거치면 한 번 더 · 단추가 안 보이면 스크롤 한 번 더
       var out = { when: new Date().toISOString(), version: TG.VERSION, map: city.mapId, pass: G.metrics.PASS, shifts: hist, probe: probe, realSec: +((performance.now() - started) / 1000).toFixed(1),
+                  notices: Object.keys(NOTE).map(function (k) { return { t: k, n: NOTE[k][0], ms: NOTE[k][1] }; }).sort(function (x, y) { return y.ms - x.ms; }).slice(0, 30),
                   note: '자동 재생 3판(게임 시간 180초) · F4·F6 은 probe 로 따로 잰다 · 헤드리스(swiftshader) 수치는 참고용' };
       var pre = document.createElement('pre'); pre.id = 'SOUT'; pre.textContent = JSON.stringify(out, null, 1); document.body.appendChild(pre);
       G.metrics.table(hist);
