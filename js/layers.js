@@ -14,7 +14,24 @@ TG.Layers = function (game, city, cfg, scene) {
   var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
   var fatal = null;          // data/taas-fatal-<지도>.json — 사망사고 한 건씩(집계하지 않는다)
   var vuln = null;           // data/taas-vuln-<지도>.json — 어린이·보행자·노인·자전거(홍보용 분포까지)
-  var roads = null;          // data/maps/<지도>-roads.json — **실제 도로 형상**(디지털 트윈 T1-a). 트윈 지도에만 있다
+  function distToGame(v) {
+    if (!v || !v.districts) return null;
+    if (v.schema !== 'tg-districts/2') return v;            // 옛 판(게임 좌표로 구운 것)은 그대로
+    var W = TG.MAP && TG.MAP.wgs84;
+    if (!W || !W.x || !W.z) return null;                    // 변환이 없으면 그리지 않는다
+    var lon0 = W.lon0, lat0 = W.lat0;
+    return { schema: v.schema, area: v.area, source: v.source, note: v.note,
+      districts: v.districts.map(function (D0) {
+        return { name: D0.name, rings: (D0.rings || []).map(function (ring) {
+          return ring.map(function (p) {
+            var u = p[0] - lon0, w = p[1] - lat0;
+            return [W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]];
+          });
+        }) };
+      }) };
+  }
+  var roads = null, dist = null;   // dist = 자치구 경계(v0.10.30 · 테두리만)
+          // data/maps/<지도>-roads.json — **실제 도로 형상**(디지털 트윈 T1-a). 트윈 지도에만 있다
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
   var risk = {};
@@ -56,9 +73,18 @@ TG.Layers = function (game, city, cfg, scene) {
       var vf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasVuln) || (TG.MAP && TG.MAP.taasVuln) || null;
       // 실제 도로 형상(OSM) — 트윈 지도 항목에 roads 가 있을 때만
       var rf = (TG.MAP_ENTRY && TG.MAP_ENTRY.roads) || (TG.MAP && TG.MAP.roads) || null;
+      // 🗺 자치구 경계(v0.10.30) — 소유자 「서초구를 기본으로 하고 인접 동작·관악·강남은 테두리만」
+      var df = (TG.MAP_ENTRY && TG.MAP_ENTRY.districts) || (TG.MAP && TG.MAP.districts) || null;
+      var loadDist = function () {
+        if (!df) { after(); return; }
+        fetch(df).then(function (r6) { return r6.json(); }).then(function (v6) { dist = distToGame(v6); after(); }).catch(function () { after(); });
+      };
+      // 자치구 경계는 **위경도로 담겨 있다**(tg-districts/2). 지도마다 배율·원점이 달라
+      //  (축약 13.1m/unit · 1:1 1m/unit) 게임 좌표로 구워 두면 **다른 지도에서 엉뚱한 자리에 그려진다**.
+      //  그 지도의 wgs84 변환으로 여기서 옮긴다. 변환이 없는 지도면 그리지 않는다 — 틀린 자리에 선을 긋지 않는다.
       var loadRoads = function () {
-        if (!rf) { after(); return; }
-        fetch(rf).then(function (r5) { return r5.json(); }).then(function (v5) { roads = v5; after(); }).catch(function () { after(); });
+        if (!rf) { loadDist(); return; }
+        fetch(rf).then(function (r5) { return r5.json(); }).then(function (v5) { roads = v5; loadDist(); }).catch(function () { loadDist(); });
       };
       var loadVuln = function () {
         if (!vf) { loadRoads(); return; }
@@ -127,6 +153,12 @@ TG.Layers = function (game, city, cfg, scene) {
       defs.push({ id: 'twinRoads', name: '실제 도로 형상(OSM)', color: '#4cc3ff', kind: 'roads', src: roads,
         desc: '간선 ' + rn.length + '개 · 지금 직선 격자에서 평균 ' + (dsum / Math.max(1, rn.length)).toFixed(1) + 'm · 최대 ' + dmax.toFixed(1) + 'm 벗어난다 · ' + (roads.source || '') });
     }
+    if (dist && dist.districts && dist.districts.length) {
+      // **테두리만** 그린다(면을 칠하지 않는다). 우리 격자는 서초구의 일부(간선 5×5)라 경계가 격자보다 크다 —
+      // 그 사실이 눈에 보이는 것이 이 층의 쓸모다. 왜곡해서 격자에 맞추지 않는다.
+      defs.push({ id: 'districts', name: '자치구 경계(테두리)', color: '#9fd3ff', kind: 'dist', src: dist,
+        desc: dist.districts.map(function (d0) { return d0.name; }).join(' · ') + ' · ' + (dist.source || '') });
+    }
     defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
     defs.push({ id: 'risk', name: '시뮬레이션 위험도', color: '#d33bd3', kind: 'risk', desc: '이 기기에서 달린 결과 — 급제동·보행자 근접·신호위반을 교차로별로 쌓는다' });
@@ -144,6 +176,7 @@ TG.Layers = function (game, city, cfg, scene) {
     if (d.kind === 'cam') return game.facil ? game.facil.count() : 0;
     if (d.kind === 'risk') return Object.keys(risk).length;
     if (d.kind === 'roads') return Object.keys((d.src && d.src.roads) || {}).length;
+    if (d.kind === 'dist') return ((d.src && d.src.districts) || []).length;
     return 0;
   }
   function noteOf(d) {
@@ -188,6 +221,28 @@ TG.Layers = function (game, city, cfg, scene) {
     return nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: n.name, total: n.total || 0, death: n.death || 0, score: realScore(n) }; });
   };
   self.realYears = function () { return (nodes && nodes.years) || ''; };
+  // 🛣 도로별 사고 집계(v0.10.30 · 디지털 트윈) — 소유자 「도로별 교차로별 사고데이터도 넣는 거 알지」.
+  //  **새 자료를 받은 것이 아니다.** 이미 있는 TAAS 교차로별 집계를 **그 교차로가 놓인 도로**로 더한 값이다.
+  //  한 교차로는 남북·동서 두 도로가 만나는 자리라 **양쪽 도로에 같은 건수가 더해진다**(그래서 합이 전체보다 크다).
+  //  그것을 화면에 그대로 적는다 — 도로 사이 견주기에는 쓸 수 있고, 절대값으로 읽으면 안 된다.
+  self.roadTotals = function () {
+    if (!nodes || !nodes.nodes || !city) return [];
+    var byRoad = {};
+    nodes.nodes.forEach(function (n) {
+      var i = n.node[0], j = n.node[1];
+      var names = [city.roadNameV ? city.roadNameV(i) : null, city.roadNameH ? city.roadNameH(j) : null];
+      names.forEach(function (nm) {
+        if (!nm) return;
+        var e = byRoad[nm] || (byRoad[nm] = { road: nm, nodes: 0, total: 0, death: 0, serious: 0 });
+        e.nodes++; e.total += n.total || 0; e.death += n.death || 0; e.serious += n.serious || 0;
+      });
+    });
+    var out = [];
+    for (var k in byRoad) { var e = byRoad[k]; e.per = e.nodes ? +(e.total / e.nodes).toFixed(1) : 0; e.score = realScore(e); out.push(e); }
+    out.sort(function (a, b) { return b.score - a.score; });
+    return out;
+  };
+  self.roadNote = '교차로별 집계를 그 교차로가 놓인 도로로 더한 값이다. 한 교차로는 두 도로에 함께 더해지므로 **합이 전체 건수보다 크다** — 도로끼리 견주는 데만 쓴다.';
   self.compare = function (topN) {
     topN = topN || 8;
     if (!nodes || !nodes.nodes) return null;
@@ -318,6 +373,22 @@ TG.Layers = function (game, city, cfg, scene) {
           any = true;
         }
       });
+    } else if (d.kind === 'dist') {
+      // 🗺 자치구 경계를 땅 위에 옅은 띠로. **테두리만** 그린다 — 면을 칠하면 도로가 안 보인다.
+      var DD2 = (d.src && d.src.districts) || [], ter2 = game.terrain, WD = 3.0;
+      DD2.forEach(function (D1) {
+        (D1.rings || []).forEach(function (ring) {
+          for (var bi = 1; bi < ring.length; bi++) {
+            var ax = ring[bi - 1][0], az = ring[bi - 1][1], bx = ring[bi][0], bz = ring[bi][1];
+            var ddx = bx - ax, ddz = bz - az, LL2 = Math.hypot(ddx, ddz);
+            if (!(LL2 > 0.01)) continue;
+            var rx2 = -ddz / LL2 * WD, rz2 = ddx / LL2 * WD;
+            var ya2 = (ter2 ? ter2.heightAt(ax, az) : 0) + 0.14, yb2 = (ter2 ? ter2.heightAt(bx, bz) : 0) + 0.14;
+            gb.quad([ax + rx2, ya2, az + rz2], [bx + rx2, yb2, bz + rz2], [bx - rx2, yb2, bz - rz2], [ax - rx2, ya2, az - rz2], [0, 1, 0], col, null);
+            any = true;
+          }
+        });
+      });
     } else if (d.kind === 'risk') {
       Object.keys(risk).forEach(function (k) {
         var r0 = risk[k], nd = city.nodes[r0.i][r0.j];
@@ -373,6 +444,18 @@ TG.Layers = function (game, city, cfg, scene) {
           g.stroke();
         });
         g.setLineDash([]);
+      } else if (d.kind === 'dist') {
+        var DD = (d.src && d.src.districts) || [];
+        g.lineWidth = 1.4 * K;
+        DD.forEach(function (D0) {
+          g.strokeStyle = (D0.name === '서초구') ? d.color : d.color + '77';
+          (D0.rings || []).forEach(function (ring) {
+            if (!ring || ring.length < 2) return;
+            g.beginPath(); g.moveTo(mx(ring[0][0]), mz(ring[0][1]));
+            for (var i = 1; i < ring.length; i++) g.lineTo(mx(ring[i][0]), mz(ring[i][1]));
+            g.closePath(); g.stroke();
+          });
+        });
       } else if (d.kind === 'cam') {
         (game.facil ? game.facil.list() : []).forEach(function (C) {
           var nd = city.nodes[C.i][C.j], f = TG.DIR_VEC[C.d], back = city.stopDist(nd, C.d) + 14;

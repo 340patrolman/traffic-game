@@ -354,7 +354,7 @@ TG.buildCity = function (cfg) {
     schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
     map: MAP, mapName: mapv('name', '서울 서초구'), mapBeta: !!mapv('beta', true), mapId: mapv('id', 'seocho'),
     gridFrom: gridFrom,   // 격자를 어디서 읽었는가 — 'map'(지도 파일) 또는 'config.js'(물러선 값)
-    landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
+    landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, roadNameV: function (i) { return roadNamesV[i] || null; }, roadNameH: function (j) { return roadNamesH[j] || null; }, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,
     nearestX: nearestX, nearestZ: nearestZ, nearestIdx: nearestIdx, inBounds: inBounds, onRoad: onRoad, onRoadAny: onRoadAny, inIntersection: inIntersection, onSidewalk: onSidewalk,
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,

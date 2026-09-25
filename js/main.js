@@ -100,6 +100,17 @@
     if (TG.SchoolTime) { G.school = new TG.SchoolTime(G); G.school.load('data/schooltime.json'); }
     if (TG.Pop) { G.pop = new TG.Pop(G); G.pop.load('data/pop-seocho.json'); }              // 👥 동별 인구·연령(행안부)
     if (TG.Risk) { G.risk = new TG.Risk(G); G.risk.load('data/incidents-seocho.json'); }   // 🧭 시각·요일·날씨로 잦은 신고(자료 대기)              // 👥 동별 인구·연령(행안부)   // 🏫 학사일정(NEIS 실제 값)
+    // 🏢 실제 건물 윤곽(1:1 지도 전용) — 지도 항목에 buildings 가 있을 때만
+    if (TG.RealBuild) {
+      G.realBuild = new TG.RealBuild();
+      var bf = (TG.MAP_ENTRY && TG.MAP_ENTRY.buildings) || (TG.MAP && TG.MAP.buildings) || null;
+      if (bf && location.protocol.indexOf('http') === 0) {
+        fetch(bf).then(function (r) { return r.json(); }).then(function (jb) {
+          var inf = G.realBuild.build(scene, jb, terrain, city);
+          console.log('[TG] 실제 건물 ' + inf.count + '동(층수 있는 것 ' + inf.withLevels + ' · 차도를 비켜 민 것 ' + inf.moved + '동 최대 ' + inf.maxMove + 'm · 뺀 것 ' + inf.dropped + '동 = 차도 ' + (inf.dropped - inf.wet - inf.steep) + ' · 물 위 ' + inf.wet + ' · 비탈 ' + inf.steep + ') · ' + inf.source);
+        }).catch(function (e) { console.warn('[TG] 건물 자료를 못 읽었다', e && e.message); });
+      }
+    }
     if (TG.Crazy) G.crazy = new TG.Crazy(G);       // 🔥 크레이지(연습 주행)   // 🔍 확대 보기 — 터치한 대상으로 화면이 당겨진다
     if (TG.Demand) G.demand = new TG.Demand(G);      // 🕗 요일·시간대 수요   // 🎬 연출(v0.10.16) — 장 브리핑 · 스탬프 · 락온(보여 주기만 한다)
     if (TG.FirstShift) G.first = new TG.FirstShift(G);

@@ -107,7 +107,11 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 순환도로 중심은 **도시 격자의 한가운데**다. 격자를 지도 파일이 정하게 되면서(v0.9.36)
   // 160,160 에 못 박아 두면 실지도에서 도시가 고리 한쪽으로 치우친다. 베타 지도는 값이 같아 변화가 없다.
   var CXC = (city.xs[0] + city.xs[city.xs.length - 1]) / 2, CZC = (city.zs[0] + city.zs[city.zs.length - 1]) / 2;
-  var RA = 440, RB = 420;
+  // 반지름도 격자를 따라간다(v0.10.31). 440·420 은 **축약 지도(반폭 약 160)** 에 맞춘 값이라,
+  //  1 unit = 1 m 인 정밀 지도(반폭 383×337)에서는 고리가 **도시 모퉁이를 파고든다** — 실제 건물 65동이 그 위에 걸쳤다.
+  //  격자 반폭 + 160m 를 하한으로 둔다. 축약 지도는 값이 그대로라 변화가 없다(실측: 기본 440·420 · 트윈 440·420).
+  var HX = (city.xs[city.xs.length - 1] - city.xs[0]) / 2, HZ = (city.zs[city.zs.length - 1] - city.zs[0]) / 2;
+  var RA = Math.max(440, Math.round(HX + 160)), RB = Math.max(420, Math.round(HZ + 160));
   var ringCP = [];
   for (var th = 0; th < 40; th++) { var ang = th / 40 * Math.PI * 2; ringCP.push([CXC + RA * Math.cos(ang) + Math.sin(ang * 3) * 12, CZC + RB * Math.sin(ang) + Math.cos(ang * 2) * 10]); }
   var ring = buildLink('ring', ringCP, 'highway', true);
@@ -252,7 +256,12 @@ TG.buildTerrain = function (scene, city, cfg) {
   ];
   var conns = [], ramps_ = {};
   ICS.forEach(function (ic) {
-    var node = city.nodes[ic.node[0]][ic.node[1]], dv = TG.DIR_VEC[ic.dir], half = city.crossHalf(node, ic.dir);   // 도로 폭에 맞춰 교차로 상자 밖에서 시작(고정값이면 넓은 도로에서 연결부가 꺾였다)
+    // IC 자리는 5×5 격자를 전제로 적혀 있다. **격자가 작은 지도**(1:1 정밀 구역 등)에서는 그 자리가 없다.
+    //  건너뛰면 conns 의 순서가 밀려 뒤에서 이름을 붙이는 줄이 깨진다 — 그래서 **격자 안으로 당겨 쓴다**.
+    //  지도 하나가 작다고 게임이 죽으면 안 된다(v0.9.36 과 같은 규칙).
+    var ni = Math.min(ic.node[0], city.nodes.length - 1);
+    var nj = Math.min(ic.node[1], city.nodes[0].length - 1);
+    var node = city.nodes[ni][nj], dv = TG.DIR_VEC[ic.dir], half = city.crossHalf(node, ic.dir);   // 도로 폭에 맞춰 교차로 상자 밖에서 시작(고정값이면 넓은 도로에서 연결부가 꺾였다)
     var start = [node.x + dv[0] * city.EXT, node.z + dv[1] * city.EXT];   // 스텁 끝 = 연결로 시작(city.EXT 로 통일해 정확히 맞물린다)
     var a = ic.th * Math.PI / 180, j = ringIndexNear(CXC + RA * Math.cos(a), CZC + RB * Math.sin(a)), J = ring.pts[j];
     var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
@@ -856,7 +865,11 @@ TG.buildTerrain = function (scene, city, cfg) {
     // ④ 양재시민의숲: 경부고속도로 동쪽 숲(잔디·산책로·나무 무리 + 매헌 기념관 형태의 작은 전시동)
     // 숲은 **양재천 남쪽에서 시작한다** — 잔디밭은 한 높이의 평판이라 하천 도랑 위에 걸치면 허공에 뜬다.
     // (실제 양재시민의숲도 양재천 남안에 있다. 격자가 남쪽으로 내려간 지도에서는 하천이 이 자리까지 내려온다.)
-    var YJ = { x0: 206, z0: Math.max(396, yjZ(264) + 22), x1: 322, z1: 486 };
+    // ⚠ z1 을 486 에 못 박아 두면 하천이 더 남쪽으로 내려간 지도(1:1 정밀)에서 **z0 > z1 이 되어 상자가 뒤집힌다**
+    //  (실측: 1:1 지도에서 z0 834 · z1 486 → 숲이 도시 한가운데 660 에 그려졌다). 깊이로 잡는다.
+    //  축약 지도는 max 가 486 을 고르므로 값이 그대로다(기본 396→486 · 트윈 434→486).
+    var YJ = { x0: 206, z0: Math.max(396, yjZ(264) + 22), x1: 322, z1: 0 };
+    YJ.z1 = Math.max(486, YJ.z0 + 52);
     if (farFromRoad((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2, 26)) {
       var gy = groundAt((YJ.x0 + YJ.x1) / 2, (YJ.z0 + YJ.z1) / 2);
       props.box((YJ.x0 + YJ.x1) / 2, gy + 0.06, (YJ.z0 + YJ.z1) / 2, YJ.x1 - YJ.x0, 0.12, YJ.z1 - YJ.z0, 0x6f9a4c, {});

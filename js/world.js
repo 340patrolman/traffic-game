@@ -153,7 +153,9 @@
     var walls = { apt: new GeoBuilder(), office: new GeoBuilder(), shop: new GeoBuilder(), tower: new GeoBuilder() };
     var roofs = new GeoBuilder(), strips = [new GeoBuilder(), new GeoBuilder(), new GeoBuilder()], labels = new GeoBuilder(), glass = new GeoBuilder();
     var tints = { apt: [0xf1efe9, 0xe8e3d6, 0xdfe4ea], office: [0xffffff, 0xd8dee6, 0xc9d3dd], shop: [0xffffff, 0xe6d9c8, 0xd9cfc0], tower: [0x9fc4e8, 0x8fd0c8, 0xd9c39a] };
-    city.buildings.forEach(function (b) {
+    // 🏢 1:1 지도(realBuildings)에서는 **네모 블록 건물을 그리지 않는다** — 그 자리에 실제 윤곽이 선다(js/realbuild.js).
+    var skipBlocks = !!(TG.MAP && TG.MAP.realBuildings);
+    (skipBlocks ? [] : city.buildings).forEach(function (b) {
       var w = b.x1 - b.x0, dd = b.z1 - b.z0, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, tint = tints[b.style][b.seed % 3];
       if (b.style === 'tower') {   // 고층 타워: 본체 + 셋백 상층부 + 크라운 + 첨탑/헬리패드(심시티 느낌의 스카이라인)
         var h1 = b.h * 0.62, w2 = w * 0.78, d2 = dd * 0.78;

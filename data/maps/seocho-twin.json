@@ -15,6 +15,7 @@
   "region": { "name": "서울특별시 서초구", "siDo": "11", "guGun": "650" },
   "taas": "data/taas.json",
   "taasNodes": "data/taas-nodes-seocho.json",
+  "districts": "data/maps/seoul-districts.json",
   "taasFatal": "data/taas-fatal-seocho.json",
   "taasVuln": "data/taas-vuln-seocho.json",
   "wgs84": {

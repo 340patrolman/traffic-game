@@ -32,6 +32,16 @@
       "taasFatal": "data/taas-fatal-seocho.json",
       "taasVuln": "data/taas-vuln-seocho.json",
       "region": { "siDo": "11", "guGun": "650" }
+    },
+    {
+      "id": "seocho-1to1",
+      "name": "서초역 정밀 구역 (1:1)",
+      "kind": "twin",
+      "beta": true,
+      "note": "**1 unit = 1 m 인 유일한 지도.** 서초역 사거리를 가운데 두고 약 0.8 × 0.7 km. 축약 지도(seocho-twin)는 도로 간격을 약 13배 압축해 담아 실제 건물을 넣을 수 없었다 — 이 지도는 실제 크기라 건물 윤곽·보도 폭을 그대로 얹을 수 있다.",
+      "file": "data/maps/seocho-1to1.json",
+      "buildings": "data/maps/seocho-1to1-buildings.json",
+      "region": { "siDo": "11", "guGun": "650" }
     }
   ],
   "howtoAddMap": "새 지역을 넣으려면 ① data/maps/<id>.json 을 seocho.json 을 본떠 만든다(격자 grid + 도로명·교차로명·랜드마크·지하철역·어린이보호구역 블록). ② 그 지역 TAAS CSV 를 받아 data/taas-<id>.json 으로 옮기고 maps 항목의 taas 에 적는다. ③ index.json 의 maps 에 한 줄 추가한다. 격자(개수·간격·차로 수)는 v0.9.36 부터 지도 파일이 정한다 — 5×5 가 아니어도 된다."
