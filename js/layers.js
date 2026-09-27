@@ -225,6 +225,12 @@ TG.Layers = function (game, city, cfg, scene) {
     return nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: n.name, total: n.total || 0, death: n.death || 0, score: realScore(n) }; });
   };
   self.realYears = function () { return (nodes && nodes.years) || ''; };
+  // 🎬 사건 감독이 읽는다(v0.10.36): 그 교차로의 실제 사고 경위(법규위반) 상위 — 없으면 null
+  self.nodeViolations = function (i, j) {
+    if (!nodes || !nodes.nodes) return null;
+    for (var k = 0; k < nodes.nodes.length; k++) { var n = nodes.nodes[k]; if (n.node[0] === i && n.node[1] === j) return { name: n.name, total: n.total || 0, violations: n.violations || [], years: nodes.years || '' }; }
+    return null;
+  };
   // 🛣 도로별 사고 집계(v0.10.30 · 디지털 트윈) — 소유자 「도로별 교차로별 사고데이터도 넣는 거 알지」.
   //  **새 자료를 받은 것이 아니다.** 이미 있는 TAAS 교차로별 집계를 **그 교차로가 놓인 도로**로 더한 값이다.
   //  한 교차로는 남북·동서 두 도로가 만나는 자리라 **양쪽 도로에 같은 건수가 더해진다**(그래서 합이 전체보다 크다).

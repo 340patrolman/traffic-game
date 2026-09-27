@@ -55,23 +55,77 @@ TG.Input = function () {
   }
   function releaseStick() {
     self.stick.active = false; self.stick.x = 0; self.stick.y = 0; self.stick.id = null;
-    if (base) { base.classList.remove('on'); nub.style.transform = 'translate(0,0)'; }
+    if (base) { if (!self.stickFixed) base.classList.remove('on'); nub.style.transform = 'translate(0,0)'; }
   }
+  // 🕹 고정 조이스틱(v0.10.36 · 소유자 「누르다 보면 자꾸만 움직이는데 고정을 시켜주면 좋겠어 이동도 가능하면 좋고」)
+  //   고정(기본): 베이스가 제자리에 있고 어디를 눌러도 그 베이스가 중심이다 — 손가락 자리로 따라오지 않는다.
+  //   옮기기: 베이스 한가운데를 0.7초 가만히 누르면 🕹 옮기기 — 끌어서 놓으면 그 자리를 기억한다(세로·가로 따로 · tg_stickPos).
+  //   따라옴: 예전 방식(누른 자리가 중심). 일시정지 메뉴의 「조이스틱」에서 고른다.
+  this.stickFixed = true;
+  var stickPos = (TG.save && TG.save.get('stickPos', null)) || {};
+  var moving = false, lpT = null, lpX = 0, lpY = 0;
+  function orientKey() { return window.innerHeight > window.innerWidth ? 'port' : 'land'; }
+  function placeBase() {
+    if (!base || !zone) return;
+    if (!self.stickFixed) return;
+    var r = zone.getBoundingClientRect(), p = stickPos[orientKey()];
+    if (!p || !(r.width > 0)) { base.style.left = ''; base.style.top = ''; base.classList.remove('on'); return; }
+    var bx = TG.clamp(p[0] * r.width, 70, Math.max(70, r.width - 70)), by = TG.clamp(p[1] * r.height, 70, Math.max(70, r.height - 70));
+    base.style.left = (bx - 70) + 'px'; base.style.top = (by - 70) + 'px'; base.classList.add('on');
+  }
+  this.placeStick = placeBase;
+  this.setStickFixed = function (on) { self.stickFixed = !!on; if (on) placeBase(); };
+  this.resetStickPos = function () { stickPos = {}; if (TG.save) TG.save.set('stickPos', stickPos); placeBase(); };
+  window.addEventListener('resize', function () { setTimeout(placeBase, 60); });
+  function baseCenter() { var b = base.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }
+  function cancelLp() { if (lpT) { clearTimeout(lpT); lpT = null; } }
   if (zone) {
     zone.addEventListener('pointerdown', function (e) {
       e.preventDefault(); TG.audio.resume();
       var r = zone.getBoundingClientRect();
-      baseX = e.clientX; baseY = e.clientY;
-      // 스틱 베이스를 손가락 위치로(영역 안으로 클램프)
-      var bx = TG.clamp(e.clientX - r.left, 70, r.width - 70), by = TG.clamp(e.clientY - r.top, 70, r.height - 70);
-      baseX = r.left + bx; baseY = r.top + by;
-      base.style.left = (bx - 70) + 'px'; base.style.top = (by - 70) + 'px'; base.classList.add('on');
+      if (self.stickFixed) {
+        var c = baseCenter(); baseX = c[0]; baseY = c[1];
+        cancelLp();
+        if (Math.hypot(e.clientX - baseX, e.clientY - baseY) < 40) {
+          lpX = e.clientX; lpY = e.clientY;
+          lpT = setTimeout(function () {
+            lpT = null; moving = true; base.classList.add('moving');
+            self.stick.x = 0; self.stick.y = 0; nub.style.transform = 'translate(0,0)';
+            if (TG.haptic) TG.haptic(30); else if (navigator.vibrate) try { navigator.vibrate(30); } catch (x) {}
+          }, 700);
+        }
+      } else {
+        // 따라옴: 스틱 베이스를 손가락 위치로(영역 안으로 클램프)
+        var bx = TG.clamp(e.clientX - r.left, 70, r.width - 70), by = TG.clamp(e.clientY - r.top, 70, r.height - 70);
+        baseX = r.left + bx; baseY = r.top + by;
+        base.style.left = (bx - 70) + 'px'; base.style.top = (by - 70) + 'px';
+      }
+      if (!self.stickFixed) base.classList.add('on');
+      base.classList.add('live');
       self.stick.active = true; self.stick.id = e.pointerId;
       try { zone.setPointerCapture(e.pointerId); } catch (x) {}
       moveNub(e.clientX, e.clientY);
     });
-    zone.addEventListener('pointermove', function (e) { if (self.stick.active && e.pointerId === self.stick.id) moveNub(e.clientX, e.clientY); });
-    function endS(e) { if (e.pointerId === self.stick.id) releaseStick(); }
+    zone.addEventListener('pointermove', function (e) {
+      if (!self.stick.active || e.pointerId !== self.stick.id) return;
+      if (moving) {
+        var r = zone.getBoundingClientRect();
+        var bx = TG.clamp(e.clientX - r.left, 70, r.width - 70), by = TG.clamp(e.clientY - r.top, 70, r.height - 70);
+        base.style.left = (bx - 70) + 'px'; base.style.top = (by - 70) + 'px'; base.classList.add('on');
+        stickPos[orientKey()] = [bx / r.width, by / r.height];
+        return;
+      }
+      if (lpT && Math.hypot(e.clientX - lpX, e.clientY - lpY) > 12) cancelLp();
+      moveNub(e.clientX, e.clientY);
+    });
+    function endS(e) {
+      if (e.pointerId !== self.stick.id) return;
+      cancelLp();
+      if (moving) { moving = false; base.classList.remove('moving'); if (TG.save) TG.save.set('stickPos', stickPos); }
+      base.classList.remove('live');
+      releaseStick();
+      if (self.stickFixed) placeBase();
+    }
     zone.addEventListener('pointerup', endS); zone.addEventListener('pointercancel', endS); zone.addEventListener('lostpointercapture', endS);
     zone.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
     zone.addEventListener('contextmenu', function (e) { e.preventDefault(); });

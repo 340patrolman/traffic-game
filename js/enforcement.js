@@ -37,10 +37,19 @@ TG.Enforcement = function (game) {
     if (law.law.article) return law.law.act + ' ' + law.law.article + (law.law.verified ? '' : ' (확인 중)');
     return law.law.act + ' 조문 확인 중';
   }
-  function lawLines(id, cls) {
+  function lawLines(id, cls, car) {
     var law = lawById(id), out = [];
     out.push(fmtArticle(law));
-    if (law && law.penalty) out.push('처벌 ' + law.penalty);   // 형사처벌 사안(무면허·음주)은 범칙금 대신 처벌을 보여 준다
+    var cv = car && car.violation, measured = false;
+    if (id === 'speeding' && law && law.tiers && cv && cv.kmh && cv.limit) {   // ⑬ 측정값 · 제한속도 · 초과량 한 줄(T-Book 「한 줄에 적는다」)
+      var over = cv.kmh - cv.limit, list = (cv.school && law.schoolTiers) ? law.schoolTiers : law.tiers, tr = list[list.length - 1];
+      for (var ti = 0; ti < list.length; ti++) if (list[ti].upTo === null || over <= list[ti].upTo) { tr = list[ti]; break; }
+      measured = true;
+      out.push('측정 ' + cv.kmh + 'km/h · 제한 ' + cv.limit + ' · 초과 ' + over + ' → 범칙금 ' + tr.fine.toLocaleString('ko-KR') + '원(승용) · 벌점 ' + (tr.points ? tr.points + '점' : '없음') + (cv.school ? ' · 보호구역 가중' : '') + (tr.note ? ' · ' + tr.note : ''));
+    }
+    if (id === 'distance' && law && law.fineHw && cv && cv.link) out.push('고속도로·자동차전용도로 — 범칙금 ' + law.fineHw.toLocaleString('ko-KR') + '원(승용 · 별표8 23호)');
+    if (measured) { /* 측정 구간 줄이 금액·벌점을 이미 말했다 */ }
+    else if (law && law.penalty) out.push('처벌 ' + law.penalty);   // 형사처벌 사안(무면허·음주)은 범칙금 대신 처벌을 보여 준다
     else if (id === 'jaywalk' || id === 'jaywalk-red') out.push('범칙금(보행자) ' + fmtFine(law, '보행자') + ' · 벌점 없음');
     else out.push('범칙금 ' + fmtFine(law, cls) + ' · 벌점 ' + fmtPoints(law));
     if (law && law.teach) out.push(law.teach);
@@ -53,9 +62,10 @@ TG.Enforcement = function (game) {
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
                 drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
                 pm: '개인형 이동장치 보도 통행', pmHelmet: 'PM 인명보호장구 미착용', pmTwo: 'PM 2인 이상 탑승',
-                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', gridlock: '교차로 통행방법 위반(꼬리물기)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
+                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', speeding: '속도위반(과속)', distance: '안전거리 미확보', seatbelt: '좌석안전띠 미착용(운전자)', tint: '짙은 선팅(창유리)', nolight: '밤 무등화(등화 불이행)', gridlock: '교차로 통행방법 위반(꼬리물기)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
   this.nameOf = function (id) { return NAMES[id] || id; };
   this.optionsFor = function (car) { return carOptions(car); };   // 검증에서 보기 목록을 직접 본다
+  var TRAIT_V = { speeder: 'speeding', tailgate: 'distance', nobelt: 'seatbelt', tint: 'tint', nolight: 'nolight', clpass: 'centerline' };   // 습관 → 위반 이름(v0.10.36)
   function carOptions(car) {
     var onHighway = city.frameAt(car.pos.x, car.pos.z, car.heading).kind === 'link';
     var ids = onHighway ? ((car.isCargo || car.isBus) ? ['lane', 'buslane', 'unsafe', 'centerline'] : ['buslane', 'signal', 'unsafe', 'centerline']) : ['signal', 'pedestrian', 'centerline', 'nosignal'];
@@ -74,9 +84,9 @@ TG.Enforcement = function (game) {
     // 이 차량에 기록된 위반이 기본 보기에 없으면(휴대전화·꽁초·동물·실선 등) 하나를 바꿔 넣는다 — 정답이 항상 보기 안에 있게
     var v = car.violation && car.violation.type;
     if (v && ids.indexOf(v) < 0) ids[ids.length - 1] = v;
-    else if (!forced && !v && car.trait && ids.indexOf(car.trait) < 0) ids[ids.length - 1] = car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
+    else if (!forced && !v && car.trait && ids.indexOf(TRAIT_V[car.trait] || car.trait) < 0 && lawById(TRAIT_V[car.trait] || car.trait)) ids[ids.length - 1] = TRAIT_V[car.trait] || car.trait;   // 습관 차량(아직 기록 전)도 보기에 후보로
     else if (!forced && !v && car.mount && ids.indexOf('phone') < 0) ids[ids.length - 1] = 'phone';   // 거치대 차량 — 「휴대전화」가 보기에 있어야 적법·위반을 가려 볼 수 있다
-    else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'nosignal', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger', 'gridlock'][Math.floor(Math.random() * 10)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
+    else if (!forced && !v) { var extra = ['phone', 'litter', 'animal', 'nosignal', 'drunk', 'overtake', 'sidewalk', 'cargo', 'passenger', 'gridlock', 'speeding', 'distance', 'seatbelt', 'tint'][Math.floor(Math.random() * 14)]; if (ids.indexOf(extra) < 0) ids[ids.length - 1] = extra; }
     var out = ids.map(function (id) { var l = lawById(id); return { id: id, name: l ? l.short : NAMES[id] }; });
     out.push({ id: 'none', name: '위반 없음' });
     return out;
@@ -110,7 +120,7 @@ TG.Enforcement = function (game) {
         // 함께 위반(예: 킥보드 2인 탑승 + 인명보호장구 미착용)이면 어느 쪽을 골라도 정답이고, 둘 다 알려 준다
         var alsoL = alsoOf(e).concat([answer]).filter(function (x) { return x !== choice; });
         if (choice !== answer) { lawId = choice; answer = choice; }
-        delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + (alsoL.length ? ' · 함께 위반: ' + alsoL.map(function (x) { return NAMES[x] || x; }).join(', ') : '') + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용')); TG.audio.good(); game.stats.correct++;
+        delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + (alsoL.length ? ' · 함께 위반: ' + alsoL.map(function (x) { return NAMES[x] || x; }).join(', ') : '') + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용', sel.kind === 'car' ? e : null)); TG.audio.good(); game.stats.correct++;
         // 📖 캠페인 장 목표가 위반 종류를 본다(8월 음주 · 9월 고속도로 등)
         game.stats.byType = game.stats.byType || {}; game.stats.byType[answer] = (game.stats.byType[answer] || 0) + 1;
         if (sel.kind === 'car' && e && game.city && game.city.frameAt(e.pos.x, e.pos.z, e.heading).kind === 'link') game.stats.hwStops = (game.stats.hwStops || 0) + 1;

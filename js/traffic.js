@@ -27,7 +27,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   // 반투명 유리(깊이를 쓰지 않아 안의 운전자가 비친다) · 휴대전화 화면(손에 든 폰 = 말풍선 · 거치대 = 지도) · 운전자 옷·피부·머리색
   // 유리는 너무 짙으면 안의 휴대전화 화면이 실내와 같은 회색으로 묻힌다(실측: 화면 157 · 옆 유리 106) — 조금 옅고 맑게
   // 유리는 **주변이 비쳐야** 유리로 보인다 — 환경 반사가 붙는 Standard 라야 검은 판을 벗는다
-  var glassMat = new THREE.MeshStandardMaterial({ color: 0x2c3e52, transparent: true, opacity: 0.42, depthWrite: false, roughness: 0.08, metalness: 0.0, envMapIntensity: 1.6 });
+  //  ⚠ 값은 **픽셀로 쟀다**(v0.10.35 · 옆에서 본 맑은 날): 종전 값(0x2c3e52 · 0.42 · 반사 1.6)은 유리 밝기 **167 — 도장(120)보다 밝았다.**
+  //  하늘이 그대로 비쳐 창이 하얗게 떠서 차가 **뼈대만 있는 컨버터블**처럼 보였다. 실제 차 유리는 낮에 도장보다 어둡다.
+  //  지금 값은 105 < 120. **불투명도는 0.6 미만을 지킨다** — 창 너머 운전자·휴대전화를 보는 단속 장면(v0.9.47)이 이것에 기댄다.
+  var glassMat = new THREE.MeshStandardMaterial({ color: 0x0b1016, transparent: true, opacity: 0.58, depthWrite: false, roughness: 0.06, metalness: 0.0, envMapIntensity: 0.6 });
+  // ⑰ 짙은 선팅(tint 습관 · v0.10.36): 창 너머가 안 보일 만큼 짙다 — T-Book 「자주 단속하는 20항목」
+  var tintMat = new THREE.MeshStandardMaterial({ color: 0x030405, transparent: true, opacity: 0.94, depthWrite: false, roughness: 0.05, metalness: 0.0, envMapIntensity: 0.7 });
+  // 💡 전조등·미등(v0.10.36): 밤·비·눈에 켠다(weather.set 이 visible 을 바꾼다). ⑱ 밤 무등화(nolight 습관) 차는 달지 않는다
+  var headLampMat = new THREE.MeshBasicMaterial({ color: 0xfff4d8, side: THREE.DoubleSide }), tailLampMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a, side: THREE.DoubleSide });
+  headLampMat.visible = false; tailLampMat.visible = false; TG.carLampMats = [headLampMat, tailLampMat];
+  var lampGeo = new THREE.PlaneGeometry(0.30, 0.13);
   var screenChatMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('chat'), side: THREE.DoubleSide }), screenMapMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('map'), side: THREE.DoubleSide });
   var phoneBodyMat = new THREE.MeshLambertMaterial({ color: 0x15171a });
   // 화면 빛(가산 스프라이트) — 창 너머에서 「켜진 화면」을 알아보게 한다. 차체에 가리면 안 보인다(깊이 검사는 한다)
@@ -178,12 +187,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       laneIdx: opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1),
       // 운전자 습관(위반 소재): phone(휴대전화) · litter(꽁초 던지기) · animal(동물 안고 운전). 방향지시등 없이 차로 변경(noSignalViolator), 실선 구간 변경은 위치로 판정.
       // 12대 중과실 소재: drunk(비틀거림) · overtake(우측 앞지르기) · sidewalk(보도 주행) · cargo(트럭 낙하물) · door(버스 문 열고 주행 = passenger). noLicense 는 정차 후 면허 조회에서만 드러난다.
-      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.10 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk']) : null)),
+      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.10 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk', 'clpass', 'speeder', 'speeder', 'tailgate', 'nobelt', 'nobelt', 'tint', 'nolight']) : null)),
       noLicense: opts.noLicense !== undefined ? !!opts.noLicense : rng() < 0.04, weaveT: rng() * 6, swT: rng() * 20, cargoT: 8 + rng() * 12, doorT: 0, otBoost: 0,
       signal: null, signalT: 0, lcShift: 0, lcCd: 6 + rng() * 20, noSignalViolator: opts.noSignalViolator !== undefined ? opts.noSignalViolator : (violator && rng() < 0.6), traitT: rng() * 6, litterT: 6 + rng() * 10,
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
+    // 교실(영아·어린이·청소년 — quiet)에는 과속·중앙선 앞지르기·바짝 붙기 차를 내지 않는다 — 아이 앞에서 급제동으로도 못 서는 차가 생긴다(v0.10.36 검증에서 잡힘)
+    if (self.quiet && (car.trait === 'speeder' || car.trait === 'clpass' || car.trait === 'tailgate')) car.trait = null;
+    if (car.trait === 'speeder') { car.cruise = 20.5 + rng() * 2.5; car.speedK *= 1.25; }   // ⑬ 과속 습관: 시내 약 74~83km/h(게임 설계값 — 제한 50 + 20 을 확실히 넘어야 목격으로 잡힌다)
+    if (car.trait === 'tailgate') car.cruise *= 1.15;                                     // ⑲ 안전거리 미확보 습관: 조금 빨리 가며 앞차에 붙는다
     // 시내 도로에서도 **대형승합·화물은 오른쪽 차로군**으로 간다(시행규칙 별표9 — 편도 3차로 이상 일반도로).
     // 전에는 버스도 2차로에 고정돼 편도 4차로 반포대로 가운데를 달렸다 — 정류장은 오른쪽에 있는데 눈에 어색했다.
     car.rightGroup = (type === 'bus' || type === 'truck' || car.isCargo);
@@ -224,9 +237,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var see = !twoW && type !== 'bus' && type !== 'truck';
     var mesh = new THREE.Mesh(TG.vehmesh.build(type, color, false, twoW ? { noRider: true, helmet: car.pmHelmet, two: car.pmTwo } : (see ? { noGlass: true } : null)), bodyMat); mesh.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(mesh);
+    if (TG.tex.contactShadow) g.add(TG.tex.contactShadow(T.w * (twoW ? 1.6 : 1.42), T.l * 1.14, twoW ? 0.40 : 0.60));   // 🌑 차 밑 접촉 그림자 — 없으면 차가 떠 보인다
+    if (!twoW && car.trait !== 'nolight') {   // 💡 전조등(앞) · 미등(뒤) — 밤에만 보인다
+      for (var ls = -1; ls <= 1; ls += 2) {
+        var hl = new THREE.Mesh(lampGeo, headLampMat); hl.position.set(ls * T.w * 0.33, 0.66, T.l / 2 + 0.02); g.add(hl);
+        var tl = new THREE.Mesh(lampGeo, tailLampMat); tl.position.set(ls * T.w * 0.36, 0.78, -T.l / 2 - 0.02); tl.rotation.y = Math.PI; g.add(tl);
+      }
+    }
     if (see) {
-      g.add(new THREE.Mesh(TG.vehmesh.glass(type), glassMat));
-      var dv = new THREE.Mesh(TG.vehmesh.driver(type, car.trait === 'phone' ? 'phone' : 'wheel', TG.pick(rng, DRV_SHIRT), TG.pick(rng, DRV_SKIN), TG.pick(rng, DRV_HAIR)), bodyMat);
+      g.add(new THREE.Mesh(TG.vehmesh.glass(type), car.trait === 'tint' ? tintMat : glassMat));
+      var dv = new THREE.Mesh(TG.vehmesh.driver(type, car.trait === 'phone' ? 'phone' : 'wheel', TG.pick(rng, DRV_SHIRT), TG.pick(rng, DRV_SKIN), TG.pick(rng, DRV_HAIR), car.trait === 'nobelt'), bodyMat);
       g.add(dv); car.driverMesh = dv;
       var LY = TG.vehmesh.layout(T), EY = LY.eye;
       if (car.trait === 'phone') {          // 손에 든 휴대전화 — 고개를 숙이고 화면(말풍선)을 본다. 창 높이라 밖에서 보인다
@@ -746,6 +766,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var nO = city.lanesOf(rdO.axis, rdO.idx), oL = TG.clamp(car.laneIdx, 0, nO - 1);
       if (nO >= 2 && oL < nO - 1) { car.laneIdx = oL + 1; car.lcShift += city.laneOff(rdO.axis, rdO.idx, oL + 1) - city.laneOff(rdO.axis, rdO.idx, oL); car.signal = 'R'; car.signalT = 2; car.lcCd = 25 + rng() * 20; car.cruise *= 1.35; car.otBoost = 7; lead = null; self.stats.violations++; flag(car, 'overtake', ap.node, self.witness(car)); }
     }
+    // 중앙선 넘어 앞지르기(clpass 습관 · v0.10.36): 느린 앞차 뒤 1차로에서 좌측 방향지시등을 켜고 황색 중앙선을 넘어 앞지른다 → 아래 감시가 「중앙선 침범」으로 기록
+    if (car.trait === 'clpass' && !onLink && car.mode === 'drive' && !(car.clT > 0) && car.laneIdx === 0 && car.lcCd <= 0 && lead && lead.along < 26 && lead.v < car.cruise - 2 && car.v > 3 && ap && distStop > 45) {
+      car.clT = 4.4; car.signal = 'L'; car.signalT = 4.6; car.lcCd = 30 + rng() * 20; car.cruise *= 1.35; car.otBoost = 4.4; lead = null;
+    }
+    if (car.clT > 0) { car.clT -= dt; if (!ap || distStop < 14 || car.mode !== 'drive') car.clT = 0; }
     if (car.otBoost > 0) { car.otBoost -= dt; if (car.otBoost <= 0) car.cruise /= 1.35; }
     // 철길건널목: 차단기가 내려오면 정지선 앞에 선다. 위반 성향 차량 일부는 그대로 통과 → 「건널목 위반」
     if (self.rail) {
@@ -759,7 +784,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       } else car.railPrev = undefined;
     }
     if (lead) {
-      var gap = lead.along - (car.len / 2 + lead.len / 2), want = 2.5 + car.v * cfg.AI_FOLLOW_SEC;
+      var gap = lead.along - (car.len / 2 + lead.len / 2), want = car.trait === 'tailgate' ? 1.2 + car.v * 0.42 : 2.5 + car.v * cfg.AI_FOLLOW_SEC;
+      car.tgClose = car.trait === 'tailgate' && car.v > 6 && lead.v > 4 && gap < car.v * 0.75;   // 0.75초 안쪽으로 붙어 달린다
       if (gap < want) target = Math.min(target, Math.max(0, lead.v - (want - gap) * 0.9));
       if (gap < 1.5) { target = 0; emergency = true; }
       // 경적: 앞차가 서서 안 움직이면(3~6초) 성질 급한 운전자가 짧게 울린다(플레이어 근처만 들린다)
@@ -770,6 +796,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     // 정차 유도: 갓길로 옮기고, 교차로·횡단보도 밖에서 선다
     var extraT = car.mode === 'drive' ? (car.lcShift || 0) + (car.edgeRider ? car.edgeOff : 0) + (car.trait === 'drunk' ? (car.weave || 0) : 0) : 0;   // 차로 변경·보도 주행(이륜차·자전거 위반): 경로점 대비 옆 이동
+    if (car.clT > 0.5 && car.mode === 'drive' && !onLink) {   // 중앙선 넘어 앞지르기: 마주 오는 1차로 가운데(중앙선 왼쪽 2.1m)로 — 경로점 차로와 상관없이
+      var clFr = city.frameAt(car.pos.x, car.pos.z, car.heading);
+      if (clFr.kind === 'grid') extraT = -2.1 - (clFr.lateral - car.extra);
+    }
     if (car.mode === 'yield' || car.mode === 'stopped') {
       var frame = city.frameAt(car.pos.x, car.pos.z, car.heading);
       var shoulder = onLink ? self.terrain.shoulderOf(cur.lp) : frame.shoulder;
@@ -783,7 +813,44 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (clear) { target = 0; if (car.v < 0.05) car.mode = 'stopped'; }
       if (car.mode === 'stopped' && !clear) car.mode = 'yield';
     } else if (car.mode === 'release') { car.yieldT -= dt; if (car.yieldT <= 0) car.mode = 'drive'; }
-    car.extra += TG.clamp(extraT - car.extra, -2.0 * dt, 2.0 * dt);
+    var exR = car.clT > 0 ? 4.2 : 2.0;   // 중앙선 넘어 앞지르기는 빨리 넘어간다(느리면 블록 안에서 끝나지 않는다)
+    car.extra += TG.clamp(extraT - car.extra, -exR * dt, exR * dt);
+    // T-Book 「자주 단속하는 20항목」 ⑬ 과속 · ⑭ 안전띠 · ⑰ 선팅 · ⑱ 밤 무등화 · ⑲ 안전거리(v0.10.36): 습관을 **눈으로 보면** 기록한다
+    car.hbChk = (car.hbChk || 0) - dt;
+    if (car.hbChk <= 0) {
+      car.hbChk = 0.25;
+      var tHab = car.trait, HAB = { speeder: 'speeding', tailgate: 'distance', nobelt: 'seatbelt', tint: 'tint', nolight: 'nolight' };
+      if (HAB[tHab] && car.mode === 'drive' && !(car.violation && car.violation.seen)) {
+        var seenH = self.witness(car), plH = self.player, dPl = plH ? Math.hypot(car.pos.x - plH.pos.x, car.pos.z - plH.pos.z) : 1e9, okH = false, spd = null;
+        if (tHab === 'speeder' && seenH) {
+          var fS = city.frameAt(car.pos.x, car.pos.z, car.heading);
+          if (fS.kind !== 'off' && fS.limit < 900 && Math.round(car.v * 3.6) > fS.limit + 20) { okH = true; spd = { kmh: Math.round(car.v * 3.6), limit: fS.limit, school: !!fS.school }; }
+        } else if (tHab === 'tailgate') okH = seenH && !!car.tgClose;
+        else if (tHab === 'nobelt') okH = seenH && dPl < 18 && car.v > 1.5;
+        else if (tHab === 'tint') okH = seenH && dPl < 22;
+        else if (tHab === 'nolight') okH = seenH && !!TG.nightNow && dPl < 70 && car.v > 2;
+        car.habSeen = okH ? (car.habSeen || 0) + 0.25 : Math.max(0, (car.habSeen || 0) - 0.25);
+        if (car.habSeen >= (tHab === 'speeder' ? 1.0 : tHab === 'tailgate' ? 2.5 : 1.75)) {
+          car.habSeen = 0; self.stats.violations++; flag(car, HAB[tHab], ap ? ap.node : null, true);
+          if (spd && car.violation) { car.violation.kmh = spd.kmh; car.violation.limit = spd.limit; car.violation.school = spd.school; }
+          if (tHab === 'tailgate' && car.violation) car.violation.link = onLink;
+        }
+      }
+    }
+    // 중앙선 감시(v0.10.36 · 소유자 신고 「중앙선을 넘은 좌측 깜빡이 차를 단속할 수 없다」): 격자 도로에서 교차로 밖인데 황색 중앙선 왼쪽을 0.6초 넘게 달리면
+    // 까닭이 무엇이든(습관·밀림) 「중앙선 침범」으로 기록한다 — 목격하면 화살표가 뜨고 단속할 수 있다. 까닭은 clDiag 에 남긴다(검증이 읽는다)
+    car.clChk = (car.clChk || 0) - dt;
+    if (car.clChk <= 0) {
+      car.clChk = 0.2;
+      if (!onLink && car.mode === 'drive' && car.v > 1 && !city.nearIntersectionZone(car.pos.x, car.pos.z)) {
+        var clF = city.frameAt(car.pos.x, car.pos.z, car.heading);
+        if (clF.kind === 'grid' && clF.lateral < -0.5) car.clSeen = (car.clSeen || 0) + 0.2; else car.clSeen = 0;
+        if (car.clSeen >= 0.6 && !(car.violation && car.violation.type === 'centerline')) {
+          car.clDiag = { trait: car.trait || null, clT: +(car.clT || 0).toFixed(2), lat: +clF.lateral.toFixed(2), lcShift: +(car.lcShift || 0).toFixed(2), lane: car.laneIdx, sig: car.signal, zone: !!car.inZone };
+          self.stats.violations++; flag(car, 'centerline', ap ? ap.node : null, self.witness(car));
+        }
+      } else car.clSeen = 0;
+    }
 
     car.dbg = { target: target, emergency: emergency, lead: lead ? [lead.along, lead.v] : null, ap: ap ? (ap.node.i + ',' + ap.node.j + ':' + ap.maneuver) : null };
     var decel = (emergency || car.v - target > 6) ? cfg.AI_EMERGENCY : cfg.AI_DECEL;
@@ -843,7 +910,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   };
 
   var spawnT = 0;
-  this.resetSpawn = function () { spawnT = 0; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계를 처음으로
+  this.resetSpawn = function () { spawnT = 0; nextId = 1; self.time = 0; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계·차 번호·시계를 처음으로(차 번호로 화물 차로를 가른다 — 안 되돌리면 판마다 차로가 달라졌다)
   this.update = function (dt, budget) {
     self.time += dt; spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.5; if (cars.length < budget) spawn(); }

@@ -139,6 +139,25 @@ TG.vehmesh = (function () {
     return { top: top, glassAt: glassAt, zs: zs, zf: env[0].z, zr: env[env.length - 1].z, wsBase: null, env: env };
   }
   // 단면(오른쪽 반) 13점. 색은 점 k→k+1 띠(12개).
+  // 🚗 축 자리(v0.10.35) — 바퀴를 그리는 곳(wheels)과 휠하우스를 파는 곳(section)이 **같은 값**을 봐야 한다.
+  //  둘이 따로 계산하면 아치와 바퀴가 어긋난다. 축거가 정해진 차(T.wb)는 그 값을 쓴다(플레이어 차 vehicle.js 와 같은 규칙).
+  function axleZs(T) {
+    var l = T.l;
+    if (T.bus) return [l * 0.33, -l * 0.30];
+    if (T.cargo) return [l * 0.33, -l * 0.12, -l * 0.34];
+    if (T.wb) return [T.wb / 2, -T.wb / 2];
+    return [l * 0.31, -l * 0.31];
+  }
+  // 그 z 에서 휠하우스 천장 높이(없으면 0). 반지름은 타이어보다 14% 크다 — 바퀴가 아치에 닿지 않고 틈이 보여야 한다.
+  function archAt(T, z) {
+    if (T.two || T.noArch || !T.wheelR) return 0;
+    var r = T.wheelR, ar = r * 1.14, top = 0;
+    axleZs(T).forEach(function (az) {
+      var dz = z - az;
+      if (Math.abs(dz) < ar) { var y = r + Math.sqrt(ar * ar - dz * dz); if (y > top) top = y; }
+    });
+    return top ? Math.min(top, T.belt - 0.10) : 0;   // 옆판이 벨트라인 아래로 조금은 남게
+  }
   function section(T, z, top, glassSeg, color) {
     var w = T.w, l = T.l, belt = T.belt, bottom = 0.30, taper = T.taper || 0, rs = (T.roofScale || 0.86) / 0.86, glassTop = T.glassTop || 99;
     var u = Math.abs(z) / (l / 2), hw = w / 2 * (1 - taper * u * u * u);
@@ -149,6 +168,11 @@ TG.vehmesh = (function () {
     A(hw, Math.min(belt - 0.52, top - 0.03)); A(hw, Math.min(belt - 0.30, top - 0.02)); A(hw, Math.min(belt - 0.27, top - 0.015)); A(hw * 0.995, Math.min(belt - 0.02, top - 0.01));
     if (gh) { A(hw * 0.97, belt + 0.02); A(hw * 0.90 * rs, belt + 0.07); A(hw * 0.87 * rs, Math.min(glassTop, top - 0.07)); A(hw * 0.83 * rs, top - 0.06); A(hw * 0.60 * rs, top - 0.012); A(0, top); }
     else { A(hw * 0.99, top - 0.045); A(hw * 0.97, top - 0.03); A(hw * 0.92, top - 0.02); A(hw * 0.80, top - 0.008); A(hw * 0.45, top + 0.010); A(0, top + 0.016); }
+    // 🛞 휠하우스(v0.10.35) — 종전에는 차체 아랫단이 바퀴 위를 **일자로 덮어** 바퀴가 옆판에 붙인 스티커처럼 보였다.
+    //  바퀴 자리에서 아랫단 점(바닥~옆판 아래, 0~5번)을 아치 곡선까지 들어 올린다. 덧붙이는 판이 아니라 **차체 자체가 파인다.**
+    //  들린 점끼리는 면적이 0 이 되어 저절로 사라지고, 바닥 면(0→1, 어두운색)이 아치 천장이 된다.
+    var archY = archAt(T, z);
+    if (archY > 0) for (var ak = 0; ak <= 5; ak++) if (P[ak][1] < archY) P[ak][1] = archY;
     var side = color, roof = lighten(color, 1.04), pol = !!T.police, bodyAbove = !!T.glassTop;
     var C = [DARK, LOW, side, side, side, side, side,   // 경찰 도색은 데칼(vehicle.js)이 맡는다 — 로프트는 흰 차체
              gh ? GLASS : side, gh ? GLASS : side, gh ? (bodyAbove ? roof : GLASS) : roof, gh ? (glassSeg ? GLASS : roof) : roof, gh ? (glassSeg ? GLASS : roof) : roof];
@@ -158,7 +182,17 @@ TG.vehmesh = (function () {
   // gb 에 차체를 그린다.
   function body(gb, T, color, opts) {
     opts = opts || {};
-    var w = T.w, l = T.l, belt = T.belt, pr = profile(T), zs = pr.zs, M = zs.length, K = 13;
+    var w = T.w, l = T.l, belt = T.belt, pr = profile(T), zs = pr.zs.slice(), K = 13;
+    // 아치 둘레에 단면을 더 넣는다 — 0.22m 간격 그대로면 아치가 **계단 세 칸**으로 보인다
+    if (!T.two && !T.noArch && T.wheelR) {
+      var arR = T.wheelR * 1.14, zf0 = zs[0], zr0 = zs[zs.length - 1];
+      axleZs(T).forEach(function (az) {
+        for (var ai = -6; ai <= 6; ai++) { var zz = az + arR * ai / 6; if (zz < zf0 - 0.02 && zz > zr0 + 0.02) zs.push(zz); }
+      });
+      zs.sort(function (a, b) { return b - a; });
+      zs = zs.filter(function (v, i) { return i === 0 || Math.abs(v - zs[i - 1]) > 0.012; });
+    }
+    var M = zs.length;
     var S = [], SC = [];
     for (var s = 0; s < M; s++) { var sec = section(T, zs[s], pr.top(zs[s]), pr.glassAt(zs[s]), color); S.push(sec.P); SC.push(sec.C); }
     // 정점 배열 V[side][s][k] 와 법선
@@ -222,10 +256,21 @@ TG.vehmesh = (function () {
     }
     // 바닥
     gb.quad([-w / 2 * 0.82, 0.30, zf], [-w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zr], [w / 2 * 0.82, 0.30, zf], [0, -1, 0], DARK, null);
+    // 휠하우스 안벽 — 아치를 파면 차 속이 뚫려 **반대편이 비쳐 보인다.** 어두운 판으로 막는다(유리 차는 아래 실내 상자가 막아 준다)
+    if (!opts.noGlass && !T.two && !T.noArch && T.wheelR) {
+      var wr = T.wheelR, wh2 = Math.min(wr * 2.14, belt - 0.10);
+      axleZs(T).forEach(function (az) {
+        if (az > zf - 0.05 || az < zr + 0.05) return;
+        for (var ws2 = -1; ws2 <= 1; ws2 += 2) gb.box(ws2 * (w / 2 - 0.33), (0.30 + wh2) / 2, az, 0.04, wh2 - 0.30, wr * 2.3, DARK, {});
+      });
+    }
     // 유리를 반투명으로 그릴 때는 속이 비어 보이지 않게 실내(바닥판·대시보드·좌석 등받이)를 넣는다 — 창 너머로 땅이 보이면 안 된다
     if (opts.noGlass) {
       var cab = layout(T);
-      gb.box(0, (0.34 + belt - 0.02) / 2, (zf + zr) / 2, w * 0.86, belt - 0.36, (zf - zr) * 0.86, 0x24272d, {});
+      // ⚠ 이 상자는 **객실 안(앞유리 밑 ~ 뒷유리 밑)** 에만 둔다. 종전에는 차 길이의 86% 를 차지해
+      //  **보닛·트렁크를 뚫고 나와** 짙은 회색 판으로 보였다(v0.10.35 실측: 상자 윗면 0.90m · 보닛 0.72~0.82m).
+      var cz1 = ws ? ws[0].z - 0.15 : zf - 0.15, cz0 = rw ? rw[1].z + 0.04 : zr + 0.15;   // 뒷유리가 없는 차(승합·구급)는 뒤끝까지 — 그 차들은 뒤가 높아 뚫고 나오지 않는다
+      if (cz1 > cz0) gb.box(0, (0.34 + belt - 0.02) / 2, (cz1 + cz0) / 2, w * 0.86, belt - 0.36, cz1 - cz0, 0x24272d, {});
       gb.box(0, belt + 0.05, cab.wsBase - 0.30, w * 0.84, 0.10, 0.45, 0x1c1e22, {});
       for (var sb2 = -1; sb2 <= 1; sb2 += 2) gb.box(sb2 * 0.38, belt + 0.24, cab.eye.z - 0.34, 0.50, 0.52, 0.10, 0x2c3038, {});
     }
@@ -299,7 +344,7 @@ TG.vehmesh = (function () {
 
   function wheels(gb, T) {
     var r = T.wheelR, w = T.w, l = T.l;
-    var zs = T.bus ? [l * 0.33, -l * 0.30] : T.cargo ? [l * 0.33, -l * 0.12, -l * 0.34] : [l * 0.31, -l * 0.31];
+    var zs = axleZs(T);   // 휠하우스(archAt)와 같은 값 — 따로 계산하면 아치와 바퀴가 어긋난다
     for (var i = 0; i < zs.length; i++) for (var s = -1; s <= 1; s += 2) wheelAt(gb, s * (w / 2 - 0.17), r, zs[i], r, !!T.detail);   // ⚠ 0.07 이면 타이어가 차체 옆으로 6cm 튀어나온다(실측) — 바깥면이 차체와 거의 나란하게
   }
   // 🛞 타이어 + 림(v0.10.33) — **모든 차량**이 제대로 된 바퀴를 갖는다.
@@ -409,14 +454,17 @@ TG.vehmesh = (function () {
   }
   // 운전자 상반신(운전석 = +x 쪽). pose: 'wheel' 두 손 핸들 · 'phone' 오른손에 휴대전화를 들고 고개를 숙인다
   // (소유자: 「스마트폰을 들고 문자나 카톡을 보거나 만진 경우에도 해당하니 그런 장면을 보여주며」)
-  function driver(type, pose, shirt, skin, hair) {
-    var key = 'dv:' + type + ':' + pose + ':' + shirt + ':' + skin + ':' + hair;
+  function driver(type, pose, shirt, skin, hair, noBelt) {
+    var key = 'dv:' + type + ':' + pose + ':' + shirt + ':' + skin + ':' + hair + (noBelt ? ':nb' : '');
     if (cache[key]) return cache[key];
     var T = TYPES[type], L = layout(T), E = L.eye, W = L.wheel, x = E.x, gb = new TG.GeoBuilder(), look = pose === 'phone' ? 0.06 : 0;
     gb.box(x, E.y - 0.40, E.z - 0.08, 0.40, 0.46, 0.24, shirt, {});                               // 몸통
     gb.box(x, E.y - 0.15, E.z - 0.05, 0.12, 0.08, 0.12, skin, {});                                // 목
     gb.box(x, E.y - 0.02 - look * 0.5, E.z + look, 0.19, 0.22, 0.21, skin, {});                    // 머리(휴대전화를 보면 앞으로 숙인다)
     gb.box(x, E.y + 0.09 - look * 0.5, E.z - 0.02 + look, 0.21, 0.07, 0.23, hair, {});             // 머리카락
+    if (!noBelt) {   // 🪢 좌석안전띠 — 왼 어깨(창 쪽)에서 오른 허리로 비스듬히. 매지 않은 운전자(⑭)는 이 띠가 없다
+      for (var bs = 0; bs < 6; bs++) { var bt = bs / 5; gb.box(x + 0.15 - 0.29 * bt, E.y - 0.24 - 0.30 * bt, E.z + 0.045, 0.075, 0.085, 0.02, 0x2b2e34, {}); }
+    }
     gb.box(x, W.y, W.z, 0.36, 0.34, 0.04, 0x15171a, {});                                           // 핸들
     gb.box(x + 0.17, W.y - 0.02, (E.z + W.z) / 2 - 0.02, 0.08, 0.08, W.z - E.z + 0.02, shirt, {}); // 왼팔은 언제나 핸들
     gb.box(x + 0.15, W.y + 0.02, W.z - 0.02, 0.08, 0.08, 0.08, skin, {});

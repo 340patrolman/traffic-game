@@ -26,14 +26,15 @@ TG.hud = (function () {
     el.gap.className = sec < 1 ? 'gap danger' : sec < 2 ? 'gap warn' : 'gap';
   }
   // 좁은 폰에서 한 줄에 들어가야 한다 — 도로 이름의 괄호(왕복 N차로)는 뗀다(계기 칸이 두 줄로 커졌다)
-  function setSection(name, limit) {
-    var nm = String(name).replace(RE_PAREN, ''), lim = (limit === '—' || limit >= 999) ? '없음' : limit, t = nm + ' · 제한 ' + lim;
+  // where(v0.10.36 · 소유자 「반포대로 제한 50 이라고 하면 어디 부근 — 서초역을 지나고 있다든지」): 📍 가까운 교차로·역·IC
+  function setSection(name, limit, where) {
+    var nm = String(name).replace(RE_PAREN, ''), lim = (limit === '—' || limit >= 999) ? '없음' : limit, t = nm + ' · 제한 ' + lim + (where ? ' · 📍' + where : '');
     if (el._sec !== t) {
       el._sec = t; el.section.textContent = t;
       // 세로 화면 한 줄 계기 칸(v0.9.98): 제한속도 표지 · 도로명을 따로 보인다
       var lb = document.getElementById('limitBadge'), rn = document.getElementById('roadName');
       if (lb) { lb.textContent = lim === '없음' ? '—' : lim; lb.classList.toggle('none', lim === '없음'); }
-      if (rn) rn.textContent = nm.replace(/\s*·\s*어린이보호구역/, ' 🚸');
+      if (rn) rn.textContent = nm.replace(/\s*·\s*어린이보호구역/, ' 🚸') + (where ? ' · 📍' + where : '');
     }
   }
   function setGear(g) { if (el._gear !== g) { el._gear = g; el.gear.textContent = g === 'R' ? 'R 후진' : ''; el.gear.style.display = g === 'R' ? '' : 'none'; } }
@@ -118,6 +119,10 @@ TG.hud = (function () {
       '<div class="lesson">오늘 배운 것: ' + stats.lesson + '</div>' + (stats.reason ? '<div class="reason">' + stats.reason + '</div>' : '') +
       // 틀린 것을 그냥 지나치지 않는다 — 무엇을 다시 봐야 하는지 여기서 말해 준다
       (stats.review ? '<div class="review">📕 다시 볼 것 · ' + stats.review + '</div>' : '') +
+      // 📅 오늘의 임무(v0.10.36) — 내일 다시 올 이유
+      (stats.daily && stats.daily.list ? '<div class="daily"><div class="dl-h">📅 오늘의 임무' + (stats.daily.streak ? ' · 🔥 ' + stats.daily.streak + '일 연속' : '') + '</div>' + stats.daily.list.map(function (m) {
+        return '<div class="dl-r' + (m.done ? ' done' : '') + '"><span>' + (m.done ? '✅ ' : '⬜ ') + m.text + '</span><i><b style="width:' + Math.round(m.prog / m.goal * 100) + '%"></b></i><em>' + m.prog + '/' + m.goal + '</em></div>';
+      }).join('') + '</div>' : '') +
       // 🎖 계급 막대 — 오늘 얼마나 올랐고 다음 계급까지 얼마 남았는지. 아이들이 다음 판을 시작하는 이유가 된다.
       (stats.rank ? '<div class="rankrow"><span class="rk-ic">' + (stats.rankImg ? '<img alt="' + stats.rank.name + ' 계급장" src="' + stats.rankImg + '">' : '🎖') + '</span><span class="rk-nm">' + stats.rank.name + '</span>' +
         '<span class="rk-bar"><i style="width:' + Math.round(stats.rankPct * 100) + '%"></i></span>' +

@@ -753,6 +753,17 @@ TG.tex = (function () {
   // 위반 차량 표시 화살표(스프라이트)
   // 연기(부드러운 원) · 전조등 플레어(가운데 밝고 가로로 긴 빛)
   function smoke() { var key = 'smoke'; if (cache[key]) return cache[key]; var c = canvas(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (cache[key] = toTexture(c)); }
+  // 🌑 접촉 그림자(v0.10.35) — 발밑·차 밑의 부드러운 어두운 타원. 그림자 지도는 1칸이 약 9cm 라
+  //  다리(7cm)·바퀴 밑 접지면 같은 작은 것은 그림자가 안 생겨 **사람과 차가 떠 보였다.** 게임에서 흔히 쓰는 값싼 방법이다.
+  function blob() { var key = 'blob'; if (cache[key]) return cache[key]; var c = canvas(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 1, 32, 32, 31); gr.addColorStop(0, 'rgba(0,0,0,0.85)'); gr.addColorStop(0.45, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (cache[key] = toTexture(c)); }
+  var blobMats = {};
+  // 접촉 그림자 판 하나(발밑 평면). w·l 은 미터, op 는 진하기. 재질은 진하기별로 하나를 같이 쓴다.
+  function contactShadow(w, l, op) {
+    var k = String(op); var m = blobMats[k] || (blobMats[k] = new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, opacity: op, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    var pm = new THREE.Mesh(contactShadow.geo || (contactShadow.geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), m);
+    pm.scale.set(w, 1, l); pm.position.y = 0.025; pm.renderOrder = 1; pm.name = 'contactShadow';
+    return pm;
+  }
   function flare() { var key = 'flare'; if (cache[key]) return cache[key]; var c = canvas(128, 64), g = c.getContext('2d'), gr = g.createRadialGradient(64, 32, 1, 64, 32, 62); gr.addColorStop(0, 'rgba(255,250,235,1)'); gr.addColorStop(0.15, 'rgba(255,240,200,0.75)'); gr.addColorStop(0.5, 'rgba(255,225,160,0.18)'); gr.addColorStop(1, 'rgba(255,220,150,0)'); g.save(); g.scale(1, 0.5); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); g.restore(); return (cache[key] = toTexture(c)); }
   function marker() {
     if (cache.marker) return cache.marker;
@@ -783,6 +794,6 @@ TG.tex = (function () {
     }
     return (cache[key] = toTexture(c));
   }
-  return { smoke: smoke, flare: flare, phoneScreen: phoneScreen, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, camSign: camSign, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
+  return { smoke: smoke, blob: blob, contactShadow: contactShadow, flare: flare, phoneScreen: phoneScreen, roadText: roadText, sign: sign, facade: facade, shopStrip: shopStrip, signalHead: signalHead, pedHead: pedHead, marker: marker, label: label, subwaySign: subwaySign, stoneLabel: stoneLabel, camSign: camSign, emblem: emblem, emblemEagle: emblemEagle, emblemPNG: emblemPNG, vestLabel: vestLabel, ctrlPlate: ctrlPlate, liverySide: liverySide, liveryRear: liveryRear, ledBoard: ledBoard, liveryHood: liveryHood,
            asphalt: asphalt, paving: paving, cloud: cloud, water: water, busStop: busStop, hwSign: hwSign };
 })();

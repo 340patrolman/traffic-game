@@ -59,6 +59,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     if (p.age === 'senior') hair = 0xd8d8d8;
     var r = TG.Character.lite({ shirt: shirt, pants: pants, skin: skin, hair: hair, bag: L.bag, hat: L.hat, female: L.female, hairStyle: L.hairStyle, shoe: L.shoe });
     var g = r.group; p.limbs = r.limbs; p.scale = 0.9 + rng() * 0.2;
+    if (TG.tex.contactShadow) g.add(TG.tex.contactShadow(0.62, 0.52, 0.42));   // 🌑 발밑 접촉 그림자 — 다리는 그림자 지도에 안 잡혀 사람이 떠 보였다
     if (p.age === 'kid') p.scale *= 0.72; else if (p.age === 'senior') p.scale *= 0.96;
     g.scale.set(p.scale, p.scale, p.scale);
     return g;

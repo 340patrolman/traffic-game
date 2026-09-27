@@ -146,10 +146,10 @@
     }, this);
     // 바퀴(앞바퀴 조향)
     this.wheels = [];
-    var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    var wgeo = TG.vehmesh.wheelGeo(T.wheelR, !!T.detail), wmat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25, envMapIntensity: 0.5 });   // 림이 빛을 받게(v0.10.35 — Lambert 는 반짝임이 0)
     var pairs = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
     for (var i = 0; i < 4; i++) {
-      var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - (ev ? 0.10 : 0.07)), T.wheelR, pairs[i][1] * (T.wb ? T.wb / 2 : l * 0.31));   // 축거가 정해진 차(전기 SUV 3.0m)는 그대로
+      var wh = new THREE.Mesh(wgeo, wmat); wh.position.set(pairs[i][0] * (w / 2 - (ev ? 0.10 : 0.15)), T.wheelR, pairs[i][1] * (T.wb ? T.wb / 2 : l * 0.31));   // 축거가 정해진 차(전기 SUV 3.0m)는 그대로
       wh.rotation.order = 'YXZ';   // 조향(Y)을 먼저, 구름(X)을 나중에 — XYZ 이면 조향이 구름축에 끌려가 바퀴가 비틀린다
       g.add(wh); this.wheels.push(wh);
     }

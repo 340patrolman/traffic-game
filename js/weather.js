@@ -100,6 +100,8 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     M.ground.forEach(function (m) { m.color.setHex(P.ground); });
     kind = P.particles; points.visible = !!kind; if (kind) points.material = kind === 'rain' ? rainMat : kind === 'dust' ? dustMat : snowMat;
     self.wind = P.wind || 0;
+    if (TG.carLampMats) TG.carLampMats.forEach(function (m) { m.visible = !!P.dark || self.name === 'rain' || self.name === 'snow'; });   // 💡 차 전조등·미등
+    TG.nightNow = !!P.dark;   // ⑱ 밤 무등화 판정이 읽는다(비·눈은 별표8 61호 문언상 제외)
     lampPts.visible = !!P.dark; spot.visible = !!P.dark; spot.intensity = P.dark ? 2.2 : 0;
     if (terrain.waterMat) terrain.waterMat.opacity = P.dark ? 0.95 : 0.88;
     if (terrain.setFlood) terrain.setFlood(self.name === 'rain');   // 비: 양재천·한강 둔치 침수, 잠수교 통제

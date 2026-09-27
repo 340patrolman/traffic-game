@@ -10,13 +10,36 @@ TG.Director = function (game) {
   var self = this, lastT = 0, busyT = 0, wasBusy = false, jit = 0, pending = null, pendT = 0, nth = 0;
   this.IDLE = 10;          // 이만큼 한가하면 사건을 놓는다(흔들림 0~3초를 더한다 — 판정까지 목격 시간 2~5초가 더 걸린다)
   this.log = [];
-  var POOL = [{ type: 'sedan', trait: 'phone' }, { type: 'hatch', trait: 'phone' }, { type: 'sedan', trait: 'drunk' }, { type: 'suv', trait: 'phone' }];
+  // 감독이 놓는 것은 **멀리서도 곧 보이는** 위반만(휴대전화·음주 비틀·과속). 안전띠·선팅은 18~22m 안에서만 보여 한가함을 못 줄인다 — 평소 교통에 섞여 나온다.
+  var POOL = [{ type: 'sedan', trait: 'phone' }, { type: 'hatch', trait: 'speeder' }, { type: 'suv', trait: 'phone' }, { type: 'sedan', trait: 'drunk' }];
+  // 🗺 디지털 트윈(v0.10.36 · 소유자 「교통사고 관련해서 해당 종목이나 관련 내용이 많은 곳에서 해당 단속을 할 수 있게」):
+  //   가까운 교차로의 **실제 TAAS 사고 경위 상위**를 보고 그 위반을 하는 차를 먼저 놓는다. 경위 이름 → 습관(게임에서 보이는 모습)
+  var LAW_TRAIT = { '안전거리미확보': { type: 'sedan', trait: 'tailgate', lead: true }, '신호위반': { type: 'sedan', trait: null, violator: true },
+                    '중앙선침범': { type: 'sedan', trait: 'clpass', lead: true, lane0: true }, '보행자보호의무위반': { type: 'suv', trait: null, pedViolator: true, violator: true },
+                    '안전운전불이행': { type: 'hatch', trait: 'phone' }, '교차로운행방법위반': { type: 'sedan', trait: 'speeder' } };
+  var told = {};   // 한 근무에 교차로마다 한 번만 알려 준다
+  function localPick() {
+    var P = game.player, city = game.city, L = game.layers;
+    if (!P || !city || !L || !L.nodeViolations || !city.nearestNode) return null;
+    var nd = city.nearestNode(P.pos.x, P.pos.z), info = nd ? L.nodeViolations(nd.i, nd.j) : null;
+    if (!info || !info.violations.length) return null;
+    var cand = info.violations.filter(function (v) { return LAW_TRAIT[v[0]]; });
+    if (!cand.length) return null;
+    var tot = cand.reduce(function (s, v) { return s + v[1]; }, 0), r = Math.random() * tot, pick = cand[0];
+    for (var i = 0; i < cand.length; i++) { r -= cand[i][1]; if (r <= 0) { pick = cand[i]; break; } }
+    var key = nd.i + ',' + nd.j;
+    if (!told[key] && game.hud && game.hud.hint) {
+      told[key] = true;
+      game.hud.hint('📊 ' + info.name + ' — 실제 사고 경위(' + info.years + ') ' + cand.slice(0, 2).map(function (v) { return v[0] + ' ' + v[1] + '건'; }).join(' · ') + ' — 그 위반부터 본다');
+    }
+    return LAW_TRAIT[pick[0]];
+  }
   function now() { return game.traffic ? game.traffic.time : 0; }
   function sim() { return !!(TG.mode && TG.mode.sim); }
   this.bias = null;        // 📖 캠페인 장이 고른다: 'drunk'(8월) · 'pm'(10월) — reset 이 지운다
   var BIAS = { drunk: [{ type: 'sedan', trait: 'drunk' }, { type: 'suv', trait: 'drunk' }, { type: 'hatch', trait: 'phone' }],
                pm: [{ type: 'pm', trait: null, pmHelmet: false }, { type: 'pm', trait: null, pmHelmet: false }, { type: 'sedan', trait: 'phone' }] };
-  this.reset = function () { self.bias = null; lastT = now(); busyT = 0; jit = Math.random() * 3; pending = null; pendT = 0; nth = 0; wasBusy = false; self.log = []; };
+  this.reset = function () { told = {}; self.bias = null; lastT = now(); busyT = 0; jit = Math.random() * 3; pending = null; pendT = 0; nth = 0; wasBusy = false; self.log = []; };
   // 계측이 사건을 적을 때마다 부른다(metrics.ev) — 사건이 났으면 한가함은 0 부터
   this.mark = function () { lastT = now(); if (pending && pending.violation && pending.violation.seen) pending = null; };
   this.idle = function () { return now() - lastT; };
@@ -52,7 +75,11 @@ TG.Director = function (game) {
       var nd = city.nodeAhead(x, z, (d + 2) % 4);                      // spawn 의 at.node 는 뒤쪽 교차로
       if (!nd) continue;
       var pool = (self.bias && BIAS[self.bias]) || POOL, pick = pool[nth % pool.length];
-      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: lane, v: Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)), straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: false });
+      if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
+      var useLane = pick.lane0 ? 0 : lane;
+      if (useLane !== lane) { var la0 = city.laneOff(axis, idx, useLane); x = cx + r[0] * la0; z = cz + r[1] * la0; }
+      if (pick.lead) tr.spawn({ at: { x: x + f[0] * 14, z: z + f[1] * 14, d: d, node: nd }, laneIdx: useLane, v: 6, cruise: 6.5, straight: true, type: 'hatch', trait: null, violator: false });   // 느린 앞차 — 붙거나(안전거리) 넘어 앞지를(중앙선) 까닭
+      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: useLane, v: Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)), straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: !!pick.violator, pedViolator: pick.pedViolator });
       if (car) { car.directed = true; car.traitT = 6; car.drunkSeen = 2.5; car.pmT = 1.5; nth++; return car; }   // 목격 시간을 조금 앞당긴다(휴대전화 8초·음주 5초 → 2~3초)
     }
     return null;

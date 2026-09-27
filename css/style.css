@@ -58,6 +58,16 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stickBase{position:absolute;left:24px;top:auto;bottom:24px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(20,30,50,.75),rgba(10,14,22,.85));border:3px solid rgba(255,207,63,.75);box-shadow:0 0 0 3px rgba(10,14,22,.6),0 6px 18px rgba(0,0,0,.5);opacity:.8;transition:opacity .15s}
 #stickBase.on{opacity:1;bottom:auto}
 #stickBase.live{opacity:1}
+#end .daily{margin:8px 0 4px;padding:8px 10px;border:1px solid rgba(255,207,63,.45);border-radius:10px;background:rgba(255,207,63,.07);text-align:left}
+#end .daily .dl-h{font-weight:800;color:#ffd75e;font-size:13px;margin-bottom:4px}
+#end .daily .dl-r{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:3px 0}
+#end .daily .dl-r span{flex:1 1 auto;min-width:0}
+#end .daily .dl-r i{flex:0 0 64px;height:7px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden}
+#end .daily .dl-r i b{display:block;height:100%;background:#ffcf3f}
+#end .daily .dl-r.done i b{background:#4ade80}
+#end .daily .dl-r em{flex:0 0 auto;font-style:normal;font-weight:700;color:#cfd8e6}
+#stickBase.moving{opacity:1;border-color:#7cf;box-shadow:0 0 0 4px rgba(120,200,255,.45),0 0 22px rgba(120,200,255,.7);animation:stickMove .8s ease-in-out infinite alternate}
+@keyframes stickMove{from{transform:scale(1)}to{transform:scale(1.06)}}
 #minimap{position:fixed;top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
 #minimap.dragging{cursor:grabbing;opacity:.9;border-color:var(--accent);box-shadow:0 0 0 2px rgba(77,141,255,.5),0 8px 22px rgba(0,0,0,.5)}
 body.portrait #minimap{top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:148px;height:146px}
