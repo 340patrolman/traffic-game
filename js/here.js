@@ -202,7 +202,9 @@ TG.Here = function (game) {
     var rows = near.slice(0, 3).map(function (h) {
       return { k: (h.kind || '국가유산') + ' · ' + dist(h.dist), v: unent(h.name) + (h.era ? ' · ' + h.era : '') + (h.desc ? '\n' + unent(h.desc) : '') };
     });
-    if (!exact) rows.push({ k: '⚠ 자리', v: '이 지도는 축약 지도라 국가유산 자리가 실제와 어긋난다(실측 150~580m). 있고 없음만 보고, 정확한 자리는 1:1 정밀 지도에서 본다.' });
+    if (!exact) rows.push({ k: '⚠ 자리', v: (TG.warp && TG.warp.ok)
+      ? '축약 지도다 — 실제 도로 중심선에 맞춰 늘이고 줄여(고무판 변환) **어느 도로 사이·어느 모퉁이인지는 실제와 같게** 두었다. 거리는 축약돼 있다(1:1 정밀 지도에서 실제 거리).'
+      : '이 지도는 축약 지도라 국가유산 자리가 실제와 어긋난다(실측 150~580m). 있고 없음만 보고, 정확한 자리는 1:1 정밀 지도에서 본다.' });
     return { title: '🏛 역사 · 흥미', rows: rows, src: H.src() };
   }
 

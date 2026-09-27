@@ -49,6 +49,7 @@
     camera = new THREE.PerspectiveCamera(62, 1, 0.5, 2600);
 
     city = TG.buildCity(C);
+    if (TG.warp) TG.warp.setGrid(city.xs, city.zs);   // 고무판 변환의 목표 격자(자료가 없으면 ok=false 로 종전대로)
     // **순서가 중요하다.** world 가 terrain 보다 먼저 만들어지면 `city.exitFor` 가 아직 null 이라
     // 연결로에서 들어오는 접근로에 차량 신호등이 안 세워졌다 — 강남역·고속터미널·이수역·예술의전당·
     // 잠원역·방배로 신반포로 여섯 곳이 사거리인데 신호등이 3개뿐이었다(소유자: 「사거리 신호등이 표현 안된곳도 있고」).
@@ -3282,6 +3283,10 @@
       TG.MAP_ENTRY = pick;
       return fetch(pick.file).then(function (r) { return r.json(); }).then(function (m) {
         TG.MAP = m; log('지도: ' + m.name + (m.beta ? ' (베타)' : ''));
+        // 🛰 고무판 변환(v0.10.41): 실제 도로 중심선을 읽어 두면 실제 자리(사고·국가유산·역)가 **맞는 블록·모퉁이**에 떨어진다
+        if (pick.warp && TG.warp) return fetch(pick.warp).then(function (r) { return r.json(); })
+          .then(function (rj) { if (TG.warp.init(rj, m)) log('고무판 변환: 실제 도로 중심선 ' + Object.keys(rj.roads || {}).length + '개'); })
+          .catch(function (e) { log('고무판 변환 자료를 못 읽었습니다 — 아핀변환만 씁니다: ' + e.message); });
       });
     }).catch(function (e) { log('지도 파일 로딩 실패 — 기본 지도로 시작합니다: ' + e.message); }).then(done, done);
   }

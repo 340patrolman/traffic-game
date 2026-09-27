@@ -13,9 +13,11 @@ TG.Heritage = function () {
     D.items.forEach(function (h) {
       if (!(h.lat > 0 && h.lon > 0)) return;              // 좌표 없는 것은 자리에 안 찍는다
       var u = h.lon - W.lon0, w = h.lat - W.lat0;
+      var q = [W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]];
+      if (TG.warp && TG.warp.ok) q = TG.warp.fromAffine(q[0], q[1]);   // 🛰 고무판 변환(v0.10.41) — 맞는 블록·모퉁이에
       pts.push({
-        x: W.x[0] * u + W.x[1] * w + W.x[2],
-        z: W.z[0] * u + W.z[1] * w + W.z[2],
+        x: q[0],
+        z: q[1],
         name: h.name, kind: h.kind, era: h.era, desc: h.desc, addr: h.addr, admin: h.admin
       });
     });

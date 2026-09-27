@@ -14,6 +14,10 @@ TG.Layers = function (game, city, cfg, scene) {
   var nodes = null;          // data/taas-nodes-<지도>.json — 교차로별 사고 집계
   var fatal = null;          // data/taas-fatal-<지도>.json — 사망사고 한 건씩(집계하지 않는다)
   var vuln = null;           // data/taas-vuln-<지도>.json — 어린이·보행자·노인·자전거(홍보용 분포까지)
+  // 🛰 고무판 변환(v0.10.41): 아핀변환으로 옮긴 자리(gx·gz · 경계선)를 **실제 도로 중심선 기준**으로 격자에 옮긴다.
+  //  자료가 없으면(1:1 지도 등) 그대로 — 종전과 같다. 한 번 옮긴 값에는 표시를 남겨 두 번 옮기지 않는다.
+  function wA(x, z) { return (TG.warp && TG.warp.ok) ? TG.warp.fromAffine(x, z) : [x, z]; }
+  self.warped = function () { return !!(TG.warp && TG.warp.ok); };
   function distToGame(v) {
     if (!v || !v.districts) return null;
     if (v.schema !== 'tg-districts/2') return v;            // 옛 판(게임 좌표로 구운 것)은 그대로
@@ -25,7 +29,7 @@ TG.Layers = function (game, city, cfg, scene) {
         return { name: D0.name, rings: (D0.rings || []).map(function (ring) {
           return ring.map(function (p) {
             var u = p[0] - lon0, w = p[1] - lat0;
-            return [W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]];
+            return wA(W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]);
           });
         }) };
       }) };
@@ -62,6 +66,9 @@ TG.Layers = function (game, city, cfg, scene) {
     if (!tf) { defsBuild(); if (cb) cb(null, null); return; }
     fetch(tf).then(function (r) { return r.json(); }).then(function (j) {
       taas = j;
+      // 위경도가 있는 사고다발지 항목은 고무판 변환으로 다시 놓는다(교차로 이름으로 붙인 node 항목은 그대로)
+      if (TG.warp && TG.warp.ok) (taas.layers || []).forEach(function (L) { (L.items || []).forEach(function (it) {
+        if (!it.node && it.la > 0 && it.lo > 0 && !it.warped) { var q = TG.warp.fromLL(it.lo, it.la); if (q) { it.xz = [q[0], q[1]]; it.warped = true; } } }); });
       // 교차로별 사고 집계(있으면). 개별 사고가 아니라 집계값이다 — 개인 속성은 애초에 담지 않았다.
       var nf = (TG.MAP_ENTRY && TG.MAP_ENTRY.taasNodes) || (TG.MAP && TG.MAP.taasNodes) || null;
       var after = function () {
@@ -121,7 +128,7 @@ TG.Layers = function (game, city, cfg, scene) {
       // 사망사고: 원의 크기로 세기를 나타내지 않는다 — 한 건은 한 건이다. 크기를 고정한다.
       defs.push({ id: 'taasFatal', name: '사망사고', color: '#ff2d2d', kind: 'taas',
         src: { items: fatal.cases.filter(function (c) { return c.inMap; }).map(function (c) {
-          return { xz: [c.gx, c.gz], radius: 11, name: c.typeH + ' · ' + c.typeM, year: c.y + '년 ' + c.m + '월',
+          return { xz: wA(c.gx, c.gz), radius: 11, name: c.typeH + ' · ' + c.typeM, year: c.y + '년 ' + c.m + '월',
             total: null, death: c.dead, serious: c.ser, verified: true, approx: true, fatal: true,
             caseLine: c.tz + ' ' + c.hh + '시 · ' + c.dow + '요일 · ' + c.wx + ' · ' + c.road + ' · ' + c.viol +
               ' · ' + c.wr + (c.dm && c.dm !== '없음' ? ' → ' + c.dm : '') };
@@ -133,7 +140,7 @@ TG.Layers = function (game, city, cfg, scene) {
       var items;
       if (g.cases && g.cases.length) {
         items = g.cases.map(function (c) {
-          return { xz: [c[11], c[12]], radius: 10, name: g.name + ' · ' + c[5], year: c[0] + '년 ' + c[1] + '월',
+          return { xz: wA(c[11], c[12]), radius: 10, name: g.name + ' · ' + c[5], year: c[0] + '년 ' + c[1] + '월',
             total: null, death: 0, verified: true, approx: true,
             caseLine: c[3] + ' ' + c[4] + '시 · ' + c[2] + '요일 · ' + c[7] + ' · ' + c[8] + ' · ' + c[6] + ' · 가해 ' + c[9] + ' · ' + c[10] };
         });
