@@ -1457,6 +1457,21 @@ body.hereon #hud > *:not(#hereCard){filter:blur(1.5px) brightness(.62)}
 .areabtn b{color:#ffe08a}
 .areabtn small{width:100%;font-size:11px;font-weight:600;opacity:.75}
 .areapick{z-index:90}
+/* 🧩 꼬리물기 풀기(v0.10.45) */
+.jampanel{z-index:92}
+.jampanel .jam-card{width:min(560px,96vw);height:min(92vh,760px);display:flex;flex-direction:column;background:rgba(12,18,32,.98);border:1.5px solid rgba(242,201,76,.5);border-radius:16px;overflow:hidden}
+.jampanel .jam-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.jampanel .jam-head{display:flex;flex-direction:column;gap:2px}
+.jampanel .jam-head b{font-size:17px;font-weight:900;color:#ffe08a}
+.jampanel .jam-head span{font-size:12.5px;font-weight:800;color:#cfe0f5}
+.jampanel .jam-head i{font-style:normal;font-size:12px;font-weight:700;color:#93a5bd}
+.jampanel canvas{flex:1;width:100%;min-height:0;touch-action:none;display:block}
+.jampanel .jam-foot{padding:8px 12px 12px;border-top:1px solid rgba(255,255,255,.08)}
+.jampanel .jam-help,.jampanel .jam-law{font-size:12.5px;font-weight:700;color:#b9c8dc;line-height:1.5;margin-bottom:8px}
+.jampanel .jam-win{font-size:18px;font-weight:900;color:#ffe08a;margin-bottom:6px}
+.jampanel .jam-btns{display:flex;gap:8px;flex-wrap:wrap}
+.jampanel .jam-btns button{flex:1 1 110px;min-height:46px;border-radius:12px;border:1.5px solid rgba(242,201,76,.6);background:rgba(242,201,76,.14);color:#fff;font-size:14px;font-weight:900;cursor:pointer}
+.mpick.jampick{border-color:rgba(242,201,76,.7)!important}
 .areapick .ap-card{width:min(560px,94vw);max-height:86vh;overflow:auto;background:rgba(12,18,32,.97);border:1.5px solid rgba(159,211,255,.45);border-radius:16px;padding:0 0 10px}
 .areapick .ap-head{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(12,18,32,.98);border-bottom:1px solid rgba(255,255,255,.08)}
 .areapick .ap-head b{font-size:17px;font-weight:900;color:#fff}

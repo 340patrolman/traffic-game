@@ -208,6 +208,28 @@ TG.Enforcement = function (game) {
     if (Math.hypot(w.a.pos.x - w.sx, w.a.pos.z - w.sz) < 1.0 || w.t > 8) { if (w.a.dispose) w.a.dispose(); scn = null; }
   }
   self.sceneOn = function () { return !!scn; };
+  // 🗣 운전자 한마디(v0.10.45) — 인기 경찰 역할극(FiveM 경찰 RP)이 사랑받는 까닭이 「세운 운전자의 반응」이다(조사 2026-09).
+  //  여기서는 **한 줄만** 보인다(소유자: 단속 장면은 간단하게) — 점수·절차는 그대로. 거친 말·폭력은 없다.
+  //  응대 요령은 💭 속말로(사정은 듣되 기준은 같다). 음주 의심은 음주 절차 화면이 따로 있어 말하지 않는다.
+  var SAYS = {
+    phone: ['내비 보느라 잠깐 만졌어요.', '급한 연락이라… 금방 내려놨어요.'],
+    speeding: ['뒤차가 바짝 붙어서 속도를 좀 냈어요.', '제한속도 표지를 못 봤어요.'],
+    red: ['노란불이었던 것 같은데요?', '앞차 따라가다 보니 그만…'],
+    signal: ['노란불이었던 것 같은데요?', '앞차 따라가다 보니 그만…'],
+    seatbelt: ['바로 앞이라 안 맸어요.', '답답해서 잠깐 풀었어요.'],
+    tint: ['출고할 때부터 이랬어요.'],
+    distance: ['늦을까 봐 조금 붙었네요.'],
+    centerline: ['앞차가 너무 느려서요…'],
+    _: ['죄송합니다, 몰랐어요.', '한 번만 봐주시면 안 될까요?', '급한 일이 있어서요.', '제가 뭘 잘못했죠?']
+  };
+  var REPLY = ['💭 사정은 듣되 기준은 같다 — 차분하게 위반 사항과 근거를 알린다', '💭 목소리를 낮추고 규칙이 왜 있는지 한 문장으로 설명한다', '💭 말다툼하지 않는다 — 고지하고 이의 절차를 안내한다'];
+  function driverSays(car) {
+    if (!car || car._said || (TG.mode && TG.mode.sim)) return;
+    var t = car.violation && car.violation.type; if (t === 'drunk') return;
+    car._said = true;
+    var pool = SAYS[t] || SAYS._, line = pool[(car.id || 0) % pool.length];
+    setTimeout(function () { if (game.state !== 'play') return; game.hud.notice('🗣 운전자 — 「' + line + '」', 'info', 2200); if (game.hud.hint) game.hud.hint(REPLY[(car.id || 0) % REPLY.length]); }, 500);
+  }
   function completePullover(car) {
     if (game.metrics) game.metrics.ev('pulloverDone');
     var bonus = 10;
@@ -250,7 +272,7 @@ TG.Enforcement = function (game) {
           // 순찰차에서 내렸으면(afoot) 걸어간 거리를 재지 않는다 — 내리는 순간부터 2초 뒤 고지가 끝난다.
           // 도보 근무(walk·kid)는 종전대로 운전석 옆으로 걸어간다(그쪽은 차가 없고 걷는 것이 근무다).
           if (game.afoot) {
-            if (notifyT <= 0) { notifyT = 2.0; game.hud.setTarget('🚶 하차 — 위반사항 고지 중'); game.hud.hintNow('운전자에게 위반사항을 알리고 있습니다'); }
+            if (notifyT <= 0) { notifyT = 2.0; game.hud.setTarget('🚶 하차 — 위반사항 고지 중'); game.hud.hintNow('운전자에게 위반사항을 알리고 있습니다'); driverSays(c2); }
             notifyT -= dt;
             if (notifyT <= 0) { notifyT = 0; completePullover(c2); self.target = null; }
             return;

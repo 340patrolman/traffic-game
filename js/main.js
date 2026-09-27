@@ -119,6 +119,7 @@
     }
     // 🏙 도시 공공데이터(v0.10.44) — 행사·축제·집회·교통량·단속 카메라. 지도 항목에 적힌 것만 읽는다(기본 지도는 없음)
     if (TG.CityData) { G.citydata = new TG.CityData(G); if (minimap) minimap.cd = G.citydata; G.citydata.load(TG.MAP_ENTRY, function () { if (G.state === 'title' && G.areaPicker) { var an = document.getElementById('areaName'); if (an) an.textContent = G.areaPicker.label(); } }); }
+    if (TG.JamPuzzle) G.jam = new TG.JamPuzzle(G);   // 🧩 꼬리물기 풀기
     if (TG.Here) G.here = new TG.Here(G);          // 📍 이 자리 — 지도가 품은 자료를 그 자리 기준으로 모아 보인다
     // 🏢 실제 건물 윤곽(1:1 지도 전용) — 지도 항목에 buildings 가 있을 때만
     if (TG.RealBuild) {
@@ -410,7 +411,7 @@
     TG.audio.setSiren(false);
   }
   function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); if (cine) { cine.dispose(); cine = null; G.cine = null; } hud.showIntro(false); hud.showTouch(true); showTitle(); }
-  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '')); camInit = false; }
+  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -500,7 +501,8 @@
       // 교통시설 관리는 모드가 아니라 설정 화면이다 — 열고 바로 돌아간다
       if (name === 'plan') { openPlan(); return; }
       if (name === 'hood') { if (G.hood) G.hood.open(); return; }
-      if (name === 'dex') { if (G.dex) G.dex.open(); return; }     // 📚 도감   // 🗺 우리 동네 — 모드가 아니라 보는 화면
+      if (name === 'dex') { if (G.dex) G.dex.open(); return; }
+      if (name === 'jam') { if (G.jam) G.jam.open(); return; }     // 🧩 꼬리물기 풀기 — 모드가 아니라 퍼즐 화면(v0.10.45)     // 📚 도감   // 🗺 우리 동네 — 모드가 아니라 보는 화면
       if (settings.mode !== name) TG.audio.whoosh();
       settings.mode = MODES[name] ? name : 'patrol';
       TG.save.set('settings', settings);
@@ -578,6 +580,7 @@
       function restore() { var card = $('hereCard'); if (card) { card.classList.remove('ontitle'); if (G.hereHome && card.parentNode !== G.hereHome) G.hereHome.appendChild(card); } }
       input.bindTap(btn, openList);
       input.bindTap($('apClose'), function () { pick.style.display = 'none'; });
+      input.bindTap($('jamClose'), function () { if (G.jam) G.jam.close(); showTitle(); });
       paint();
       G.areaPicker = { open: openList, detail: detail, key: KEY, label: label };
     })();
@@ -2533,6 +2536,7 @@
     if (G.first) G.first.stop();
     if (G.metrics && G.state === 'play') G.stats.metrics = G.metrics.end(reason);
     if (G.crew && G.state === 'play') G.crew.now('end');
+    if (G.praise && G.praise.markEnd) G.praise.markEnd();   // ☕ 휴식 보너스 시계(v0.10.45)
     G.state = 'end'; player.setSiren(false); TG.audio.setSiren(false); TG.audio.stopTitleTheme(0.4);
     if (TG.audio.stopDutyScore) TG.audio.stopDutyScore(1.2);   // 🎵 근무 스코어도 함께 내린다
     var lessons = { redLight: '신호는 경찰이 먼저 지킨다', speeding: '제한속도 준수 — 정지거리는 속도의 제곱', centerline: '중앙선은 넘지 않는다', crash: '앞차와 2초 이상 — 1초 미만이면 급제동 시 추돌',

@@ -188,6 +188,8 @@ TG.Praise = function (game) {
   // ---- 경험치 · 승급 ----
   this.addXp = function (n, why) {
     n = Math.round(+n || 0); if (!isFinite(n) || n <= 0) return 0;
+    // ☕ 휴식 보너스(v0.10.45) — 쉬고 온 근무는 경험치 1.5배(쌓아 둔 만큼만). 방치형 게임의 「돌아오면 받는 보상」에서 왔다.
+    if (self.data.rested > 0 && why !== 'rest') { var ex = Math.min(self.data.rested, Math.max(1, Math.round(n * 0.5))); self.data.rested -= ex; n += ex; if (self.data.rested <= 0) self.feed('☕ 휴식 보너스를 다 썼다', 0); }
     var before = lvOf(self.data.xp);
     self.data.xp += n; self.session.xp += n; save();
     var after = lvOf(self.data.xp);
@@ -235,8 +237,17 @@ TG.Praise = function (game) {
     self.combo = 0;
     var c = EL('comboChip'); if (c) c.className = '';
   };
+  // ☕ 휴식 보너스: 마지막 근무가 끝나고 **실제 시간으로** 8시간 넘게 지났으면 다음 근무에 한 번 — 30 + 초과 시간 × 2(최대 90). 게임 설계값.
+  function restFrom(now) { var le = self.data.lastEnd; if (!le) return 0; var h = (now - le) / 3.6e6; return h >= 8 ? Math.min(90, Math.round(30 + (h - 8) * 2)) : 0; }
+  this.restPreview = function () { return (self.data.rested || 0) + restFrom(Date.now()); };
+  this.markEnd = function () { if (TG.mode && TG.mode.sim) return; self.data.lastEnd = Date.now(); save(); };
   this.reset = function () {
     self.combo = 0;
+    if (!(TG.mode && TG.mode.sim)) {
+      var add = restFrom(Date.now());
+      if (add > 0) { self.data.rested = Math.min(90, (self.data.rested || 0) + add); self.data.lastEnd = null; save();
+        setTimeout(function () { banner('☕ 휴식 보너스 ' + self.data.rested + '점', '이번 근무 경험치 1.5배 — 쉬고 온 만큼', false); }, 1800); }
+    }
     self.session = { xp: 0, praises: 0, bestCombo: 0, rankUps: 0, medals: [] };
     self.hide();
     var box = EL('xpFeed'); if (box) box.innerHTML = '';
