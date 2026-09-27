@@ -53,7 +53,15 @@ TG.Demand = function (game) {
 
   // 지금(또는 넘겨준 시각)의 수요. 자료가 없으면 null 을 돌려주고 게임은 종전 밀도로 돈다.
   this.index = function (date) {
-    var d = date || new Date(), c = cycleNow(d), sp = cycleSpan(d);
+    var d = date || new Date();
+    // 🚗 v0.10.44 — **실측 교통량**(서울시 교통량 조사 7곳 · 시간대별)이 있는 지도는 그것이 혼잡도다. 대리지표는 없는 지도에서만.
+    var RV = G.citydata && G.citydata.busy ? G.citydata.busy(d) : null;
+    if (RV) {
+      last = { busy: +RV.busy.toFixed(2), real: true, perHour: RV.perHour, spots: RV.spots, type: RV.type,
+               hour: d.getHours(), dow: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], pedW: +pedWeight(d.getHours()).toFixed(2) };
+      return last;
+    }
+    var c = cycleNow(d), sp = cycleSpan(d);
     if (!c || !sp) return null;
     var busy = TG.clamp((c.med - sp.lo) / Math.max(1, sp.hi - sp.lo), 0, 1);
     last = {
@@ -78,6 +86,8 @@ TG.Demand = function (game) {
   this.line = function () {
     var x = last;
     if (!x) return '';
+    if (x.real) return x.dow + '요일 ' + x.hour + '시 — 서초 조사 지점 ' + x.spots + '곳 합계 시간당 ' + x.perHour.toLocaleString() + '대(서울시 교통량 조사 실측) · 혼잡 ' +
+      Math.round(x.busy * 100) + '% → 차량 ' + x.traffic + '대 · 사람 ' + x.ped + '명';
     return x.dow + '요일 ' + x.hour + '시 — 신호 주기 중앙값 ' + x.cycle + '초(교차로 ' + x.n + '곳) · 혼잡 ' +
       Math.round(x.busy * 100) + '% → 차량 ' + x.traffic + '대 · 사람 ' + x.ped + '명';
   };

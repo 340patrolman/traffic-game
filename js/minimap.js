@@ -156,6 +156,14 @@ TG.Minimap = function (canvas, city, terrain) {
     ctx.drawImage(base, 0, 0);
     if (self.layers) self.layers.drawMini(ctx, mx, mz, K / Math.sqrt(zm));   // 지도 레이어(사고다발지·위험도·단속 장비)
     // 🗺 실제 주요 장소(v0.10.43): 전체 보기에서는 자리가 없어 몇 개만 바탕에 그려진다 — 확대하면 전부를 **화면 크기 글씨**로(겹치면 건너뛴다)
+    // 📅 오늘의 행사(축제 보라)·집회(빨강 · 행진은 선) — v0.10.44 · 1분에 한 번 고른다
+    if (self.cd && self.cd.ready && self.cd.ready()) {
+      if (!self._cdT || Date.now() - self._cdT > 60000) { var dd0 = new Date(); self._cdE = self.cd.eventsOn(dd0).filter(function (x) { return self.cd.isFestival(x.e); }); self._cdR = self.cd.ralliesOn(dd0); self._cdT = Date.now(); }
+      var cs = K / Math.sqrt(zm);
+      (self._cdE || []).forEach(function (x) { ctx.fillStyle = '#c77dff'; ctx.beginPath(); ctx.arc(mx(x.x), mz(x.z), 3.4 * cs, 0, Math.PI * 2); ctx.fill(); });
+      (self._cdR || []).forEach(function (x) { if (x.x == null) return; ctx.fillStyle = '#ff4d4d'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1 * cs; ctx.beginPath(); ctx.arc(mx(x.x), mz(x.z), 4 * cs, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (x.to) { ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 2 * cs; ctx.beginPath(); ctx.moveTo(mx(x.x), mz(x.z)); ctx.lineTo(mx(x.to[0]), mz(x.to[1])); ctx.stroke(); } });
+    }
     if (zm > 1 && self.poi && self.poi.length) {
       var pfs = 9.5 * K / zm, boxes = [];
       ctx.font = 'bold ' + pfs + 'px sans-serif'; ctx.textAlign = 'center';

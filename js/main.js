@@ -117,6 +117,8 @@
         if (!err) console.log('[TG] 국가유산 ' + all + '건(이 지도에 찍히는 것 ' + placed + ') · ' + G.heritage.src());
       });
     }
+    // 🏙 도시 공공데이터(v0.10.44) — 행사·축제·집회·교통량·단속 카메라. 지도 항목에 적힌 것만 읽는다(기본 지도는 없음)
+    if (TG.CityData) { G.citydata = new TG.CityData(G); if (minimap) minimap.cd = G.citydata; G.citydata.load(TG.MAP_ENTRY, function () { if (G.state === 'title' && G.areaPicker) { var an = document.getElementById('areaName'); if (an) an.textContent = G.areaPicker.label(); } }); }
     if (TG.Here) G.here = new TG.Here(G);          // 📍 이 자리 — 지도가 품은 자료를 그 자리 기준으로 모아 보인다
     // 🏢 실제 건물 윤곽(1:1 지도 전용) — 지도 항목에 buildings 가 있을 때만
     if (TG.RealBuild) {
@@ -525,6 +527,59 @@
         input.bindTap(b, function () { var id = b.getAttribute('data-mapid'); if (id === cur) return;
           TG.save.set('map', id); location.search = '?map=' + encodeURIComponent(id); });
       });
+    })();
+    // 📍 출발 지역(v0.10.44 · 소유자 「게임의 출발 지역을 선택할 수 있게 해 주고 그 지역을 대략적으로 설명 및 분야별로 … 필요한 경우 아주 자세히」)
+    //  교차로마다 한 줄 요약 → 누르면 📍 이 자리 창을 그 자리 기준으로(개요 + 분야별 · 「자세히」) → 「이 지역에서 출발」이면 기기에 남긴다(지도마다 따로).
+    (function areaPicker() {
+      var btn = $('btnArea'), pick = $('areaPick'), list = $('apList'); if (!btn || !pick) return;
+      var KEY = 'startArea_' + (city.mapId || 'seocho');
+      function areaPos(i, j) {   // 그 교차로로 **들어가는** 오른쪽 차로(북쪽에서 남쪽으로 · 맨 위 줄이면 남쪽에서 북쪽으로), 70m 앞
+        var N = city.nodes[i][j], lo = city.laneOff('v', i, Math.min(1, city.lanesOf('v', i) - 1));
+        // 거리는 **블록 길이의 45%** 를 넘지 않게(축약 지도는 블록이 80 단위라 70 이면 옆 교차로 상자에 들어갔다 — 검증)
+        var gap = j > 0 ? N.z - city.nodes[i][j - 1].z : city.nodes[i][j + 1].z - N.z, back = Math.min(70, gap * 0.45);
+        return j > 0 ? { x: N.x - lo, z: N.z - back, h: 0 } : { x: N.x + lo, z: N.z + back, h: Math.PI };
+      }
+      G.areaPos = areaPos;
+      function label() { var s = TG.save.get(KEY, null); if (!s) return '기본 자리'; var ij = s.split(','), N = city.nodes[+ij[0]] && city.nodes[+ij[0]][+ij[1]]; return N ? city.nodeName(N) : '기본 자리'; }
+      function paint() { var el = $('areaName'); if (el) el.textContent = label(); }
+      function summary(i, j) {
+        var N = city.nodes[i][j], parts = [];
+        if (G.pop && G.pop.ready && G.pop.ready()) { var dg = G.pop.dongOf(N); if (dg && dg.name) parts.push(dg.name); }
+        var st = layers && layers.nodeStat ? layers.nodeStat(i, j) : null; if (st && st.total) parts.push('사고 ' + st.total + '건');
+        if (G.citydata && G.citydata.ready()) {
+          var p = { x: N.x, z: N.z }, sp = G.citydata.volSpot('v', i, N.x, N.z) || G.citydata.volSpot('h', j, N.x, N.z), v = sp ? G.citydata.volAt(sp, new Date()) : null;
+          if (v) parts.push('지금 시간당 ' + v.now.toLocaleString() + '대');
+          var ev = G.citydata.eventsNear(N.x, N.z, (TG.MAP && TG.MAP.scale1to1 ? 1200 : 82), new Date(), 0).length; if (ev) parts.push('오늘 행사 ' + ev);
+        }
+        var sw = (city.subways || []).filter(function (s) { return Math.hypot(s.x - N.x, s.z - N.z) < (TG.MAP && TG.MAP.scale1to1 ? 400 : 30); }).map(function (s) { return s.name; });
+        if (sw.length) parts.push('🚇 ' + sw.join('·'));
+        return parts.join(' · ') || '자료 없음';
+      }
+      function openList() {
+        var cur = TG.save.get(KEY, null), h = '<button class="ap-row' + (!cur ? ' on' : '') + '" data-ij=""><b>기본 자리</b><span>지도가 정한 처음 자리(' + esc(city.mapName) + ')</span></button>';
+        var rows = [];
+        for (var i = 0; i < city.nodes.length; i++) for (var j = 0; j < city.nodes[i].length; j++) rows.push({ i: i, j: j, name: city.nodeName(city.nodes[i][j]) });
+        rows.sort(function (a, b) { var ra = /역|사거리|병원|전당|터미널|대교/.test(a.name) ? 0 : 1, rb = /역|사거리|병원|전당|터미널|대교/.test(b.name) ? 0 : 1; return ra - rb || (a.name < b.name ? -1 : 1); });
+        rows.forEach(function (r) { h += '<button class="ap-row' + (cur === r.i + ',' + r.j ? ' on' : '') + '" data-ij="' + r.i + ',' + r.j + '"><b>' + esc(r.name) + '</b><span>' + esc(summary(r.i, r.j)) + '</span></button>'; });
+        list.innerHTML = h; pick.style.display = 'flex';
+        list.querySelectorAll('[data-ij]').forEach(function (b) { b.addEventListener('click', function () { var v = b.getAttribute('data-ij'); if (!v) { TG.save.set(KEY, null); paint(); pick.style.display = 'none'; hud.notice('📍 출발 지역 — 기본 자리', 'info', 1800); return; } detail(+v.split(',')[0], +v.split(',')[1]); }); });
+      }
+      function detail(i, j) {
+        if (!G.here) return;
+        var N = city.nodes[i][j], card = $('hereCard'); pick.style.display = 'none';
+        if (card && card.parentNode !== document.body) { G.hereHome = card.parentNode; document.body.appendChild(card); }
+        if (card) card.classList.add('ontitle');
+        var back = function () { G.here.close(); restore(); openList(); };
+        G.here.open({ at: { x: N.x, z: N.z }, name: city.nodeName(N), title: '📍 ' + city.nodeName(N), overview: true, closeLabel: '↩ 목록',
+          onClose: function () { restore(); openList(); },
+          buttons: [{ label: '🚓 이 지역에서 출발', fn: function () { TG.save.set(KEY, i + ',' + j); paint(); G.here.close(); restore(); hud.notice('📍 출발 지역 — ' + city.nodeName(N) + ' · 다음 근무가 여기서 시작합니다', 'good', 2600); } }, { label: '↩ 목록으로', fn: back }] });
+        if (card) card.classList.add('ontitle');
+      }
+      function restore() { var card = $('hereCard'); if (card) { card.classList.remove('ontitle'); if (G.hereHome && card.parentNode !== G.hereHome) G.hereHome.appendChild(card); } }
+      input.bindTap(btn, openList);
+      input.bindTap($('apClose'), function () { pick.style.display = 'none'; });
+      paint();
+      G.areaPicker = { open: openList, detail: detail, key: KEY, label: label };
     })();
     document.querySelectorAll('.mpick').forEach(function (b) { input.bindTap(b, function () { var m = b.getAttribute('data-mode'); if (lockedTap(b, m)) return; applyMode(m); if (MODES[m] && G.state === 'title') start(settings.car); }); });   // 서랍 안 근무·교실은 누르면 바로 시작한다(고르고 또 누르지 않게)
     applyMode(settings.mode || 'patrol');
@@ -1105,6 +1160,14 @@
     if (G.demand && !G.demandOff && SCORE_MODES[G.mode] && !(TG.mode && TG.mode.sim) && !isStress) {
       G.demandNow = G.demand.apply(C, BASE_TRAFFIC, BASE_PED);
       if (G.demandNow) hud.hint('🕗 ' + G.demand.line());
+      // 📅 오늘 서초 — 행사·축제·집회(받은 자료 안에서 · v0.10.44)
+      if (G.citydata && G.citydata.ready()) {
+        var tdE = G.citydata.eventsOn(new Date()), tdF = tdE.filter(function (x) { return G.citydata.isFestival(x.e); }), tdR = G.citydata.ralliesOn(new Date());
+        if (tdE.length || tdR.length) setTimeout(function () {
+          if (G.state !== 'play') return;
+          hud.notice('📅 오늘 서초 — 행사 ' + tdE.length + '건' + (tdF.length ? '(축제 ' + tdF.length + ')' : '') + (tdR.length ? ' · 🪧 집회 ' + tdR.length + '건: ' + tdR[0].r.p.replace(/<.*?>/g, '').trim() + ' ' + tdR[0].r.from + '~' + tdR[0].r.to : ''), 'info', 3400);
+        }, 7000);
+      }
     }
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode,
             sec: [null, null, null], secCls: ['', '', ''], scT: 0, sc: 0, trace: [], bestTrace: null,
@@ -1141,6 +1204,13 @@
       var gfx = Math.sin(gp.hd), gfz = Math.cos(gp.hd);   // 길 한가운데가 아니라 **오른쪽 차로**에 선다(점검: 중앙선 위에 서 있었다)
       player.teleport(gp.x - gfz * C.LANE_OFF, gp.z + gfx * C.LANE_OFF, gp.hd); player.resync();
       hud.notice('🛰 ' + city.mapName + ' 에 들어왔습니다 — 순환도로 쪽으로 나가면 도시입니다', 'info', 4200);
+    }
+    // 📍 고른 출발 지역(v0.10.44) — 순찰·오픈 순찰·자유 주행에서만(교실·추격·교차로 근무는 제 무대가 있다)
+    if (!isTest && !onFoot() && (G.mode === 'patrol' || G.mode === 'open' || G.mode === 'free') && G.areaPos && G.areaPicker) {
+      var sa = TG.save.get(G.areaPicker.key, null);
+      if (sa) { var sij = sa.split(','), si0 = +sij[0], sj0 = +sij[1];
+        if (city.nodes[si0] && city.nodes[si0][sj0]) { var ap = G.areaPos(si0, sj0); player.teleport(ap.x, ap.z, ap.h); player.resync();
+          hud.notice('📍 ' + city.nodeName(city.nodes[si0][sj0]) + ' 에서 출발 — 📍 이 자리(I)로 동네 자료를 봅니다', 'info', 3600); } }
     }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz));
       player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)

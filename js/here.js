@@ -208,27 +208,114 @@ TG.Here = function (game) {
     return { title: '🏛 역사 · 흥미', rows: rows, src: H.src() };
   }
 
+  // 가장 가까운 도로(축·번호) — 교통량 지점을 같은 도로에서만 찾으려고
+  function roadOf(p) {
+    var C = G.city, i = C.nearestIdx(C.xs, p.x), j = C.nearestIdx(C.zs, p.z);
+    return Math.abs(p.x - C.xs[i]) <= Math.abs(p.z - C.zs[j]) ? { axis: 'v', idx: i, name: (C.roadNamesV || [])[i] } : { axis: 'h', idx: j, name: (C.roadNamesH || [])[j] };
+  }
+  function toU(m) { var k = mpu(); return k ? m / k : m / 14.66; }   // 미터 → 이 지도 단위
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'], TYPE_KO = { wd: '평일', sat: '토요일', sun: '일요일' };
+
+  // ⑧ 교통 — 서울시 교통량 조사(시간대별 실측) · 무인 단속 카메라(행안부 표준데이터) (v0.10.44)
+  function secTraffic(p) {
+    var D = G.citydata; if (!D || !D.ready()) return null;
+    var rows = [], rd = roadOf(p), sp = D.volSpot(rd.axis, rd.idx, p.x, p.z), now = new Date();
+    if (sp) {
+      var v = D.volAt(sp, now);
+      if (v) {
+        rows.push({ k: '교통량 · 지금', v: (rd.name || '') + ' ' + TYPE_KO[v.type] + ' ' + now.getHours() + '시 — 시간당 ' + num(v.now) + '대(방향별 ' + num(v.dir[0]) + ' / ' + num(v.dir[1]) + ')' });
+        rows.push({ k: '하루 · 가장 붐빌 때', v: num(v.day) + '대 · ' + v.peakH + '시 ' + num(v.peakV) + '대' });
+        rows.push({ k: '조사 지점', v: sp.name + ' · 같은 도로의 가장 가까운 지점 — 이 자리에서 ' + dist(Math.hypot(G.city.nodes[sp.node[0]][sp.node[1]].x - p.x, G.city.nodes[sp.node[0]][sp.node[1]].z - p.z)) });
+        ['wd', 'sat', 'sun'].forEach(function (t) {
+          var a = sp[t]; if (!a) return;
+          var hs = [7, 8, 9, 12, 15, 18, 19, 22].map(function (h) { return h + '시 ' + num(a[h][0] + a[h][1]); }).join(' · ');
+          rows.push({ k: TYPE_KO[t] + ' 시간대', v: hs });
+        });
+      }
+    } else if (rd.name) rows.push({ k: '교통량', v: rd.name + ' — 서울시 교통량 조사 지점이 이 도로에 없다(서초 쪽 조사 지점 7곳뿐) · 지어내지 않는다' });
+    var cams = D.camerasNear(p.x, p.z, toU(500));
+    rows.push({ k: '무인 단속 카메라', v: '반경 500m ' + cams.length + '대 · 서초구 전체 ' + D.cameraCount() + '대(기준일 ' + (D.cameraRef() || '?') + ')' });
+    cams.slice(0, 6).forEach(function (c) {
+      rows.push({ k: '· ' + dist(c.d), v: c.c.at + ' · ' + (c.c.road || '') + (c.c.lim ? ' · 제한 ' + c.c.lim + 'km/h' : '') + ' · 단속구분 코드 ' + c.c.se + (c.c.zone && c.c.zone !== '99' ? ' · 보호구역 코드 ' + c.c.zone : '') + (c.c.yr ? ' · ' + c.c.yr + '년 설치' : '') });
+    });
+    return rows.length ? { title: '🚗 교통 · 단속 장비', rows: rows, src: [D.src('vol'), D.src('cam')].filter(Boolean).join(' / ') } : null;
+  }
+
+  // ⑨ 행사·축제 · 집회·행진 — 서울시 문화행사 · 서울경찰청 오늘의 주요집회 (v0.10.44)
+  function secEvents(p) {
+    var D = G.citydata; if (!D || !D.ready()) return null;
+    var rows = [], now = new Date(), R = toU(1200);
+    var today = D.eventsNear(p.x, p.z, R, now, 0), soon = D.eventsNear(p.x, p.z, R, now, 30).filter(function (x) { return today.indexOf(x) < 0; });
+    var fest = D.eventsOn(now).filter(function (x) { return D.isFestival(x.e); });
+    rows.push({ k: '오늘 · 1.2km 안', v: today.length ? today.length + '건' : '없음' });
+    today.slice(0, 8).forEach(function (x) { rows.push({ k: '· ' + (x.e.c || '행사'), v: x.e.t + '\n' + x.e.p + ' · ' + x.e.s + '~' + x.e.e + (x.e.hour ? ' · ' + x.e.hour : '') + (x.e.free ? ' · ' + x.e.free : '') }); });
+    if (fest.length) rows.push({ k: '오늘 서초·한강 축제', v: fest.slice(0, 4).map(function (x) { return x.e.t + '(' + x.e.p + ')'; }).join('\n') + (fest.length > 4 ? '\n외 ' + (fest.length - 4) + '건' : '') });
+    if (soon.length) {
+      rows.push({ k: '30일 안 · 1.2km 안', v: soon.length + '건' });
+      soon.slice(0, 6).forEach(function (x) { rows.push({ k: '· ' + x.e.s.slice(5), v: x.e.t + ' · ' + x.e.p }); });
+    }
+    var todayR = D.ralliesOn(now), near = todayR.filter(function (x) { return x.x != null && Math.hypot(x.x - p.x, x.z - p.z) <= R; });
+    rows.push({ k: '🪧 오늘 집회·행진', v: todayR.length ? '서초 관내 ' + todayR.length + '건' + (near.length ? ' · 1.2km 안 ' + near.length + '건' : '') : (D.collected() && D.collected() < now.toISOString().slice(0, 10) ? '받은 날(' + D.collected() + ') 뒤라 모른다 — 아래는 지난 무늬' : '서초 관내 주요 집회 없음') });
+    todayR.forEach(function (x) { rows.push({ k: '· ' + x.r.from + '~' + x.r.to, v: x.r.p + ' · 신고 ' + num(x.r.n) + '명' + (x.r.march ? ' · 행진' : '') + (x.r.approx ? ' · 위치 근사' : '') + (x.x == null ? ' · ' + x.r.note : '') }); });
+    var pat = D.rallyPattern().filter(function (o) { return o.x != null && Math.hypot(o.x - p.x, o.z - p.z) <= R; }), rg = D.rallyRange();
+    if (rg) rows.push({ k: '지난 무늬 · 1.2km 안', v: pat.length ? pat.map(function (o) { return o.place + ' ' + o.n + '회 · ' + Object.keys(o.dows).join('') + ' · 최대 신고 ' + num(o.max) + '명'; }).join('\n') : '없음' });
+    if (rg) rows.push({ k: '집회 자료 기간', v: rg[0] + ' ~ ' + rg[1] + ' · 서초 관내 주요 집회 ' + rg[2] + '건(경찰청이 올린 「주요」 집회만 · 신고 인원은 신고값)' });
+    return { title: '📅 행사 · 축제 · 집회', rows: rows, src: [D.src('ev'), D.src('rally')].filter(Boolean).join(' / ') };
+  }
+
+  // 📝 개요 — 여러 갈래에서 **이미 있는 값**만 골라 한 문단으로(출발 지역 고르기에서 쓴다)
+  this.overview = function (p, name) {
+    var C = G.city, nd = C.nearestNode(p.x, p.z), parts = [];
+    var fr = C.frameAt(p.x, p.z, 0), rd = roadOf(p);
+    parts.push((name || C.nodeName(nd)) + '은(는) ' + (fr && fr.name ? fr.name.replace(/\(.*$/, '') : (rd.name || '')) + ' 쪽' + (fr && fr.limit && fr.limit < 900 ? '(제한 ' + fr.limit + 'km/h)' : '') + '이다.');
+    if (G.pop && G.pop.ready && G.pop.ready()) { var dg = G.pop.dongOf(nd); if (dg && dg.name) { var mx = G.pop.mix ? G.pop.mix(dg) : null; parts.push('행정동은 ' + dg.name + (dg.tot ? '(주민 ' + num(dg.tot) + '명' + (mx ? ' · 어린이 ' + Math.round(mx.kidShare * 100) + '% · 70세 이상 ' + Math.round(mx.seniorShare * 100) + '%' : '') + ')' : '') + '.'); } }
+    var L = G.layers, st = L && L.nodeStat ? L.nodeStat(nd.i, nd.j) : null;
+    if (st && st.total) { var all = L.realNodes ? L.realNodes().slice().sort(function (a, b) { return b.total - a.total; }) : []; var rank = 0; all.forEach(function (n, i) { if (n.key === nd.i + ',' + nd.j) rank = i + 1; }); parts.push('교차로 사고 ' + num(st.total) + '건(사망 ' + (st.death || 0) + ')' + (rank ? ' — 서초 교차로 ' + all.length + '곳 중 ' + rank + '위' : '') + '.'); }
+    var D = G.citydata;
+    if (D && D.ready()) {
+      var sp = D.volSpot(rd.axis, rd.idx, p.x, p.z), v = sp ? D.volAt(sp, new Date()) : null;
+      if (v) parts.push(TYPE_KO[v.type] + ' 하루 ' + num(v.day) + '대가 지나고 ' + v.peakH + '시가 가장 붐빈다(' + sp.name + ').');
+      var cams = D.camerasNear(p.x, p.z, toU(500)); if (cams.length) parts.push('반경 500m 무인 단속 카메라 ' + cams.length + '대.');
+      var ev = D.eventsNear(p.x, p.z, toU(1200), new Date(), 0); if (ev.length) parts.push('오늘 가까이 행사 ' + ev.length + '건(' + ev[0].e.t.slice(0, 24) + ' 등).');
+      var pat = D.rallyPattern().filter(function (o) { return o.x != null && Math.hypot(o.x - p.x, o.z - p.z) <= toU(1200); });
+      if (pat.length) parts.push('최근 두 달 주요 집회가 ' + pat.map(function (o) { return o.place.replace(/<.*?>/g, '').trim() + ' ' + o.n + '회'; }).join(', ') + ' 있었다.');
+    }
+    var sw = (C.subways || []).filter(function (s) { return Math.hypot(s.x - p.x, s.z - p.z) <= toU(600); }).map(function (s) { return s.name; });
+    if (sw.length) parts.push('가까운 역: ' + sw.join(' · ') + '.');
+    var RB = G.realBuild && G.realBuild.named ? G.realBuild.named() : [];
+    var big = RB.filter(function (b) { return b.ar > 1500 && Math.hypot(b.x - p.x, b.z - p.z) <= toU(500); }).sort(function (a, b) { return b.ar - a.ar; }).map(function (b) { return b.name; }).filter(function (nm, k, arr) { var h = nm.split(' ')[0]; for (var q = 0; q < k; q++) if (arr[q].split(' ')[0] === h) return false; return true; }).slice(0, 4);   // 「법원종합청사 · 법원종합청사 4별관」 같은 겹침은 한 번만
+    if (big.length) parts.push('주변 큰 건물: ' + big.join(' · ') + '.');
+    return parts.join(' ');
+  };
+
   // ── 모으기 ─────────────────────────────────────────────────────────────
   this.query = function (pos) {
     var p = pos || at(); if (!p) return null;
-    var secs = [secWhere(p), secPlaces(p), secSafety(p), secPeople(p), secSignal(p), secWork(p), secHeritage(p)].filter(Boolean);
+    var secs = [secWhere(p), secPlaces(p), secTraffic(p), secSafety(p), secEvents(p), secPeople(p), secSignal(p), secWork(p), secHeritage(p)].filter(Boolean);
     last = { at: p, secs: secs, when: new Date() };
     return last;
   };
   this.last = function () { return last; };
 
-  this.open = function () {
-    var q = self.query(); if (!q) return false;
+  // opts(v0.10.44): { at:{x,z}, title, overview:true, buttons:[{label, fn}] } — 출발 지역 고르기가 이 창을 그 자리 기준으로 연다
+  this.open = function (opts) {
+    opts = opts || {};
+    var q = self.query(opts.at); if (!q) return false;
     var card = EL('hereCard'); if (!card) return false;
-    var h = '<div class="hr-head"><b>📍 이 자리</b><button class="hr-x" id="hereClose">닫기</button></div>';
+    var h = '<div class="hr-head"><b>' + esc(opts.title || '📍 이 자리') + '</b><button class="hr-x" id="hereClose">' + (opts.closeLabel || '닫기') + '</button></div>';
+    if (opts.buttons && opts.buttons.length) h += '<div class="hr-btns">' + opts.buttons.map(function (b, i) { return '<button class="hr-b" data-hb="' + i + '">' + esc(b.label) + '</button>'; }).join('') + '</div>';
+    if (opts.overview) h += '<div class="hr-sec hr-ov"><div class="hr-t">📝 개요</div><div class="hr-ovt">' + esc(self.overview(q.at, opts.name)) + '</div></div>';
     if (!q.secs.length) {
       h += '<div class="hr-empty">이 자리에 대해 이 지도가 가진 자료가 없습니다.<br>자료를 넣으면 그날 바로 여기에 뜹니다.</div>';
     }
-    q.secs.forEach(function (s) {
-      h += '<div class="hr-sec"><div class="hr-t">' + esc(s.title) + '</div>';
-      s.rows.forEach(function (r) {
-        h += '<div class="hr-r"><span class="hr-k">' + esc(r.k) + '</span><span class="hr-v">' + esc(r.v).replace(/\n/g, '<br>') + '</span></div>';
+    // 갈래마다 앞 세 줄만 보이고 나머지는 「자세히」(소유자 「필요한 경우 아주 자세히」)
+    q.secs.forEach(function (s, si) {
+      var more = s.rows.length - 3;
+      h += '<div class="hr-sec" data-hs="' + si + '"><div class="hr-t">' + esc(s.title) + '</div>';
+      s.rows.forEach(function (r, ri) {
+        h += '<div class="hr-r' + (ri >= 3 ? ' hr-more' : '') + '"><span class="hr-k">' + esc(r.k) + '</span><span class="hr-v">' + esc(r.v).replace(/\n/g, '<br>') + '</span></div>';
       });
+      if (more > 0) h += '<button class="hr-det" data-det="' + si + '">자세히 ▼ (' + more + '줄 더)</button>';
       if (s.src) h += '<div class="hr-src">자료 · ' + esc(s.src) + '</div>';
       h += '</div>';
     });
@@ -237,7 +324,10 @@ TG.Here = function (game) {
     card.className = 'on';
     open = true;
     document.body.classList.add('hereon');
-    var x = EL('hereClose'); if (x) x.addEventListener('click', function (e) { e.stopPropagation(); self.close(); });
+    var x = EL('hereClose'); if (x) x.addEventListener('click', function (e) { e.stopPropagation(); self.close(); if (opts.onClose) opts.onClose(); });
+    card.querySelectorAll('[data-det]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); var sec = b.parentNode, full = sec.classList.toggle('full'); b.textContent = full ? '접기 ▲' : b.textContent.replace('접기 ▲', '').replace(/^.*$/, '자세히 ▼'); }); });
+    card.querySelectorAll('[data-hb]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); var f = opts.buttons[+b.getAttribute('data-hb')]; if (f && f.fn) f.fn(); }); });
+    card.scrollTop = 0;
     if (TG.audio && TG.audio.ui) TG.audio.ui();
     return true;
   };
