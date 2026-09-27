@@ -27,7 +27,12 @@ TG.buildTerrain = function (scene, city, cfg) {
   if (TG.MAP && TG.MAP.scale1to1 && city && city.xs && city.zs) {
     var gx0 = city.xs[0], gx1 = city.xs[city.xs.length - 1], gz0 = city.zs[0], gz1 = city.zs[city.zs.length - 1];
     FLAT = { x0: gx0 - 120, x1: gx1 + 120, z0: gz0 - 120, z1: gz1 + 120 };
-    var ringE = (gx0 + gx1) / 2 + Math.max(440, Math.round((gx1 - gx0) / 2 * 1.35 + 160));   // 순환도로 동쪽 끝(같은 규칙 — 아래 RA)
+    if (Math.max(gx1 - gx0, gz1 - gz0) > 1500) {   // (v0.10.42) 서초구 1:1 전역: 둘레도 도시다 — 순환도로 바깥 300m 까지 평지(가짜 언덕·웅덩이 위로 관문 길이 다리가 되던 것)
+      var HXf = (gx1 - gx0) / 2, HZf = (gz1 - gz0) / 2, cxf = (gx0 + gx1) / 2, czf = (gz0 + gz1) / 2;
+      var RAf = Math.max(440, HXf * 1.35 + 160, HXf * 1.5 + 100), RBf = Math.max(420, HZf * 1.35 + 160, HZf * 1.5 + 100);
+      FLAT = { x0: cxf - RAf - 300, x1: cxf + RAf + 300, z0: czf - RBf - 300, z1: czf + RBf + 300 };
+    }
+    var ringE = (gx0 + gx1) / 2 + Math.max(440, Math.round((gx1 - gx0) / 2 * 1.35 + 160), Math.round((gx1 - gx0) / 2 * 1.5 + 100));   // 순환도로 동쪽 끝(같은 규칙 — 아래 RA)
     SHORE_SHIFT = Math.max(0, ringE + 180 - 830);
   }
   function shoreX(z) { return 830 + SHORE_SHIFT + 40 * Math.sin(z / 170); }
@@ -126,7 +131,9 @@ TG.buildTerrain = function (scene, city, cfg) {
   var HX = (city.xs[city.xs.length - 1] - city.xs[0]) / 2, HZ = (city.zs[city.zs.length - 1] - city.zs[0]) / 2;
   // (v0.10.38) 반폭 + 160 으로는 1:1 지도의 **모퉁이에서 고리가 20m 옆**을 지났다(타원이라 대각선 쪽이 가장 좁다 — 지도 점검에서 찾음).
   //  반폭 × 1.35 + 160 으로 모퉁이 여유를 130m 넘게 둔다. 축약 지도는 440·420 하한이 이겨 값이 그대로다(기본·트윈 440·420).
-  var RA = Math.max(440, Math.round(HX * 1.35 + 160)), RB = Math.max(420, Math.round(HZ * 1.35 + 160));
+  // (v0.10.42) 큰 지도(서초구 1:1 전역 반폭 2150m)에서는 × 1.35 + 160 이 모퉁이를 못 담았다 — 타원이 모퉁이를 지나려면 √2 ≈ 1.41 배가 필요하다
+  //  (모퉁이 연결로 강남대로→한남대교 · 동작대로→선암IC 가 되돌아 꺾였다 — 지도 점검). × 1.5 + 100 을 하한으로 더한다(작은 지도는 값 그대로).
+  var RA = Math.max(440, Math.round(HX * 1.35 + 160), Math.round(HX * 1.5 + 100)), RB = Math.max(420, Math.round(HZ * 1.35 + 160), Math.round(HZ * 1.5 + 100));
   var ringCP = [];
   for (var th = 0; th < 40; th++) { var ang = th / 40 * Math.PI * 2; ringCP.push([CXC + RA * Math.cos(ang) + Math.sin(ang * 3) * 12, CZC + RB * Math.sin(ang) + Math.cos(ang * 2) * 10]); }
   var ring = buildLink('ring', ringCP, 'highway', true);
@@ -147,6 +154,9 @@ TG.buildTerrain = function (scene, city, cfg) {
       if (m < link.N - 1 && Math.hypot(cu.x - pv.x, cu.z - pv.z) < STEP * 0.6) continue;
       keep.push(cu);
     }
+    // (v0.10.42) 끝에서 **거꾸로 가는 점**(앞 두 칸과 반대 방향)도 버린다 — 서초구 1:1 전역 서초IC 연결로의 첫 점이 4m 뒤로 가 있었다(지도 점검 머리핀 1)
+    while (keep.length > 4) { var q0 = keep[0], q1 = keep[1], q3 = keep[3]; if ((q1.x - q0.x) * (q3.x - q1.x) + (q1.z - q0.z) * (q3.z - q1.z) < 0) keep.shift(); else break; }
+    while (keep.length > 4) { var e0 = keep[keep.length - 1], e1 = keep[keep.length - 2], e3 = keep[keep.length - 4]; if ((e0.x - e1.x) * (e1.x - e3.x) + (e0.z - e1.z) * (e1.z - e3.z) < 0) keep.pop(); else break; }
     if (keep.length !== link.N) {   // 버린 점이 있으면 거리·접선을 실제 좌표로 다시 낸다
       link.pts = keep; link.N = keep.length;
       link.pts[0].s = 0;
@@ -552,6 +562,11 @@ TG.buildTerrain = function (scene, city, cfg) {
   function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
 
   var X0 = -900, X1 = 1400, Z0 = -1000, Z1 = 1200, TS = 20;
+  // 땅·세상 경계는 **순환도로를 담도록** 넓힌다(v0.10.42 · 서초구 1:1 전역은 순환도로가 x −1025~5423). 작은 지도는 종전 값 그대로다.
+  (function () { var rx0 = 1e9, rx1 = -1e9, rz0 = 1e9, rz1 = -1e9; ring.pts.forEach(function (p) { rx0 = Math.min(rx0, p.x); rx1 = Math.max(rx1, p.x); rz0 = Math.min(rz0, p.z); rz1 = Math.max(rz1, p.z); });
+    if (gate) { rx1 = Math.max(rx1, gate.x); rx0 = Math.min(rx0, gate.x); rz0 = Math.min(rz0, gate.z); rz1 = Math.max(rz1, gate.z); }
+    X0 = Math.min(X0, rx0 - 320); X1 = Math.max(X1, rx1 + 320); Z0 = Math.min(Z0, rz0 - 320); Z1 = Math.max(Z1, rz1 + 320);
+    if (X1 - X0 > 4000) TS = 30; })();   // 큰 땅은 30m 칸(정점 수를 누른다)
   var NX = Math.floor((X1 - X0) / TS) + 1, NZ = Math.floor((Z1 - Z0) / TS) + 1;
   var tg = new THREE.BufferGeometry(), tp = [], tc = [], ti = [];
   var C_SAND = rgb(0xd8c79a), C_GRASS = rgb(0x7ea45c), C_F1 = rgb(0x8db35f), C_F2 = rgb(0x9fc06a), C_HILL = rgb(0x5e8c47), C_FOREST = rgb(0x466f3a), C_ROCK = rgb(0x8d8a84), C_SNOW = rgb(0xf2f4f7), C_BED = rgb(0x6e6a5a);
@@ -577,7 +592,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   mesh(wgeo, waterMat, false, false);
   var rg = new G();
   for (var rx2 = X0; rx2 < X1; rx2 += 20) { var za = riverZ(rx2), zb = riverZ(rx2 + 20); rg.quad([rx2, -1.3, za - 64], [rx2, -1.3, za + 64], [rx2 + 20, -1.3, zb + 64], [rx2 + 20, -1.3, zb - 64], [0, 1, 0], 0x3f7fb0, [[0, rx2 / 40], [3.2, rx2 / 40], [3.2, (rx2 + 20) / 40], [0, (rx2 + 20) / 40]]); }
-  var hanMesh = mesh(rg.build(), waterMat, false, false);
+  var hanMesh = mesh(rg.build(), waterMat, false, false); hanMesh.userData.noTile = true;   // 침수 때 위아래로 움직인다 — 조각으로 나누지 않는다
   // 양재천 수면(폭 26m) + 양쪽 산책로(콘크리트 띠). 침수 때 수면이 1.2m 올라 산책로가 잠긴다.
   var sg2 = new G(), pathG = new G();
   for (var sx2 = -80; sx2 < 420; sx2 += 10) {
@@ -585,13 +600,13 @@ TG.buildTerrain = function (scene, city, cfg) {
     sg2.quad([sx2, -1.15, zA - 13], [sx2, -1.15, zA + 13], [sx2 + 10, -1.15, zB + 13], [sx2 + 10, -1.15, zB - 13], [0, 1, 0], 0x4f8fbf, [[0, sx2 / 20], [1.3, sx2 / 20], [1.3, (sx2 + 10) / 20], [0, (sx2 + 10) / 20]]);
     for (var pside = -1; pside <= 1; pside += 2) { var pz0 = zA + pside * 15.5, pz1 = zB + pside * 15.5, py0 = groundAt(sx2, pz0) + 0.05, py1 = groundAt(sx2 + 10, pz1) + 0.05; pathG.quad([sx2, py0, pz0 - 1.3], [sx2, py0, pz0 + 1.3], [sx2 + 10, py1, pz1 + 1.3], [sx2 + 10, py1, pz1 - 1.3], [0, 1, 0], 0xd9d4c7, null); }
   }
-  var streamMesh = mesh(sg2.build(), waterMat, false, false); mesh(pathG.build(), lambertVC, false, true);
+  var streamMesh = mesh(sg2.build(), waterMat, false, false); streamMesh.userData.noTile = true; mesh(pathG.build(), lambertVC, false, true);
   hanMesh.matrixAutoUpdate = true; streamMesh.matrixAutoUpdate = true;
 
   var sky = new THREE.SphereGeometry(2200, 28, 14), spos = sky.attributes.position, scol = [], ZEN = rgb(0x3f7fd6), HOR = rgb(0xdbe9f6);
   for (var sv = 0; sv < spos.count; sv++) { var yy = spos.getY(sv) / 2200, tcol = mix(HOR, ZEN, sstep(-0.05, 0.6, yy)); scol.push(tcol[0], tcol[1], tcol[2]); }
   sky.setAttribute('color', new THREE.Float32BufferAttribute(scol, 3));
-  var skyMesh = new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); skyMesh.renderOrder = -10; scene.add(skyMesh);
+  var skyMesh = new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); skyMesh.userData.noTile = true; skyMesh.renderOrder = -10; scene.add(skyMesh);
   var cg = new G(), crng = TG.makeRNG(77);
   for (var ci = 0; ci < 18; ci++) { var cx2 = -800 + crng() * 2200, cz2 = -900 + crng() * 2000, cw = 180 + crng() * 200; cg.rect(cx2, cz2, cw, cw * 0.5, crng() * 3, 260 + crng() * 100, 0xffffff); }
   mesh(cg.build(), new THREE.MeshBasicMaterial({ map: TG.tex.cloud(), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), false, false);

@@ -68,9 +68,12 @@ TG.Director = function (game) {
     if (n <= 1) return null;                                           // 차로가 하나뿐이면 내 앞을 막는다
     var la = city.laneOff(axis, idx, lane);
     var pool = (self.bias && BIAS[self.bias]) || POOL, pick = pool[nth % pool.length];
-    if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
+    if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0) && !(lp.lead && Math.abs(P.vF || 0) < 5)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
     // 과속 차는 **뒤에서 달려와 옆 차로로 지나간다**(v0.10.39) — 앞에 느리게 놓으면 빨라지는 동안 시야 밖으로 멀어져 목격이 안 됐다(트윈 검증)
-    var SPD = pick.trait === 'speeder', spots = SPD ? [-26, -33, -40] : [38, 45, 52];
+    var SPD = pick.trait === 'speeder', spots = SPD ? [-26, -33, -40] : [34, 40, 46];   // 목격 거리 55m 안쪽 — 52m 에 놓으면 내가 서자마자 벗어났다(v0.10.42 실측)
+    // 앞에 놓는 차는 **내 속도보다 조금 빠르게만** 간다(v0.10.42) — 보통 순항 속도로 달려 나가면 목격(55m · 2초) 전에 멀어져
+    //  놓친 것으로 처리돼 다시 놓았다(트윈 검증 22~24초). 휴대전화를 보는 운전자가 느리게 가는 것은 실제와도 맞다.
+    var pvS = TG.clamp(Math.abs(P.vF || 0) + 0.5, 3.5, 12);
     for (var si = 0; si < spots.length; si++) {
       var ahead = spots[si], ax = P.pos.x + f[0] * ahead, az = P.pos.z + f[1] * ahead;
       if (city.nearIntersectionZone(ax, az)) continue;                  // 교차로 부근에는 놓지 않는다
@@ -81,7 +84,7 @@ TG.Director = function (game) {
       var useLane = pick.lane0 ? 0 : lane;
       if (useLane !== lane) { var la0 = city.laneOff(axis, idx, useLane); x = cx + r[0] * la0; z = cz + r[1] * la0; }
       if (pick.lead) tr.spawn({ at: { x: x + f[0] * 14, z: z + f[1] * 14, d: d, node: nd }, laneIdx: useLane, v: 7.5, cruise: 7.5, straight: true, type: 'hatch', trait: null, violator: false });   // 느린 앞차 — 붙거나(안전거리) 넘어 앞지를(중앙선) 까닭
-      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: useLane, v: SPD ? 21 : Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)), straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: !!pick.violator, pedViolator: pick.pedViolator });
+      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: useLane, v: SPD ? 21 : pick.lead ? Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)) : pvS, cruise: (SPD || pick.lead) ? undefined : pvS, straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: !!pick.violator, pedViolator: pick.pedViolator });
       if (car) { car.directed = true; car.traitT = 6; car.drunkSeen = 2.5; car.pmT = 1.5; nth++; return car; }   // 목격 시간을 조금 앞당긴다(휴대전화 8초·음주 5초 → 2~3초)
     }
     return null;

@@ -16,7 +16,7 @@ TG.Layers = function (game, city, cfg, scene) {
   var vuln = null;           // data/taas-vuln-<지도>.json — 어린이·보행자·노인·자전거(홍보용 분포까지)
   // 🛰 고무판 변환(v0.10.41): 아핀변환으로 옮긴 자리(gx·gz · 경계선)를 **실제 도로 중심선 기준**으로 격자에 옮긴다.
   //  자료가 없으면(1:1 지도 등) 그대로 — 종전과 같다. 한 번 옮긴 값에는 표시를 남겨 두 번 옮기지 않는다.
-  function wA(x, z) { return (TG.warp && TG.warp.ok) ? TG.warp.fromAffine(x, z) : [x, z]; }
+  function wA(x, z) { return (TG.warp && TG.warp.ok) ? TG.warp.fromData(x, z) : [x, z]; }
   self.warped = function () { return !!(TG.warp && TG.warp.ok); };
   function distToGame(v) {
     if (!v || !v.districts) return null;
@@ -29,7 +29,8 @@ TG.Layers = function (game, city, cfg, scene) {
         return { name: D0.name, rings: (D0.rings || []).map(function (ring) {
           return ring.map(function (p) {
             var u = p[0] - lon0, w = p[1] - lat0;
-            return wA(W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]);
+            if (TG.warp && TG.warp.ok) return TG.warp.fromLL(p[0], p[1]);   // 경계선은 위경도라 바로 옮긴다(v0.10.42)
+            return [W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]];
           });
         }) };
       }) };

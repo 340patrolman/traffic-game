@@ -10,6 +10,7 @@
 //  자료는 부팅 때 한 번 읽는다(main.bootMap) — 격자는 city 가 생긴 뒤 setGrid 로 넘긴다. 읽지 못하면 ok=false 로 종전(아핀)대로 간다.
 TG.warp = (function () {
   var V = null, H = null, xs = null, zs = null, W = null, src = null, MV = null, MH = null;
+  var BLEND = 40;   // 자료 끝 너머 되돌아가는 거리 — 축약 지도 단위 40(약 590m). 미터 자료(unit m)면 1500m(init 에서)
   // 실제 도로 둘이 한 점으로 모이는 자리(효령로가 사당 쪽에서 남부순환로와 만난다 등)는 **곧은 격자로는 담을 수 없는 위상**이다.
   //  그 자리에서는 두 도로 사이 간격이 대표 간격의 절반 아래로 줄어든 만큼 대표 자리(곧은 선)로 섞는다 — 억지로 늘이면 땅이 뒤집힌다.
   function relax(lines, meds) {
@@ -25,8 +26,8 @@ TG.warp = (function () {
     // 자료 끝 너머는 끝값에 못 박지 않고 40 단위에 걸쳐 대표 자리로 돌아간다 — 끝이 휘어 들어간 도로(효령로 서쪽 끝 등)가
     //  그 너머 전부를 끌고 가지 않게(사당역이 효령로 북쪽으로 떨어졌다 — 실측)
     return function (s) {
-      if (s <= P[0][0]) return P[0][1] + (med - P[0][1]) * Math.min(1, (P[0][0] - s) / 40);
-      if (s >= P[P.length - 1][0]) { var e = P[P.length - 1]; return e[1] + (med - e[1]) * Math.min(1, (s - e[0]) / 40); }
+      if (s <= P[0][0]) return P[0][1] + (med - P[0][1]) * Math.min(1, (P[0][0] - s) / BLEND);
+      if (s >= P[P.length - 1][0]) { var e = P[P.length - 1]; return e[1] + (med - e[1]) * Math.min(1, (s - e[0]) / BLEND); }
       for (var k = 1; k < P.length; k++) if (s <= P[k][0]) { var t = (s - P[k - 1][0]) / ((P[k][0] - P[k - 1][0]) || 1); return P[k - 1][1] + t * (P[k][1] - P[k - 1][1]); }
       return P[P.length - 1][1];
     };
@@ -46,6 +47,7 @@ TG.warp = (function () {
     // roads: seocho-twin-roads.json(아핀 공간) · names: 이 지도의 도로 이름(남북·동서) · wgs84: 그 아핀변환
     init: function (roads, map) {
       self.ok = false; V = H = null; src = roads; W = map && map.wgs84;
+      BLEND = (roads && roads.unit === 'm') ? 1500 : 40;   // 미터 지도 실측: 590m 면 양재역 515m 어긋남, 1500m 면 역 7곳 모두 3~18m
       if (!roads || !roads.roads || !map || !W) { self.note = '도로 형상 자료 없음'; return false; }
       var nv = map.roadNamesV || [], nh = map.roadNamesH || [];
       function find(name, ax) { var r = roads.roads[name]; return (r && r.axis === ax && r.pts && r.pts.length > 1) ? r : null; }   // roads 는 이름을 열쇠로 한 객체다
@@ -80,6 +82,15 @@ TG.warp = (function () {
     },
     // 위경도 → 격자 자리(고무판이 없으면 아핀만)
     fromLL: function (lon, lat) { var a = self.affine(lon, lat); return a ? self.fromAffine(a[0], a[1]) : null; },
+    // 자료 파일이 **다른 지도의 아핀 공간**으로 구워져 있을 때(TAAS 사례 gx·gz 는 축약 지도 공간) — 그 식을 거꾸로 풀어 위경도로 되돌린 뒤 옮긴다(v0.10.42)
+    fromData: function (X, Z) {
+      var D = TG.MAP && TG.MAP.dataAffine;
+      if (!D || !D.x || !D.z) return self.fromAffine(X, Z);
+      var a = D.x[0], b = D.x[1], c = D.z[0], d = D.z[1], det = a * d - b * c;
+      if (!det) return self.fromAffine(X, Z);
+      var px = X - D.x[2], pz = Z - D.z[2], u = (d * px - b * pz) / det, w = (-c * px + a * pz) / det;
+      return self.fromLL(u + D.lon0, w + D.lat0);
+    },
     source: function () { return src && (src.attribution || 'OpenStreetMap contributors (ODbL)'); }
   };
   return self;

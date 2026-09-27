@@ -3,6 +3,7 @@
 // 위반 성향: 신호 무시(적색 통과) / 보행자 보호 무시(횡단보도 위 보행자 앞을 그냥 지나감). 플레이어가 직접 목격한 경우에만 표시된다.
 TG.Traffic = function (scene, city, signals, cfg, rng) {
   var LANE = cfg.LANE_OFF;
+  var bigMap = Math.max(city.xs[city.xs.length - 1] - city.xs[0], city.zs[city.zs.length - 1] - city.zs[0]) > 1500;   // 서초구 1:1 전역처럼 블록이 긴 지도(스폰을 플레이어 둘레로)
   var cars = [], nextId = 1, self = this;
   this.cars = cars; this.player = null; this.peds = null; this.terrain = null;
   this.onEvent = function () {};
@@ -346,11 +347,18 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         return car;
       }
       var gi = TG.irange(rng, 0, city.xs.length - 1), gj = TG.irange(rng, 0, city.zs.length - 1), d = TG.irange(rng, 0, 3);
+      // 큰 지도(블록 한 변이 수백 m~1.5km · 서초구 1:1 전역): 아무 구간이나 고르면 거의 늘 플레이어에서 멀어 스폰이 전부 실패했다(차 0대 — 실측).
+      //  플레이어 가까운 교차로를 고른다. 작은 지도는 종전 그대로(판이 같게).
+      if (pl && !opts.at && bigMap) { gi = TG.clamp(city.nearestIdx(city.xs, pl.pos.x) + TG.irange(rng, -1, 1), 0, city.xs.length - 1); gj = TG.clamp(city.nearestIdx(city.zs, pl.pos.z) + TG.irange(rng, -1, 1), 0, city.zs.length - 1); }
       var N = city.nodes[gi][gj], N2 = city.nodeFrom(N, d);
       if (!N2 && !opts.at) continue;
       var laneIdx = opts.laneIdx !== undefined ? opts.laneIdx : TG.irange(rng, 0, city.lanesOf(city.roadOf(city.nodes[gi][gj], d).axis, city.roadOf(city.nodes[gi][gj], d).idx) - 1);
       var rdS = city.roadOf(N, d), la = city.laneOff(rdS.axis, rdS.idx, laneIdx);
       var f = TG.DIR_VEC[d], r = [-f[1], f[0]], u = opts.u !== undefined ? opts.u : 0.2 + rng() * 0.6, gx, gz;
+      if (pl && !opts.at && opts.u === undefined && N2) {   // 긴 구간: 플레이어 자리에서 45~130m 앞·뒤로
+        var sgx = N2.x - N.x, sgz = N2.z - N.z, sgL = Math.hypot(sgx, sgz) || 1;
+        if (sgL > 300) { var tp = ((pl.pos.x - N.x) * sgx + (pl.pos.z - N.z) * sgz) / (sgL * sgL), off = (cfg.SPAWN_MIN + 5 + rng() * (cfg.SPAWN_MAX - cfg.SPAWN_MIN - 10)) * (rng() < 0.5 ? -1 : 1); u = TG.clamp(tp + off / sgL, 0.04, 0.96); }
+      }
       if (opts.at) { gx = opts.at.x; gz = opts.at.z; d = opts.at.d; N = opts.at.node; N2 = city.nodeFrom(N, d); f = TG.DIR_VEC[d]; if (!N2) return null; }
       else { gx = N.x + (N2.x - N.x) * u + r[0] * la; gz = N.z + (N2.z - N.z) * u + r[1] * la; }
       if (pl && !opts.at) {

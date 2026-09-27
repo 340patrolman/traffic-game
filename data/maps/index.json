@@ -1,7 +1,7 @@
 {
   "schema": "tg-maps/2",
   "notice": "지도 목록. 게임은 네트워크 요청을 하지 않는다 — 지도는 이 폴더의 파일에서만 읽는다. ?map=<id> 로 열거나 교통시설 화면에서 고른다.",
-  "tracks": "소유자 결정(2026-09-12) — **두 갈래를 분리한다.** ① 기본 지도(seocho): 놀이·교육·홍보용 축약 지도. 재미와 배움이 먼저이고, 확인 안 된 실제값을 억지로 넣지 않는다. ② 디지털 트윈(seocho-twin): 시간이 걸려도 **실제값만** 쌓아 시뮬레이션 공간으로 만든다. 무엇이 실측이고 무엇이 설계값인지 지도 파일의 realness 에 적는다. 기본값은 ①이고, ②는 교통시설 화면에서 골라 들어간다.",
+  "tracks": "소유자 결정(2026-09-28): 「기본지도는 베타 연습이고 디지털트윈 지도가 진짜」 — **진짜 트윈은 서초구 1:1(seocho-full)** 이다(실제 크기 · 실제 건물 · 고무판 변환). 축약 트윈(seocho-twin)과 서초역 1:1 은 앞선 단계로 남긴다. (종전) 소유자 결정(2026-09-12) — **두 갈래를 분리한다.** ① 기본 지도(seocho): 놀이·교육·홍보용 축약 지도. 재미와 배움이 먼저이고, 확인 안 된 실제값을 억지로 넣지 않는다. ② 디지털 트윈(seocho-twin): 시간이 걸려도 **실제값만** 쌓아 시뮬레이션 공간으로 만든다. 무엇이 실측이고 무엇이 설계값인지 지도 파일의 realness 에 적는다. 기본값은 ①이고, ②는 교통시설 화면에서 골라 들어간다.",
   "default": "seocho",
   "maps": [
     {
@@ -20,10 +20,28 @@
       "region": { "siDo": "11", "guGun": "650" }
     },
     {
+      "id": "seocho-full",
+      "name": "서초구 디지털 트윈 1:1",
+      "short": "서초구 1:1",
+      "icon": "🛰",
+      "kind": "twin",
+      "beta": true,
+      "note": "**진짜 디지털 트윈(소유자 2026-09-28).** 서초구 간선 10개가 만드는 구역(약 4.3 × 3.2 km)을 실제 크기로. 도로 자리는 OSM 실측 중심선, 사고·역·국가유산은 고무판 변환으로 맞는 블록·모퉁이에 둔다.",
+      "file": "data/maps/seocho-full.json",
+      "warp": "data/maps/seocho-full-roads.json",
+      "buildings": "data/maps/seocho-full-buildings.json",
+      "signalTod": "data/signal-tod-seocho.json",
+      "taas": "data/taas.json",
+      "taasNodes": "data/taas-nodes-seocho.json",
+      "taasFatal": "data/taas-fatal-seocho.json",
+      "taasVuln": "data/taas-vuln-seocho.json",
+      "region": { "siDo": "11", "guGun": "650" }
+    },
+    {
       "id": "seocho-twin",
       "alias": ["seocho-real"],
-      "name": "서초구 디지털 트윈 (개발 중)",
-      "short": "디지털 트윈",
+      "name": "서초구 디지털 트윈 (축약 · 15배)",
+      "short": "트윈(축약)",
       "icon": "🛰",
       "kind": "twin",
       "beta": true,

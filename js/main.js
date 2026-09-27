@@ -57,6 +57,13 @@
     terrain = TG.buildTerrain(scene, city, C);
     city.attachTerrain(terrain);
     world = TG.buildWorld(scene, city, C);
+    // 🧱 서초구 1:1 전역처럼 큰 지도는 정적 메시를 600m 조각으로 나눈다(카메라가 못 보는 칸·안개 너머 칸을 건너뛴다) — 작은 지도는 그대로
+    (function () {
+      var span = Math.max(city.xs[city.xs.length - 1] - city.xs[0], city.zs[city.zs.length - 1] - city.zs[0]);
+      if (span < 1500 || !TG.tileSplit) return;
+      var r = TG.tileSplit(scene, 600, 3000, 700);
+      G.tiles = r.meshes; log('큰 지도: 정적 메시 ' + r.split + '개를 조각 ' + r.meshes.length + '개로 나눴다');
+    })();
     if (TG.EnvMap) TG.EnvMap.init(renderer);   // ✨ 반사 환경 — weather.set 이 날씨별로 구워 건다(파일 0)
     weather = new TG.Weather(scene, world, terrain, city, renderer); G.weather = weather;
     if (!TG.WEATHERS[settings.weather]) settings.weather = 'auto';
@@ -118,6 +125,9 @@
       if (bf && location.protocol.indexOf('http') === 0) {
         fetch(bf).then(function (r) { return r.json(); }).then(function (jb) {
           var inf = G.realBuild.build(scene, jb, terrain, city);
+          // 큰 지도: 건물도 600m 조각으로(안개 너머·화면 밖은 건너뛴다)
+          var spanB = Math.max(city.xs[city.xs.length - 1] - city.xs[0], city.zs[city.zs.length - 1] - city.zs[0]);
+          if (spanB >= 1500 && TG.tileSplit && G.realBuild.group()) { var rt = TG.tileSplit(G.realBuild.group(), 600, 2000, 500); G.tiles = (G.tiles || []).concat(rt.meshes); }
           console.log('[TG] 실제 건물 ' + inf.count + '동(층수 있는 것 ' + inf.withLevels + ' · 차도를 비켜 민 것 ' + inf.moved + '동 최대 ' + inf.maxMove + 'm · 뺀 것 ' + inf.dropped + '동 = 차도 ' + (inf.dropped - inf.wet - inf.steep) + ' · 물 위 ' + inf.wet + ' · 비탈 ' + inf.steep + ') · ' + inf.source);
         }).catch(function (e) { console.warn('[TG] 건물 자료를 못 읽었다', e && e.message); });
       }
@@ -240,8 +250,17 @@
     return { on: true, cw: cw, sw: sw, v: best.v, yaw: (best.hc + best.hs) / 2, total: best.tot * 180 / Math.PI };
   }
   function panoActive() { return settings.cam === 'cockpit' && settings.pano === true && window.innerWidth > window.innerHeight; }
+  // 🧱 안개 너머 조각은 그리지 않는다(v0.10.42) — 안개 끝(맑음 1500m · 밤 900m · 비 700m) 밖은 어차피 안개 색 하나다. 0.25초마다 한 번 잰다
+  var tileFogT = 0;
+  function tileFog() {
+    if (!G.tiles || !G.tiles.length || !camera) return;
+    var now = performance.now(); if (now - tileFogT < 250) return; tileFogT = now;
+    var far = (scene.fog && scene.fog.far ? scene.fog.far : 1500) + 60, cp = camera.position;
+    for (var i = 0; i < G.tiles.length; i++) { var m = G.tiles[i], s = m.geometry.boundingSphere; m.visible = cp.distanceTo(s.center) - s.radius < far; }
+  }
   function renderFrame() {
     var w = window.innerWidth, h = window.innerHeight;
+    tileFog();
     if (!(pano.on && G.state === 'play')) { if (G.bloom && G.bloom.on) G.bloom.render(scene, camera); else renderer.render(scene, camera); return; }   // ✨ 고화질이면 빛 번짐
     camC.position.copy(camera.position); camC.quaternion.copy(camera.quaternion);
     camL.position.copy(camera.position); camL.quaternion.copy(camera.quaternion).premultiply(qL);

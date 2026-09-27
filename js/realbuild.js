@@ -93,12 +93,17 @@ TG.RealBuild = function () {
     if (!data || !data.buildings || !window.THREE || !TG.GeoBuilder) return info;
     named = [];
     var gb = new TG.GeoBuilder(), roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0;
+    var warpOn = !!(TG.warp && TG.warp.ok && data.map && TG.MAP && data.map === TG.MAP.id);
+    var tiny = 0;   // 너무 작아(20㎡ 미만 · 꼭짓점 셋 미만) 그리지 않은 동 — 합계를 맞추려고 센다
     data.buildings.forEach(function (b, bi) {
-      var p = b.p; if (!p || p.length < 3) return;
+      var p = b.p; if (!p || p.length < 3) { tiny++; return; }
       // 마지막 점이 첫 점과 같으면(닫힌 고리) 하나 뺀다 — 벽이 겹쳐 z-싸움이 난다
       if (p.length > 3 && p[0][0] === p[p.length - 1][0] && p[0][1] === p[p.length - 1][1]) p = p.slice(0, -1);
+      // 🛰 고무판 변환(v0.10.42 · 서초구 1:1 전역): 실제 미터 윤곽을 격자에 맞춘다 — 곧은 격자와 굽은 실제 도로의 어긋남을 자료 쪽에서 푼다.
+      //  꼭짓점마다 옮기므로 모양은 거의 그대로, 자리는 **맞는 블록**으로. 고무판이 없는 지도(서초역 1:1)는 종전대로다.
+      if (warpOn) p = p.map(function (q) { return TG.warp.fromAffine(q[0], q[1]); });
       var ar = Math.abs(area2(p));
-      if (ar < 20) return;                                   // 20㎡ 미만은 그리지 않는다(성능)
+      if (ar < 20) { tiny++; return; }                         // 20㎡ 미만은 그리지 않는다(성능)
       // 차도를 비킨다 — 12m 안이면 밀고, 그보다 크면 그 동은 그리지 않는다
       var off = clearRoads(p, city);
       if (Math.hypot(off[0], off[1]) > CLEAR_MAX) { dropped++; return; }
@@ -160,10 +165,11 @@ TG.RealBuild = function () {
     var mr = new THREE.Mesh(roof.build(), matR); mr.name = 'realRoof'; mr.receiveShadow = true;
     mw.matrixAutoUpdate = false; mr.matrixAutoUpdate = false;
     group.add(mw); group.add(mr); scene.add(group);
-    info = { count: n, withLevels: lv, moved: moved, dropped: dropped, wet: wet, steep: steep, maxMove: +maxMove.toFixed(1), source: data.source || '' };
+    info = { count: n, withLevels: lv, moved: moved, dropped: dropped, wet: wet, steep: steep, maxMove: +maxMove.toFixed(1), source: data.source || '', warped: warpOn, total: data.buildings.length, tiny: tiny };
     return info;
   };
   this.clear = function (scene) { if (group && scene) scene.remove(group); group = null; };
+  this.group = function () { return group; };
   this.info = function () { return info; };
   // 이 자리 가까운 **이름 있는** 건물(OSM name) — 「📍 이 자리」 조회용
   this.near = function (x, z, rad) {

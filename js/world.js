@@ -65,6 +65,53 @@
   };
   GeoBuilder.prototype.empty = function () { return this.n === 0; };
   TG.GeoBuilder = GeoBuilder;
+  // 🧱 큰 정적 메시를 **땅 조각(타일)으로 나눈다**(v0.10.42 · 서초구 1:1 전역 지도).
+  //  같은 재질끼리 하나로 합쳐 두면(드로콜 절약) 화면 밖·안개 너머도 통째로 그린다 — 도시가 4km 를 넘으면 그것이 무게의 대부분이다
+  //  (실측: 순환도로 소품 17만 · 가로등 13만 삼각형이 한 메시). 삼각형 무게중심으로 tile m 칸에 나눠 칸마다 메시를 만든다 —
+  //  재질·그림자·그리는 차례는 그대로이고 모양도 그대로다. 나뉜 메시는 제 경계구를 가져 카메라가 못 보는 칸은 건너뛴다.
+  //  작은 지도(기본·트윈·1:1 서초역)에서는 부르지 않는다.
+  TG.tileSplit = function (scene, tile, minTri, minRadius) {   // scene: 뿌리(장면 또는 그룹) — 그 바로 아래 정적 메시만 나눈다
+    var list = [], out = [];
+    scene.traverse(function (o) {
+      if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || !o.geometry || !o.geometry.index || o.userData.noTile) return;
+      if (!o.parent || o.parent !== scene) return;                            // 장면 바로 아래 정적 메시만(움직이는 것은 그룹에 들어 있다)
+      if (o.position.lengthSq() > 1e-6 || o.rotation.x || o.rotation.y || o.rotation.z || o.scale.x !== 1) return;
+      var g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+      if (g.index.count / 3 < minTri || g.boundingSphere.radius < minRadius) return;
+      list.push(o);
+    });
+    list.forEach(function (o) {
+      var g = o.geometry, idx = g.index.array, pos = g.attributes.position.array, names = Object.keys(g.attributes), cells = {};
+      for (var t = 0; t < idx.length; t += 3) {
+        var a = idx[t], b = idx[t + 1], c = idx[t + 2];
+        var cx = (pos[a * 3] + pos[b * 3] + pos[c * 3]) / 3, cz = (pos[a * 3 + 2] + pos[b * 3 + 2] + pos[c * 3 + 2]) / 3;
+        var key = Math.floor(cx / tile) + ',' + Math.floor(cz / tile);
+        (cells[key] = cells[key] || []).push(a, b, c);
+      }
+      var keys = Object.keys(cells); if (keys.length < 2) return;
+      keys.forEach(function (key) {
+        var tri = cells[key], remap = {}, n = 0, attrs = {}, newIdx = new Array(tri.length);
+        names.forEach(function (nm) { attrs[nm] = []; });
+        for (var q = 0; q < tri.length; q++) {
+          var v = tri[q], nv = remap[v];
+          if (nv === undefined) {
+            nv = remap[v] = n++;
+            names.forEach(function (nm) { var A = g.attributes[nm], s = A.itemSize, arr = A.array; for (var k = 0; k < s; k++) attrs[nm].push(arr[v * s + k]); });
+          }
+          newIdx[q] = nv;
+        }
+        var ng = new THREE.BufferGeometry();
+        names.forEach(function (nm) { var A = g.attributes[nm]; ng.setAttribute(nm, new THREE.Float32BufferAttribute(attrs[nm], A.itemSize, A.normalized)); });
+        ng.setIndex(newIdx); ng.computeBoundingSphere();
+        var m = new THREE.Mesh(ng, o.material);
+        m.castShadow = o.castShadow; m.receiveShadow = o.receiveShadow; m.renderOrder = o.renderOrder; m.name = (o.name || 'static') + '@' + key;
+        m.frustumCulled = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.userData.tile = true;
+        scene.add(m); out.push(m);
+      });
+      scene.remove(o); g.dispose();
+    });
+    return { meshes: out, split: list.length };
+  };
 
   TG.buildWorld = function (scene, city, cfg) {
     var SW = cfg.SIDEWALK_W, xs = city.xs, zs = city.zs, hV = city.halfV, hH = city.halfH, EXT = city.EXT;

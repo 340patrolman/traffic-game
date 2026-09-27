@@ -1,6 +1,7 @@
 // 행인: 팔·다리가 흔들리는 관절 인형. 각 도로의 보도 중앙선(반폭 + 1.5m)을 걷고 모서리에서 보행 신호에 건넌다.
 // 일부는 무단횡단(블록 중간 횡단, 적색 횡단)을 한다 → 차들이 급제동하고, 플레이어는 경광등 켜고 옆에 서면 「보행자 계도」.
 TG.Peds = function (scene, city, signals, cfg, rng) {
+  var bigMap = Math.max(city.xs[city.xs.length - 1] - city.xs[0], city.zs[city.zs.length - 1] - city.zs[0]) > 1500;   // 서초구 1:1 전역(스폰을 플레이어 둘레로)
   var peds = [], self = this;
   this.peds = peds; this.player = null; this.traffic = null; this.walker = null;   // walker: 보행자 모드의 플레이어(차량 AI 가 보행자로 취급)
   this.onEvent = function () {};
@@ -76,6 +77,11 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       var axis = rng() < 0.5 ? 'v' : 'h', i = TG.irange(rng, 0, city.xs.length - 1), j = TG.irange(rng, 0, city.zs.length - 1), side = rng() < 0.5 ? -1 : 1, d, x, z, idx;
       if (axis === 'v') { if (j >= city.zs.length - 1) continue; idx = i; d = rng() < 0.5 ? 0 : 2; x = city.xs[i] + side * city.sideOff('v', i); z = city.zs[j] + 14 + rng() * (city.zs[j + 1] - city.zs[j] - 28); }
       else { if (i >= city.xs.length - 1) continue; idx = j; d = rng() < 0.5 ? 1 : 3; z = city.zs[j] + side * city.sideOff('h', j); x = city.xs[i] + 14 + rng() * (city.xs[i + 1] - city.xs[i] - 28); }
+      if (pl && !opts.at && bigMap) {   // 큰 지도: 플레이어 둘레 30~95m 의 보도에(v0.10.42 — 블록이 1km 라 아무 데나 고르면 늘 멀었다)
+        var off = (cfg.PED_SPAWN_MIN + 3 + rng() * (cfg.PED_SPAWN_MAX - cfg.PED_SPAWN_MIN - 6)) * (rng() < 0.5 ? -1 : 1);
+        if (axis === 'v') { i = idx = TG.clamp(city.nearestIdx(city.xs, pl.pos.x) + TG.irange(rng, -1, 1), 0, city.xs.length - 1); x = city.xs[i] + side * city.sideOff('v', i); z = pl.pos.z + off; if (Math.abs(z - city.zs[city.nearestIdx(city.zs, z)]) < 14 || z < city.zs[0] || z > city.zs[city.zs.length - 1]) continue; }
+        else { j = idx = TG.clamp(city.nearestIdx(city.zs, pl.pos.z) + TG.irange(rng, -1, 1), 0, city.zs.length - 1); z = city.zs[j] + side * city.sideOff('h', j); x = pl.pos.x + off; if (Math.abs(x - city.xs[city.nearestIdx(city.xs, x)]) < 14 || x < city.xs[0] || x > city.xs[city.xs.length - 1]) continue; }
+      }
       if (opts.at) { x = opts.at.x; z = opts.at.z; axis = opts.at.axis; idx = opts.at.idx !== undefined ? opts.at.idx : (axis === 'v' ? city.nearestIdx(city.xs, opts.at.coord) : city.nearestIdx(city.zs, opts.at.coord)); side = opts.at.side; d = opts.at.d; }
       if (pl && !opts.at) { var dist = Math.hypot(x - pl.pos.x, z - pl.pos.z); if (dist < cfg.PED_SPAWN_MIN || dist > cfg.PED_SPAWN_MAX) continue; }
       var p = { pos: { x: x, z: z }, axis: axis, idx: idx, coord: axis === 'v' ? city.xs[idx] : city.zs[idx], side: side, d: d, speed: 1.1 + rng() * 0.6, state: 'walk', t: rng() * 10, waitT: 0, decided: null,
