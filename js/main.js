@@ -1041,7 +1041,8 @@
     if (!sel) return null;
     if (sel.kind === 'car') {
       var c = sel.car, tn = { sedan: '승용차', hatch: '승용차', suv: 'SUV', van: '승합차', truck: '화물차', bus: '버스', moto: '이륜차', bike: '자전거' }[c.type] || '차량';
-      var vn = c.violation && enforcement && enforcement.nameOf ? enforcement.nameOf(c.violation.type) : null; var v = c.violation ? ((vn || { signal: '신호위반', pedestrian: '보행자 보호 위반', buslane: '버스전용차로 위반' }[c.violation.type] || '위반') + ' 의심') : '위반 없음(목격 안 됨)';
+      var sus = enforcement && enforcement.suspectOf ? enforcement.suspectOf(c) : (c.violation && c.violation.type);
+      var vn = sus && enforcement && enforcement.nameOf ? enforcement.nameOf(sus) : null; var v = sus ? ((vn || { signal: '신호위반', pedestrian: '보행자 보호 위반', buslane: '버스전용차로 위반' }[sus] || '위반') + ((vn || '').indexOf('의심') >= 0 ? '' : ' 의심')) : '위반 없음(목격 안 됨)';
       return tn + ' · ' + v;
     }
     var p = sel.ped, recent = p.jayLive || (p.jayDone && p.jayT < 12);
@@ -1059,7 +1060,29 @@
     hud.setTarget('선택: ' + selName(sel) + ' — 「단속」(E)');
     TG.audio.ui();
   }
+  // 👁 눈앞 위반 알림(v0.10.46) — 소유자 「위반 차량이 앞에 보여도 단속이 안 될 때가 있다」 · 「너무 딱딱하다」.
+  //  기록 조건(8초·18m 등)을 채우기 전이라도 **앞 40m 안에서 지금 보이는 위반**(폰 든 손·비틀거림·안전띠·중앙선…)이면
+  //  한 번 💭 로 알리고 「단속」 단추를 깜빡인다. 차마다 한 번뿐이고 0.5초에 한 번만 본다.
+  var spotNext = 0;
+  function spotCue() {
+    var now = performance.now(); if (now < spotNext) return; spotNext = now + 500;
+    if (!enforcement || !enforcement.evidenceOf || G.mode === 'kid' || G.selected || enforcement.state !== 'idle' || (TG.mode && TG.mode.sim) || G.paused) return;
+    var me = actor(), btn = document.getElementById('btnEnforce'); if (!me || !btn || !me.forward) return;
+    var pf = me.forward(), hit = null, bd = 40;
+    traffic.cars.forEach(function (c) {
+      if (c.violation || c._cued || c.mode !== 'drive') return;
+      var dx = c.pos.x - me.pos.x, dz = c.pos.z - me.pos.z, d = Math.hypot(dx, dz);
+      if (d >= bd || (dx * pf[0] + dz * pf[1]) / (d || 1) < 0.5) return;
+      var ev = enforcement.evidenceOf(c); if (ev.length) { bd = d; hit = { c: c, id: ev[0] }; }
+    });
+    if (!hit) return;
+    hit.c._cued = true;
+    var hn = enforcement.nameOf(hit.id);
+    hud.hint('👁 앞쪽 ' + hn + (hn.indexOf('의심') >= 0 ? '' : ' 의심') + ' — 차를 터치하거나 「단속」(F)');   // 「음주운전 의심(측정 필요) 의심」 겹말 방지
+    btn.classList.add('ready'); setTimeout(function () { if (!G.selected) btn.classList.remove('ready'); }, 2600);
+  }
   function updateSelection() {
+    spotCue();
     var s = G.selected; if (!s || !selRing) return;
     var e = s.kind === 'car' ? s.car : s.ped;
     var alive = s.kind === 'car' ? traffic.cars.indexOf(e) >= 0 : peds.peds.indexOf(e) >= 0, me = actor();
@@ -1074,9 +1097,9 @@
     if (G.mode === 'kid') { walker.raiseHand(4); hud.notice('✋ 손을 들었어요', 'good', 1200); kidSay('kidOk'); return; }
     if (onFoot()) {   // 도보: 선택한(또는 45m 안에서 목격한) 위반 차량 → 퀴즈 → 수신호 정차. 없으면 가까운 무단횡단 보행자 계도(+8)
       var selW = G.selected && G.selected.kind === 'car' ? G.selected : null;
-      if (!selW) { var pfW = walker.forward(), bdW = 45; traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - walker.pos.x, dz = c.pos.z - walker.pos.z, d = Math.hypot(dx, dz); if (d < bdW && dx * pfW[0] + dz * pfW[1] > -2 && (c.mode === 'drive' || c.mode === 'release')) { bdW = d; selW = { kind: 'car', car: c }; } }); }
+      if (!selW) { var pfW = walker.forward(), bdW = 45; traffic.cars.forEach(function (c) { if (!c.violation && !enforcement.suspectOf(c)) return; var dx = c.pos.x - walker.pos.x, dz = c.pos.z - walker.pos.z, d = Math.hypot(dx, dz); if (d < bdW && dx * pfW[0] + dz * pfW[1] > -2 && (c.mode === 'drive' || c.mode === 'release')) { bdW = d; selW = { kind: 'car', car: c }; } }); }
       if (selW) {
-        var vNameW = selW.car.violation ? enforcement.nameOf(selW.car.violation.type) : null;
+        var susW = enforcement.suspectOf(selW.car), vNameW = susW ? enforcement.nameOf(susW) : null;
         if (vNameW) { hud.notice('🚨 ' + vNameW + ' — 수신호 정차', 'alert', 2600); paSay(addressOf(sel) + ', 정지하세요', true); }
         selectTarget(selW); if (enforcement.quiz(selW)) selectTarget(null);
         return;
@@ -1094,13 +1117,14 @@
     var sel = G.selected;
     if (!sel) {
       var pf = player.forward(), best = null, bd = 1e9;
-      traffic.cars.forEach(function (c) { if (!c.violation) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 45 && dx * pf[0] + dz * pf[1] > -2 && d < bd) { bd = d; best = { kind: 'car', car: c }; } });
+      traffic.cars.forEach(function (c) { if (!c.violation && !enforcement.suspectOf(c)) return; var dx = c.pos.x - player.pos.x, dz = c.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 45 && dx * pf[0] + dz * pf[1] > -2 && d < bd) { bd = d; best = { kind: 'car', car: c }; } });
       peds.peds.forEach(function (p) { var recent = p.jayLive || (p.jayDone && p.jayT < 12); if (!recent || p.warned) return; var d = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (d < 35 && d < bd) { bd = d; best = { kind: 'ped', ped: p }; } });
       if (!best) { hud.notice('대상이 없습니다 — 화면에서 차량이나 보행자를 터치해 고르세요', 'warn', 2400); return; }
       sel = best; selectTarget(sel);
     }
     // 단속 버튼: 먼저 위반 사실을 알리고(화면·앰프) 단속 절차(객관식)로 들어간다
-    var vName = sel.kind === 'car' ? (sel.car.violation ? (enforcement.nameOf ? enforcement.nameOf(sel.car.violation.type) : sel.car.violation.type) : null) : (sel.ped && (sel.ped.jayLive || sel.ped.jayDone) ? '무단횡단' : null);
+    var susC = sel.kind === 'car' ? enforcement.suspectOf(sel.car) : null;
+    var vName = sel.kind === 'car' ? (susC ? enforcement.nameOf(susC) : null) : (sel.ped && (sel.ped.jayLive || sel.ped.jayDone) ? '무단횡단' : null);
     if (vName) { hud.notice('🚨 ' + vName + ' — 📢 「' + addressOf(sel) + ', 정지하세요」', 'alert', 2800); paSay(addressOf(sel) + ', 정지하세요', true); }
     if (enforcement.quiz(sel)) selectTarget(null);
   }

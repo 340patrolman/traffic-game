@@ -7,7 +7,7 @@ TG.Enforcement = function (game) {
   var self = this;
   this.state = 'idle';     // idle | quiz | yielding | stopped | release
   this.target = null;
-  var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null, notifyT = 0, warnedOnce = false;   // warnedOnce: 정차 자리 안내를 한 번만 안내문으로(그 뒤는 💭)
+  var sirenOffT = 0, warnT = 0, releaseT = 0, ticket = null, notifyT = 0, warnedOnce = false, nearT = 0;   // nearT: 대충 뒤에 선 시간(v0.10.46)   // warnedOnce: 정차 자리 안내를 한 번만 안내문으로(그 뒤는 💭)
 
   function me() { return game.actor ? game.actor() : game.player; }   // 순찰차, 보행자 모드면 걷는 경찰관
   function onFoot() { return game.mode === 'walk' || game.mode === 'kid' || game.afoot === true; }
@@ -91,6 +91,30 @@ TG.Enforcement = function (game) {
     out.push({ id: 'none', name: '위반 없음' });
     return out;
   }
+  // 👁 지금 눈에 보이는 위반(v0.10.46) — 소유자 「위반 차량이 앞에 보여도 단속도 안 될 때가 있다」.
+  //  정답은 **기록된 위반**(car.violation)만 봤다. 기록은 조건이 까다롭다(안전띠 18m·선팅 22m 안에서 1.75초, 휴대전화 8초, 45초 지나면 지움).
+  //  그래서 손에 폰을 든 차·비틀거리는 차를 보고 골라도 「정답은 위반 없음」이 나왔다. 이제 **지금 보이는 습관**도 정답으로 받는다.
+  //  휴대전화는 **주행 중**만(§49①10 — 정지 중 사용은 예외), 무등화는 밤에만, 과속은 제한 +20 넘게 달릴 때만.
+  function evidenceOf(car) {
+    var ev = []; if (!car || car.mode === 'incident' || car.incident) return ev;
+    var t = car.trait, mv = car.v > 1.5;
+    if (t === 'drunk') ev.push('drunk');
+    if (t === 'phone' && !car.mount && (mv || (car.traitT || 0) > 8)) ev.push('phone');
+    if (t === 'animal') ev.push('animal');
+    if (t === 'nobelt' && mv) ev.push('seatbelt');
+    if (t === 'tint') ev.push('tint');
+    if (t === 'nolight' && TG.nightNow && mv) ev.push('nolight');
+    if (t === 'door' && mv) ev.push('passenger');
+    if (t === 'tailgate' && car.tgClose) ev.push('distance');
+    var f = null;
+    if (t === 'speeder') { f = city.frameAt(car.pos.x, car.pos.z, car.heading); var kmh = Math.round(car.v * 3.6); if (f.kind !== 'off' && f.limit < 900 && kmh > f.limit + 20) { ev.push('speeding'); car._evSpd = { kmh: kmh, limit: f.limit, school: !!f.school }; } }
+    if (car.edgeRider && car.mode === 'drive') ev.push(car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : car.isPM ? 'pm' : 'sidewalk');
+    if (car.isPM) { if (car.pmTwo) ev.push('pmTwo'); if (car.pmHelmet === false) ev.push('pmHelmet'); }
+    if (mv && !city.nearIntersectionZone(car.pos.x, car.pos.z)) { f = f || city.frameAt(car.pos.x, car.pos.z, car.heading); if (f.kind === 'grid' && f.lateral < -0.5) ev.push('centerline'); }
+    return ev.filter(function (id) { return !!NAMES[id]; });
+  }
+  this.evidenceOf = evidenceOf;
+  this.suspectOf = function (car) { if (!car) return null; if (car.violation) return car.violation.type; var ev = evidenceOf(car); return ev.length ? ev[0] : null; };
   function pedViolationOf(p) { var recent = p.jayLive || (p.jayDone && p.jayT < 14); if (!recent) return 'none'; return p.jayKind === 'red' ? 'jaywalk-red' : 'jaywalk'; }
 
   // ---------- 퀴즈(터치한 대상의 위반 고르기) ----------
@@ -98,15 +122,22 @@ TG.Enforcement = function (game) {
   this.quiz = function (sel) {
     var pl = me();
     if (self.state === 'quiz') return false;
+    var e = sel.kind === 'car' ? sel.car : sel.ped;
+    // (v0.10.46) 세우던 차를 놓고 **다른 위반 차량**을 고르면 앞의 정차 유도를 접고 새 대상으로 간다(종전: 「먼저 마무리하세요」로 막혀 눈앞 위반 차를 못 잡았다)
+    if ((self.state === 'yielding' || self.state === 'stopped' || self.state === 'await') && !scn && sel.kind === 'car' && e !== self.target) { cancel(null); game.hud.setTarget(null); game.hud.notice('앞 대상 정차 유도를 접고 새 대상을 단속합니다', 'info', 1800); }
     if (self.state !== 'idle') { game.hud.notice('정차 유도 중입니다 — 먼저 마무리하세요', 'warn', 1800); return false; }
-    var e = sel.kind === 'car' ? sel.car : sel.ped, d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z), maxD = onFoot() ? 45 : 75;
+    var d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z), d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z), maxD = onFoot() ? 45 : 75;
     if (sel.kind === 'car' && d > maxD) { game.hud.notice('너무 멉니다 — ' + maxD + 'm 이내로 접근하세요', 'warn', 2000); return false; }
     if (sel.kind === 'ped' && d > 40) { game.hud.notice('너무 멉니다 — 보행자 40m 이내로 접근하세요', 'warn', 2000); return false; }
     if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
     if (sel.kind === 'ped' && e.warned) { game.hud.notice('이미 계도한 보행자입니다', 'warn', 1800); return false; }
-    var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : 'none') : pedViolationOf(e);
-    function alsoOf(x) { return (sel.kind === 'car' && x && x.violation && x.violation.also) || []; }
+    var ev = sel.kind === 'car' ? evidenceOf(e) : [];
+    var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : (ev[0] || 'none')) : pedViolationOf(e);
+    function alsoOf(x) { var a = (sel.kind === 'car' && x && x.violation && x.violation.also) || []; return a.concat(ev.filter(function (id) { return id !== answer && a.indexOf(id) < 0; })); }   // 기록된 함께 위반 + 지금 보이는 위반
     var opts = sel.kind === 'car' ? carOptions(e) : [{ id: 'jaywalk', name: '무단횡단 — 횡단보도가 아닌 곳을 건넘(§10)' }, { id: 'jaywalk-red', name: '보행자 신호위반 — 차량 녹색·보행 적색인데 횡단보도를 건넘(§5)' }, { id: 'none', name: '위반 없음' }];
+    if (sel.kind === 'car' && answer !== 'none' && !opts.some(function (o) { return o.id === answer; })) {   // 정답이 늘 보기 안에 있게(음주 보기는 남긴다)
+      for (var oi = opts.length - 2; oi >= 0; oi--) if (opts[oi].id !== 'drunk') { var la = lawById(answer); opts[oi] = { id: answer, name: la ? la.short : NAMES[answer] }; break; }
+    }
     self.state = 'quiz'; game.setPaused(true, 'ticket');
     ticket = { sel: sel, answer: answer, t: cfg.TICKET_SECONDS, done: false };
     function choose(choice) {
@@ -120,6 +151,10 @@ TG.Enforcement = function (game) {
         // 함께 위반(예: 킥보드 2인 탑승 + 인명보호장구 미착용)이면 어느 쪽을 골라도 정답이고, 둘 다 알려 준다
         var alsoL = alsoOf(e).concat([answer]).filter(function (x) { return x !== choice; });
         if (choice !== answer) { lawId = choice; answer = choice; }
+        if (sel.kind === 'car' && !e.violation) {   // 눈으로 보고 잡은 위반을 기록으로 남긴다(정차 유도·하차 고지·과속 측정 줄이 이 값을 읽는다)
+          e.violation = { type: answer, t: game.traffic.time, node: null, seen: true }; if (e.marker) e.marker.visible = true;
+          if (answer === 'speeding' && e._evSpd) { e.violation.kmh = e._evSpd.kmh; e.violation.limit = e._evSpd.limit; e.violation.school = e._evSpd.school; }
+        }
         delta = S.correct; act = true; lines.push('정답 · ' + NAMES[answer] + (alsoL.length ? ' · 함께 위반: ' + alsoL.map(function (x) { return NAMES[x] || x; }).join(', ') : '') + ' (+' + delta + ')'); lines = lines.concat(lawLines(lawId, e.isBus ? '승합' : '승용', sel.kind === 'car' ? e : null)); TG.audio.good(); game.stats.correct++;
         // 📖 캠페인 장 목표가 위반 종류를 본다(8월 음주 · 9월 고속도로 등)
         game.stats.byType = game.stats.byType || {}; game.stats.byType[answer] = (game.stats.byType[answer] || 0) + 1;
@@ -156,7 +191,7 @@ TG.Enforcement = function (game) {
     var pl = me();
     if (car.mode !== 'drive' && car.mode !== 'release') return;
     if (!onFoot() && !pl.siren) { pl.setSiren(true); TG.audio.setSiren(true); game.hud.setSiren(true); }
-    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0; notifyT = 0; warnedOnce = false; if (game.stopcam) game.stopcam.resetSignal();
+    self.target = car; self.state = 'yielding'; sirenOffT = 0; warnT = 0; notifyT = 0; warnedOnce = false; nearT = 0; if (game.stopcam) game.stopcam.resetSignal();
     game.traffic.setYield(car, true);
     // 📏 v0.10.15 — 전에는 안내문 둘을 연달아 띄워 앞의 것을 스스로 덮었다. 앰프 자막만 남기고 절차는 💭 안내 줄로.
     if (onFoot()) { TG.audio.alert(); TG.audio.pa('앞 차량, 우측 가장자리에 정차하세요. 수신호입니다'); game.hud.notice('📢 앞 차량, 우측 가장자리에 정차하세요', 'info', 2600); game.hud.hint('운전석 옆(3m 안)으로 걸어가면 고지 완료'); }
@@ -285,8 +320,14 @@ TG.Enforcement = function (game) {
           var dx = pl.pos.x - c2.pos.x, dz = pl.pos.z - c2.pos.z, along = dx * cf[0] + dz * cf[1], lat = dx * crx + dz * crz;
           var frame = city.frameAt(pl.pos.x, pl.pos.z, pl.heading);
           var behind = along <= -cfg.STOP_BEHIND_MIN && along >= -cfg.STOP_BEHIND_MAX && Math.abs(lat) < 3.5;
-          var shoulder = frame.lateral >= frame.shoulderMin;
+          var shoulder = frame.lateral >= frame.shoulderMin, lenient = false;
+          // (v0.10.46) 소유자 「너무 딱딱하다」 — 3~15m·가장자리 칸을 한 치도 안 봐주면 세워 놓고도 끝나지 않았다.
+          //  **대충 뒤(2~25m · 옆 5m 안)에 3초 서 있고 가장자리 쪽으로 붙었으면**(기준 −1.2m) 받아 주고, 바른 자리는 💭 로 알린다.
+          if (!(behind && shoulder)) {
+            if (along <= -2 && along >= -25 && Math.abs(lat) < 5 && frame.lateral >= frame.shoulderMin - 1.2) { nearT += dt; if (nearT > 3) { behind = shoulder = lenient = true; } } else nearT = 0;
+          }
           if (behind && shoulder) {
+            if (lenient) setTimeout(function () { if (game.state === 'play') game.hud.hint('💭 다음엔 대상 바로 뒤 3~15m · 우측 가장자리에 붙여 세우면 더 안전합니다'); }, 2600);
             // 소유자 지시(2026-09-12): 단속 **장면**은 보여주지 않는다. 세운 뒤 **하차해서 운전석 옆으로 가면** 고지가 끝난다.
             if (cfg.ENF_SCENE && sceneStart(c2)) return;
             if (cfg.ENF_SCENE) { completePullover(c2); self.target = null; return; }

@@ -459,6 +459,24 @@ TG.buildTerrain = function (scene, city, cfg) {
     br.dist = Math.abs(br.lateral);
     return br;
   }
+  // (v0.10.46) **이 자리를 실제로 덮는 포장**의 점 — 본선을 먼저. 가장 가까운 중심선이 좁은 갈래 길(관문 길·램프)이면
+  //  그 폭 밖이라 「도로 밖」으로 잡혔다(실측: 순환도로 바깥 차로가 관문 길 옆에서 도로 밖 — 차·플레이어 모두).
+  function nearestPaved(x, z) {
+    var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), best = null, bs = 1e9;
+    for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
+      var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
+      for (var m = 0; m < list.length; m++) {
+        var p = list[m], lat = (x - p.x) * p.rx + (z - p.z) * p.rz, alo = (x - p.x) * p.tx + (z - p.z) * p.tz;
+        if (Math.abs(alo) > 4.5 || Math.abs(lat) > p.half) continue;
+        var sc = (p.link.oneWay ? 10 : 0) + Math.abs(lat) / p.half + Math.abs(alo) * 0.01;
+        if (sc < bs) { bs = sc; best = p; }
+      }
+    }
+    if (!best) return null;
+    var br = { link: best.link, i: best.i, p: best, x: best.x, z: best.z, y: best.y, tx: best.tx, tz: best.tz };
+    br.lateral = (x - br.x) * (-br.tz) + (z - br.z) * br.tx; br.dist = Math.abs(br.lateral);
+    return br;
+  }
   // 도로마다 가장 가까운 한 점씩 모은다(같은 링크의 여러 점이 중복해서 끌어당기지 않게)
   function roadCands(x, z) {
     var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), by = {}, out = [];
@@ -1026,7 +1044,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   return {
     links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
-    heightAt: surfaceAt, groundAt: groundAt, ringRoadAt: ringRoadAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {

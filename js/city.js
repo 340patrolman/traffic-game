@@ -331,6 +331,8 @@ TG.buildCity = function (cfg) {
       var q = terrain.nearest(x, z, true);
       // 램프가 본선 포장 안을 달리는 구간(가속·감속차로)에서는 **본선**이 기준이다 — 이름도 제한속도도 본선을 따른다
       if (q && (q.link.oneWay || q.dist > q.p.half)) { var q2 = terrain.nearest(x, z, 'no'); if (q2 && q2.dist <= q2.p.half) q = q2; }
+      if (q && q.dist > q.p.half && terrain.nearestPaved) { var q3 = terrain.nearestPaved(x, z); if (q3) q = q3; }
+      else if (q && q.p.kind !== 'highway' && terrain.nearestPaved) { var q4 = terrain.nearestPaved(x, z); if (q4 && q4.p.kind === 'highway') q = q4; }   // (v0.10.46) 관문 길이 순환도로 포장과 겹치는 자리에서는 **본선**이 기준(순환도로 버스가 관문 길 기준 「역주행」으로 잡혔다)   // (v0.10.46) 가장 가까운 좁은 갈래 길 밖이어도 **덮고 있는 포장**이 있으면 그 길
       if (q && q.dist < q.p.half + 3) {
         var fx = Math.sin(heading), fz = Math.cos(heading), dirA = (fx * q.tx + fz * q.tz) >= 0, lat = dirA ? q.lateral : -q.lateral, p = q.p, k = p.kind;
         var hwN = (cfg.HW_LANES ? cfg.HW_LANES.length : 3) * 2;   // 실제 차로 수로 표기한다(고정 「6차로」 였다)

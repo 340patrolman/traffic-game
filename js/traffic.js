@@ -141,16 +141,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         for (var e = 0; e < L.exitsA.length; e++) {
           var ex = L.exitsA[e];
           if (i === ex.decideIndex && !car.isBus && !car.stayRing && rng() < 0.35) rt.pendingExit = ex;
-          if (rt.pendingExit === ex && i === ex.atIndex) { car.route = rt = { link: ex.link, dirA: true, i: 0, lane: 0, lanePrev: cfg.HW_LANES[cfg.HW_LANES.length - 1], blend: 0 }; L = ex.link; i = 0; break; }
+          if (rt.pendingExit === ex && i === ex.atIndex) { car.route = rt = { link: ex.link, dirA: true, i: 0, lane: 0, lanePrev: latOnNew(car, ex.link, 0, true), blend: 0 }; L = ex.link; i = 0; N = L.N; break; }
         }
       }
       if (atEnd) {
         var nx = rt.dirA ? L.nextA : L.nextB;
         if (nx) {
-          var lanePrev = laneOffsetOf(car, L, rt.lane, rt);
-          car.route = rt = { link: nx.link, dirA: nx.dirA !== false, i: nx.index, lane: laneFor(car, nx.link), lanePrev: lanePrev, blend: 0, merge: !!nx.merge };
-          L = nx.link; i = rt.i;
-          if (rt.merge) rt.lanePrev = cfg.HW_LANES[cfg.HW_LANES.length - 1];
+          car.route = rt = { link: nx.link, dirA: nx.dirA !== false, i: nx.index, lane: laneFor(car, nx.link), lanePrev: null, blend: 0, merge: !!nx.merge };
+          L = nx.link; i = rt.i; N = L.N;   // (v0.10.46) 점 개수도 새 길 것으로 — 옛 램프의 N(38)으로 순환도로 번호를 나눠 115 가 2 가 됐다(합류한 차가 순환도로 반대편으로 잔디를 가로질렀다)
+          rt.lanePrev = latOnNew(car, L, i, rt.dirA);
         } else if (L.cityEnd && !rt.dirA) {
           car.route = null; car.laneIdx = 0;
           var ce = L.cityEnd; car.path.push(approachPoint(car, ce.node, ce.dir)); car.lastNode = ce.node; car.lastDir = ce.dir;
@@ -163,6 +162,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (rt.blend !== undefined && rt.blend < 1) rt.blend += 1 / 18;
       rt.i = L.closed ? ((i + sgn) % N + N) % N : i + sgn;
     }
+  }
+  // (v0.10.46) 길을 갈아탈 때 **지금 실제로 선 자리**를 새 길 기준 가로 자리로 잰다.
+  //  종전에는 옛 길 기준 차로 자리(순환도로 바깥 차로 12.5m 등)를 **새 길(램프) 중심선에** 그대로 대고 72m 동안 옮겨
+  //  램프(반폭 5.8m) 밖 잔디로 달렸다(실측: 진출로에서 가로 6~8.6m · 40m 넘게 「도로 밖」 — 소유자 「차들이 아무 곳이나 달린다」).
+  //  잰 값은 새 길 포장 안(반폭 − 1.2m)으로 묶는다.
+  function latOnNew(car, L, i, dirA) {
+    var last = car.path.length ? car.path[car.path.length - 1] : { x: car.pos.x, z: car.pos.z }, p = L.P(i), sgn = dirA ? 1 : -1;
+    var lat = ((last.x - p.x) * p.rx + (last.z - p.z) * p.rz) * sgn, h = Math.max(1.5, (p.half || 5.8) - 1.2);
+    return TG.clamp(lat, -h, h);
   }
   function laneOffsetOf(car, L, lane, rt) {
     var offs = self.terrain.laneOffsets(L.pts[0]), target = offs[Math.min(lane, offs.length - 1)];
