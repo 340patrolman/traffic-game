@@ -27,7 +27,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   if (TG.MAP && TG.MAP.scale1to1 && city && city.xs && city.zs) {
     var gx0 = city.xs[0], gx1 = city.xs[city.xs.length - 1], gz0 = city.zs[0], gz1 = city.zs[city.zs.length - 1];
     FLAT = { x0: gx0 - 120, x1: gx1 + 120, z0: gz0 - 120, z1: gz1 + 120 };
-    var ringE = (gx0 + gx1) / 2 + Math.max(440, Math.round((gx1 - gx0) / 2 + 160));   // 순환도로 동쪽 끝(같은 규칙 — 아래 RA)
+    var ringE = (gx0 + gx1) / 2 + Math.max(440, Math.round((gx1 - gx0) / 2 * 1.35 + 160));   // 순환도로 동쪽 끝(같은 규칙 — 아래 RA)
     SHORE_SHIFT = Math.max(0, ringE + 180 - 830);
   }
   function shoreX(z) { return 830 + SHORE_SHIFT + 40 * Math.sin(z / 170); }
@@ -124,7 +124,9 @@ TG.buildTerrain = function (scene, city, cfg) {
   //  1 unit = 1 m 인 정밀 지도(반폭 383×337)에서는 고리가 **도시 모퉁이를 파고든다** — 실제 건물 65동이 그 위에 걸쳤다.
   //  격자 반폭 + 160m 를 하한으로 둔다. 축약 지도는 값이 그대로라 변화가 없다(실측: 기본 440·420 · 트윈 440·420).
   var HX = (city.xs[city.xs.length - 1] - city.xs[0]) / 2, HZ = (city.zs[city.zs.length - 1] - city.zs[0]) / 2;
-  var RA = Math.max(440, Math.round(HX + 160)), RB = Math.max(420, Math.round(HZ + 160));
+  // (v0.10.38) 반폭 + 160 으로는 1:1 지도의 **모퉁이에서 고리가 20m 옆**을 지났다(타원이라 대각선 쪽이 가장 좁다 — 지도 점검에서 찾음).
+  //  반폭 × 1.35 + 160 으로 모퉁이 여유를 130m 넘게 둔다. 축약 지도는 440·420 하한이 이겨 값이 그대로다(기본·트윈 440·420).
+  var RA = Math.max(440, Math.round(HX * 1.35 + 160)), RB = Math.max(420, Math.round(HZ * 1.35 + 160));
   var ringCP = [];
   for (var th = 0; th < 40; th++) { var ang = th / 40 * Math.PI * 2; ringCP.push([CXC + RA * Math.cos(ang) + Math.sin(ang * 3) * 12, CZC + RB * Math.sin(ang) + Math.cos(ang * 2) * 10]); }
   var ring = buildLink('ring', ringCP, 'highway', true);
@@ -272,21 +274,37 @@ TG.buildTerrain = function (scene, city, cfg) {
     // IC 자리는 5×5 격자를 전제로 적혀 있다. **격자가 작은 지도**(1:1 정밀 구역 등)에서는 그 자리가 없다.
     //  건너뛰면 conns 의 순서가 밀려 뒤에서 이름을 붙이는 줄이 깨진다 — 그래서 **격자 안으로 당겨 쓴다**.
     //  지도 하나가 작다고 게임이 죽으면 안 된다(v0.9.36 과 같은 규칙).
-    var ni = Math.min(ic.node[0], city.nodes.length - 1);
-    var nj = Math.min(ic.node[1], city.nodes[0].length - 1);
+    // (v0.10.38) 끝으로 당기면(min) 3×3 에서 동·서·남·북 IC 가 **모퉁이**로 몰려 모퉁이 IC 와 겹쳤다 — 5×5 의 자리를 격자 크기로 **비례**해 옮긴다(5×5 는 그대로)
+    var ni = Math.round(ic.node[0] * (city.nodes.length - 1) / 4);
+    var nj = Math.round(ic.node[1] * (city.nodes[0].length - 1) / 4);
     var node = city.nodes[ni][nj], dv = TG.DIR_VEC[ic.dir], half = city.crossHalf(node, ic.dir);   // 도로 폭에 맞춰 교차로 상자 밖에서 시작(고정값이면 넓은 도로에서 연결부가 꺾였다)
     var start = [node.x + dv[0] * city.EXT, node.z + dv[1] * city.EXT];   // 스텁 끝 = 연결로 시작(city.EXT 로 통일해 정확히 맞물린다)
-    var a = ic.th * Math.PI / 180, j = ringIndexNear(CXC + RA * Math.cos(a), CZC + RB * Math.sin(a)), J = ring.pts[j];
+    var a = ic.th * Math.PI / 180, j = ringIndexNear(CXC + RA * Math.cos(a), CZC + RB * Math.sin(a));
+    // (v0.10.38) 1:1 정밀 지도: 모퉁이 IC 가 45° 자리로 가면 모퉁이에서 고리까지가 짧아 **되돌아 꺾였다**(반경 7.6~8.6m).
+    //  그 지도에서는 스텁이 나가는 방향으로 **곧게 나가 고리와 만나는 자리**에 붙인다(타원과 반직선의 교점).
+    var S1 = !!(TG.MAP && TG.MAP.scale1to1);
+    if (S1) {
+      var px0 = (start[0] - CXC) / RA, pz0 = (start[1] - CZC) / RB, dx0 = dv[0] / RA, dz0 = dv[1] / RB;
+      var qa = dx0 * dx0 + dz0 * dz0, qb = 2 * (px0 * dx0 + pz0 * dz0), qc = px0 * px0 + pz0 * pz0 - 1;
+      var tR = (-qb + Math.sqrt(Math.max(0, qb * qb - 4 * qa * qc))) / (2 * qa);
+      j = ringIndexNear(start[0] + dv[0] * tR, start[1] + dv[1] * tR);
+    }
+    var J = ring.pts[j];
     var rad = [J.x - CXC, J.z - CZC], rl = Math.hypot(rad[0], rad[1]) || 1; rad = [rad[0] / rl, rad[1] / rl];
     var end = [J.x - rad[0] * 15, J.z - rad[1] * 15];
+    if (S1) { rad = [dv[0], dv[1]]; end = [J.x - rad[0] * 15, J.z - rad[1] * 15]; }   // 1:1: 고리에 **나가던 방향 그대로** 닿는다(방사 방향으로 틀면 모퉁이 IC 에서 S자가 생겼다)
     // 도시에서 곧게 나가는 길이는 첫 경유점까지 거리의 절반까지만(고정 45m 면 경유점을 지나쳐 스플라인이 꺾인다 — 차가 튕겨 나가던 원인)
     // 경유점은 **기본 지도(격자 0~320 · 링 중심 160,160) 기준 좌표**다. 다른 지도에서는 격자와 링이 옮겨 가므로
     // 경유점도 따라 옮긴다 — 도시 쪽 경유점은 이 교차로가 옮긴 만큼, 링 쪽 경유점은 링 중심이 옮긴 만큼 섞어서.
     // 옮기지 않으면 디지털 트윈(남쪽 끝 364.6)에서 선암IC·양재IC 경유점이 연결로 **시작점 뒤**에 놓여
     // 연결로가 출발하자마자 되돌아 꺾였다(머리핀) — 되돌아온 도로 위에 안내 갠트리·다리 난간이 섰다(2026-09-17 전체 점검).
-    var bx = 320 * ic.node[0] / (city.xs.length - 1) + dv[0] * city.EXT, bz = 320 * ic.node[1] / (city.zs.length - 1) + dv[1] * city.EXT;
-    var nsx = start[0] - bx, nsz = start[1] - bz, rsx = CXC - 160, rsz = CZC - 160, nv = ic.via.length;
-    var via = ic.via.map(function (v, k) { var w = (k + 1) / (nv + 1); return [v[0] + nsx * (1 - w) + rsx * w, v[1] + nsz * (1 - w) + rsz * w]; });
+    //  (v0.10.38) 기준 지도에서 이 IC 교차로 자리는 80 × 노드번호다(전엔 320 × 노드 ÷ (격자−1) — 3×3 에서 두 배로 틀렸다).
+    //  링 쪽은 링 중심이 옮긴 만큼에 **링이 커진 비율**(RA/440 · RB/420)을 곱한다 — 1:1 지도에서는 고리가 1.5배라 경유점이 도시 안에 남아 연결로가 되돌아 꺾였다.
+    //  기준·트윈 지도는 비율이 1 이라 종전 식과 같은 값이다.
+    var bx = 80 * ic.node[0] + dv[0] * city.EXT, bz = 80 * ic.node[1] + dv[1] * city.EXT;
+    var nsx = start[0] - bx, nsz = start[1] - bz, SXR = RA / 440, SZR = RB / 420, nv = ic.via.length;
+    var via = ic.via.map(function (v, k) { var w = (k + 1) / (nv + 1), rx0 = CXC + (v[0] - 160) * SXR, rz0 = CZC + (v[1] - 160) * SZR; return [(v[0] + nsx) * (1 - w) + rx0 * w, (v[1] + nsz) * (1 - w) + rz0 * w]; });
+    if (S1) via = [[(start[0] + end[0]) / 2 + dv[0] * 10, (start[1] + end[1]) / 2 + dv[1] * 10]];   // 1:1: 곧게 — 가운데 한 점만(스텁 방향으로 조금 당겨 곧은 구간을 늘린다)
     var v0 = via[0], run = Math.min(45, Math.max(12, Math.hypot(v0[0] - start[0], v0[1] - start[1]) * 0.45));
     var CP = [[start[0] - dv[0] * 30, start[1] - dv[1] * 30], start, [start[0] + dv[0] * run, start[1] + dv[1] * run]].concat(via).concat([[end[0] - rad[0] * 50, end[1] - rad[1] * 50], end, [end[0] + rad[0] * 30, end[1] + rad[1] * 30]]);
     var conn = buildLink('conn' + ic.tag, CP, ic.kind, false);

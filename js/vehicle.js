@@ -89,6 +89,9 @@
     this.barR.position.set(-0.32, barY, bz); this.barB.position.set(0.32, barY, bz);
     // 전기 SUV 는 실물 사진대로 — **앞에서 볼 때 왼쪽 청 · 오른쪽 적** = 조수석(−x) 청 · 운전석(+x) 적
     if (ev) { this.barR.position.x = 0.32; this.barB.position.x = -0.32; }
+    // 🚨 경광등 빛(v0.10.38 · 제미나이 검토 「경광등 빛이 바닥·벽에 번지게」): 지붕 위 점광원 하나가 적·청을 번갈아 비춘다.
+    //  **늘 장면에 둔다**(세기만 0) — 켜고 끌 때 빛 개수가 바뀌면 모든 재질이 셰이더를 다시 만들어 화면이 한 번 멈춘다.
+    this.sirenLight = new THREE.PointLight(0xff2a1a, 0, 24, 2); this.sirenLight.position.set(0, barY + 0.35, bz); g.add(this.sirenLight);
     var barW = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.24), new THREE.MeshBasicMaterial({ color: 0xe8edf2 }));
     barW.position.set(0, barY, bz);
     var barTop = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.02, 0.30), new THREE.MeshLambertMaterial({ color: 0x2b2f35 }));
@@ -346,7 +349,11 @@
       this.sirenPhase += dt * 12;
       var ph = this.sirenPhase % 4, redOn = ph < 1 || (ph >= 2 && ph < 2.5), blueOn = (ph >= 1 && ph < 2) || ph >= 3;   // 더블 플래시 스트로브
       this.barR.material.color.setHex(redOn ? 0xff2a1a : 0x7a1010); this.barB.material.color.setHex(blueOn ? 0x3a78ff : 0x102270);
-    } else if (this.sirenPhase !== 0) { this.sirenPhase = 0; this.barR.material.color.setHex(0x7a1010); this.barB.material.color.setHex(0x102270); }
+      if (this.sirenLight) {   // 밤·비·눈에 또렷하게, 낮에는 살짝(게임 설계값)
+        var dim = TG.nightNow ? 3.2 : (TG.wetNow ? 1.6 : 0.5);
+        this.sirenLight.color.setHex(redOn ? 0xff2a1a : 0x3a78ff); this.sirenLight.intensity = (redOn || blueOn) ? dim : 0;
+      }
+    } else if (this.sirenPhase !== 0) { this.sirenPhase = 0; this.barR.material.color.setHex(0x7a1010); this.barB.material.color.setHex(0x102270); if (this.sirenLight) this.sirenLight.intensity = 0; }
     this.steer3d.rotation.z = -this.steer * 1.4;   // 핸들 회전(좌회전 +steer → 반시계)
     this.signUpdate(dt);                           // 승강식 전광판
     this.syncMesh();

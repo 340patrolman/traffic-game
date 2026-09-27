@@ -241,7 +241,7 @@
   function panoActive() { return settings.cam === 'cockpit' && settings.pano === true && window.innerWidth > window.innerHeight; }
   function renderFrame() {
     var w = window.innerWidth, h = window.innerHeight;
-    if (!(pano.on && G.state === 'play')) { renderer.render(scene, camera); return; }
+    if (!(pano.on && G.state === 'play')) { if (G.bloom && G.bloom.on) G.bloom.render(scene, camera); else renderer.render(scene, camera); return; }   // ✨ 고화질이면 빛 번짐
     camC.position.copy(camera.position); camC.quaternion.copy(camera.quaternion);
     camL.position.copy(camera.position); camL.quaternion.copy(camera.quaternion).premultiply(qL);
     camR.position.copy(camera.position); camR.quaternion.copy(camera.quaternion).premultiply(qR);
@@ -262,6 +262,7 @@
   // 고화질 옵션: 픽셀 비율과 그림자 맵을 올린다. 폰에서 프레임이 떨어지면 끈다(TG.perf 는 스폰 수만 줄인다).
   function applyQuality() {
     var hq = settings.hq === true, dpr = window.devicePixelRatio || 1;
+    if (hq && TG.Bloom) { if (!G.bloom) G.bloom = new TG.Bloom(renderer); G.bloom.on = true; } else if (G.bloom) { G.bloom.on = false; G.bloom.dispose(); }   // ✨ 빛 번짐은 고화질에서만
     renderer.setPixelRatio(Math.min(dpr, hq ? (input.isTouch ? 2 : 3) : (input.isTouch ? 1.5 : 2)));
     if (world && world.sun && world.sun.shadow) {
       var sz = hq ? 4096 : 2048;
@@ -2201,6 +2202,9 @@
   }
   // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
   G.startScenario = function (id) {
+    // (v0.10.38) 체험 장면은 **기본 지도(5×5 · 간격 80) 좌표**로 짜여 있다 — 3×3 인 1:1 정밀 지도에서는 교차로가 없어 장면이 깨졌다(지도 점검에서 찾음).
+    //  그 지도에서는 장면을 억지로 만들지 않고 알린 뒤 순찰로 시작한다.
+    if (city.xs.length < 5 || city.zs.length < 5) { start(settings.car, 'patrol'); hud.notice('🗺 이 체험 장면은 기본 지도(5×5)에서 열립니다 — 지금 지도에서는 순찰로 시작합니다', 'warn', 4200); return; }
     start(settings.car, 'patrol'); var xs = city.xs, zs = city.zs, N22 = city.nodes[2][2];
     if (id === 'signal') { player.teleport(xs[2] + 2, zs[2] + 48, Math.PI); signals.set(N22, 'h', 'red'); traffic.spawn({ at: { x: xs[2] - 70, z: zs[2] - 2, d: 1, node: N22 }, v: 9, violator: true, straight: true }); hud.notice('체험 · 신호위반: 왼쪽에서 적색에 정지선을 넘는 차가 온다 — 터치해서 단속', 'info', 6000); }
     else if (id === 'pedestrian') { player.teleport(xs[2] + 2, zs[2] + 60, Math.PI); signals.set(N22, 'v', 'red'); for (var k = 0; k < 3; k++) peds.spawn({ at: { x: xs[2] - 9 + k * 2, z: zs[2] - 12, axis: 'h', coord: zs[2], side: -1, d: 1 }, jaywalker: false }); traffic.spawn({ at: { x: xs[2] - 2, z: zs[2] - 60, d: 0, node: N22 }, v: 10, violator: false, straight: true, pedViolator: true }); hud.notice('체험 · 보행자 보호: 횡단보도에 보행자가 있는데 통과하는 차를 터치해서 단속. 순찰차도 정지선 앞에서 멈춘다', 'info', 6000); }
