@@ -281,8 +281,11 @@
       var b = Math.max(brk, wantRev ? 1 : 0);
       if (vF > 0.25) { vF -= b * s.brake * surface * dt; this.stopT = 0; }
       else if (c.throttle === 0) {
-        this.stopT += dt;                            // 정지하면 바로(0.08초) 후진 시작 — ↓ 키·스틱 아래 계속 누르기
-        if (this.stopT > 0.08 || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;
+        // 🛑 정지 유지(v0.10.38 · 소유자 「운전 중 정지가 너무 어려워」): 종전에는 멈추고 **0.08초 만에 후진**이 시작돼
+        //  제동을 누른 채 세우면 차가 뒤로 굴러갔다(단속 정차 자리를 맞추기 어려웠던 까닭). 이제 멈추면 **그 자리에 선다** —
+        //  제동을 1.2초 더 누르고 있으면 그때 후진(↓ 키·스틱 아래 계속 누르기). 바로 뒤로 가려면 🔙 후진 단추.
+        this.stopT += dt;
+        if ((this.stopT > 1.2 && c.brakeRev !== false) || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;   // 폰 조이스틱(brakeRev false)은 서 있기만 한다
       } else vF = 0;
     } else if (c.throttle > 0) {
       this.stopT = 0;
@@ -292,7 +295,12 @@
         vF += c.throttle * s.accel * SP * Math.min(1, kn / Math.max(vp, kn)) * Math.max(0, 1 - Math.pow(u, 6)) * surface * dt;
       }
       else vF += c.throttle * s.accel * SP * (1 - Math.max(0, vF) / MX) * surface * dt;
-    } else this.stopT = 0;
+    } else {
+      this.stopT = 0;
+      // 엔진 브레이크·회생 제동(v0.10.38): 가속을 놓으면 실제 차처럼 조금씩 준다(내연 0.8 · 전기 1.2 m/s² — 게임 설계값).
+      //  종전엔 굴림 저항뿐이라 가속을 놓아도 거의 안 줄어 세우려면 제동을 길게 밟아야 했다.
+      if (vF > 0.5) vF = Math.max(0.5, vF - (s.powertrain === 'ev' ? 1.2 : 0.8) * dt);
+    }
     vF -= vF * (onRoad ? 0.025 : (vF < 0 ? 0.30 : 0.9)) * dt;   // 도로 밖 저항. 후진일 때는 약하게 — 어디서든 뒤로 빠져나올 수 있어야 한다
     if (Math.abs(vF) < 0.4 * dt + 0.02 && c.throttle === 0 && !wantRev) vF = 0; else vF -= Math.sign(vF) * 0.35 * dt;
     vF = TG.clamp(vF, -s.revMax, MX);

@@ -16,7 +16,6 @@ TG.Director = function (game) {
   //   가까운 교차로의 **실제 TAAS 사고 경위 상위**를 보고 그 위반을 하는 차를 먼저 놓는다. 경위 이름 → 습관(게임에서 보이는 모습)
   // 신호위반·보행자보호 성향은 적색·횡단 때에야 드러나 한가함을 못 채운다 — 평소 교통(violator·pedViolator)에 맡기고 감독은 곧 보이는 것만 놓는다
   var LAW_TRAIT = { '안전거리미확보': { type: 'sedan', trait: 'tailgate', lead: true },
-                    '중앙선침범': { type: 'sedan', trait: 'clpass', lead: true, lane0: true }, 
                     '안전운전불이행': { type: 'hatch', trait: 'phone' }, '교차로운행방법위반': { type: 'sedan', trait: 'speeder' } };
   var told = {};   // 한 근무에 교차로마다 한 번만 알려 준다
   function localPick() {
@@ -68,19 +67,21 @@ TG.Director = function (game) {
     var lane = n > 1 ? (myLane === 0 ? 1 : myLane - 1) : 0;
     if (n <= 1) return null;                                           // 차로가 하나뿐이면 내 앞을 막는다
     var la = city.laneOff(axis, idx, lane);
-    for (var ahead = 38; ahead <= 52; ahead += 7) {
-      var ax = P.pos.x + f[0] * ahead, az = P.pos.z + f[1] * ahead;
+    var pool = (self.bias && BIAS[self.bias]) || POOL, pick = pool[nth % pool.length];
+    if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
+    // 과속 차는 **뒤에서 달려와 옆 차로로 지나간다**(v0.10.39) — 앞에 느리게 놓으면 빨라지는 동안 시야 밖으로 멀어져 목격이 안 됐다(트윈 검증)
+    var SPD = pick.trait === 'speeder', spots = SPD ? [-26, -33, -40] : [38, 45, 52];
+    for (var si = 0; si < spots.length; si++) {
+      var ahead = spots[si], ax = P.pos.x + f[0] * ahead, az = P.pos.z + f[1] * ahead;
       if (city.nearIntersectionZone(ax, az)) continue;                  // 교차로 부근에는 놓지 않는다
       var cx = axis === 'v' ? city.xs[idx] : ax, cz = axis === 'v' ? az : city.zs[idx];
       var x = cx + r[0] * la, z = cz + r[1] * la;
       var nd = city.nodeAhead(x, z, (d + 2) % 4);                      // spawn 의 at.node 는 뒤쪽 교차로
       if (!nd) continue;
-      var pool = (self.bias && BIAS[self.bias]) || POOL, pick = pool[nth % pool.length];
-      if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
       var useLane = pick.lane0 ? 0 : lane;
       if (useLane !== lane) { var la0 = city.laneOff(axis, idx, useLane); x = cx + r[0] * la0; z = cz + r[1] * la0; }
-      if (pick.lead) tr.spawn({ at: { x: x + f[0] * 14, z: z + f[1] * 14, d: d, node: nd }, laneIdx: useLane, v: 6, cruise: 6.5, straight: true, type: 'hatch', trait: null, violator: false });   // 느린 앞차 — 붙거나(안전거리) 넘어 앞지를(중앙선) 까닭
-      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: useLane, v: Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)), straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: !!pick.violator, pedViolator: pick.pedViolator });
+      if (pick.lead) tr.spawn({ at: { x: x + f[0] * 14, z: z + f[1] * 14, d: d, node: nd }, laneIdx: useLane, v: 7.5, cruise: 7.5, straight: true, type: 'hatch', trait: null, violator: false });   // 느린 앞차 — 붙거나(안전거리) 넘어 앞지를(중앙선) 까닭
+      var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, laneIdx: useLane, v: SPD ? 21 : Math.max(5, Math.min(9, Math.abs(P.vF || 0) * 0.7)), straight: true, type: pick.type, trait: pick.trait, pmHelmet: pick.pmHelmet, violator: !!pick.violator, pedViolator: pick.pedViolator });
       if (car) { car.directed = true; car.traitT = 6; car.drunkSeen = 2.5; car.pmT = 1.5; nth++; return car; }   // 목격 시간을 조금 앞당긴다(휴대전화 8초·음주 5초 → 2~3초)
     }
     return null;

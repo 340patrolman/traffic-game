@@ -35,8 +35,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var tintMat = new THREE.MeshStandardMaterial({ color: 0x030405, transparent: true, opacity: 0.94, depthWrite: false, roughness: 0.05, metalness: 0.0, envMapIntensity: 0.7 });
   // 💡 전조등·미등(v0.10.36): 밤·비·눈에 켠다(weather.set 이 visible 을 바꾼다). ⑱ 밤 무등화(nolight 습관) 차는 달지 않는다
   var headLampMat = new THREE.MeshBasicMaterial({ color: 0xfff4d8, side: THREE.DoubleSide }), tailLampMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a, side: THREE.DoubleSide });
-  headLampMat.visible = false; tailLampMat.visible = false; TG.carLampMats = [headLampMat, tailLampMat];
+  // 전조등 번짐(가산 스프라이트 · 모든 차가 한 재질) — 밤에 마주 오는 차가 「불빛」으로 보인다(v0.10.38)
+  var headFlareMat = new THREE.SpriteMaterial({ map: TG.tex.flare(), color: 0xfff0d0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 });
+  headLampMat.visible = false; tailLampMat.visible = false; headFlareMat.visible = false; TG.carLampMats = [headLampMat, tailLampMat, headFlareMat];
   var lampGeo = new THREE.PlaneGeometry(0.30, 0.13);
+  // 🔴 제동등(v0.10.38 · 소유자 「게임의 리얼리스틱을 높여줘」): 낮·밤 모두 — 줄이고 있거나 서 있으면 켜진다. 앞차가 서는지 뒤에서 읽힌다.
+  var brakeLampMat = new THREE.MeshBasicMaterial({ color: 0xff1a0e, side: THREE.DoubleSide }), brakeGeo = new THREE.PlaneGeometry(0.34, 0.15);
   var screenChatMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('chat'), side: THREE.DoubleSide }), screenMapMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('map'), side: THREE.DoubleSide });
   var phoneBodyMat = new THREE.MeshLambertMaterial({ color: 0x15171a });
   // 화면 빛(가산 스프라이트) — 창 너머에서 「켜진 화면」을 알아보게 한다. 차체에 가리면 안 보인다(깊이 검사는 한다)
@@ -241,8 +245,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (!twoW && car.trait !== 'nolight') {   // 💡 전조등(앞) · 미등(뒤) — 밤에만 보인다
       for (var ls = -1; ls <= 1; ls += 2) {
         var hl = new THREE.Mesh(lampGeo, headLampMat); hl.position.set(ls * T.w * 0.33, 0.66, T.l / 2 + 0.02); g.add(hl);
+        var hf = new THREE.Sprite(headFlareMat); hf.scale.set(1.3, 0.8, 1); hf.position.set(ls * T.w * 0.33, 0.66, T.l / 2 + 0.12); g.add(hf);
         var tl = new THREE.Mesh(lampGeo, tailLampMat); tl.position.set(ls * T.w * 0.36, 0.78, -T.l / 2 - 0.02); tl.rotation.y = Math.PI; g.add(tl);
       }
+    }
+    if (!twoW) {   // 제동등 둘(한 묶음 — 켜고 끄기는 visible 하나로)
+      var bg = new THREE.Group();
+      for (var bs2 = -1; bs2 <= 1; bs2 += 2) { var bl = new THREE.Mesh(brakeGeo, brakeLampMat); bl.position.set(bs2 * T.w * 0.36, 0.80, -T.l / 2 - 0.03); bl.rotation.y = Math.PI; bg.add(bl); }
+      bg.visible = false; g.add(bg); car.brakeGroup = bg;
     }
     if (see) {
       g.add(new THREE.Mesh(TG.vehmesh.glass(type), car.trait === 'tint' ? tintMat : glassMat));
@@ -855,6 +865,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.dbg = { target: target, emergency: emergency, lead: lead ? [lead.along, lead.v] : null, ap: ap ? (ap.node.i + ',' + ap.node.j + ':' + ap.maneuver) : null };
     var decel = (emergency || car.v - target > 6) ? cfg.AI_EMERGENCY : cfg.AI_DECEL;
     if (car.v < target) car.v = Math.min(target, car.v + (onLink ? 2.6 : cfg.AI_ACCEL) * dt); else car.v = Math.max(target, car.v - decel * dt);
+    if (car.brakeGroup) {   // 줄이는 중(목표가 지금보다 1m/s 넘게 낮다)이거나 서 있으면 제동등 — 0.3초 늦게 꺼서 깜빡거리지 않게
+      var braking = (target < car.v - 1.0 && car.v > 0.3) || car.v < 0.3;
+      car.brkT = braking ? 0.3 : Math.max(0, (car.brkT || 0) - dt);
+      var bOn = car.brkT > 0 && car.mode !== 'incident';
+      if (car.brakeGroup.visible !== bOn) car.brakeGroup.visible = bOn;
+    }
     car.braking = target < car.v - 0.3 || (target === 0 && car.v > 0.05);
     if (car.mode === 'stopped') car.v = 0;
 

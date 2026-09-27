@@ -2882,8 +2882,8 @@
     if (G.pedSigState) G.pedSigState = null;
     if (G.poleFaded()) poleFade(1, false);   // 차에 타면 흐린 기둥을 되돌린다
     var inp = input.read();
-    player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse;
-    if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; }
+    player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse; player.controls.brakeRev = inp.brakeRev;
+    if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; if (G.testOverride.brakeRev === undefined) player.controls.brakeRev = true; }   // 검사 입력은 자판처럼 본다
     startLightUpdate(dt);                                  // 🏁 출발 신호등이 켜지는 동안에는 차를 출발선에 붙잡아 둔다
     // ⚠ 여기서 **제동을 물면 안 된다** — 이 게임은 정지 중 제동을 0.08초 누르면 **후진**으로 간다(실측 뒤로 16km/h).
     //    그래서 입력을 모두 0 으로 두고 **출발선에 붙잡아** 둔다.

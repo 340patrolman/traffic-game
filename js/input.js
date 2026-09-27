@@ -208,6 +208,8 @@ TG.Input = function () {
       if (st.y > dz) throttle = Math.max(throttle, Math.min(1, (st.y - dz) / (1 - dz)));
       if (st.y < -dz) brake = Math.max(brake, Math.min(1, (-st.y - dz) / (1 - dz)));
     }
-    return { steer: steer, throttle: throttle, brake: brake, reverse: reverse };
+    // 🛑 브레이크로 후진까지 이어지는 것은 **자판·게임패드만**(v0.10.38) — 폰 조이스틱을 아래로 누른 채 세우면 뒤로 굴러갔다. 폰은 🔙 후진 단추로.
+    var keyBrake = !!(b.brake || h.ArrowDown || h.KeyS || h.Space || g.held.ArrowDown || (g.on && g.brake > 0.1));
+    return { steer: steer, throttle: throttle, brake: brake, reverse: reverse, brakeRev: keyBrake };
   };
 };
