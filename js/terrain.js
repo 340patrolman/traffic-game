@@ -17,7 +17,20 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   var PEAKS = [[-250, -720, 190, 320], [420, -880, 230, 360], [1050, -600, 170, 300], [-700, -100, 170, 300], [-680, 520, 130, 240],
                [300, 1000, 170, 300], [950, 950, 140, 260], [-350, 950, 120, 240], [1200, 300, 90, 200]];
-  function shoreX(z) { return 830 + 40 * Math.sin(z / 170); }
+  // 🗺 평지 상자·바닷가(v0.10.35) — 종전 값(−70~390 · 바닷가 x≈830)은 **축약 지도(격자 0~320)** 에 맞춘 것이다.
+  //  1 unit = 1 m 인 정밀 지도(격자 x 97~863 · z 106~780)에서는 도시 동쪽·남쪽 절반이 **산악 지형**이 되고
+  //  (봉우리 계산상 남동쪽 모퉁이에 약 59m 언덕) 바닷가가 도시 안으로 들어와 **서초중앙로 근처가 바다**였다(실측).
+  //  지난 판에 「물 위 9동 · 비탈 7동」이라며 뺀 실제 건물이 바로 이것 때문이었다 — 서초동에는 바다도 산도 없다.
+  //  **정밀 지도에서만** 상자를 실제 격자 + 건물이 뻗은 여백(120m)으로 넓히고 바닷가를 순환도로 바깥으로 민다.
+  //  축약 지도(기본·트윈)는 값이 그대로다 — 회귀 0.
+  var FLAT = { x0: -70, x1: 390, z0: -70, z1: 390 }, SHORE_SHIFT = 0;
+  if (TG.MAP && TG.MAP.scale1to1 && city && city.xs && city.zs) {
+    var gx0 = city.xs[0], gx1 = city.xs[city.xs.length - 1], gz0 = city.zs[0], gz1 = city.zs[city.zs.length - 1];
+    FLAT = { x0: gx0 - 120, x1: gx1 + 120, z0: gz0 - 120, z1: gz1 + 120 };
+    var ringE = (gx0 + gx1) / 2 + Math.max(440, Math.round((gx1 - gx0) / 2 + 160));   // 순환도로 동쪽 끝(같은 규칙 — 아래 RA)
+    SHORE_SHIFT = Math.max(0, ringE + 180 - 830);
+  }
+  function shoreX(z) { return 830 + SHORE_SHIFT + 40 * Math.sin(z / 170); }
   function hBase(x, z) {
     var h = fbm(x / 260, z / 260) * 11 - 3;
     var m = 0;
@@ -25,7 +38,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     h += m * (0.85 + 0.3 * fbm(x / 90, z / 90));
     var ts = sstep(shoreX(z) - 70, shoreX(z) + 40, x);
     h = h * (1 - ts) + (-6) * ts;
-    var ddx = Math.max(-70 - x, x - 390, 0), ddz = Math.max(-70 - z, z - 390, 0);
+    var ddx = Math.max(FLAT.x0 - x, x - FLAT.x1, 0), ddz = Math.max(FLAT.z0 - z, z - FLAT.z1, 0);   // 도시 평탄화 상자(위 FLAT)
     h *= sstep(0, 90, Math.hypot(ddx, ddz));
     return h * sstep(52, 130, Math.abs(z - riverZ(x)));   // 한강 둔치: 강 양옆 52m 는 평지, 130m 까지 완만히 언덕으로
   }
@@ -320,7 +333,15 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 고속도로 옆에 적·백 코너 연석과 서킷 노면이 겹쳐 보였고, frameAt 이 고속도로 위를 「연습 서킷(반폭 7.5m) 밖」으로
   // 잡아 도로 위인데 도로 밖으로 판정됐다(소유자: 「차들이 도로에 반쯤 들어가서 달리고 있음」).
   // x 를 460m 동쪽으로 옮겨 가장 가까운 도로 끝에서 56m, 고저차 1.5m 의 평지에 놓았다.
-  var circuit = buildLink('circuit', [[660, 400], [760, 400], [778, 428], [752, 456], [715, 455], [698, 486], [726, 514], [702, 536], [660, 532], [644, 502], [656, 470], [640, 436]], 'circuit', true);
+  // 연습 서킷. ⚠ 정밀 지도(1 unit = 1 m)에서는 이 자리가 **서초동 도심 한복판**이다(격자 x 97~863 · z 106~780) —
+  //  실제 건물이 서킷에 걸려 빠지기도 했다(v0.10.31). 정밀 지도에서는 순환도로 **서쪽 바깥**으로 옮긴다. 모양은 그대로.
+  var CIRC = [[660, 400], [760, 400], [778, 428], [752, 456], [715, 455], [698, 486], [726, 514], [702, 536], [660, 532], [644, 502], [656, 470], [640, 436]];
+  if (TG.MAP && TG.MAP.scale1to1) {
+    var cdx = (CXC - RA - 230) - 710, cdz = CZC - 468;
+    CIRC = CIRC.map(function (q) { return [q[0] + cdx, q[1] + cdz]; });
+  }
+  var circuit = buildLink('circuit', CIRC, 'circuit', true);
+
 
   // ---------- 관문: 순환도로 **밖으로 나가는 단 하나의 길** ----------
   // 소유자 결정(2026-09-12): 「지금 지도와 게임과는 분리하여 선택하거나 **순환도로 넘어 이어지는 길로만** 되도록 하고 체계적으로 진행한다.」
@@ -522,7 +543,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     else if (hh < 70) col = mix(C_HILL, C_FOREST, sstep(14, 70, hh));
     else if (hh < 130) col = mix(C_FOREST, C_ROCK, sstep(70, 130, hh));
     else col = mix(C_ROCK, C_SNOW, sstep(130, 185, hh));
-    if (wx > -70 && wx < 390 && wz > -70 && wz < 390 && hh > -0.8) col = rgb(0x7a9c58);
+    if (wx > FLAT.x0 && wx < FLAT.x1 && wz > FLAT.z0 && wz < FLAT.z1 && hh > -0.8) col = rgb(0x7a9c58);   // 도시 땅(위 FLAT — 정밀 지도에서 도시 절반이 들판 색이었다)
     tc.push(col[0], col[1], col[2]);
   }
   for (var iz2 = 0; iz2 < NZ - 1; iz2++) for (var ix2 = 0; ix2 < NX - 1; ix2++) { var a0 = iz2 * NX + ix2, b0 = a0 + 1, c0 = a0 + NX, d0 = c0 + 1; ti.push(a0, c0, b0, b0, c0, d0); }
@@ -789,7 +810,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
   for (var tI = 0; tI < 4000 && placed < 1500; tI++) {
     var tx2 = -880 + trng() * 2260, tz2 = -980 + trng() * 2160;
-    if (tx2 > -80 && tx2 < 400 && tz2 > -80 && tz2 < 400) continue;
+    if (tx2 > FLAT.x0 - 10 && tx2 < FLAT.x1 + 10 && tz2 > FLAT.z0 - 10 && tz2 < FLAT.z1 + 10) continue;   // ⚠ 정밀 지도에서는 이 상자가 좁아 **도심에 숲**이 섰다
     var hh2 = hBase(tx2, tz2) + river(tx2, tz2);
     if (hh2 < 0.3 || hh2 > 120) continue;
     var q8 = nearest(tx2, tz2, true); if (q8 && q8.dist < q8.p.half + 6) continue;   // tree() 안에서 한 번 더 본다
@@ -804,6 +825,10 @@ TG.buildTerrain = function (scene, city, cfg) {
   var scenery = [];
   (function () {
     function farFromRoad(x, z, need) { var q = nearest(x, z, true); return !q || q.dist > q.p.half + need; }
+    // ⚠ ①~④ 는 **축약 지도의 자리**다. 1 unit = 1 m 인 정밀 지도(서초역 일대 0.8km)에서 세빛섬·반포한강공원(실제 약 3km 북쪽)·
+    //  우면산·양재시민의숲(실제 약 2~3km 남쪽)을 이 자리에 두면 **거짓 지리**가 된다. 정밀 지도에서는 그리지 않는다(v0.10.35).
+    var FAKE_AT_1TO1 = !!(TG.MAP && TG.MAP.scale1to1);
+    if (!FAKE_AT_1TO1) {
     // ① 세빛섬: 반포대교 동쪽 물 위 세 개의 원형 구조물(꽃봉오리). 수면 -1.3 위로 올라온다.
     var isles = [[204, -102, 12.5, 10.5], [228, -90, 9.5, 8.0], [186, -118, 7.5, 6.2]];
     isles.forEach(function (I, k) {
@@ -888,6 +913,8 @@ TG.buildTerrain = function (scene, city, cfg) {
       scenery.push({ kind: 'park', x: (YJ.x0 + YJ.x1) / 2, z: (YJ.z0 + YJ.z1) / 2, name: '양재시민의숲' });
     }
 
+    }   // ①~④ 끝(정밀 지도에서는 건너뜀)
+
     // ⑤ 다리 교각: 물 위 상판 아래에 기둥을 세운다(반포대교·한남대교·동작대교·순환도로 강 구간)
     [conns[1], conns[4], conns[5], ring].forEach(function (L) {
       if (!L) return;
@@ -909,7 +936,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   var farm = new G(), frng = TG.makeRNG(55);
   for (var fi = 0; fi < 40; fi++) {
     var fx = -250 + frng() * 850, fz = -230 + frng() * 800, fh = hBase(fx, fz);
-    if (fx > -80 && fx < 400 && fz > -80 && fz < 400) continue;
+    if (fx > FLAT.x0 - 10 && fx < FLAT.x1 + 10 && fz > FLAT.z0 - 10 && fz < FLAT.z1 + 10) continue;   // ⚠ 정밀 지도에서는 **도심에 농가**가 섰다
     if (fh < 0.5 || fh > 12) continue;
     var q9 = nearest(fx, fz, true); if (!q9 || q9.dist < 24 || q9.dist > 120) continue;
     var fw = 8 + frng() * 8, fd = 6 + frng() * 6, fy = groundAt(fx, fz);

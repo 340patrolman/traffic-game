@@ -14,8 +14,9 @@ TG.Director = function (game) {
   var POOL = [{ type: 'sedan', trait: 'phone' }, { type: 'hatch', trait: 'speeder' }, { type: 'suv', trait: 'phone' }, { type: 'sedan', trait: 'drunk' }];
   // 🗺 디지털 트윈(v0.10.36 · 소유자 「교통사고 관련해서 해당 종목이나 관련 내용이 많은 곳에서 해당 단속을 할 수 있게」):
   //   가까운 교차로의 **실제 TAAS 사고 경위 상위**를 보고 그 위반을 하는 차를 먼저 놓는다. 경위 이름 → 습관(게임에서 보이는 모습)
-  var LAW_TRAIT = { '안전거리미확보': { type: 'sedan', trait: 'tailgate', lead: true }, '신호위반': { type: 'sedan', trait: null, violator: true },
-                    '중앙선침범': { type: 'sedan', trait: 'clpass', lead: true, lane0: true }, '보행자보호의무위반': { type: 'suv', trait: null, pedViolator: true, violator: true },
+  // 신호위반·보행자보호 성향은 적색·횡단 때에야 드러나 한가함을 못 채운다 — 평소 교통(violator·pedViolator)에 맡기고 감독은 곧 보이는 것만 놓는다
+  var LAW_TRAIT = { '안전거리미확보': { type: 'sedan', trait: 'tailgate', lead: true },
+                    '중앙선침범': { type: 'sedan', trait: 'clpass', lead: true, lane0: true }, 
                     '안전운전불이행': { type: 'hatch', trait: 'phone' }, '교차로운행방법위반': { type: 'sedan', trait: 'speeder' } };
   var told = {};   // 한 근무에 교차로마다 한 번만 알려 준다
   function localPick() {
