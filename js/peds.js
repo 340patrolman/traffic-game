@@ -30,14 +30,34 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
   function limbGeo(color, len, w) { var key = 'l' + color + ':' + len + ':' + w; if (geo[key]) return geo[key]; var gb = new TG.GeoBuilder(); gb.box(0, -len / 2, 0, w, len, w, color, {}); return (geo[key] = gb.build()); }
   // 행인 몸: TG.Character.lite(얼굴·머리카락·신발·가방·모자·치마, 메시 5개). 옷·피부·머리색은 무작위
   this.ageMix = null;   // { kid, senior } — 동별 연령 구성(행안부). null 이면 종전처럼 어른만.
+  // 👤 겉모습 **묶음**(v0.10.34) — `Character.lite` 는 겉모습 조합마다 형상을 캐시한다.
+  //  조합을 그때그때 무작위로 만들면 열쇠가 **10×5×3×4×2×4×2×4 = 38,400가지**라 캐시가 끝없이 불어난다
+  //  (한 판을 오래 돌리면 그만큼 메모리가 샌다 — 머리 갈래를 더하기 전에도 이미 9,600가지였다).
+  //  **미리 스물여덟 가지를 만들어 두고 그중에서 고른다** — 보기에는 충분히 다양하고 형상은 최대 28벌이다.
+  var LOOKS = null;
+  function looks() {
+    if (LOOKS) return LOOKS;
+    LOOKS = [];
+    for (var i = 0; i < 28; i++) {
+      LOOKS.push({
+        shirt: SHIRTS[i % SHIRTS.length], pants: PANTS[(i * 3) % PANTS.length],
+        skin: SKINS[(i * 5) % SKINS.length], hair: HAIRS[(i * 7) % HAIRS.length],
+        bag: (i % 10) < 3, hat: (i % 8) === 0 ? [0x2b2f38, 0xe0b84a, 0xd94f4f][i % 3] : 0,
+        female: (i % 20) < 9, hairStyle: i % 4,
+        shoe: (i % 2) ? 0x2a2a2a : 0xe8e2d4
+      });
+    }
+    return LOOKS;
+  }
   function makeMesh(p) {
-    var shirt = TG.pick(rng, SHIRTS), pants = TG.pick(rng, PANTS), skin = TG.pick(rng, SKINS), hair = TG.pick(rng, HAIRS);
+    var L = TG.pick(rng, looks());
+    var shirt = L.shirt, pants = L.pants, skin = L.skin, hair = L.hair;
     // 👥 v0.10.26 — 어린이는 작고 걸음이 짧다 · 노인은 흰머리에 걸음이 느리다. 비율은 그 동의 실제 연령 구성에서 온다.
     var mx = self.ageMix, rr = rng();
     p.age = 'adult';
     if (mx) { if (rr < mx.kid) p.age = 'kid'; else if (rr < mx.kid + mx.senior) p.age = 'senior'; }
     if (p.age === 'senior') hair = 0xd8d8d8;
-    var r = TG.Character.lite({ shirt: shirt, pants: pants, skin: skin, hair: hair, bag: rng() < 0.3, hat: rng() < 0.12 ? TG.pick(rng, [0x2b2f38, 0xe0b84a, 0xd94f4f]) : 0, female: rng() < 0.45, shoe: rng() < 0.5 ? 0x2a2a2a : 0xe8e2d4 });
+    var r = TG.Character.lite({ shirt: shirt, pants: pants, skin: skin, hair: hair, bag: L.bag, hat: L.hat, female: L.female, hairStyle: L.hairStyle, shoe: L.shoe });
     var g = r.group; p.limbs = r.limbs; p.scale = 0.9 + rng() * 0.2;
     if (p.age === 'kid') p.scale *= 0.72; else if (p.age === 'senior') p.scale *= 0.96;
     g.scale.set(p.scale, p.scale, p.scale);

@@ -30,7 +30,10 @@ TG.Character = (function () {
   // 사실적으로 가면 불쾌한 골짜기에 빠져 어린이 홍보물로 쓰기 더 어려워진다. 그래서:
   //   코를 그리지 않는다 · 눈은 흰자 없이 짙은 타원 하나 · 입은 선 하나 · 볼 홍조는 어린이만 ·
   //   대신 **머리 실루엣**을 사람마다 다르게 한다 — 사람은 얼굴보다 실루엣으로 구별된다.
-  function face(gb, y, r, skin, hair, kid, style) {
+  // ⚠ `staticFace` 는 **행인(lite)** 전용이다. 전체 리그(build)는 눈·입을 **따로 움직이는 메시**로 붙이므로
+  //  여기서 또 그리면 **두 겹**이 된다. 행인은 lite() 만 쓰는데 face() 에 눈·입이 없어
+  //  **머리가 민민한 상자**로 보였다(2026-09-27 소유자 지적 · 코드로 확인).
+  function face(gb, y, r, skin, hair, kid, style, staticFace) {
     gb.sphere(0, y, 0, r, kid ? 26 : 18, kid ? 18 : 12, skin, 1.08);
     var bw = kid ? 0.040 : 0.05, bh = kid ? 0.006 : 0.009;                                        // 어린이는 눈썹을 얇고 짧게
     gb.box(-0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {}); gb.box(0.046, y + (kid ? 0.062 : 0.055), r * 1.02, bw, bh, 0.015, hair, {});
@@ -52,6 +55,19 @@ TG.Character = (function () {
     } else if (st === 3) {                                                      // 묶은머리: 뒤로 하나
       gb.sphere(0, y + r * 0.10, -r * 1.05, r * 0.46, 12, 8, hair, 1.0);
       gb.box(0, y - r * 0.35, -r * 1.05, r * 0.40, r * 0.80, r * 0.40, hair, {});
+    }
+    // 👀 눈·입(행인 전용) — 전체 리그와 **같은 자리·같은 모양**이라 같은 사람으로 보인다.
+    //  눈은 머리 표면 **밖으로** 내밀어야 보인다(v0.9.35 교훈 — 구 안쪽에 박으면 얼굴이 없어 보인다).
+    if (staticFace) {
+      var ek = kid ? 1.35 : 1, ez = r * 1.05, ey = y + (kid ? 0.012 : 0.02);
+      [-0.042 * (kid ? 1.18 : 1), 0.042 * (kid ? 1.18 : 1)].forEach(function (ex) {
+        gb.box(ex, ey + 0.011 * ek, ez, 0.017 * ek, 0.007 * ek, 0.011, C.EYE, {});
+        gb.box(ex, ey, ez, 0.025 * ek, 0.017 * ek, 0.012, C.EYE, {});
+        gb.box(ex, ey - 0.011 * ek, ez, 0.017 * ek, 0.007 * ek, 0.011, C.EYE, {});
+        gb.box(ex + 0.006 * ek, ey + 0.007 * ek, ez + 0.009, 0.006 * ek, 0.006 * ek, 0.004, C.WHITE, {});   // 하이라이트 한 점
+      });
+      // **입은 선 하나** — 입술·입안을 따로 그리면 얼굴이 복잡해진다(v0.9.35 규격 그대로)
+      gb.box(0, y - (kid ? 0.055 : 0.05), r * 1.03, kid ? 0.044 : 0.038, kid ? 0.009 : 0.007, 0.010, C.LIP, {});
     }
   }
   function build(kind, opts) {
@@ -247,7 +263,7 @@ TG.Character = (function () {
   // ---- 행인용 경량 캐릭터(메시 5개: 몸통+머리, 팔 2, 다리 2 — 폰 성능): 얼굴·머리카락·신발·가방은 같은 품질, 관절은 어깨·엉덩이만 ----
   var liteCache = {};
   function lite(opts) {
-    opts = opts || {}; var key = [opts.shirt, opts.pants, opts.skin, opts.hair, opts.bag ? 1 : 0, opts.hat || 0, opts.female ? 1 : 0].join(':');
+    opts = opts || {}; var key = [opts.shirt, opts.pants, opts.skin, opts.hair, opts.bag ? 1 : 0, opts.hat || 0, opts.female ? 1 : 0, opts.hairStyle || 0].join(':');   // ⚠ 머리 갈래도 열쇠에 넣는다 — 빠지면 갈래가 달라도 같은 형상이 돌아온다
     var geo = liteCache[key];
     if (!geo) {
       var skin = opts.skin || C.SKIN, hair = opts.hair || C.HAIR, shirt = opts.shirt || 0x3b6fd1, pants = opts.pants || 0x2b3140, HIP = 0.92;
@@ -256,7 +272,8 @@ TG.Character = (function () {
       if (opts.female) tb.box(0, HIP + 0.02, 0, 0.36, 0.14, 0.24, pants, {});   // 치마
       if (opts.bag) tb.box(0.24, HIP + 0.20, 0, 0.09, 0.30, 0.22, 0x6d4f3a, {});
       tb.cylinder(0, HIP + 0.63, 0, 0.055, 0.06, 0.07, 8, skin, false);
-      var HR = 0.12, HY = HIP + 0.63 + 0.07 + HR; face(tb, HY, HR, skin, hair, false, opts && opts.hairStyle !== undefined ? opts.hairStyle : 0);
+      var HR = 0.12, HY = HIP + 0.63 + 0.07 + HR;
+      face(tb, HY, HR, skin, hair, false, opts && opts.hairStyle !== undefined ? opts.hairStyle : 0, true);
       if (opts.female) tb.box(0, HY - 0.02, -HR * 0.8, HR * 1.7, HR * 1.6, HR * 0.8, hair, {});   // 긴 머리
       if (opts.hat) { tb.cylinder(0, HY + HR * 0.5, 0, HR * 1.08, HR * 0.98, 0.08, 14, opts.hat, true); tb.box(0, HY + HR * 0.5, HR * 1.0, HR * 1.6, 0.015, HR * 0.8, opts.hat, {}); }
       var ag = new TG.GeoBuilder(); ag.cylinder(0, -0.28, 0, 0.05, 0.056, 0.28, 8, shirt, false); ag.sphere(0, 0, 0, 0.057, 8, 6, shirt); ag.cylinder(0, -0.54, 0, 0.043, 0.05, 0.26, 8, skin, false); ag.box(0, -0.59, 0.02, 0.07, 0.09, 0.045, skin, {});
