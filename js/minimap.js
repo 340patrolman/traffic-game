@@ -119,6 +119,17 @@ TG.Minimap = function (canvas, city, terrain) {
     g.fillStyle = '#ffd86b'; lab(rgn.split(' ').pop(), mx(city.xs[0]) - 12 * K, mz(city.zs[city.zs.length - 1]) + 16 * K);
     if (!S1) { g.fillStyle = '#e8edf2'; lab('한강', mx(city.xs[0]), mz(terrain.riverZ ? terrain.riverZ(city.xs[0]) : -112) - 6 * K); }
     self.labels = { placed: placed, skipped: skipped };   // 검증에서 겹침 0 을 확인한다
+    // 늦게 오는 이름표(v0.10.43 · 실제 건물 자료는 지도보다 늦게 읽힌다) — 같은 겹침 규칙으로 바탕에 더 그린다
+    self.addLabels = function (items) {
+      self.poi = items || [];   // 확대(2·4배)했을 때는 draw 가 전부를 화면 크기 글씨로 다시 그린다
+      g.font = 'bold ' + Math.round(9.5 * K) + 'px sans-serif';
+      var n = 0;
+      (items || []).forEach(function (it) {
+        g.fillStyle = 'rgba(255,214,120,.9)'; g.beginPath(); g.arc(mx(it.x), mz(it.z), 1.8 * K, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#ffe6a8'; if (lab(it.label, mx(it.x), mz(it.z) - 4 * K)) n++;
+      });
+      return n;
+    };
   })();
   // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.
   this.zoom = 1; this.levels = [1, 2, 4];
@@ -144,6 +155,19 @@ TG.Minimap = function (canvas, city, terrain) {
     if (zm > 1 && player) { ctx.translate(W / 2, H / 2); ctx.scale(zm, zm); ctx.translate(-mx(player.pos.x), -mz(player.pos.z)); }
     ctx.drawImage(base, 0, 0);
     if (self.layers) self.layers.drawMini(ctx, mx, mz, K / Math.sqrt(zm));   // 지도 레이어(사고다발지·위험도·단속 장비)
+    // 🗺 실제 주요 장소(v0.10.43): 전체 보기에서는 자리가 없어 몇 개만 바탕에 그려진다 — 확대하면 전부를 **화면 크기 글씨**로(겹치면 건너뛴다)
+    if (zm > 1 && self.poi && self.poi.length) {
+      var pfs = 9.5 * K / zm, boxes = [];
+      ctx.font = 'bold ' + pfs + 'px sans-serif'; ctx.textAlign = 'center';
+      for (var pi = 0; pi < self.poi.length; pi++) {
+        var po = self.poi[pi], lx = mx(po.x), ly = mz(po.z) - 3 * K / zm, lw = ctx.measureText(po.label).width, bx = lx - lw / 2, by = ly - pfs, hit = false;
+        for (var bi = 0; bi < boxes.length; bi++) { var bb = boxes[bi]; if (bx < bb[0] + bb[2] && bx + lw > bb[0] && by < bb[1] + bb[3] && by + pfs + 2 > bb[1]) { hit = true; break; } }
+        if (hit) continue;
+        boxes.push([bx, by, lw, pfs + 2]);
+        ctx.fillStyle = 'rgba(10,14,22,.6)'; ctx.fillRect(bx - 1, by, lw + 2, pfs + 2);
+        ctx.fillStyle = '#ffe6a8'; ctx.fillText(po.label, lx, ly);
+      }
+    }
     for (var i = 0; i < cars.length; i++) {
       var c = cars[i]; if (!c.violation && c !== target) continue;
       ctx.fillStyle = c === target ? '#ff3b30' : '#ff9f0a';

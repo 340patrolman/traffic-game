@@ -154,7 +154,7 @@ TG.RealBuild = function () {
                   [0, 1, 0], 0x3a3f47, null);
       }
       // ⚠ c 는 **이미 비킨 뒤의** 윤곽에서 낸 무게중심이다 — off 를 또 더하면 두 번 밀린다
-      if (b.n) named.push({ name: b.n, x: c[0], z: c[1], lv: b.lv || 0 });
+      if (b.n) named.push({ name: b.n, x: c[0], z: c[1], lv: b.lv || 0, ar: Math.round(Math.abs(area2(p))) });
       n++;
     });
     group = new THREE.Group();
@@ -170,6 +170,7 @@ TG.RealBuild = function () {
   };
   this.clear = function (scene) { if (group && scene) scene.remove(group); group = null; };
   this.group = function () { return group; };
+  this.named = function () { return named; };   // 이름 있는 실제 건물(넓이 ar 포함) — 미니맵 이름표가 쓴다
   this.info = function () { return info; };
   // 이 자리 가까운 **이름 있는** 건물(OSM name) — 「📍 이 자리」 조회용
   this.near = function (x, z, rad) {

@@ -127,6 +127,20 @@
           var inf = G.realBuild.build(scene, jb, terrain, city);
           // 큰 지도: 건물도 600m 조각으로(안개 너머·화면 밖은 건너뛴다)
           var spanB = Math.max(city.xs[city.xs.length - 1] - city.xs[0], city.zs[city.zs.length - 1] - city.zs[0]);
+          // 🗺 미니맵에 **실제 주요 장소**(v0.10.43) — 이름 있는 OSM 건물 가운데 공공·큰 시설을 넓은 것부터. 가짜 랜드마크 블록 대신이다.
+          if (minimap && minimap.addLabels && G.realBuild.named) {
+            var KEY = /법원|검찰|병원|도서관|예술의전당|터미널|구청|경찰서|소방서|대학교|초등학교|중학교|고등학교|주민센터|우체국|체육|운동장|시민의숲|기념관|대법원/;
+            var pick = [], seen = {};
+            G.realBuild.named().filter(function (b) { return KEY.test(b.name) && b.ar > 800; }).sort(function (a, b) { return b.ar - a.ar; }).forEach(function (b) {
+              var nm = String(b.name).replace(/\([^)]*\)/g, '').replace(/\s+(본관|별관|신관|구관|[0-9]+동|[A-Z]동|주차장|강당|체육관)$/, '').trim();
+              var parts = nm.split(/\s+/); if (parts.length > 1 && nm.length > 9) nm = parts[parts.length - 1];
+              if (nm.length > 9) nm = nm.slice(0, 9);
+              if (nm.length < 3 || /^[0-9]/.test(nm) || nm === '도서관' || nm === '주민센터') return;   // 「4별관」·「도서관」 같은 조각 이름은 뺀다
+              if (seen[nm]) return; for (var q = 0; q < pick.length; q++) if (Math.hypot(pick[q].x - b.x, pick[q].z - b.z) < 150) return;
+              seen[nm] = 1; pick.push({ label: nm, x: b.x, z: b.z });
+            });
+            G.mapPOI = pick.slice(0, 30); G.mapPOIdrawn = minimap.addLabels(G.mapPOI);
+          }
           if (spanB >= 1500 && TG.tileSplit && G.realBuild.group()) { var rt = TG.tileSplit(G.realBuild.group(), 600, 2000, 500); G.tiles = (G.tiles || []).concat(rt.meshes); }
           console.log('[TG] 실제 건물 ' + inf.count + '동(층수 있는 것 ' + inf.withLevels + ' · 차도를 비켜 민 것 ' + inf.moved + '동 최대 ' + inf.maxMove + 'm · 뺀 것 ' + inf.dropped + '동 = 차도 ' + (inf.dropped - inf.wet - inf.steep) + ' · 물 위 ' + inf.wet + ' · 비탈 ' + inf.steep + ') · ' + inf.source);
         }).catch(function (e) { console.warn('[TG] 건물 자료를 못 읽었다', e && e.message); });
