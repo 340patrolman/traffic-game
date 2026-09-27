@@ -3,7 +3,18 @@ TG.Minimap = function (canvas, city, terrain) {
   var self = this;
   var W = canvas.width, H = canvas.height, ctx = canvas.getContext('2d');
   var K = W / 236;   // 기준 캔버스(236px) 대비 배율 — 글자·선 두께를 함께 키운다
-  var X0 = -330, X1 = 650, Z0 = -320, Z1 = 640;           // 링을 포함하는 범위
+  // 범위는 **그 지도의 순환도로에서 잰다**(v0.10.40). 전에는 기본 지도 값(-330~650)에 못 박혀 있어
+  //  1:1 정밀 지도(순환도로 x −200~1160)에서는 지도 오른쪽·아래가 잘렸다. 정사각으로 맞춰 가로·세로 배율을 같게 둔다.
+  var X0 = -330, X1 = 650, Z0 = -320, Z1 = 640;
+  if (terrain.ring && terrain.ring.pts && terrain.ring.pts.length) {
+    var rx0 = 1e9, rx1 = -1e9, rz0 = 1e9, rz1 = -1e9;
+    terrain.ring.pts.forEach(function (p) { rx0 = Math.min(rx0, p.x); rx1 = Math.max(rx1, p.x); rz0 = Math.min(rz0, p.z); rz1 = Math.max(rz1, p.z); });
+    if (terrain.gate) { rx0 = Math.min(rx0, terrain.gate.x); rx1 = Math.max(rx1, terrain.gate.x); rz0 = Math.min(rz0, terrain.gate.z); rz1 = Math.max(rz1, terrain.gate.z); }
+    var span = Math.max(rx1 - rx0, rz1 - rz0) * 1.1, cxm = (rx0 + rx1) / 2, czm = (rz0 + rz1) / 2;
+    X0 = cxm - span / 2; X1 = cxm + span / 2; Z0 = czm - span / 2; Z1 = czm + span / 2;
+  }
+  var S1 = !!(TG.MAP && TG.MAP.scale1to1);
+  self.range = { x0: X0, x1: X1, z0: Z0, z1: Z1 };   // 검증이 읽는다
   var sx = W / (X1 - X0), sz = H / (Z1 - Z0);
   function mx(x) { return (x - X0) * sx; }
   function mz(z) { return (z - Z0) * sz; }
@@ -11,7 +22,8 @@ TG.Minimap = function (canvas, city, terrain) {
   (function drawBase() {
     var g = base.getContext('2d');
     g.fillStyle = 'rgba(12,18,28,0.92)'; g.fillRect(0, 0, W, H);
-    g.fillStyle = 'rgba(60,110,70,0.5)'; g.fillRect(mx(-70), mz(-70), (460) * sx, (460) * sz);
+    var gx0 = city.xs[0] - 90, gx1 = city.xs[city.xs.length - 1] + 90, gz0 = city.zs[0] - 90, gz1 = city.zs[city.zs.length - 1] + 90;   // 도시 땅 — 격자에서
+    g.fillStyle = 'rgba(60,110,70,0.5)'; g.fillRect(mx(gx0), mz(gz0), (gx1 - gx0) * sx, (gz1 - gz0) * sz);
     // 링·연결로
     g.lineCap = 'round';
     terrain.links.forEach(function (L) {
@@ -28,6 +40,7 @@ TG.Minimap = function (canvas, city, terrain) {
     g.strokeStyle = 'rgba(80,150,220,0.7)'; g.lineWidth = 2 * K; g.beginPath();
     g.lineWidth = 5 * K; g.strokeStyle = 'rgba(80,150,220,0.75)';
     for (var x = X0; x <= X1; x += 20) { var rz = terrain.riverZ ? terrain.riverZ(x) : -112; if (x === X0) g.moveTo(mx(x), mz(rz)); else g.lineTo(mx(x), mz(rz)); }
+    if (S1) { g.strokeStyle = 'rgba(0,0,0,0)'; }   // 1:1 정밀 지도의 강은 실제 자리가 아니다(실제 한강은 약 2.5km 북쪽) — 그리지 않는다
     g.stroke();
     // 이름표가 서로 겹쳐 읽을 수 없었다(소유자 신고). **먼저 그리는 것이 이긴다** —
     // 자리를 차지한 글자와 겹치는 이름표는 건너뛴다. 그래서 **중요한 순서대로** 그린다:
@@ -58,16 +71,25 @@ TG.Minimap = function (canvas, city, terrain) {
     // 격자 **안**에 놓으면 세로 이름표(글자 길이만큼 긴 상자)가 가로 이름표를 다 밀어낸다.
     // 그래서 도로 이름표는 **격자 바깥 여백**에 붙인다 — 가로 이름표는 격자 왼쪽, 세로 이름표는 격자 위쪽.
     // 그 자리에는 다른 이름표가 없어서 열 개가 다 남는다. 도로 끝에 붙으므로 어느 도로인지도 분명하다.
-    var padX = city.xs[0] - 46, padZ = city.zs[0] - 30;
+    var fpad = (X1 - X0) / 980, padX = city.xs[0] - 46 * fpad, padZ = city.zs[0] - 30 * fpad;   // 여백은 화면 픽셀로 같게(범위가 넓은 지도는 그만큼 더 멀리)
     roadsV.forEach(function (r) { lab(r.name, mx(r.x) - 5, mz(padZ), -Math.PI / 2); });
     roadsH.forEach(function (r) { lab(r.name, mx(padX), mz(r.z) + 4); });
     g.font = 'bold ' + Math.round(11 * K) + 'px sans-serif'; g.fillStyle = '#e8edf2';
-    lab('올림픽대로', mx(160), mz(-262) - 3); lab('경부고속도로', mx(160), mz(585) + 8);
-    lab('경부고속도로', mx(160) + 9, mz(470), -Math.PI / 2);
-    // 서쪽 호 = 강남순환로(소유자 2026-09-17) — 링의 가장 서쪽 점 옆에 세로로
-    if (terrain.ring) { var wp = terrain.ring.pts.reduce(function (a, p) { return p.x < a.x ? p : a; }, terrain.ring.pts[0]); lab('강남순환로', mx(wp.x) + 9, mz(wp.z), -Math.PI / 2); }
-    // ② 다리
-    g.fillStyle = '#e6f0ff'; lab('반포대교', mx(160) + 30, mz(-70)); lab('한남대교', mx(320) - 26, mz(-70));
+    // 순환도로 이름은 **링의 네 끝점**에서 그 자리 이름(terrain.ringRoadAt)을 읽어 붙인다 — 지도가 바뀌어도 따라간다(v0.10.40)
+    if (terrain.ring) {
+      var RP = terrain.ring.pts, pick = function (f) { return RP.reduce(function (a, p) { return f(p) < f(a) ? p : a; }, RP[0]); };
+      var nP = pick(function (p) { return p.z; }), sP = pick(function (p) { return -p.z; }), wP = pick(function (p) { return p.x; }), eP = pick(function (p) { return -p.x; });
+      var rn = function (p) { return terrain.ringRoadAt ? terrain.ringRoadAt(p.x, p.z).name : ''; };
+      lab(rn(nP), mx(nP.x), mz(nP.z) - 3); lab(rn(sP), mx(sP.x), mz(sP.z) + 8 * K + 3);
+      lab(rn(eP), mx(eP.x) + 9 * K, mz(eP.z), -Math.PI / 2); lab(rn(wP), mx(wP.x) + 9 * K, mz(wP.z), -Math.PI / 2);
+    }
+    // ② 다리 — 연결로 이름에 「○○대교」가 있고 **실제로 물 위를 건너는 점**이 있을 때만(그 점들의 가운데)
+    g.fillStyle = '#e6f0ff';
+    (terrain.conns || []).forEach(function (c) {
+      var m = String(c.name || '').match(/(\S+대교)/); if (!m || S1) return;
+      var bp = c.pts.filter(function (p) { return p.bridge; }); if (!bp.length) return;
+      var q = bp[Math.floor(bp.length / 2)]; lab(m[1], mx(q.x) + 24 * K, mz(q.z));
+    });
     // ③ 지하철역 — 점은 늘 찍고 이름만 겹침을 피한다
     g.font = 'bold ' + Math.round(10.5 * K) + 'px sans-serif';
     (city.subways || []).forEach(function (S) {
@@ -76,15 +98,26 @@ TG.Minimap = function (canvas, city, terrain) {
       g.fillStyle = '#ffd86b'; lab(S.name.replace('역', ''), mx(S.x), mz(S.z) - 6 * K);
     });
     // ④ 랜드마크
+    // 랜드마크·기념물은 **그 지도의 블록**에서(v0.10.40). 전에는 기본 지도 좌표를 적어 두어 트윈에서는 엉뚱한 블록에,
+    //  1:1 정밀 지도에서는 없는 건물 이름이 떴다.
     g.fillStyle = '#e6f0ff';
-    lab('고속터미널', mx(200), mz(40)); lab('성모병원', mx(200), mz(120)); lab('중앙도서관', mx(120), mz(120));
-    lab('법원·검찰', mx(280), mz(200)); lab('예술의전당', mx(200), mz(282)); lab('구청', mx(280), mz(282));
-    lab('서리풀공원', mx(120), mz(282)); lab('향나무', mx(193), mz(190));
+    var LMS = { terminal: '고속터미널', hospital: '성모병원', library: '중앙도서관', court: '법원·검찰', arts: '예술의전당', gu: '구청', stadium: '종합운동장' };
+    (city.landmarks || []).forEach(function (L) { var t = LMS[L.kind]; if (t) lab(t, mx((L.x0 + L.x1) / 2), mz((L.z0 + L.z1) / 2)); });
+    if (!S1 && city.parks && city.parks[0] && city.parks[0].x0 != null) { var P0 = city.parks[0]; lab('서리풀공원', mx((P0.x0 + P0.x1) / 2), mz((P0.z0 + P0.z1) / 2)); }
+    (city.monuments || []).forEach(function (M) { if (M.x != null) lab(String(M.label || '').replace('서초동 ', ''), mx(M.x), mz(M.z) + 9 * K); });
+    // 🛰 관문 — 다른 지도로 건너가는 자리(운전 중에 찾을 수 있게)
+    if (terrain.gate) {
+      var gx = mx(terrain.gate.x), gz = mz(terrain.gate.z);
+      g.beginPath(); g.arc(gx, gz, 5 * K, 0, Math.PI * 2); g.fillStyle = '#7ea8ff'; g.fill();
+      g.strokeStyle = '#fff'; g.lineWidth = 1.4 * K; g.stroke();
+      g.fillStyle = '#bcd2ff'; lab('관문', gx, gz - 7 * K);
+    }
     // ⑤ 자연·기타
     g.fillStyle = '#bfe3ff';
     (terrain.scenery || []).forEach(function (S) { if (S.name) lab(S.name, mx(S.x), mz(S.z)); });
-    g.fillStyle = '#ffd86b'; lab('서초구', mx(70), mz(292));
-    g.fillStyle = '#e8edf2'; lab('한강', mx(40), mz(-200) - 4);
+    var rgn = (TG.MAP && TG.MAP.region && TG.MAP.region.name) || '서울특별시 서초구';
+    g.fillStyle = '#ffd86b'; lab(rgn.split(' ').pop(), mx(city.xs[0]) - 12 * K, mz(city.zs[city.zs.length - 1]) + 16 * K);
+    if (!S1) { g.fillStyle = '#e8edf2'; lab('한강', mx(city.xs[0]), mz(terrain.riverZ ? terrain.riverZ(city.xs[0]) : -112) - 6 * K); }
     self.labels = { placed: placed, skipped: skipped };   // 검증에서 겹침 0 을 확인한다
   })();
   // 확대: 1(전체) → 2 → 4 배, 플레이어를 가운데 두고 확대한다. 미니맵을 터치/클릭하면 다음 단계, +/- 키로도.

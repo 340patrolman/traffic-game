@@ -853,6 +853,17 @@ body.bikemode .cluster.right,body.bikemode .sigs,body.bikemode #kidSteps,body.bi
 .mgroup.edu .mpick{display:inline-flex;flex-direction:column;align-items:center;line-height:1.2}
 .mgroup.edu .mpick small{display:block;font-size:10.5px;font-weight:700;opacity:.75;margin-top:2px}
 .mg-more{display:flex;justify-content:center;gap:7px;flex-wrap:wrap}
+/* 🗺 첫 화면 지도 줄(v0.10.40) · 🛰 관문 고르는 판 */
+.mapchips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:8px 0 6px;pointer-events:auto}
+.mapchips .mc-t{width:100%;font-size:12px;opacity:.85;text-align:center}
+.mapchips .mc-t small{opacity:.75;font-size:11px;margin-left:4px}
+.mapchip{min-height:44px;min-width:92px;padding:5px 10px;border-radius:12px;border:1.5px solid rgba(150,180,255,.45);background:rgba(255,255,255,.05);color:inherit;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+.mapchip small{font-size:10.5px;font-weight:400;opacity:.75}
+.mapchip.on{background:rgba(120,160,255,.28);border-color:#9fbaff}
+.gatepick{display:none;position:fixed;right:calc(var(--sa-r, 0px) + 84px);bottom:40%;z-index:30;background:rgba(14,22,40,.94);border:1.5px solid #9fbaff;border-radius:14px;padding:8px;flex-direction:column;gap:6px;pointer-events:auto}
+.gatepick.on{display:flex}
+.gatepick b{font-size:13px;text-align:center}
+.gatepick button{min-height:44px;min-width:130px;border-radius:10px;border:1px solid rgba(150,180,255,.6);background:rgba(120,160,255,.2);color:#fff;font-size:14px;font-weight:700}
 .mg-more .mpick{font-size:12.5px!important;padding:7px 13px!important;opacity:.9}
 .mgroup.edu .mg-btns{flex-wrap:nowrap}
 .mgroup.edu .mpick{flex:1 1 0;min-width:0;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}

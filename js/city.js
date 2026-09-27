@@ -113,6 +113,7 @@ TG.buildCity = function (cfg) {
       }
       var lmKind = LANDMARK_BLOCKS[bi + ',' + bj];
       if (lmKind) { landmarks.push({ kind: lmKind, x0: ix0, z0: iz0, x1: ix1, z1: iz1 }); blocks[blocks.length - 1].kind = 'landmark'; continue; }
+      if (MAP && MAP.realBuildings) continue;   // 1:1 정밀 지도: 블록은 실제 건물 윤곽(realbuild.js)이 채운다 — 네모 건물·필지 나무를 만들지 않는다(v0.10.40)
       var nx = TG.irange(rng, 2, 3), nz = TG.irange(rng, 2, 3);
       var lotW = (ix1 - ix0 - (nx - 1) * 2.5) / nx, lotD = (iz1 - iz0 - (nz - 1) * 2.5) / nz;
       var cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, dc = Math.hypot(cx - 160, cz - 160) / 160;

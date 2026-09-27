@@ -389,7 +389,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     L.name = '관문 · 순환도로 밖';
     L.noSpawn = true;                                  // AI 는 ring·conns 에서만 스폰한다 — 막다른 길에 차를 두지 않는다
     var endP = L.P(L.N - 1), outV = [endP.tx, endP.tz];
-    return { link: L, x: endP.x, z: endP.z, hd: Math.atan2(-outV[0], -outV[1]), out: outV, ring: [J.x, J.z] };
+    return { link: L, x: endP.x, z: endP.z, hd: Math.atan2(-outV[0], -outV[1]), out: outV, ring: [J.x, J.z], j: j };
   })();
   // 관문 광장·표지(외부 이미지 0개 규칙 그대로 — 글은 캔버스 표지로 그린다)
   function buildGateSigns(isTwin) {
@@ -399,7 +399,10 @@ TG.buildTerrain = function (scene, city, cfg) {
       props.box(g.x + rgt[0] * 9 * s2, y + 2.6, g.z + rgt[1] * 9 * s2, 1.2, 5.2, 1.2, 0x2b3442, {}); TG.facReg('gatePillar', g.x + rgt[0] * 9 * s2, g.z + rgt[1] * 9 * s2, 0.85, y, y + 5.6);
       props.box(g.x + rgt[0] * 9 * s2, y + 5.4, g.z + rgt[1] * 9 * s2, 1.6, 0.5, 1.6, 0x39455a, {});
     }
-    var txt = isTwin ? '기본 지도로|놀이·교육 서초구' : '서초구 디지털 트윈|실제 자료 시뮬레이션';
+    // 건너갈 수 있는 지도를 **목록에서** 적는다(v0.10.40 — 지도가 셋이 되었다)
+    var others = ((TG.MAPS && TG.MAPS.maps) || []).filter(function (m) { return m.id !== (city.mapId || 'seocho'); })
+      .map(function (m) { return m.short || m.name; });
+    var txt = others.length ? '관문 · 다른 지도로|' + others.join(' · ') : (isTwin ? '기본 지도로|놀이·교육 서초구' : '서초구 디지털 트윈|실제 자료 시뮬레이션');
     var sg = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 4.8), new THREE.MeshBasicMaterial({ map: TG.tex.hwSign(txt) }));
     sg.position.set(g.x - o[0] * 1.2, y + 4.4, g.z - o[1] * 1.2); sg.rotation.y = Math.atan2(-o[0], -o[1]);
     scene.add(sg);
@@ -792,6 +795,12 @@ TG.buildTerrain = function (scene, city, cfg) {
     gantry(c, Math.min(6, c.N - 1), (info[2] || '고속도로') + ' →|' + info[0] + ' · ' + info[1], '서초 · 시내 방향|' + (c.name || '') );
     gantry(c, Math.max(2, c.N - 18), '↱ ' + info[0] + ' 진입|' + info[1] + ' · 우측 램프', '강남역 · 시내 방향|직진');
   });
+  // 🛰 관문 예고 표지(v0.10.40) — 관문은 바깥 차로(B 방향, 링 인덱스가 줄어드는 쪽)에서 갈라진다. 그 앞 약 250m·90m 에 세운다.
+  //  소유자 2026-09-27: 「최초지도에서 디지털 트윈 지도로 어떻게 넘어가지」 — 달리면서 찾을 수 있어야 한다.
+  if (gate && gate.j != null) {
+    gantry(ring, (gate.j + 8 + 62) % ring.N, '본선|계속 주행', '관문 250m|다른 지도로 · 우측 차로');
+    gantry(ring, (gate.j + 8 + 22) % ring.N, '본선|계속 주행', '관문 출구|다른 지도로 · 우측');
+  }
   ring.exitsA.forEach(function (ex) {
     var c = ex.link.nextA && ex.link.nextA.link, info = c && IC_INFO[c.ic]; if (!info) return;
     gantry(ring, ((ex.atIndex - 45) % ring.N + ring.N) % ring.N, '↗ ' + info[0] + ' 출구 500m|' + info[1], '본선|계속 주행');
