@@ -689,6 +689,10 @@
     // 세로 화면 한 줄 계기 칸(v0.9.98): 누르면 온디맨드 칸(남은 시간·단속·최고 속도·정지거리·랩)을 펼치고 다시 누르면 접는다
     input.bindTap($('hudbar'), function () { if (document.body.classList.contains('portrait')) document.body.classList.toggle('hudmore'); });
     // 메뉴 안으로 모은 작은 단추들(시점 · 조작 설명 · 배속)
+    // 🗺 지도 보이기(v0.10.47) — 자동(신호 앞에서 접힘) · 늘 펼침 · 아이콘만
+    function paintMm() { var m = settings.mm || 'auto'; document.querySelectorAll('.mmpick').forEach(function (b) { b.classList.toggle('sel', b.getAttribute('data-mm') === m); }); }
+    document.querySelectorAll('.mmpick').forEach(function (b) { input.bindTap(b, function () { settings.mm = b.getAttribute('data-mm'); TG.save.set('settings', settings); paintMm(); if (minimap) minimap.pinT = 0; mmAuto(0); }); });
+    paintMm();
     input.bindTap($('pmView'), function () { setPaused(false, 'menu'); if (G.state === 'play') applyView(settings.cam === 'cockpit' ? 'chase' : 'cockpit', true); });
     input.bindTap($('pmHelp'), function () { setPaused(false, 'menu'); showCtlHelp(); });
     input.bindTap($('btnTutor'), function () {
@@ -1202,7 +1206,10 @@
     document.body.classList.toggle('laptime', G.mode === 'circuit' || G.mode === 'free'); hudHeightVar();   // 🏁 랩·섹터 패널은 기록을 재는 두 모드에서만
     coach = { cd: 0, lastCorner: -1, apexDone: -1, cin: false, cmin: 0, ckap: 0, coff: false, stars: 0, corners: 0 }; G.coach = coach;   // 🏁 코너 별점(검증과 근무 결과가 본다)
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.hint('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : '')); }   // 📏 v0.10.15 — 날씨는 화면에 보인다. 근무 시작 줄과 겹쳐 뜨던 것을 💭 로
-    else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick); hud.hint('날씨: ' + weather.presets[wpick].label + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : '')); }
+    else if (settings.weather === 'auto' || settings.weather === 'random') { var wpick = weather.pick(settings.weather); weather.set(wpick);
+      var wNow = new Date(), wS = weather.sunHM ? weather.sunHM(wNow) : null, hm = function (x) { var m = Math.round(x * 60); return Math.floor(m / 60) + ':' + ('0' + (m % 60)).slice(-2); };
+      var wClock = settings.weather === 'auto' ? ' · 지금 ' + (wNow.getMonth() + 1) + '월 ' + wNow.getDate() + '일 ' + hm(wNow.getHours() + wNow.getMinutes() / 60) + (wS ? '(해 짐 ' + hm(wS.set) + ')' : '') : '';   // (v0.10.47) 게임 시각 = 지금 실제
+      hud.hint('날씨: ' + weather.presets[wpick].label + wClock + (wpick === 'windy' ? ' — 옆바람에 차가 밀립니다' : wpick === 'rain' || wpick === 'snow' ? ' — 노면이 미끄럽습니다' : '')); }
     if (G.tot) { G.tot.dispose(); G.tot = null; }
     if (G.bike) { G.bike.dispose(); G.bike = null; }
     if (walker) { if (walk && walk.officer) walk.officer.dispose(); walker.dispose(); walker = null; walk = null; peds.walker = null; }
@@ -2476,8 +2483,11 @@
   // 무인 단속 장비가 잡았을 때. 순찰차가 걸리면 경찰이 먼저 지켜야 하므로 감점이다.
   function onCamCatch(e) {
     if (e.player) {
+      // (v0.10.47) 경광등·사이렌 켜고 단속·출동 중이면 긴급자동차 특례(제30조 제1호 속도 · 제4호 신호) — 감점하지 않는다. 어린이보호구역 속도는 특례가 없다.
+      var schCam = e.kind === 'speed' && city.inSchoolZone && city.inSchoolZone(player.pos.x, player.pos.z);
+      if (G.emergExempt && !schCam) { hud.hint('📷 ' + e.name + ' — 긴급 공무 중(경광등·사이렌) · 긴급자동차 특례(제30조) · 감점 없음'); return; }
       // 감점 키는 config.SCORE 에 있는 이름이어야 한다(없는 키를 주면 점수가 NaN 이 된다)
-      penalize(e.kind === 'speed' ? 'speeding' : 'redLight', '📷 무인 단속에 걸렸습니다 — ' + e.name + ' ' + e.why, '경찰이 먼저 지킨다');
+      penalize(e.kind === 'speed' ? 'speeding' : 'redLight', '📷 무인 단속에 걸렸습니다 — ' + e.name + ' ' + e.why, G.emergNeedSiren ? '🚨 단속 추적 중이면 경광등·사이렌을 켠다 — 켜야 긴급자동차 특례(도로교통법 제30조)' : '경찰이 먼저 지킨다');
       TG.audio.bad(); hud.flash();
       return;
     }
@@ -2696,7 +2706,11 @@
     var T = player.telemetry, kmh = player.speedKmh();
     // 긴급자동차 특례는 「본래의 긴급한 용도 + 경광등·사이렌 + 교통안전 주의의무」가 모두 있을 때다(티북 · laws.json emergency).
     // 긴급 용도 = 112 코드0·1 출동 · 단속 대상 추적. 적색은 **서행**하며 지날 수 있고, 속도 특례는 어린이보호구역에 없다(v0.9.53).
-    var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || enforcement.target || traffic.cars.some(function (c) { return !!c.violation; }));
+    // (v0.10.47) 소유자 「단속을 위해 경찰차가 위반을 해도 되는데 자동으로 점수가 깎인다」 — 눈앞 위반(👁 알림을 띄운 차 · c._cued)을 쫓는 것도 단속 용도로 본다.
+    var chasing = !!enforcement.target || traffic.cars.some(function (c) { return !!c.violation || !!c._cued; });
+    var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || chasing);
+    G.emergExempt = exempt; G.emergNeedSiren = !player.siren && chasing;   // 무인 카메라 감점도 같은 판정을 쓴다
+    var sirenTip = '🚨 단속 추적 중이면 경광등·사이렌을 켠다 — 켜야 긴급자동차 특례(도로교통법 제30조)';
     var schoolNow = city.inSchoolZone ? city.inSchoolZone(player.pos.x, player.pos.z) : false;
     hud.setSection(frame.name, frame.kind === 'off' ? '—' : frame.limit, whereText(frame));
     // 1) 신호위반(격자에서만)
@@ -2734,7 +2748,7 @@
           if (st.s === 'red' && st.elapsed > 0.6 && !exempt && rules.noFlagNode !== node) {
             var code2 = G.dispatch && G.dispatch.active && G.dispatch.active.code === 2 && player.siren;   // 코드2 에 사이렌을 켜도 일반 규칙이다
             if (G.mode === 'crazy' && G.crazy) G.crazy.onRedRun();
-            penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', (code2 && G.dispatch.msg('code2')) || '적색 신호에서는 정지선 앞에 멈춘다'); if (layers) layers.mark(node, 'red');
+            penalize('redLight', '신호위반 — 경찰이 먼저 지킨다', (code2 && G.dispatch.msg('code2')) || (G.emergNeedSiren ? sirenTip : '적색 신호에서는 정지선 앞에 멈춘다')); if (layers) layers.mark(node, 'red');
           }
           else if (st.s === 'red' && exempt && rules.noFlagNode !== node) {
             // 긴급자동차도 교차로는 서행하고, 진행 방향에 보행자·교차 진행 차량이 있으면 멈춘다 — 사이렌을 켰다고 비켜 주리라 믿지 않는다
@@ -2770,13 +2784,15 @@
     // 속도 특례는 어린이보호구역에 없다 — 긴급 출동이어도 보호구역 제한속도는 그대로다(v0.9.53 · 티북)
     if (frame.kind !== 'off' && kmh > frame.limit + C.SPEED_TOLERANCE_KMH && (!exempt || schoolNow)) {
       rules.speedT += dt;
-      if (rules.speedT > 2) { penalize('speeding', '과속(' + frame.name + ' 제한 ' + frame.limit + ') — 경찰이 먼저 지킨다', (exempt && schoolNow && G.dispatch && G.dispatch.msg('school')) || ('이 속도의 정지거리 ' + Math.round(T.stopDist) + 'm')); rules.speedT = -10; }
+      if (rules.speedT > 2) { penalize('speeding', '과속(' + frame.name + ' 제한 ' + frame.limit + ') — 경찰이 먼저 지킨다', (exempt && schoolNow && G.dispatch && G.dispatch.msg('school')) || (G.emergNeedSiren ? sirenTip : ('이 속도의 정지거리 ' + Math.round(T.stopDist) + 'm'))); rules.speedT = -10; }
     } else rules.speedT = Math.max(Math.min(rules.speedT, 0), rules.speedT - dt);
     // 3) 중앙선 침범
     var nearNode = frame.kind === 'grid' && city.distToNearestNode(player.pos.x, player.pos.z) < 13;
+    // 긴급자동차 특례 제30조 제6호(중앙선 침범 — 경찰용 자동차 포함 · 법령 원문 2026.7.1 시행) — 종전엔 경광등 추적 중에도 감점했다(v0.10.47)
     if (frame.kind !== 'off' && frame.onRoad && !nearNode && !frame.oneWay && frame.lateral < -0.45 && player.vF > 1) {
       rules.clT += dt;
-      if (rules.clT > 1.0) { penalize('centerline', '중앙선 침범 — 경찰이 먼저 지킨다', '노란 중앙선 오른쪽으로 달린다'); rules.clT = -6; }
+      if (rules.clT > 1.0 && exempt) { rules.clT = -6; hud.hint('🚨 긴급자동차 특례(제30조 제6호) — 중앙선을 넘을 때는 마주 오는 차를 보고 서행(제29조 제3항 주의의무)'); }
+      else if (rules.clT > 1.0) { penalize('centerline', '중앙선 침범 — 경찰이 먼저 지킨다', G.emergNeedSiren ? sirenTip : '노란 중앙선 오른쪽으로 달린다'); rules.clT = -6; }
     } else rules.clT = Math.max(Math.min(rules.clT, 0), rules.clT - dt);
     // 4) 코너 한계
     rules.cornerCd -= dt;
@@ -3198,7 +3214,9 @@
     }
     var sw = document.getElementById('sigWait');   // 이번 프레임에 신호 칩을 안 불렀으면(도보·고속도로) 감춘다
     if (sw && !G.sigTick && !sw.hidden) { sw.hidden = true; sw._t = ''; }
+    if (!G.sigTick) G.sigAhead = null;
     G.sigTick = false;
+    mmAuto(dt);
   }
   function setTimeScale(v) {
     // 0.5~2.0 배(소유자 2026-09-16: 「0.5부터 2.0까지」). **고른 값은 기억한다** — 근무를 새로 시작해도 1배로 돌아가지 않는다.
@@ -3234,11 +3252,26 @@
           if (leftOn) txt = '⬅ 좌회전 ' + (lt.s === 'green' ? '녹색 ' : '황색 ') + Math.max(0, Math.ceil(lt.remain)) + '초 · 직진 적색 · ' + Math.max(0, Math.round(dist)) + 'm';
           else txt = (st.s === 'green' ? '🟢 녹색 ' : st.s === 'yellow' ? '🟡 황색 ' : '🔴 적색 ') + (man ? '수동 조작 중' : Math.max(0, Math.ceil(st.remain)) + '초') + ' · ' + Math.max(0, Math.round(dist)) + 'm';
           cls = 'sigwait ' + (leftOn ? lt.s : st.s);
+          G.sigAhead = { dist: dist, s: leftOn ? lt.s : st.s };   // 지도 자동 접기가 읽는다(v0.10.47)
         }
       }
     }
     if (elc._t !== txt) { elc._t = txt; elc.textContent = txt; elc.className = cls; elc.hidden = !txt; }
   }
+  // 🗺 지도 자동 접기(v0.10.47) — 소유자 「지도가 너무 많은 부분을 가린다 · 신호등도 가린다 · 5초에 한 번씩 보여주는 건 어떨까」.
+  //  시계로 깜빡이면 5초마다 눈을 끌고 신호를 절반은 여전히 가린다 → **신호가 중요한 때만** 접는다:
+  //  앞 정지선 60m 안이거나 신호 앞 90m 안에 서 있을 때 48px 아이콘으로 접고, 지나면 다시 편다. 아이콘을 누르면 10초 펼친다(pinT).
+  //  세로 화면은 원래 아이콘이다 — 누르고 펼친 지도가 10초가 지나 신호 앞에 들어서면 스스로 닫는다. 「늘 펼침」은 예전 그대로.
+  function mmAuto(dt) {
+    var B = document.body, m = settings.mm || 'auto', sa = G.sigAhead, pin = minimap && minimap.pinT > performance.now();
+    var sp = player && !onFoot() ? player.speedKmh() : 0;
+    var zone = !!sa && (sa.dist < 60 || (sa.dist < 90 && sp < 5));   // sigAhead 는 차에 탔을 때만 채워진다(sigChip)
+    var fold = m === 'on' || B.classList.contains('totmode') ? false : m === 'tap' ? !pin : (!pin && zone);
+    if (B.classList.contains('mmfold') !== fold) B.classList.toggle('mmfold', fold);
+    if (B.classList.contains('portrait') && B.classList.contains('mmopen') && m !== 'on' && !pin && (m === 'tap' || zone)) { B.classList.remove('mmopen'); if (minimap) minimap.zoom = 1; }
+    G.mmFold = fold;
+  }
+  G.mmAuto = mmAuto;
   G.playStep = playStep; G.setTimeScale = setTimeScale; G.buzz = buzz;
   function loop(now) {
     requestAnimationFrame(loop);

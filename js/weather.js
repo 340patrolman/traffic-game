@@ -17,29 +17,43 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
   this.wind = 0; this.gust = 0; this.windDir = [1, 0.2];   // 서→동 바람(월드 벡터)
   // 티북(T-Book) 연동: 티북이 「교통경찰GAME」 링크에 붙여 준 현재 날씨(open-meteo 종류)·기온·테마를 게임 프리셋으로 바꾼다.
   // 게임은 네트워크도, 티북의 tb_ 저장소도 읽지 않는다 — URL 쿼리(?w=rain&temp=3&t=dark)만 받는다.
+  // (v0.10.47) 오늘 서초의 **실제 해 뜨고 지는 시각**(기기 안 계산 · 네트워크 없음 · 오차 몇 분). 종전 「17~20시 노을 · 20시부터 밤」 고정은
+  //  9월 말(해 짐 18:15)엔 19시에도 노을이었고 한여름엔 19시에 이미 밤이었다 — 소유자 「날짜와 시간을 현재에 맞추라」.
+  function sunHM(d) {
+    var N = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5), rad = Math.PI / 180, lat = 37.49, lon = 127.01;
+    var dec = 23.44 * Math.sin(2 * Math.PI * (284 + N) / 365) * rad, B = 2 * Math.PI * (N - 81) / 364;
+    var E = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);   // 균시차(분)
+    var cH = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
+    var H = Math.acos(TG.clamp(cH, -1, 1)) / rad / 15, noon = 12 + (135 - lon) * 4 / 60 - E / 60;   // 한국 표준시(동경 135°)
+    return { rise: noon - H, set: noon + H };
+  }
+  this.sunHM = sunHM;
+  function phaseNow(d) {   // 'night' · 'sunset'(해 뜰·질 무렵) · 'day'
+    var s = sunHM(d), h = d.getHours() + d.getMinutes() / 60;
+    if (h >= s.set + 0.5 || h < s.rise - 0.5) return 'night';
+    if ((h >= s.set - 0.75 && h < s.set + 0.5) || (h >= s.rise - 0.5 && h < s.rise + 0.75)) return 'sunset';
+    return 'day';
+  }
+  this.phaseNow = phaseNow;
   this.fromTBook = function (kind, temp, theme) {
-    var k = String(kind || '').toLowerCase(), tnum = parseFloat(temp), night = theme === 'dark' || theme === 'night', h = new Date().getHours();
+    var k = String(kind || '').toLowerCase(), tnum = parseFloat(temp), night = theme === 'dark' || theme === 'night', ph = phaseNow(new Date());
     var precip = /rain|heavy|shower|thunder|drizzle/.test(k), snow = /snow|sleet/.test(k) || (precip && !isNaN(tnum) && tnum <= 0);
     if (snow) return 'snow';
     if (precip) return 'rain';
     if (/wind|storm/.test(k)) return 'windy';
-    if (night || h >= 20 || h < 6) return 'night';
+    if (night || ph === 'night') return 'night';
     if (/cloud|fog|overcast/.test(k)) return 'cloudy';
-    if ((h >= 17 && h < 20) || (h >= 6 && h < 8)) return 'sunset';
+    if (ph === 'sunset') return 'sunset';
     return 'clear';
   };
-  // 자동/랜덤: 기기 시계·달로 시간대와 계절을 정한다(네트워크 없음 — 실제 기상 연동은 「네트워크 요청 0」 규칙에 어긋난다).
+  // 자동: **기기 시계와 오늘의 실제 해 시각**으로 낮·노을·밤만 정한다(네트워크 없음 — 실제 기상 연동은 「네트워크 요청 0」 규칙에 어긋난다).
+  //  (v0.10.47) 종전엔 달(月)을 보고 비·눈·바람을 **주사위로** 골랐다 — 맑은 날에 비가 왔다. 실제 비·눈은 티북에서 열 때(?w=) 들어온다.
+  //  랜덤: 소유자가 고른 「랜덤」일 때만 여섯 가지 중 하나.
   this.pick = function (mode) {
     var names = ['clear', 'sunset', 'night', 'rain', 'snow', 'windy'];
     if (mode === 'random') return names[Math.floor(Math.random() * names.length)];
-    var d = new Date(), h = d.getHours(), m = d.getMonth() + 1, r = Math.random();
-    var winter = m === 12 || m <= 2, monsoon = m >= 6 && m <= 8;
-    if (r < (monsoon ? 0.35 : 0.15)) return 'rain';
-    if (winter && r < 0.4) return 'snow';
-    if (r < 0.5 && (m === 3 || m === 4 || m === 11)) return 'windy';
-    if (h >= 20 || h < 6) return 'night';
-    if ((h >= 17 && h < 20) || (h >= 6 && h < 8)) return 'sunset';
-    return 'clear';
+    var ph = phaseNow(new Date());
+    return ph === 'night' ? 'night' : ph === 'sunset' ? 'sunset' : 'clear';
   };
   // 바람이 차에 주는 옆 방향 힘(m/s²): 진행 방향 오른쪽 성분. 돌풍은 시간에 따라 출렁인다.
   this.lateralGust = function (heading) {

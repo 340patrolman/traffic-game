@@ -69,6 +69,11 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 #stickBase.moving{opacity:1;border-color:#7cf;box-shadow:0 0 0 4px rgba(120,200,255,.45),0 0 22px rgba(120,200,255,.7);animation:stickMove .8s ease-in-out infinite alternate}
 @keyframes stickMove{from{transform:scale(1)}to{transform:scale(1.06)}}
 #minimap{position:fixed;top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
+#minimap{transition:width .3s ease,height .3s ease,opacity .3s ease,border-radius .3s ease}
+/* 🗺 신호 앞에서 접힘(v0.10.47) — 가로 화면은 48px 아이콘으로, 오른쪽 위 자리는 그대로 */
+body:not(.portrait).mmfold #minimap{width:48px!important;height:48px!important;border-radius:12px;opacity:.85}
+.pm-row .mmpick small{display:block;font-size:10.5px;opacity:.7;font-weight:600}
+.pm-row .mmpick.sel{border-color:var(--accent);background:rgba(77,141,255,.18)}
 #minimap.dragging{cursor:grabbing;opacity:.9;border-color:var(--accent);box-shadow:0 0 0 2px rgba(77,141,255,.5),0 8px 22px rgba(0,0,0,.5)}
 body.portrait #minimap{top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:148px;height:146px}
 #stickBase .ring{position:absolute;inset:30px;border-radius:50%;border:1px dashed rgba(255,255,255,.3)}

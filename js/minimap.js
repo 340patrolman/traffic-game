@@ -136,12 +136,15 @@ TG.Minimap = function (canvas, city, terrain) {
   this.cycleZoom = function () { var i = this.levels.indexOf(this.zoom); this.zoom = this.levels[(i + 1) % this.levels.length]; return this.zoom; };
   this.setZoom = function (z) { this.zoom = TG.clamp(z, 1, 4); };
   var self = this;
+  this.pinT = 0;   // 이때까지는 자동으로 접지 않는다(누른 뒤 10초)
   // 세로 화면(v0.9.98): 지도는 **48px 아이콘으로 접혀** 있다 — 누르면 펼치고, 펼친 뒤에는 확대 1→2→4, 한 바퀴 돌면 다시 접는다
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault(); e.stopPropagation();
     var B = document.body;
+    // (v0.10.47) 신호 앞에서 접힌 아이콘을 누르면 10초 동안 펼친다 — 그 사이에는 다시 접지 않는다
+    if (B.classList.contains('mmfold') && !B.classList.contains('portrait')) { self.pinT = performance.now() + 10000; B.classList.remove('mmfold'); return; }
     if (B.classList.contains('portrait') && !B.classList.contains('totmode')) {
-      if (!B.classList.contains('mmopen')) { B.classList.add('mmopen'); self.zoom = 1; return; }
+      if (!B.classList.contains('mmopen')) { B.classList.add('mmopen'); self.zoom = 1; self.pinT = performance.now() + 10000; return; }
       if (self.cycleZoom() === 1) B.classList.remove('mmopen');
       return;
     }
