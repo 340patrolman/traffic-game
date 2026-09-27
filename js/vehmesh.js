@@ -19,6 +19,50 @@ TG.GeoBuilder.prototype.wheel = function (cx, cy, cz, r, len, seg, color) {
     this.n += seg + 2;
   }
 };
+// 🛞 타이어 = **속이 빈 고리**(v0.10.33). 종전에는 `wheel()`(양 옆이 막힌 원반)로만 그려서
+//  림을 안쪽에 넣으면 아예 보이지 않았고, 보이게 하려고 타이어보다 **넓게** 내밀어야 했다
+//  (실측: 타이어 폭 0.26 에 림 폭 0.28 — 양쪽으로 1cm 씩 튀어나왔다). 그래서 바퀴가 **납작한 스티커**로 보였다.
+//  이제 옆면이 고리(annulus)라 림이 그 안에 **들어앉는다**. rIn 이 림이 앉는 자리다.
+TG.GeoBuilder.prototype.tyre = function (cx, cy, cz, rOut, rIn, len, seg, cTread, cSide) {
+  var t = [((cTread >> 16) & 255) / 255, ((cTread >> 8) & 255) / 255, (cTread & 255) / 255];
+  var w = [((cSide >> 16) & 255) / 255, ((cSide >> 8) & 255) / 255, (cSide & 255) / 255];
+  var x0 = cx - len / 2, x1 = cx + len / 2, i, a, ca, sa, base;
+  // ① 바깥 둘레(트레드) — 법선 바깥
+  base = this.n;
+  for (i = 0; i <= seg; i++) {
+    a = i / seg * Math.PI * 2; ca = Math.cos(a); sa = Math.sin(a);
+    this.pos.push(x0, cy + ca * rOut, cz + sa * rOut); this.nor.push(0, ca, sa); this.uv.push(0, 0); this.col.push(t[0], t[1], t[2]);
+    this.pos.push(x1, cy + ca * rOut, cz + sa * rOut); this.nor.push(0, ca, sa); this.uv.push(0, 0); this.col.push(t[0], t[1], t[2]);
+  }
+  for (i = 0; i < seg; i++) { var b1 = base + i * 2; this.idx.push(b1, b1 + 2, b1 + 3, b1, b1 + 3, b1 + 1); }
+  this.n += (seg + 1) * 2;
+  // ② 안쪽 둘레(비드) — 법선 안쪽(감김 반대)
+  base = this.n;
+  for (i = 0; i <= seg; i++) {
+    a = i / seg * Math.PI * 2; ca = Math.cos(a); sa = Math.sin(a);
+    this.pos.push(x0, cy + ca * rIn, cz + sa * rIn); this.nor.push(0, -ca, -sa); this.uv.push(0, 0); this.col.push(w[0] * 0.7, w[1] * 0.7, w[2] * 0.7);
+    this.pos.push(x1, cy + ca * rIn, cz + sa * rIn); this.nor.push(0, -ca, -sa); this.uv.push(0, 0); this.col.push(w[0] * 0.7, w[1] * 0.7, w[2] * 0.7);
+  }
+  for (i = 0; i < seg; i++) { var b2 = base + i * 2; this.idx.push(b2, b2 + 3, b2 + 2, b2, b2 + 1, b2 + 3); }
+  this.n += (seg + 1) * 2;
+  // ③ 양 옆 고리면(사이드월)
+  var sides = [[-1, x0], [1, x1]];
+  for (var sIdx = 0; sIdx < 2; sIdx++) {
+    var sx = sides[sIdx][0], px = sides[sIdx][1];
+    base = this.n;
+    for (i = 0; i <= seg; i++) {
+      a = i / seg * Math.PI * 2; ca = Math.cos(a); sa = Math.sin(a);
+      this.pos.push(px, cy + ca * rOut, cz + sa * rOut); this.nor.push(sx, 0, 0); this.uv.push(0, 0); this.col.push(w[0], w[1], w[2]);
+      this.pos.push(px, cy + ca * rIn, cz + sa * rIn); this.nor.push(sx, 0, 0); this.uv.push(0, 0); this.col.push(w[0] * 0.82, w[1] * 0.82, w[2] * 0.82);
+    }
+    for (i = 0; i < seg; i++) {
+      var b3 = base + i * 2;
+      if (sx > 0) this.idx.push(b3, b3 + 2, b3 + 3, b3, b3 + 3, b3 + 1);
+      else this.idx.push(b3, b3 + 3, b3 + 2, b3, b3 + 1, b3 + 3);
+    }
+    this.n += (seg + 1) * 2;
+  }
+};
 // 정점별 법선을 주는 사각형(둥근 음영용). P: 점 4개, N: 법선 4개.
 TG.GeoBuilder.prototype.quadN = function (P, N, color) {
   var col = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], base = this.n;
@@ -256,20 +300,27 @@ TG.vehmesh = (function () {
   function wheels(gb, T) {
     var r = T.wheelR, w = T.w, l = T.l;
     var zs = T.bus ? [l * 0.33, -l * 0.30] : T.cargo ? [l * 0.33, -l * 0.12, -l * 0.34] : [l * 0.31, -l * 0.31];
-    for (var i = 0; i < zs.length; i++) for (var s = -1; s <= 1; s += 2) wheelAt(gb, s * (w / 2 - 0.07), r, zs[i], r, !!T.detail);
+    for (var i = 0; i < zs.length; i++) for (var s = -1; s <= 1; s += 2) wheelAt(gb, s * (w / 2 - 0.17), r, zs[i], r, !!T.detail);   // ⚠ 0.07 이면 타이어가 차체 옆으로 6cm 튀어나온다(실측) — 바깥면이 차체와 거의 나란하게
   }
-  // 타이어 + 림. detail 이면 5-스포크 림(스포크 5개 + 허브).
+  // 🛞 타이어 + 림(v0.10.33) — **모든 차량**이 제대로 된 바퀴를 갖는다.
+  //  종전에는 `detail`(경찰차)만 스포크 림이었고 일반 차량은 **검은 원반 + 밖으로 튀어나온 림**이라
+  //  스티커처럼 납작해 보였다(소유자 「차량도 현실적으로 구현해줘」). 형상은 **차종별로 캐시**되므로
+  //  차가 많아져도 값이 늘지 않는다(실측: `cache[key]` — 차 한 대가 아니라 차종 하나당 한 번).
   function wheelAt(gb, x, y, z, r, detail) {
-    gb.wheel(x, y, z, r, 0.26, detail ? 22 : 12, DARK);
-    if (!detail) { gb.wheel(x, y, z, r * 0.55, 0.28, 8, RIM); return; }
-    gb.wheel(x, y, z, r * 0.62, 0.27, 16, 0x2a2e33);
-    gb.wheel(x, y, z, r * 0.64, 0.285, 16, RIM);
-    gb.wheel(x, y, z, r * 0.14, 0.30, 8, RIM);
-    for (var k = 0; k < 5; k++) {
-      var a = k / 5 * Math.PI * 2, sl = r * 0.5;
+    var W = r > 0.40 ? 0.30 : 0.26;                 // 큰 차(버스·화물)는 타이어가 두껍다
+    // ⚠ **겹치는 차례와 폭이 전부다.** 넓은 것을 나중에 그리면 앞의 것을 덮는다 —
+    //  처음에 접시를 스포크보다 넓게 그려 **스포크가 하나도 안 보였다**(실측). 밖에서 안으로 좁아지게 쌓는다.
+    var seg = detail ? 24 : 18, rRim = r * 0.58;    // 림을 줄여 사이드월(고무)을 두껍게 — 얇으면 장난감이 된다
+    gb.tyre(x, y, z, r, rRim, W, seg, DARK, 0x1e2126);                            // ① 타이어(속 빈 고리)
+    gb.tyre(x, y, z, r * 0.99, r * 0.80, W * 1.006, seg, 0x262a30, 0x262a30);      // ② 사이드월 어깨 — 고무가 둥글게 보이게
+    gb.wheel(x, y, z, rRim, W * 0.92, detail ? 20 : 14, RIM);                      // ③ 림 바깥 테(가장 넓다)
+    gb.wheel(x, y, z, rRim * 0.92, W * 0.70, detail ? 18 : 12, 0x878d95);          // ④ 림 접시 — **움푹 들어간다**
+    for (var k = 0; k < 5; k++) {                                                  // ⑤ 스포크 — 접시보다 튀어나온다
+      var a = k / 5 * Math.PI * 2, sl = rRim * 0.82;
       var cy = y + Math.cos(a) * sl / 2, cz = z + Math.sin(a) * sl / 2;
-      spokeBox(gb, x, cy, cz, a, sl, 0.09, 0.30, RIM);
+      spokeBox(gb, x, cy, cz, a, sl, r * 0.16, W * 0.80, RIM);
     }
+    gb.wheel(x, y, z, r * 0.16, W * 0.86, 10, 0x5e646b);                           // ⑥ 허브(가운데)
   }
   function spokeBox(gb, x, cy, cz, ang, len, thick, wid, color) {
     var c = Math.cos(ang), s = Math.sin(ang), hl = len / 2, ht = thick / 2, hw = wid / 2;

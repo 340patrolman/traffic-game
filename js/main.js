@@ -56,6 +56,7 @@
     terrain = TG.buildTerrain(scene, city, C);
     city.attachTerrain(terrain);
     world = TG.buildWorld(scene, city, C);
+    if (TG.EnvMap) TG.EnvMap.init(renderer);   // ✨ 반사 환경 — weather.set 이 날씨별로 구워 건다(파일 0)
     weather = new TG.Weather(scene, world, terrain, city, renderer); G.weather = weather;
     if (!TG.WEATHERS[settings.weather]) settings.weather = 'auto';
     // 티북 연동: 티북의 「교통경찰GAME」 링크가 ?w=날씨종류&temp=기온&t=테마 를 붙여 오면 그 값으로 시간대·날씨를 맞춘다(설정보다 우선, 이번 실행만)

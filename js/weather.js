@@ -89,6 +89,11 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     world.sun.color.setHex(P.sun[0]); world.sun.intensity = P.sun[1]; world.sunHeight = P.sun[2];
     scene.fog.color.setHex(P.fog[0]); scene.fog.near = P.fog[1]; scene.fog.far = P.fog[2];
     setSky(P.sky[0], P.sky[1]);
+    // ✨ 반사 환경 — 그 날씨의 하늘색으로 코드에서 구운다(파일·네트워크 0). 유리·크롬·도장이 이것으로 산다.
+    if (TG.EnvMap && TG.EnvMap.ready()) {
+      var envTex = TG.EnvMap.get(self.name, P.sky[0], P.sky[1], P.hemi[1]);
+      if (envTex) scene.environment = envTex;
+    }
     if (renderer) renderer.toneMappingExposure = P.exposure;
     var M = TG.mats || { road: [], ground: [] };
     M.road.forEach(function (m) { m.color.setHex(P.road); });

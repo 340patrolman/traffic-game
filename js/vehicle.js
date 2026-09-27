@@ -24,7 +24,7 @@
     var MESH = { sedan: 'police', hsuv: 'phsuv', suv: 'psuv', gsedan: 'pgsedan', flag: 'pflag' };
     var s = this.spec, type = MESH[s.id] || 'police', T = TG.vehmesh.TYPES[type];
     this.T = T;
-    this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.08 }));
+    this.body = new THREE.Mesh(TG.vehmesh.build(type, 0xf6f7f9, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.33, metalness: 0.22, envMapIntensity: 0.45 }));
     this.body.castShadow = true;
     var g = new THREE.Group(); g.rotation.order = 'YXZ'; g.add(this.body);
     // 전기 SUV 순찰차는 실물 사진대로 만든 차체(js/patrolev.js)를 쓴다 — 바퀴·경광등·등화·실내는 아래 공통 코드 그대로

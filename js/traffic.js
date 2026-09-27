@@ -16,14 +16,18 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
                  suv: [0x2f3438, 0xdcdcd4, 0x4a6e8a, 0x6d4f3a, 0x3e6bb0, 0x8e9aa6],
                  amb: [0xf2f5f7], fire: [0xc62a22], tow: [0xf0b429],
                  van: [0xdcdcd4, 0x4a6e8a, 0x9a4a3a, 0xe6e2d8], truck: [0x6e4a2f, 0x3b4a58, 0x7a2e2a, 0x2f6fd6], pickup: [0xdcdcd4, 0x2f3438, 0x8e9aa6, 0x6d4f3a, 0x9a4a3a], bus: [0x2f6fd6, 0x2ea043, 0xd7262b, 0x1f4fa8], moto: [0xd7262b, 0x2f3438, 0x3e6bb0, 0xf3c418, 0xdcdcd4], bike: [0xc94d43, 0x2ea043, 0x3e6bb0, 0x2f3438, 0xd9d34f], pm: [0x3b6fd1, 0x2f3438, 0xd7262b, 0xe6e2d8], police: [0xf3f5f8] };   // police = 후미 안전조치 순찰차(현장 보호용, 주행하지 않는다)
-  var bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // 🚗 차체는 **도장**이다 — Lambert 는 정반사가 원리상 0 이라 마분지로 보인다(v0.10.33 실측).
+  //  플레이어 순찰차는 이미 Standard 였다(vehicle.js). 교통 차량만 Lambert 로 남아 있어 눈에 띄게 달랐다.
+  //  값은 실측으로 맞췄다 — 반사를 1.0 으로 두면 하늘이 그대로 비쳐 **도장이 하얗게 날아간다**(0.45 가 자동차 도장처럼 보인다).
+  var bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.33, metalness: 0.22, envMapIntensity: 0.45 });
   var brakeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
   var blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa000 }), phoneMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff }), dogMat = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
   var litterMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a }), litters = [];
   var cargoMat = new THREE.MeshLambertMaterial({ color: 0xb98a4a }), doorMat = new THREE.MeshLambertMaterial({ color: 0xdfe4ea }), pasMat = new THREE.MeshLambertMaterial({ color: 0x3b6fd1 });
   // 반투명 유리(깊이를 쓰지 않아 안의 운전자가 비친다) · 휴대전화 화면(손에 든 폰 = 말풍선 · 거치대 = 지도) · 운전자 옷·피부·머리색
   // 유리는 너무 짙으면 안의 휴대전화 화면이 실내와 같은 회색으로 묻힌다(실측: 화면 157 · 옆 유리 106) — 조금 옅고 맑게
-  var glassMat = new THREE.MeshLambertMaterial({ color: 0x3a5068, transparent: true, opacity: 0.34, depthWrite: false });
+  // 유리는 **주변이 비쳐야** 유리로 보인다 — 환경 반사가 붙는 Standard 라야 검은 판을 벗는다
+  var glassMat = new THREE.MeshStandardMaterial({ color: 0x2c3e52, transparent: true, opacity: 0.42, depthWrite: false, roughness: 0.08, metalness: 0.0, envMapIntensity: 1.6 });
   var screenChatMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('chat'), side: THREE.DoubleSide }), screenMapMat = new THREE.MeshBasicMaterial({ map: TG.tex.phoneScreen('map'), side: THREE.DoubleSide });
   var phoneBodyMat = new THREE.MeshLambertMaterial({ color: 0x15171a });
   // 화면 빛(가산 스프라이트) — 창 너머에서 「켜진 화면」을 알아보게 한다. 차체에 가리면 안 보인다(깊이 검사는 한다)
