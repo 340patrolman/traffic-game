@@ -932,6 +932,9 @@
     function setEmerg(on) {
       if (G.state !== 'play' || !player || onFoot()) return;
       G.emergOn = !!on; G.emergIdle = 0;
+      // (v0.10.50 · 소유자 「긴급 단추를 누르면 양옆 방향지시등이 들어와야」) — 긴급 운행이면 비상등도 켠다. 끌 때는 긴급이 켠 비상등만 끈다(손으로 켜 둔 것은 둔다)
+      if (on && !player.hazard && G.setHazard) { G.setHazard(true); G.emergHaz = true; }
+      if (!on && G.emergHaz && G.setHazard) { G.setHazard(false); G.emergHaz = false; }
       if (on && !player.siren) { player.setSiren(true); TG.audio.resume(); TG.audio.setSiren(true, 'wail'); hud.setSiren(true); }
       if (!on && player.siren && !enforcement.target && !(G.chase && G.chase.car)) { player.setSiren(false); TG.audio.setSiren(false); hud.setSiren(false); }
       var eb = $('btnEmerg'); if (eb) eb.classList.toggle('on', G.emergOn);
@@ -1159,7 +1162,7 @@
   function toggleSiren() {
     if (G.state !== 'play' || !player || onFoot()) return;
     player.setSiren(!player.siren); TG.audio.resume(); TG.audio.setSiren(player.siren, 'wail'); hud.setSiren(player.siren);   // 손으로 켤 때는 늘 웨일 — 옐프는 비스트 모드에서만
-    if (!player.siren && G.emergOn) { G.emergOn = false; var eb0 = document.getElementById('btnEmerg'); if (eb0) eb0.classList.remove('on'); }   // 경광등을 끄면 긴급 운행도 끝
+    if (!player.siren && G.emergOn) { G.emergOn = false; var eb0 = document.getElementById('btnEmerg'); if (eb0) eb0.classList.remove('on'); if (G.emergHaz && G.setHazard) { G.setHazard(false); G.emergHaz = false; } }   // 경광등을 끄면 긴급 운행도 끝
   }
 
   function start(carId, modeOverride) {
@@ -1275,7 +1278,7 @@
       player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)
       lap.hold = 3.2; lap.lights = -1; document.body.classList.add('startlit'); paintLights(0, false); }   // 🏁 출발 신호등 3·2·1
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
-    G.emergOn = false; G.emergIdle = 0; var ebs = document.getElementById('btnEmerg'); if (ebs) ebs.classList.remove('on');
+    G.emergOn = false; G.emergIdle = 0; G.emergHaz = false; var ebs = document.getElementById('btnEmerg'); if (ebs) ebs.classList.remove('on');
     var hbs = document.getElementById('btnHaz'); if (hbs) hbs.classList.remove('active');   // 비상등도 근무마다 꺼진 채로(차는 새로 만든다)   // 🚨 긴급 운행은 근무마다 꺼진 채로 시작
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
@@ -2735,7 +2738,7 @@
     // 긴급 용도 = 112 코드0·1 출동 · 단속 대상 추적. 적색은 **서행**하며 지날 수 있고, 속도 특례는 어린이보호구역에 없다(v0.9.53).
     // (v0.10.47) 소유자 「단속을 위해 경찰차가 위반을 해도 되는데 자동으로 점수가 깎인다」 — 눈앞 위반(👁 알림을 띄운 차 · c._cued)을 쫓는 것도 단속 용도로 본다.
     var chasing = !!enforcement.target || traffic.cars.some(function (c) { return !!c.violation || !!c._cued; });
-    if (G.emergOn && !player.siren) { G.emergOn = false; var ebx = document.getElementById('btnEmerg'); if (ebx) ebx.classList.remove('on'); }   // 경광등이 꺼졌으면(정차 유도 끝 등) 긴급 운행도 끝
+    if (G.emergOn && !player.siren) { G.emergOn = false; var ebx = document.getElementById('btnEmerg'); if (ebx) ebx.classList.remove('on'); if (G.emergHaz && G.setHazard) { G.setHazard(false); G.emergHaz = false; } }   // 경광등이 꺼졌으면(정차 유도 끝 등) 긴급 운행도 끝
     var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || chasing || !!G.emergOn);
     if (G.emergOn && !(G.dispatch && G.dispatch.emergency()) && !chasing) { G.emergIdle = (G.emergIdle || 0) + dt; if (G.emergIdle > 60) { G.emergIdle = -60; hud.hint('💭 긴급한 일이 끝났으면 🚨 긴급 운행을 끈다 — 특례는 본래의 긴급한 용도일 때만(대법 2017도12194)'); } } else G.emergIdle = 0;
     G.emergExempt = exempt; G.emergNeedSiren = !player.siren && chasing;   // 무인 카메라 감점도 같은 판정을 쓴다
@@ -3013,6 +3016,8 @@
   }
 
   // 카메라 감각: 충돌 흔들림(G.shake) · 위반 포착 줌 펀치(G.punch)
+  // 📸 객관식이 떠 있는 동안 뒤 화면을 그 위반 장면으로(v0.10.51) — 게임이 멈춰 있어 카메라를 한 번만 옮겨 둔다
+  G.inspectShot = function (s) { if (G.inspect && G.inspect.show(s)) { G.inspect.apply(camera); return true; } return false; };
   function camFx(dt) {
     if (G.replay && G.replay.apply(camera)) return;   // 되돌려 보기가 카메라를 잡는다(흔들림·화각 펀치 없이 그대로 보여 준다)
     if (G.stopcam && G.stopcam.apply(camera)) return;   // 🎬 정차 캠 컷

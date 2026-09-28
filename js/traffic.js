@@ -264,7 +264,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       bg.visible = false; g.add(bg); car.brakeGroup = bg;
     }
     if (see) {
-      g.add(new THREE.Mesh(TG.vehmesh.glass(type), car.trait === 'tint' ? tintMat : glassMat));
+      var gm = new THREE.Mesh(TG.vehmesh.glass(type), car.trait === 'tint' ? tintMat : glassMat); g.add(gm); car.glassMesh = gm;   // 확대 보기 창 장면에서 잠깐 걷는다(v0.10.51)
       var dv = new THREE.Mesh(TG.vehmesh.driver(type, car.trait === 'phone' ? 'phone' : 'wheel', TG.pick(rng, DRV_SHIRT), TG.pick(rng, DRV_SKIN), TG.pick(rng, DRV_HAIR), car.trait === 'nobelt'), bodyMat);
       g.add(dv); car.driverMesh = dv;
       var LY = TG.vehmesh.layout(T), EY = LY.eye;
@@ -811,7 +811,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     if (lead) {
       var gap = lead.along - (car.len / 2 + lead.len / 2), want = car.trait === 'tailgate' ? 1.2 + car.v * 0.42 : 2.5 + car.v * cfg.AI_FOLLOW_SEC;
-      car.tgClose = car.trait === 'tailgate' && car.v > 6 && lead.v > 4 && gap < car.v * 0.75;   // 0.75초 안쪽으로 붙어 달린다
+      car.tgClose = car.trait === 'tailgate' && car.v > 6 && lead.v > 4 && gap < car.v * 0.75; car.tgGap = gap;   // 간격은 확대 보기 장면 글이 읽는다(v0.10.51)   // 0.75초 안쪽으로 붙어 달린다
       if (gap < want) target = Math.min(target, Math.max(0, lead.v - (want - gap) * 0.9));
       if (gap < 1.5) { target = 0; emergency = true; }
       // 경적: 앞차가 서서 안 움직이면(3~6초) 성질 급한 운전자가 짧게 울린다(플레이어 근처만 들린다)

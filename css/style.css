@@ -220,6 +220,8 @@ button.ghost{pointer-events:auto;display:block;width:100%;margin:10px auto 0;pad
 label.opt{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:10px 6px;font-size:15px;text-align:left;border-bottom:1px solid var(--edge);cursor:pointer}
 label.opt input{width:20px;height:20px}
 #ticket .card{padding-top:14px}
+/* 📸 객관식 뒤에 위반 장면(v0.10.51) — 위쪽 반은 비우고 판을 아래로 */
+body.quizshot #ticket{align-items:flex-end;background:linear-gradient(to bottom,rgba(6,8,14,0) 0,rgba(6,8,14,0) 42%,rgba(6,8,14,.72) 70%)}
 .tbar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;margin-bottom:12px}
 #ticketTimer{height:100%;width:100%;background:var(--accent);transition:width .1s linear}
 .q{font-size:17px;font-weight:700;margin-bottom:10px}

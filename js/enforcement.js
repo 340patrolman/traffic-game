@@ -172,6 +172,7 @@ TG.Enforcement = function (game) {
       if (game.career) game.career.noteAnswer(answer, choice === answer);
       game.addScore(delta, null);
       game.hud.ticketResult(lines, kind, function () {
+        if (game.inspect) game.inspect.close();   // 📸 장면을 거두고 원래 시점으로
         ticket = null; game.hud.hideTicket(); game.setPaused(false, 'ticket'); self.state = 'idle';
         if (act) {
           if (sel.kind !== 'car') warnPed(e);
@@ -182,6 +183,7 @@ TG.Enforcement = function (game) {
     }
     ticket.onChoice = choose;
     game.hud.showTicket(opts, cfg.TICKET_SECONDS, choose, sel.kind === 'car' ? '이 차량의 위반은?' : '이 보행자의 위반은?');
+    if (sel.kind === 'car' && game.inspectShot) game.inspectShot(sel);   // 📸 뒤 화면 = 그 위반이 보이는 장면(안전띠면 운전석 창 · v0.10.51)
     game.hud.setTarget(null);
     return true;
   };
