@@ -108,7 +108,7 @@
     if (TG.Cinema) G.cinema = new TG.Cinema(G);
     if (TG.Inspect) G.inspect = new TG.Inspect(G);
     if (TG.SchoolTime) { G.school = new TG.SchoolTime(G); G.school.load('data/schooltime.json'); }
-    if (TG.Pop) { G.pop = new TG.Pop(G); G.pop.load('data/pop-seocho.json'); }              // 👥 동별 인구·연령(행안부)
+    if (TG.Pop) { G.pop = new TG.Pop(G); G.pop.load('data/pop-seocho.json'); if (G.pop.loadDong) G.pop.loadDong('data/dong-seocho.json'); }              // 👥 동별 인구·연령(행안부)
     if (TG.Risk) { G.risk = new TG.Risk(G); G.risk.load('data/incidents-seocho.json'); }
     // 🏛 국가유산(역사·흥미) · 📍 이 자리(종합 조회) — v0.10.32
     if (TG.Heritage) {
@@ -3070,7 +3070,8 @@
       if (G.popT <= 0) {
         G.popT = 2;
         var pn = city.nearestNode(player.pos.x, player.pos.z);
-        var pd = pn ? G.pop.dongOf(pn) : null;
+        var ph = G.pop.dongHere ? G.pop.dongHere(player.pos.x, player.pos.z) : null;   // 지금 선 자리의 동(v0.10.54) — 없으면 교차로 값
+        var pd = ph && ph.dong ? ph.dong : (pn ? G.pop.dongOf(pn) : null);
         peds.ageMix = pd ? G.pop.mix(pd) : null;
         G.popDong = pd ? pd.name : '';
       }

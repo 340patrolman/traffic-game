@@ -51,8 +51,10 @@ TG.Here = function (game) {
     if (fr && fr.name) rows.push({ k: '도로', v: fr.name + (fr.limit ? ' · 제한 ' + fr.limit + 'km/h' : '') });
     if (nd) rows.push({ k: '가까운 교차로', v: C.nodeName(nd) + ' · ' + dist(d) });
     if (G.pop && G.pop.ready() && G.pop.dongOf) {
+      var hereD = G.pop.dongHere ? G.pop.dongHere(p.x, p.z) : null;
+      if (hereD && hereD.exact) rows.push({ k: '행정동', v: (hereD.outside ? '서초구 밖' : hereD.name) + ' — 지금 선 자리 (통계청 행정동 경계 2026.7)' });
       var dong = G.pop.dongOf(nd);
-      if (dong && dong.name) rows.push({ k: '행정동', v: dong.name });
+      if (dong && dong.name) rows.push({ k: hereD && hereD.exact ? '교차로 동' : '행정동', v: (G.pop.dongLabel ? G.pop.dongLabel(nd) : dong.name) + (hereD && hereD.exact ? '' : ' (통계청 행정동 경계 2026.7 · 교차로 기준)') });
     }
     if (C.inSchoolZone && C.inSchoolZone(p.x, p.z)) rows.push({ k: '구역', v: '⚠ 어린이보호구역 — 제한 30km/h · 범칙금·벌점 2배(08~20시)' });
     rows.push({ k: '지도 좌표', v: Math.round(p.x) + ', ' + Math.round(p.z) + (TG.MAP && TG.MAP.scale1to1 ? ' (1 unit = 1 m)' : '') });
@@ -98,7 +100,7 @@ TG.Here = function (game) {
   // ③ 사람 — 그 동의 거주인구·연령 구성(행정안전부)
   function secPeople(p) {
     var P = G.pop; if (!P || !P.ready()) return null;
-    var nd = G.city.nearestNode(p.x, p.z), dong = P.dongOf(nd);
+    var nd = G.city.nearestNode(p.x, p.z), hd = P.dongHere ? P.dongHere(p.x, p.z) : null, dong = hd && hd.dong ? hd.dong : P.dongOf(nd);
     if (!dong || !dong.name) return null;
     var mix = P.mix(dong) || {};
     var rows = [{ k: dong.name + ' 인구', v: num(dong.tot) + '명' }];
