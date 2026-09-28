@@ -35,7 +35,7 @@ TG.Layers = function (game, city, cfg, scene) {
         }) };
       }) };
   }
-  var roads = null, dist = null;   // dist = 자치구 경계(v0.10.30 · 테두리만)
+  var roads = null, dist = null, szd = null;   // szd = 실제 어린이보호구역 시설 점(v0.10.67 · 지도 항목 schoolZones)   // dist = 자치구 경계(v0.10.30 · 테두리만)
           // data/maps/<지도>-roads.json — **실제 도로 형상**(디지털 트윈 T1-a). 트윈 지도에만 있다
   var defs = [];             // 레이어 정의(순서 = 그리는 순서)
   // 시뮬레이션 위험도: 교차로별로 사건을 쌓는다. { 'i,j': {brake, near, red, total} }
@@ -87,9 +87,18 @@ TG.Layers = function (game, city, cfg, scene) {
       var rf = (TG.MAP_ENTRY && TG.MAP_ENTRY.roads) || (TG.MAP && TG.MAP.roads) || null;
       // 🗺 자치구 경계(v0.10.30) — 소유자 「서초구를 기본으로 하고 인접 동작·관악·강남은 테두리만」
       var df = (TG.MAP_ENTRY && TG.MAP_ENTRY.districts) || (TG.MAP && TG.MAP.districts) || null;
+      // 🏫 실제 어린이보호구역 시설 점(v0.10.67) — 위경도라 고무판 변환이 될 때만 옮겨 둔다(안 되면 그리지 않는다)
+      var zf = (TG.MAP_ENTRY && TG.MAP_ENTRY.schoolZones) || (TG.MAP && TG.MAP.schoolZones) || null;
+      var loadSz = function () {
+        if (!zf || !(TG.warp && TG.warp.ok)) { after(); return; }
+        fetch(zf).then(function (r7) { return r7.json(); }).then(function (v7) {
+          szd = { source: v7.source, items: (v7.zones || []).map(function (z) { var q = TG.warp.fromLL(z.lon, z.lat); return q ? { x: q[0], z: q[1], name: z.name, kind: z.kind, addr: z.addr } : null; }).filter(Boolean) };
+          after();
+        }).catch(function () { after(); });
+      };
       var loadDist = function () {
-        if (!df) { after(); return; }
-        fetch(df).then(function (r6) { return r6.json(); }).then(function (v6) { dist = distToGame(v6); after(); }).catch(function () { after(); });
+        if (!df) { loadSz(); return; }
+        fetch(df).then(function (r6) { return r6.json(); }).then(function (v6) { dist = distToGame(v6); loadSz(); }).catch(function () { loadSz(); });
       };
       // 자치구 경계는 **위경도로 담겨 있다**(tg-districts/2). 지도마다 배율·원점이 달라
       //  (축약 13.1m/unit · 1:1 1m/unit) 게임 좌표로 구워 두면 **다른 지도에서 엉뚱한 자리에 그려진다**.
@@ -171,7 +180,9 @@ TG.Layers = function (game, city, cfg, scene) {
       defs.push({ id: 'districts', name: '자치구 경계(테두리)', color: '#9fd3ff', kind: 'dist', src: dist,
         desc: dist.districts.map(function (d0) { return d0.name; }).join(' · ') + ' · ' + (dist.source || '') });
     }
-    defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' });
+    defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' + (city.schoolNote ? ' · ' + city.schoolNote : '') });
+    if (szd && szd.items.length) defs.push({ id: 'schoolPts', name: '실제 어린이보호구역 시설', color: '#eab308', kind: 'szpts', src: szd,
+      desc: szd.items.length + '곳의 대상 시설 자리(초등학교 큰 점) · 구역 경계선은 자료에 없다 · ' + ((szd.source && szd.source.zones) || '') });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
     defs.push({ id: 'risk', name: '시뮬레이션 위험도', color: '#d33bd3', kind: 'risk', desc: '이 기기에서 달린 결과 — 급제동·보행자 근접·신호위반을 교차로별로 쌓는다' });
     defs.forEach(function (d) { if (!(d.id in on)) on[d.id] = false; });
@@ -185,6 +196,7 @@ TG.Layers = function (game, city, cfg, scene) {
   function countOf(d) {
     if (d.kind === 'taas') return (d.src.items || []).length;
     if (d.kind === 'zone') return 1;
+    if (d.kind === 'szpts') return d.src.items.length;
     if (d.kind === 'cam') return game.facil ? game.facil.count() : 0;
     if (d.kind === 'risk') return Object.keys(risk).length;
     if (d.kind === 'roads') return Object.keys((d.src && d.src.roads) || {}).length;
@@ -311,6 +323,12 @@ TG.Layers = function (game, city, cfg, scene) {
     return on[id];
   };
   self.isOn = function (id) { return !!on[id]; };
+  // 🏫 400m 안 가장 가까운 실제 보호구역 시설(초등학교·특수학교 우선이 아니라 거리순) — 📍 자리 카드가 쓴다
+  self.szNear = function (x, z, max) {
+    if (!szd) return null; var best = null;
+    szd.items.forEach(function (it) { var d0 = Math.hypot(it.x - x, it.z - z); if (d0 <= (max || 400) && (!best || d0 < best.d)) best = { name: it.name, kind: it.kind, addr: it.addr, d: d0 }; });
+    return best;
+  };
   function apply() { defs.forEach(function (d) { if (on[d.id]) build(d.id); else clear(d.id); }); }
   self.refresh = apply;
 
@@ -371,8 +389,16 @@ TG.Layers = function (game, city, cfg, scene) {
         any = true;
       });
     } else if (d.kind === 'zone') {
-      var sb = city.schoolBlock, x0 = city.xs[sb.i], x1 = city.xs[sb.i + 1], z0 = city.zs[sb.j], z1 = city.zs[sb.j + 1];
-      gb.rect((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 0.08, col); any = true;
+      var sb = city.schoolBlock, x0 = city.xs[sb.i], x1 = city.xs[sb.i + 1], z0 = city.zs[sb.j], z1 = city.zs[sb.j + 1], sd = city.schoolSides || ['v', 'h'];
+      if (sd.length >= 2) gb.rect((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 0.08, col);
+      else {   // 한 변만(1:1) — 그 도로 위에 띠로
+        if (sd[0] === 'v') gb.rect(x0, (z0 + z1) / 2, (city.halfV[sb.i] + 1) * 2, z1 - z0 - 24, 0, 0.14, col);
+        else gb.rect((x0 + x1) / 2, z1, x1 - x0 - 24, (city.halfH[sb.j + 1] + 1) * 2, 0, 0.14, col);
+      }
+      any = true;
+    } else if (d.kind === 'szpts') {
+      d.src.items.forEach(function (it) { var big = it.kind === '초등학교' || it.kind === '특수학교'; disc(gb, it.x, it.z, big ? 22 : 11, col, 0.12); if (big) ring(gb, it.x, it.z, 30, 2, col, 0.13); });
+      any = true;
     } else if (d.kind === 'cam') {
       (game.facil ? game.facil.list() : []).forEach(function (C) {
         var nd = city.nodes[C.i][C.j], f = TG.DIR_VEC[C.d];

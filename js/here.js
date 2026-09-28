@@ -56,7 +56,9 @@ TG.Here = function (game) {
       var dong = G.pop.dongOf(nd);
       if (dong && dong.name) rows.push({ k: hereD && hereD.exact ? '교차로 동' : '행정동', v: (G.pop.dongLabel ? G.pop.dongLabel(nd) : dong.name) + (hereD && hereD.exact ? '' : ' (통계청 행정동 경계 2026.7 · 교차로 기준)') });
     }
-    if (C.inSchoolZone && C.inSchoolZone(p.x, p.z)) rows.push({ k: '구역', v: '⚠ 어린이보호구역 — 제한 30km/h · 범칙금·벌점 2배(08~20시)' });
+    if (C.inSchoolZone && C.inSchoolZone(p.x, p.z)) rows.push({ k: '구역', v: '⚠ 어린이보호구역 — 제한 30km/h · 범칙금·벌점 2배(08~20시)' + (C.schoolNote ? ' · ' + C.schoolNote : '') });
+    var szq = G.layers && G.layers.szNear ? G.layers.szNear(p.x, p.z, 400) : null;   // (v0.10.67) 실제 보호구역 시설(점) — 400m 안 가장 가까운 곳
+    if (szq) rows.push({ k: '보호구역 시설', v: '🏫 ' + szq.name + (szq.kind === '초등학교' ? '초' : ' ' + szq.kind) + ' · ' + dist(szq.d) + ' (구역 경계선 자료 없음 — 표지로 확인)' });
     rows.push({ k: '지도 좌표', v: Math.round(p.x) + ', ' + Math.round(p.z) + (TG.MAP && TG.MAP.scale1to1 ? ' (1 unit = 1 m)' : '') });
     return rows.length ? { title: '📍 자리', rows: rows, src: '' } : null;
   }

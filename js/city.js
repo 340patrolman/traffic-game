@@ -65,6 +65,9 @@ TG.buildCity = function (cfg) {
     return { i: Math.min(di, Math.max(0, xs.length - 2)), j: Math.min(dj, Math.max(0, zs.length - 2)) };
   }
   var schoolBlock = clampBlock(mapv('schoolBlock', null), 1, 2), parkBlock = clampBlock(mapv('parkBlock', null), 1, 3);   // 학교=방배역 옆, 공원=서리풀공원
+  // (v0.10.67) 보호구역이 걸친 변 — 'v' = 블록 서쪽 남북 도로 · 'h' = 블록 남쪽 동서 도로. 지도가 적지 않으면 둘 다(종전).
+  //  서초구 1:1 은 실제 초등학교 정문 주소가 간선에 있는 곳(서래초 · 방배로 260)의 **방배로 한 변만** 둔다.
+  var schoolSides = mapv('schoolSides', ['v', 'h']), schoolNote = mapv('schoolNote', null);
   // 서울 서초구를 본뜬 배치(축약).
   // 반포대로×서초대로 = 서울성모병원 사거리(교차로 근무 무대). 강남대로는 동쪽 구 경계다.
   // 서초구 축약 지도. 남북은 서 → 동, 동서는 북 → 남 순서로 실제 배열과 같게 놓았다.
@@ -87,11 +90,12 @@ TG.buildCity = function (cfg) {
   // 지도가 서초구 안에서 끝나므로 가로 2번은 전 구간 서초대로다(테헤란로는 강남대로 동쪽 = 지도 밖).
   function hName(j, x) { return roadNamesH[j]; }
   function nodeName(node) { var nm = NODE_NAMES[node.i + ',' + node.j]; if (nm) return nm; return roadNamesV[node.i] + '·' + hName(node.j, node.x - 1) + ' 교차로'; }
-  // 어린이보호구역: 학교 블록(1,2)에 붙은 방배로(x=xs[1])·효령로(z=zs[3]) 구간. 간선(반포대로·강남대로·서초대로)은 제외.
+  // 어린이보호구역: 학교 블록(기본 지도 (1,2))에 붙은 방배로(x=xs[1])·효령로(z=zs[3]) 구간. 간선(반포대로·강남대로·서초대로)은 제외.
+  //  지도가 schoolSides 를 적으면 그 변만(서초구 1:1 = 서래초 앞 방배로).
   function inSchoolZone(x, z) {
     var sx0 = xs[schoolBlock.i], sx1 = xs[schoolBlock.i + 1], sz0 = zs[schoolBlock.j], sz1 = zs[schoolBlock.j + 1];
-    if (Math.abs(x - sx0) <= halfV[schoolBlock.i] + 1 && z > sz0 + 12 && z < sz1 - 12) return true;
-    if (Math.abs(z - sz1) <= halfH[schoolBlock.j + 1] + 1 && x > sx0 + 12 && x < sx1 - 12) return true;
+    if (schoolSides.indexOf('v') >= 0 && Math.abs(x - sx0) <= halfV[schoolBlock.i] + 1 && z > sz0 + 12 && z < sz1 - 12) return true;
+    if (schoolSides.indexOf('h') >= 0 && Math.abs(z - sz1) <= halfH[schoolBlock.j + 1] + 1 && x > sx0 + 12 && x < sx1 - 12) return true;
     return false;
   }
   for (var bi = 0; bi < xs.length - 1; bi++) {
@@ -99,6 +103,9 @@ TG.buildCity = function (cfg) {
       var x0 = xs[bi] + halfV[bi], x1 = xs[bi + 1] - halfV[bi + 1], z0 = zs[bj] + halfH[bj], z1 = zs[bj + 1] - halfH[bj + 1];
       var kind = (bi === parkBlock.i && bj === parkBlock.j) ? 'park' : (bi === schoolBlock.i && bj === schoolBlock.j) ? 'school' : 'city';
       blocks.push({ x0: x0, z0: z0, x1: x1, z1: z1, kind: kind });
+      // (v0.10.67) 1:1 정밀 지도는 가짜 공원 잔디·학교 운동장·나무를 깔지 않는다 — 블록 하나(700m × 800~1000m)를 통째로 잔디로 덮고 있었다.
+      //  공원 블록 (1,3) 은 실제로는 공원이 아니고, 실제 서리풀공원은 (1,2) 에 있다. 땅은 실제 건물 윤곽이 채운다.
+      if (MAP && MAP.realBuildings && kind !== 'city') continue;
       var ix0 = x0 + SW + 0.6, ix1 = x1 - SW - 0.6, iz0 = z0 + SW + 0.6, iz1 = z1 - SW - 0.6;
       if (kind === 'park') {
         parks.push({ x0: ix0, z0: iz0, x1: ix1, z1: iz1 });
@@ -354,7 +361,7 @@ TG.buildCity = function (cfg) {
 
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
-    schoolBlock: schoolBlock, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
+    schoolBlock: schoolBlock, schoolSides: schoolSides, schoolNote: schoolNote, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
     map: MAP, mapName: mapv('name', '서울 서초구'), mapBeta: !!mapv('beta', true), mapId: mapv('id', 'seocho'),
     gridFrom: gridFrom,   // 격자를 어디서 읽었는가 — 'map'(지도 파일) 또는 'config.js'(물러선 값)
     landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, roadNameV: function (i) { return roadNamesV[i] || null; }, roadNameH: function (j) { return roadNamesH[j] || null; }, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,

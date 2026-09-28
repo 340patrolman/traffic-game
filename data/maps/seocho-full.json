@@ -250,10 +250,10 @@
     "monuments":  [
 
                   ],
-    "schoolBlock":  {
-                        "i":  -1,
-                        "j":  -1
-                    },
+    "schoolBlock": { "i": 1, "j": 1 },
+    "schoolSides": ["v"],
+    "schoolNote": "서래초등학교(서초구 방배로 260 · 전국어린이보호구역표준데이터) 앞 방배로 — 사평대로~서초대로 한 블록으로 근사. 실제 지정 구간의 경계선은 공개 자료에 없다(서초구·표준데이터 모두 시설 점만).",
+    "schoolZones": "data/schoolzone-seocho.json",
     "parkBlock":  {
                       "i":  -1,
                       "j":  -1
