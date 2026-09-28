@@ -1554,3 +1554,26 @@ body.hereon #hud > *:not(#hereCard){filter:blur(1.5px) brightness(.62)}
 .areapick .ap-row.on{border-color:#ffe08a;background:rgba(255,214,120,.12)}
 /* 세로 화면에서는 조작을 가리지 않게 조금 위로 */
 @media (orientation:portrait){ #hereCard{top:46%;max-height:70vh} }
+/* v0.10.60 좁거나(≤340px) 낮은(≤700px) 세로 폰: 오른쪽 무리를 45px 3열 격자로 · 하차·스포츠·긴급(교차로 근무는 제어함 · 도보는 손·달리기)은 방향지시등 줄 오른쪽 한 줄 — 가운데 띠는 비운다 */
+@media (orientation:portrait) and (max-width:340px),(orientation:portrait) and (max-height:700px){
+  html body.portrait .cluster.right{grid-template-columns:repeat(3,45px)!important;gap:3px!important;right:calc(var(--sa-r) + 2px)!important;bottom:calc(var(--sa-b) + 6px)!important;justify-items:center!important;align-items:center!important}
+  html body.portrait .cluster.right>.tbtn{width:45px!important;height:45px!important;margin:0!important;font-size:10px!important}
+  html body.portrait .cluster.right>.tbtn .ico{font-size:18px!important}
+  html body.portrait #btnHere{min-width:0!important;padding:0!important;border-radius:12px!important;transform:none!important;left:auto!important}
+  html body.portrait #btnHere .here-more{display:none!important}
+  html body.portrait .tbtn.footbtn,html body.portrait #btnSport,html body.portrait #btnEmerg,html body.portrait .tbtn.boxbtn{top:calc(65dvh + 2px)!important;bottom:auto!important;left:auto!important;width:45px!important;height:45px!important}
+  html body.portrait .tbtn.footbtn{right:calc(var(--sa-r) + 98px)!important}
+  html body.portrait #btnSport{right:calc(var(--sa-r) + 50px)!important}
+  html body.portrait #btnEmerg,html body.portrait .tbtn.boxbtn{right:calc(var(--sa-r) + 2px)!important}
+  html body.portrait.onfoot:not(.kidmode) .tbtn.hand,html body.portrait.onfoot:not(.kidmode) .tbtn.runbtn{top:calc(65dvh + 2px)!important;bottom:auto!important;left:auto!important;width:45px!important;height:45px!important}
+  html body.portrait.onfoot:not(.kidmode) .tbtn.hand{right:calc(var(--sa-r) + 50px)!important}
+  html body.portrait.onfoot:not(.kidmode) .tbtn.runbtn{right:calc(var(--sa-r) + 2px)!important}
+}
+/* v0.10.60 낮은 가로 폰(≤480px): 추격 패널을 세로처럼 줄여 계기 칸이 방향지시등까지 내려오지 않게 · 도보 손 들기는 가운데 「이 자리」 왼쪽으로(앰프와 겹쳤다) */
+@media (orientation:landscape) and (max-height:480px){
+  body:not(.portrait) #chaseHud{margin-top:2px;padding:3px 6px 4px}
+  body:not(.portrait) #chaseHud .ch-top,body:not(.portrait) #chaseHud .ch-chips{display:none}
+  body:not(.portrait) #chaseHud .ch-bar{height:13px;margin-top:0}
+  body:not(.portrait).onfoot:not(.kidmode) .tbtn.hand{right:calc(50% + 62px);left:auto;bottom:calc(18px + var(--sa-b));width:64px;height:64px}
+}
+@media (orientation:landscape) and (max-height:380px){ body:not(.portrait) .sigs{bottom:calc(176px + var(--sa-b))} body:not(.portrait) .tbtn.sig{height:40px} }
