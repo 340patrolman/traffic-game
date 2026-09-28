@@ -906,6 +906,7 @@ body.bikemode .cluster.right,body.bikemode .sigs,body.bikemode #kidSteps,body.bi
 .gatepick b{font-size:13px;text-align:center}
 .gatepick button{min-height:44px;min-width:130px;border-radius:10px;border:1px solid rgba(150,180,255,.6);background:rgba(120,160,255,.2);color:#fff;font-size:14px;font-weight:700}
 .mg-more .mpick{font-size:12.5px!important;padding:7px 13px!important;opacity:.9}
+a.mpick.m2dlink{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
 .mgroup.edu .mg-btns{flex-wrap:nowrap}
 .mgroup.edu .mpick{flex:1 1 0;min-width:0;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
 @media (max-width:480px){.mgroup{padding:8px 7px 9px}.mgroup .mg-btns{gap:6px}.mgroup.edu .mpick{font-size:13px!important}.mgroup.edu .mpick small{font-size:9.5px}}
