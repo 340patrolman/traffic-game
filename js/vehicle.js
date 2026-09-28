@@ -348,8 +348,8 @@
     this.roll += (groundRoll + rollT - this.roll) * Math.min(1, dt * 8);
     this.brakeLamp.visible = (c.brake > 0 || wantRev) && vF > 0.3;
     this.revLamp.visible = this.gear === 'R';
-    this.sigT += dt; var sigOn = this.signal && ((this.sigT * 1.6) % 1) < 0.5;
-    for (var bi = 0; bi < this.blinkL.length; bi++) { this.blinkL[bi].visible = !!(sigOn && this.signal === 'L'); this.blinkR[bi].visible = !!(sigOn && this.signal === 'R'); }
+    this.sigT += dt; var sigOn = (this.signal || this.hazard) && ((this.sigT * 1.6) % 1) < 0.5;   // 비상등(hazard, v0.10.49)은 좌우가 함께
+    for (var bi = 0; bi < this.blinkL.length; bi++) { this.blinkL[bi].visible = !!(sigOn && (this.signal === 'L' || this.hazard)); this.blinkR[bi].visible = !!(sigOn && (this.signal === 'R' || this.hazard)); }
     if (this.view === 'cockpit') { this.clT += dt; if (this.clT > 0.1) { this.clT = 0; this.drawCluster(); } }
     var spin = vF * dt / 0.34;
     for (var i = 0; i < 4; i++) { this.wheels[i].rotation.x += spin; if (i < 2) this.wheels[i].rotation.y = delta; }

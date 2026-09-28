@@ -209,7 +209,9 @@ TG.Input = function () {
       if (st.y < -dz) brake = Math.max(brake, Math.min(1, (-st.y - dz) / (1 - dz)));
     }
     // 🛑 브레이크로 후진까지 이어지는 것은 **자판·게임패드만**(v0.10.38) — 폰 조이스틱을 아래로 누른 채 세우면 뒤로 굴러갔다. 폰은 🔙 후진 단추로.
-    var keyBrake = !!(b.brake || h.ArrowDown || h.KeyS || h.Space || g.held.ArrowDown || (g.on && g.brake > 0.1));
+    //  (v0.10.49) 소유자 「조이스틱에 후진이 있는데 후진 버튼이 필요 없을 듯」 → 🔙 단추를 없애고 **스틱을 반 넘게 아래로 당긴 채** 서 있으면 1.2초 뒤 후진한다.
+    //  살짝 당기면(반 이하) 제동만 하고 그 자리에 선다 — 단속 정차 자리를 맞출 때 뒤로 구르지 않게(v0.10.38 의 뜻은 지킨다).
+    var keyBrake = !!(b.brake || h.ArrowDown || h.KeyS || h.Space || g.held.ArrowDown || (g.on && g.brake > 0.1) || (st.active && st.y < -0.5));
     return { steer: steer, throttle: throttle, brake: brake, reverse: reverse, brakeRev: keyBrake };
   };
 };

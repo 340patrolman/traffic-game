@@ -70,6 +70,40 @@ canvas#game{display:block;width:100%;height:100%;touch-action:none}
 @keyframes stickMove{from{transform:scale(1)}to{transform:scale(1.06)}}
 #minimap{position:fixed;top:calc(8px + var(--sa-t));right:calc(8px + var(--sa-r));width:180px;height:177px;border-radius:10px;border:1px solid var(--edge);background:rgba(10,14,22,.5);pointer-events:auto;cursor:grab;touch-action:none}
 #minimap{transition:width .3s ease,height .3s ease,opacity .3s ease,border-radius .3s ease}
+/* 🎛 단추 배치(v0.10.49 · 소유자 사진 — 「제어함이 다른 단추와 겹친다 · 경광등·단속·긴급·하차는 같은 줄 · 좌우 깜빡이 사이 비상등 · 이 자리는 아래 가운데에 누르는 표시」)
+   가로 화면(태블릿·PC 포함): 오른쪽 아래를 64px 칸 격자로 — 1줄 경광등·단속·긴급·하차 / 2줄 앰프·블랙박스·무전·스포츠 + 그때그때 뜨는 단추(비스트·현장 차단·제어함·관문·견인·발생보고)는 2줄 왼쪽으로 잇는다.
+   후진 단추는 없앴다(스틱을 아래로 세게 당기면 후진 · R 키). 길게 눌러 옮긴 자리(.moved)는 그대로 이긴다(인라인 left·top). */
+#btnRev{display:none!important}
+.tbtn.sig.haz{width:48px}
+.tbtn.sig.haz.active{background:rgba(255,77,77,.45);border-color:#ff8080;animation:blink .5s steps(2) infinite}
+.tbtn.here .here-more{display:none}
+body:not(.portrait) .cluster.right>.tbtn,body:not(.portrait) #btnEmerg,body:not(.portrait) #btnFoot,body:not(.portrait) #btnSport,body:not(.portrait) #btnBox{position:fixed;margin:0;width:64px;height:64px;left:auto}
+body:not(.portrait) #btnSiren{right:calc(238px + var(--sa-r));bottom:calc(18px + var(--sa-b))}
+body:not(.portrait) #btnEnforce{right:calc(164px + var(--sa-r));bottom:calc(18px + var(--sa-b))}
+body:not(.portrait) #btnEmerg{right:calc(90px + var(--sa-r));bottom:calc(18px + var(--sa-b))}
+body:not(.portrait) #btnFoot{right:calc(16px + var(--sa-r));bottom:calc(18px + var(--sa-b))}
+body:not(.portrait) #btnPA{right:calc(238px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnCam{right:calc(164px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnRadio{right:calc(90px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnSport{right:calc(16px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnBeast,body:not(.portrait) #btnCone,body:not(.portrait) #btnBox,body:not(.portrait) #btnGate{right:calc(312px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnTow,body:not(.portrait) #btnKics{right:calc(386px + var(--sa-r));bottom:calc(92px + var(--sa-b))}
+body:not(.portrait) #btnHere{left:50%;right:auto;bottom:calc(18px + var(--sa-b));transform:translateX(-50%);width:auto;height:48px;padding:0 18px;border-radius:24px;flex-direction:row;gap:6px;
+  background:rgba(14,22,38,.62);border:1.5px solid rgba(255,96,96,.9);font-size:14px;font-weight:800;white-space:nowrap;animation:herePulse 3s ease-out infinite}
+body:not(.portrait) #btnHere .ico{font-size:20px}
+body:not(.portrait) #btnHere .here-more{display:inline;opacity:.85;font-weight:700}
+@keyframes herePulse{0%{box-shadow:0 0 0 0 rgba(255,96,96,.55)}60%{box-shadow:0 0 0 12px rgba(255,96,96,0)}100%{box-shadow:0 0 0 0 rgba(255,96,96,0)}}
+@media (prefers-reduced-motion:reduce){body:not(.portrait) #btnHere{animation:none}}
+@media (max-width:960px){body:not(.portrait) #btnHere .here-more{display:none} body:not(.portrait) #btnHere{padding:0 14px}}
+/* 세로 폰: 방향지시등 줄 = 좌 · 비상등 · 우 · 하차 · 스포츠 · 긴급(그 아래가 경광등·단속). 스포츠도 현장·관문·추격 단추가 뜨는 동안은 비켜 준다 */
+@media (orientation:portrait){
+  html body.portrait .sigs{gap:5px}
+  html body.portrait #btnSigL,html body.portrait #btnHaz,html body.portrait #btnSigR{width:44px;margin:0}
+  body.portrait.dutymode #btnEmerg{display:none}
+  body.portrait #btnFoot{left:calc(var(--sa-l) + 160px)}
+  body.portrait #btnSport{left:calc(var(--sa-l) + 214px)}
+  body.portrait.chasing #btnSport,body.portrait.scene-near #btnSport,body.portrait.gate-near #btnSport{display:none}
+}
 /* 🗺 신호 앞에서 접힘(v0.10.47) — 가로 화면은 48px 아이콘으로, 오른쪽 위 자리는 그대로 */
 body:not(.portrait).mmfold #minimap{width:48px!important;height:48px!important;border-radius:12px;opacity:.85}
 .pm-row .mmpick small{display:block;font-size:10.5px;opacity:.7;font-weight:600}

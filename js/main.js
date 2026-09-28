@@ -752,7 +752,7 @@
     // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
     // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
     // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
-    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR', 'btnSport', 'btnEmerg',
+    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR', 'btnSport', 'btnEmerg', 'btnHaz',
                         'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
@@ -884,6 +884,15 @@
     G.setSignal = setSignal; G.paOnce = function () { pa(); };
     input.bindTap($('btnSigL'), function () { setSignal('L'); }); input.bindTap($('btnSigR'), function () { setSignal('R'); });
     input.onKey('Comma', function () { setSignal('L'); }); input.onKey('Period', function () { setSignal('R'); });
+    // ⚠ 비상등(v0.10.49 · 소유자 「좌우 방향지시등 가운데 비상버튼 세모」) — 좌우가 함께 깜빡인다. 방향지시등과 따로 켜지고 저절로 꺼지지 않는다.
+    //  **방향지시등을 대신하지는 않는다**(비상등을 켜고 차로를 바꿔도 「방향지시등 없이 차로 변경」 — 제38조). 특례가 필요하면 🚨 긴급 운행.
+    function setHazard(on) {
+      if (!player || G.state !== 'play') return;
+      player.hazard = on === undefined ? !player.hazard : !!on; player.sigT = 0;
+      var hb = $('btnHaz'); if (hb) hb.classList.toggle('active', !!player.hazard); TG.audio.ui();
+    }
+    G.setHazard = setHazard;
+    input.bindTap($('btnHaz'), function () { setHazard(); }); input.onKey('Slash', function () { setHazard(); });
     // 🧪 게임 / 시뮬레이션(E1) — 바꾸면 다시 불러온다(시드는 처음부터 걸어야 한다)
     document.querySelectorAll('.simpick').forEach(function (b) {
       b.classList.toggle('sel', (b.getAttribute('data-sim') === '1') === !!(TG.mode && TG.mode.sim));
@@ -1266,7 +1275,8 @@
       player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)
       lap.hold = 3.2; lap.lights = -1; document.body.classList.add('startlit'); paintLights(0, false); }   // 🏁 출발 신호등 3·2·1
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
-    G.emergOn = false; G.emergIdle = 0; var ebs = document.getElementById('btnEmerg'); if (ebs) ebs.classList.remove('on');   // 🚨 긴급 운행은 근무마다 꺼진 채로 시작
+    G.emergOn = false; G.emergIdle = 0; var ebs = document.getElementById('btnEmerg'); if (ebs) ebs.classList.remove('on');
+    var hbs = document.getElementById('btnHaz'); if (hbs) hbs.classList.remove('active');   // 비상등도 근무마다 꺼진 채로(차는 새로 만든다)   // 🚨 긴급 운행은 근무마다 꺼진 채로 시작
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
     G.pauseReasons = {}; G.paused = false; G.lastCrash = null; G.lead = null; camInit = false;
@@ -2842,8 +2852,8 @@
       var turned = Math.abs(TG.wrapAngle(player.heading - (player.sigHead || player.heading))) > 0.96;
       if ((turned && player.sigAge > 1.5) || player.sigAge > 8) { player.signal = null; var bL = document.getElementById('btnSigL'), bR = document.getElementById('btnSigR'); if (bL) bL.classList.remove('active'); if (bR) bR.classList.remove('active'); }
     }
-    var sigOnHud = player.signal && ((player.sigT * 1.6) % 1) < 0.5, eL = document.getElementById('sigL'), eR = document.getElementById('sigR');
-    if (!!sigOnHud !== !!rules.sigWas) { rules.sigWas = !!sigOnHud; if (player.signal) TG.audio.tick(!!sigOnHud); }   // 릴레이 「딱·딱」
+    var sigOnHud = (player.signal || player.hazard) && ((player.sigT * 1.6) % 1) < 0.5, eL = document.getElementById('sigL'), eR = document.getElementById('sigR');
+    if (!!sigOnHud !== !!rules.sigWas) { rules.sigWas = !!sigOnHud; if (player.signal || player.hazard) TG.audio.tick(!!sigOnHud); }   // 릴레이 「딱·딱」
     if (eL) eL.classList.toggle('on', !!(sigOnHud && player.signal === 'L')); if (eR) eR.classList.toggle('on', !!(sigOnHud && player.signal === 'R'));
     // 8-2) 플레이어 차로 변경 판정(4차로 격자): 차로 인덱스가 바뀌면 방향지시등 없음 → 감점, 정지선 30m 안(실선) → 감점. 경광등 추격 중은 특례
     if (frame.kind === 'grid' && frame.lanes >= 2 && T.speed > 3) {
