@@ -230,13 +230,14 @@ TG.Layers = function (game, city, cfg, scene) {
   // 🗺 동네 안전 지수(재미 설계 #6)가 읽는 교차로별 실제 사고 점수 — 자료가 없으면 빈 배열
   self.realNodes = function () {
     if (!nodes || !nodes.nodes) return [];
-    return nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: n.name, total: n.total || 0, death: n.death || 0, score: realScore(n) }; });
+    return nodes.nodes.map(function (n) { return { key: n.node[0] + ',' + n.node[1], name: nmOf(n), total: n.total || 0, death: n.death || 0, score: realScore(n) }; });
   };
+  function nmOf(n) { var c = city, nd = c && c.nodes && c.nodes[n.node[0]] && c.nodes[n.node[0]][n.node[1]]; return nd && c.nodeName ? c.nodeName(nd) : n.name; }   // (v0.10.64)
   self.realYears = function () { return (nodes && nodes.years) || ''; };
   // 🎬 사건 감독이 읽는다(v0.10.36): 그 교차로의 실제 사고 경위(법규위반) 상위 — 없으면 null
   self.nodeViolations = function (i, j) {
     if (!nodes || !nodes.nodes) return null;
-    for (var k = 0; k < nodes.nodes.length; k++) { var n = nodes.nodes[k]; if (n.node[0] === i && n.node[1] === j) return { name: n.name, total: n.total || 0, violations: n.violations || [], years: nodes.years || '' }; }
+    for (var k = 0; k < nodes.nodes.length; k++) { var n = nodes.nodes[k]; if (n.node[0] === i && n.node[1] === j) return { name: nmOf(n), total: n.total || 0, violations: n.violations || [], years: nodes.years || '' }; }
     return null;
   };
   // 🛣 도로별 사고 집계(v0.10.30 · 디지털 트윈) — 소유자 「도로별 교차로별 사고데이터도 넣는 거 알지」.

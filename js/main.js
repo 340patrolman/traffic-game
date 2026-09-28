@@ -548,7 +548,7 @@
       var cur = city.mapId || idx.default || 'seocho';
       el.innerHTML = '<div class="mc-t">🗺 지도 <small>운전 중에는 순환도로 밖 🛰 관문으로도 건너갑니다</small></div>' + idx.maps.map(function (m) {
         return '<button class="mapchip' + (m.id === cur ? ' on' : '') + '" data-mapid="' + m.id + '">' + (m.icon || '🗺') + ' ' + (m.short || m.name) +
-          '<small>' + (m.kind === 'twin' ? '디지털 트윈' : '놀이·교육') + '</small></button>'; }).join('') +
+          '<small>' + (m.main ? '메인 · 실제 크기' : m.kind === 'twin' ? '디지털 트윈' : '놀이·교육') + '</small></button>'; }).join('') +
         // 다섯째 = 🗜 데이터 압축지도(v0.10.57 · 소유자 「단순히 2D 지도라고 하지 말고 데이터 압축지도」 · 「버튼이 4개인데 5개로」) — 게임과 따로 도는 한 쪽(map2d.html)
         '<button class="mapchip m2d" data-href="map2d.html">🗜 데이터 압축지도<small>공공데이터 · 2D</small></button>';
       var m2 = el.querySelector('[data-href]'); if (m2) input.bindTap(m2, function () { location.href = m2.getAttribute('data-href'); });
@@ -3525,7 +3525,10 @@
   // 파일을 못 읽으면(file:// 등) 코드 안 기본값 = 첫 지도 「서울 서초구(베타)」 로 그대로 시작한다.
   function bootMap(done) {
     if (location.protocol.indexOf('http') !== 0) { log('file:// — 지도 파일을 읽지 않고 기본 지도(서초구)로 시작합니다'); done(); return; }
-    var qs = new URLSearchParams(location.search), want = qs.get('map') || TG.save.get('map', null);
+    var qs = new URLSearchParams(location.search), want = qs.get('map') || (isTest ? 'seocho' : TG.save.get('map', null));   // 검사는 지도를 안 적으면 늘 기본 지도(검사 좌표가 그 지도 기준이다)
+    // (v0.10.64 · 소유자 「1:1 지도가 메인이지만 선택할 수 있게」) 예전 판에서 기본 지도가 저장된 기기는 **한 번만** 메인(1:1)으로 옮긴다 — 그 뒤 고른 것은 그대로 기억한다
+    if (!isTest && !qs.get('map') && want === 'seocho' && !TG.save.get('mapMain', null)) { want = null; TG.save.set('map', null); }
+    if (!isTest) TG.save.set('mapMain', 1);
     if (qs.get('enter') === 'gate') G.enterGate = true;   // 관문으로 건너온 판 — 시작 자리를 관문 앞으로
     fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
       TG.MAPS = idx;
