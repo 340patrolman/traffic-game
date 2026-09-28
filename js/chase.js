@@ -127,6 +127,7 @@ TG.Chase = function (game) {
     game.addScore(bonus, null); game.stats.chaseBreak = (game.stats.chaseBreak || 0) + 1;
     game.hud.notice('🛑 추격 중단 — ' + why + ' (+' + bonus + ')', 'good', 6000);
     game.hud.pop('🛑 +' + bonus, 'good'); TG.audio.jingle(3);
+    if (game.cinema) game.cinema.stamp('추격 중지 · 인명 보호 최우선', why + ' — 번호판 무전 전파 · 블랙박스 영상으로 처리 (+' + bonus + ')', 'gold', 2400);
     game.hud.hint('번호판은 이미 무전으로 전파됐고 블랙박스 영상이 남았다 — 사람이 다치는 것보다 낫다');
     TG.audio.say('추격 중단합니다. 무전 전파와 영상으로 처리하겠습니다', { kind: 'officer', queue: true });
   }

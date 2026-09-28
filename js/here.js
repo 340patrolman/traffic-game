@@ -326,6 +326,7 @@ TG.Here = function (game) {
     card.className = 'on';
     open = true;
     document.body.classList.add('hereon');
+    if (!opts.at) pulseAt(q.at);
     var x = EL('hereClose'); if (x) x.addEventListener('click', function (e) { e.stopPropagation(); self.close(); if (opts.onClose) opts.onClose(); });
     card.querySelectorAll('[data-det]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); var sec = b.parentNode, full = sec.classList.toggle('full'); b.textContent = full ? '접기 ▲' : b.textContent.replace('접기 ▲', '').replace(/^.*$/, '자세히 ▼'); }); });
     card.querySelectorAll('[data-hb]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); var f = opts.buttons[+b.getAttribute('data-hb')]; if (f && f.fn) f.fn(); }); });
@@ -333,7 +334,24 @@ TG.Here = function (game) {
     if (TG.audio && TG.audio.ui) TG.audio.ui();
     return true;
   };
+  // 📍 가까운 교차로 바닥에 번지는 고리(v0.10.58) — 창이 열려 있는 동안. 사고가 많을수록 붉게(교차로 집계가 있을 때).
+  var ring = null, ringRaf = 0;
+  function pulseAt(at) {
+    stopPulse();
+    if (!window.THREE || !G.scene || !G.city || !at || G.state !== 'play') return;
+    var nd = G.city.nearestNode(at.x, at.z); if (!nd) return;
+    var tot = 0; try { var rn = G.layers && G.layers.realNodes ? G.layers.realNodes() : null; (rn || []).forEach(function (r) { if (r.key === nd.i + "," + nd.j) tot = r.total || 0; }); } catch (e) {}
+    var col = tot >= 200 ? 0xff2d2d : tot >= 80 ? 0xff7a1a : 0xffc21a;
+    var geo = new THREE.RingGeometry(9, 12, 48); geo.rotateX(-Math.PI / 2);
+    var mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide });
+    ring = new THREE.Mesh(geo, mat); ring.renderOrder = 5;
+    var y = G.terrain && G.terrain.groundAt ? G.terrain.groundAt(nd.x, nd.z) : 0; ring.position.set(nd.x, y + 0.35, nd.z); G.scene.add(ring);
+    var t0 = performance.now();
+    (function f() { if (!ring) return; var k = ((performance.now() - t0) / 1600) % 1; ring.scale.setScalar(0.5 + k * 1.6); mat.opacity = 0.75 * (1 - k); ringRaf = requestAnimationFrame(f); })();
+  }
+  function stopPulse() { if (ringRaf) cancelAnimationFrame(ringRaf); ringRaf = 0; if (ring) { G.scene && G.scene.remove(ring); ring.geometry.dispose(); ring.material.dispose(); ring = null; } }
   this.close = function () {
+    stopPulse();
     var card = EL('hereCard'); if (card) card.className = '';
     open = false; document.body.classList.remove('hereon');
   };

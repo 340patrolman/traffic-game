@@ -214,14 +214,18 @@
 
   function loadLaws() {
     if (location.protocol.indexOf('http') !== 0) { log('file:// 모드 — data/laws.json 을 읽을 수 없어 범칙금·벌점은 「확인 중」으로 표시됩니다'); return; }
-    fetch('data/laws.json').then(function (r) { return r.json(); }).then(function (j) { G.laws = j; log('laws.json 로딩: ' + j.violations.length + '항목 (' + j.updated + ')'); })
-      .catch(function (e) { log('laws.json 로딩 실패: ' + e.message); });
+    var tries = 0;
+    (function go() {
+      fetch('data/laws.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (j) { G.laws = j; log('laws.json 로딩: ' + j.violations.length + '항목 (' + j.updated + ')'); })
+        .catch(function (e) { tries++; if (tries <= 2) { setTimeout(go, 1200 * tries); return; } log('laws.json 로딩 실패: ' + e.message); if (hud && hud.hint) hud.hint('⚠ 법령 자료를 읽지 못했다 — 범칙금·벌점이 「확인 중」으로 보인다(다시 열면 다시 읽는다)'); });
+    })();
   }
   // 시간대별 신호계획(경찰청 실측). 자료가 늦게 오므로 도착한 뒤 신호기에 한 번 더 적용한다.
   // 「지금」은 기기 시계다 — 교통근무 중에 그 교차로가 지금 몇 초로 도는지 보려는 것이 목적이다.
   // 실측 현시(로컬 전용 — data/local/, 저장소에 없다). 없으면(배포판 · 파일로 열기) 조용히 일반형으로 돈다.
   function loadLocalPhases() {
     if (!signals.applyReal || typeof fetch !== 'function') return;
+    if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) { G.realPhases = 0; return; }   // 배포판에는 없는 파일이다(비공개) — 404 를 남기지 않는다
     fetch('data/local/phases-seocho.json', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { G.realPhases = signals.applyReal(d, new Date()); log('실측 현시(로컬): ' + G.realPhases + '곳 적용'); if (facil && facil.refreshPanel) facil.refreshPanel(); })
@@ -416,7 +420,21 @@
     TG.audio.setSiren(false);
   }
   function endIntro() { if (intro.done) return; intro.done = true; TG.audio.stopIntro(1.1); if (cine) { cine.dispose(); cine = null; G.cine = null; } hud.showIntro(false); hud.showTouch(true); showTitle(); }
-  function showTitle() { document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
+  // 🚗 타이틀 뒤가 빈 도로로 보이지 않게(그록 검토 「첫 10초가 빈 들판」) — 순찰차 가까운 교차로 접근로에 차를 미리 깐다(인트로 seedCity 와 같은 방식)
+  function titleSeed() {
+    if (!traffic || !city || !player || traffic.cars.length >= 8) return;
+    var node = city.nearestNode(player.pos.x, player.pos.z); if (!node) return;
+    var made = 0;
+    for (var d = 0; d < 4 && made < 12; d++) {
+      var up = city.nodeFrom(node, (d + 2) % 4); if (!up) continue;
+      var rd = city.roadOf(node, d), lanes = Math.max(1, city.lanesOf(rd.axis, rd.idx)), f = TG.DIR_VEC[d], r = [-f[1], f[0]];
+      for (var k = 0; k < 3 && made < 12; k++) {
+        var lane = k % lanes, back = 22 + k * 17, lo = city.laneOff(rd.axis, rd.idx, lane);
+        if (traffic.spawn({ at: { x: node.x - f[0] * back + r[0] * lo, z: node.z - f[1] * back + r[1] * lo, d: d, node: up }, v: 7, cruise: 11, violator: false, laneIdx: lane })) made++;
+      }
+    }
+  }
+  function showTitle() { titleSeed(); document.body.classList.remove('ingame'); document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -1023,7 +1041,7 @@
     input.bindTap($('btnRun'), function () { input.runToggle = !input.runToggle; var b = $('btnRun'); b.classList.toggle('on', input.runToggle); b.querySelector('.ico').textContent = input.runToggle ? '🏃' : '🚶'; b.querySelector('span:last-child').textContent = input.runToggle ? '달리기' : '걷기'; TG.audio.ui(); if (G.mode === 'kid' && input.runToggle) kidVoice('norun', true); });
     // 교차로 근무: 신호제어기 조작판(제어함 R 키 · 🔧 버튼). 자동/수동 · 방향별 녹색 요청 · 바깥 차로 차단 · 꼬리 끊기
     function toggleBox() { if (G.state === 'play' && G.mode === 'duty' && duty && walker) dutyOpen(!duty.open); }
-    input.bindTap($('btnBox'), toggleBox); input.onKey('KeyR', toggleBox);
+    input.bindTap($('btnBox'), toggleBox); input.onKey('KeyO', toggleBox);   // v0.10.58: R 은 후진만(전엔 교차로 근무에서 R 이 후진·제어함 둘에 걸렸다) — 제어함은 O(Open)
     input.bindTap($('dutyX'), function () { dutyOpen(false); });
     input.bindTap($('dutyAuto'), function () { if (!duty) return; signals.setManual(duty.node, false); junction.setBoxLamp(false); duty.why = ''; hud.notice('자동 운영으로 전환 — 신호기 프로그램대로 돌아갑니다', 'info', 2400); TG.audio.ui(); dutyPanelDraw(); });
     input.bindTap($('dutyMan'), function () { if (!duty) return; signals.setManual(duty.node, true); junction.setBoxLamp(true); duty.why = ''; hud.notice('🔧 수동 조작으로 전환 — 이 교차로 최소 녹색 ' + Math.max(signals.greenMin(duty.node, 'v'), signals.greenMin(duty.node, 'h')) + '초 (그 안에 보행 ' + Math.round(Math.max(signals.greenInfo(duty.node).pedV, signals.greenInfo(duty.node).pedH)) + '초를 품는다)', 'alert', 3600); TG.audio.ui(); hud.hint('막힌 방향에 녹색을 더 준다. 버튼을 눌러도 최소 시간을 채운 뒤에 바뀐다'); dutyPanelDraw(); });
@@ -1175,6 +1193,7 @@
 
   function start(carId, modeOverride) {
     TG.audio.resume(); if (TG.study) TG.study.close();
+    document.body.classList.add('ingame');   // 근무 중에만 조작 단추를 보인다(타이틀·부팅에서는 숨김 · v0.10.58)
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
     document.body.classList.remove('hudmore'); document.body.classList.remove('mmopen'); document.body.classList.remove('timewarn'); G.topKmh = 0; G.lapOffT = 9;   // 세로 계기 칸은 접은 채로 시작한다
@@ -1693,6 +1712,15 @@
     q += '<div class="qcell ' + (st.grid ? 'bad' : '') + '"><b>' + st.grid + '</b>꼬리물기</div>';
     el('dutyQ').innerHTML = q;
     var wv = signals.waitFor(node, 'v'), wh = signals.waitFor(node, 'h');
+    // ⏳ 요청한 녹색까지 막대(v0.10.58) — 보행 최소 시간·최소 녹색·황색을 채우는 동안 채워진다
+    var pg = el('dutyProg');
+    if (pg) {
+      var rq = duty.req, done = !rq || !mi.manual || mi.axis === rq.axis;
+      if (done) { pg.className = 'dprog'; if (rq && mi.axis === rq.axis) duty.req = null; }
+      else { var left = (rq.axis === 'v' ? wv : wh).wait, k = TG.clamp(1 - left / rq.total, 0, 1);
+        pg.className = 'dprog on'; pg.querySelector('i').style.width = (k * 100).toFixed(0) + '%';
+        pg.querySelector('span').textContent = '⏳ ' + (rq.axis === 'v' ? '남북' : '동서') + ' 녹색까지 ' + Math.ceil(left) + '초 — ' + (rq.why || '보행자 최소 녹색 보장') + ' (보행 신호 시간은 줄일 수 없다)'; }
+    }
     el('dutyNS').textContent = '↕ 남북 녹색' + (mi.axis === 'v' ? ' (지금)' : ' ' + Math.ceil(wv.wait) + '초');
     el('dutyEW').textContent = '↔ 동서 녹색' + (mi.axis === 'h' ? ' (지금)' : ' ' + Math.ceil(wh.wait) + '초');
     el('dutyNS').disabled = !mi.manual || mi.axis === 'v'; el('dutyEW').disabled = !mi.manual || mi.axis === 'h';
@@ -1709,6 +1737,7 @@
     var r = signals.request(duty.node, axis);
     if (!r.ok) { duty.why = '✖ ' + r.why; hud.notice(r.why, 'warn', 2200); TG.audio.bad(); return; }
     duty.why = '요청 접수 — ' + Math.ceil(r.wait) + '초 뒤 ' + (axis === 'v' ? '남북' : '동서') + ' 녹색 (' + r.why + ')';
+    duty.req = { axis: axis, total: Math.max(0.5, r.wait), why: r.why };
     hud.notice('🔧 ' + (axis === 'v' ? '남북' : '동서') + ' 녹색 요청 — ' + Math.ceil(r.wait) + '초 뒤 전환 (' + r.why + ')', 'info', 3000); TG.audio.ui();
     hud.hint('보행 신호 시간은 줄일 수 없다 — 미리 눌러 두는 것이 이 근무의 요령');
   }

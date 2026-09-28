@@ -139,6 +139,12 @@ TG.Response = function (game) {
     if (!car) { game.hud.notice('블랙박스: 앞쪽에 기록할 위반 대상이 없습니다', 'warn', 2200); return false; }
     var t = tierOf(car), nm = vName(car), kn = kindName(car);
     game.hud.flash(); TG.audio.shutter();
+    if (game.cinema && game.cinema.rec) {
+      var d0 = new Date(), hh = function (n) { return ('0' + n).slice(-2); }, plate = (10 + (car.id * 37) % 89) + '가 ' + (1000 + (car.id * 7919) % 9000);
+      var fr = game.city && game.city.frameAt ? game.city.frameAt(car.pos.x, car.pos.z) : null;
+      game.cinema.rec([d0.getFullYear() + '-' + hh(d0.getMonth() + 1) + '-' + hh(d0.getDate()) + ' ' + hh(d0.getHours()) + ':' + hh(d0.getMinutes()) + ':' + hh(d0.getSeconds()) + (fr && fr.name && fr.kind !== "off" ? " · " + fr.name.replace(/\(.*?\)/, "") : ""),
+        kn + ' ' + plate + ' (게임 가상 번호) · ' + nm]);
+    }
     if (t === 'A') {   // 중대 위반은 영상만으로 끝내지 않는다
       game.addScore(S.videoLow, null);
       game.hud.notice('📹 영상 기록 — ' + kn + ' ' + nm, 'alert', 3200);

@@ -37,14 +37,24 @@ TG.Cinema = function (game) {
   };
   this.briefOn = function () { var b = EL('cineCard'); return !!(b && b.className.indexOf('on') >= 0); };
   // 🅰 스타일 스탬프: 0.9초. kind = urgent(적색) · good(초록) · gold(금색)
-  this.stamp = function (text, sub, kind) {
+  this.stamp = function (text, sub, kind, ms) {
     var s = EL('cineStamp'); if (!s || quiet() || !text) return false;
     var bb = s.querySelector('b'), ii = s.querySelector('i');
     if (bb) bb.textContent = text;
     if (ii) { ii.textContent = sub || ''; ii.style.display = sub ? '' : 'none'; }
     s.className = 'on ' + (kind || 'good');
     clearTimeout(stampT);
-    stampT = setTimeout(function () { s.className = ''; }, 900);
+    stampT = setTimeout(function () { s.className = ''; }, ms || 900);
+    return true;
+  };
+  // 📹 블랙박스 기록 테두리(v0.10.58): 1.4초 — 녹화 표시 · 시각 · 도로 · 대상. 번호판은 **게임이 만든 가상 번호**다.
+  var recT = null;
+  this.rec = function (lines) {
+    if (quiet()) return false;
+    var r = EL('cineRec');
+    if (!r) { r = document.createElement('div'); r.id = 'cineRec'; r.innerHTML = '<span class="rd"></span><b>REC</b><i></i>'; document.body.appendChild(r); }
+    r.querySelector('i').innerHTML = (lines || []).map(function (t) { return String(t).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }).join('<br>');
+    r.className = 'on'; clearTimeout(recT); recT = setTimeout(function () { r.className = ''; }, 1400);
     return true;
   };
   // 🎯 락온: 발견한 대상 위에 브래킷. 대상이 사라지거나 1.1초가 지나면 스스로 꺼진다.

@@ -54,7 +54,7 @@ TG.Story = function (game) {
         { k: 'video', goal: '📹 블랙박스로 낙하물 장면을 남긴다', face: 'truck-ko', xp: 35 },
         { k: 'stop',  goal: '그 화물차를 세워 고지한다', face: 'truck-ko', xp: 45 }
       ] },
-    { id: 'signal', name: '깜빡이 없는 택시', open: '📻 상황실 — 택시가 깜빡이 없이 끼어든다는 신고입니다',
+    { id: 'signal', name: '깜빡이 없는 택시', open: '📻 상황실 — 택시 끼어들기가 심하다는 신고입니다',
       steps: [
         { k: 'go',    goal: '신고 지점으로 간다', xp: 20 },
         { k: 'stop',  goal: '그 택시를 세워 고지한다', face: 'taxi-7482', xp: 40 },
