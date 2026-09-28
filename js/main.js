@@ -278,6 +278,11 @@
   function renderFrame() {
     var w = window.innerWidth, h = window.innerHeight;
     tileFog();
+    // 🌤 하늘·구름이 카메라를 따라온다(v0.10.52) — 하늘 구(반지름 2.2km)와 구름판이 원점에 묶여 있어 큰 지도(서초구 1:1)에서는 하늘이 검게 비었다
+    if (terrain && terrain.skyMesh && camera) {
+      terrain.skyMesh.position.set(camera.position.x, 0, camera.position.z);
+      if (terrain.cloudMesh) { terrain.cloudMesh.matrixAutoUpdate = true; terrain.cloudMesh.userData.noTile = true; terrain.cloudMesh.position.set(camera.position.x - 300, 0, camera.position.z - 100); }
+    }
     if (!(pano.on && G.state === 'play')) { if (G.bloom && G.bloom.on) G.bloom.render(scene, camera); else renderer.render(scene, camera); return; }   // ✨ 고화질이면 빛 번짐
     camC.position.copy(camera.position); camC.quaternion.copy(camera.quaternion);
     camL.position.copy(camera.position); camL.quaternion.copy(camera.quaternion).premultiply(qL);

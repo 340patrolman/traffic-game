@@ -33,6 +33,22 @@ TG.RealBuild = function () {
     return 5.5;
   }
   var TINT = [0xf1efe9, 0xe8e3d6, 0xdfe4ea, 0xd8dee6, 0xe6d9c8, 0xcfd6dd];
+  // 🏙 겉모습(v0.10.52 · 소유자 「서초구 디지털 트윈 배경이 어색해 — 하늘도 건물도 리얼하게」): 흰 상자였다(재질에 그림이 없었다).
+  //  기본 도시와 같은 **창문 입면**(TG.tex.facade — 아파트·오피스·상가·타워·콘크리트)을 층 높이에 맞춰 붙이고 밤에는 창에 불이 켜진다(TG.mats.facade).
+  //  갈래는 **높이와 이름**으로만 고른다 — 이름에 아파트 단지명이 있으면 아파트, 48m 넘으면 타워, 9m 아래면 상가. 나머지는 동 번호로 오피스·콘크리트를 섞는다.
+  //  ⚠ 겉모습은 **게임 설계값**이다(OSM 에 건물 용도·외장 정보가 거의 없다) — 윤곽·높이만 실제다.
+  var APT_RE = /아파트|래미안|자이|힐스테이트|푸르지오|아크로|편한세상|더샵|롯데캐슬|아이파크|삼풍|빌라|맨션|하이츠|리센츠|써밋|트라움|캐슬|주공|현대|한신|신동아|우성|삼호|경남|쌍용|대림|극동|두산|벽산|동아|럭키|한양|미주|삼익|진흥|상지|궁전|APT/i;
+  var STYLE_UV = { apt: [7, 3.0], office: [8, 3.6], shop: [6, 4.0], tower: [24, 25.6], conc: [6, 3.2] };   // [한 칸 가로 m, 한 칸 세로 m] — 창 한 벌이 한 층이 되게
+  var STYLE_TINT = { apt: [0xffffff, 0xf6f1e8, 0xede7dc], office: [0xffffff, 0xeaeff4, 0xdfe6ec], shop: [0xffffff, 0xf3e6d8, 0xe9dac8], tower: [0xffffff, 0xe3ebf4, 0xd4dde8], conc: [0xf7f5f1, 0xe9e5dd, 0xdedad1] };
+  var STYLE_ROOF = { apt: 0x8b8f96, office: 0x6a6f76, shop: 0x7a6f66, tower: 0x4f5560, conc: 0x777b82 };
+  function styleOf(b, h, bi) {
+    var nm = b.n || '';
+    if (APT_RE.test(nm)) return 'apt';
+    if (h >= 48) return 'tower';
+    if (h <= 9) return 'shop';
+    var k = (bi * 7 + (b.lv || 0)) % 10;
+    return k < 3 ? 'apt' : k < 7 ? 'office' : 'conc';
+  }
 
   // ⚠ 우리 격자는 **곧은 선**이고 실제 반포대로·서초대로는 굽는다. 그래서 실제 윤곽 가운데 일부가
   //  우리 차도 위에 걸친다(실측: 114동 중 51동). **건물이 차로 한가운데 서 있는 것은 사고다**(v0.9.10 clearSpot 과 같은 규칙).
@@ -92,7 +108,8 @@ TG.RealBuild = function () {
     self.clear(scene);
     if (!data || !data.buildings || !window.THREE || !TG.GeoBuilder) return info;
     named = [];
-    var gb = new TG.GeoBuilder(), roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0;
+    var walls = { apt: new TG.GeoBuilder(), office: new TG.GeoBuilder(), shop: new TG.GeoBuilder(), tower: new TG.GeoBuilder(), conc: new TG.GeoBuilder() };
+    var gb = null, roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0;
     var warpOn = !!(TG.warp && TG.warp.ok && data.map && TG.MAP && data.map === TG.MAP.id);
     var tiny = 0;   // 너무 작아(20㎡ 미만 · 꼭짓점 셋 미만) 그리지 않은 동 — 합계를 맞추려고 센다
     data.buildings.forEach(function (b, bi) {
@@ -137,7 +154,8 @@ TG.RealBuild = function () {
         if (y0 < -1) { wet++; dropped++; return; }
         if (yHi - y0 > 4) { steep++; dropped++; return; }
       }
-      var tint = TINT[(bi + Math.round(ar)) % TINT.length];
+      var st = styleOf(b, h, bi), uvW = STYLE_UV[st][0], uvH = STYLE_UV[st][1];
+      var tint = STYLE_TINT[st][(bi + Math.round(ar)) % 3]; gb = walls[st];
       var ccw = area2(p) > 0;
       for (var i = 0; i < p.length; i++) {
         var a = p[i], q = p[(i + 1) % p.length];
@@ -145,26 +163,31 @@ TG.RealBuild = function () {
         if (!(L > 0.2)) continue;
         var nx = (ccw ? dz : -dz) / L, nz = (ccw ? -dx : dx) / L;   // 바깥을 보는 법선
         gb.quad([a[0], y0, a[1]], [q[0], y0, q[1]], [q[0], y0 + h, q[1]], [a[0], y0 + h, a[1]],
-                [nx, 0, nz], tint, [[0, 0], [L / 6, 0], [L / 6, h / 3], [0, h / 3]]);
+                [nx, 0, nz], tint, [[0, 0], [L / uvW, 0], [L / uvW, h / uvH], [0, h / uvH]]);
       }
       // 지붕 — 무게중심에서 부채꼴로. 오목한 건물은 조금 어긋나지만 위에서만 보이고 사람 눈높이에서는 안 보인다.
       for (var j = 0; j < p.length; j++) {
         var s0 = p[j], s1 = p[(j + 1) % p.length];
         roof.quad([c[0], y0 + h, c[1]], [s0[0], y0 + h, s0[1]], [s1[0], y0 + h, s1[1]], [c[0], y0 + h, c[1]],
-                  [0, 1, 0], 0x3a3f47, null);
+                  [0, 1, 0], STYLE_ROOF[st], null);
       }
       // ⚠ c 는 **이미 비킨 뒤의** 윤곽에서 낸 무게중심이다 — off 를 또 더하면 두 번 밀린다
       if (b.n) named.push({ name: b.n, x: c[0], z: c[1], lv: b.lv || 0, ar: Math.round(Math.abs(area2(p))) });
       n++;
     });
     group = new THREE.Group();
-    var matW = new THREE.MeshLambertMaterial({ vertexColors: true });
     var matR = new THREE.MeshLambertMaterial({ vertexColors: true });
-    TG.mats = TG.mats || { road: [], ground: [] }; TG.mats.ground.push(matW, matR);
-    var mw = new THREE.Mesh(gb.build(), matW); mw.name = 'realWall'; mw.castShadow = true; mw.receiveShadow = true;
+    TG.mats = TG.mats || { road: [], ground: [] }; TG.mats.ground.push(matR);
+    TG.mats.facade = TG.mats.facade || [];
+    Object.keys(walls).forEach(function (st) {
+      if (walls[st].empty && walls[st].empty()) return;
+      var fm = new THREE.MeshLambertMaterial({ map: TG.tex.facade(st), vertexColors: true }); TG.mats.facade.push(fm);   // 밤이면 창에 불(weather.js)
+      var mw = new THREE.Mesh(walls[st].build(), fm); mw.name = 'realWall'; mw.userData.style = st; mw.castShadow = true; mw.receiveShadow = true; mw.matrixAutoUpdate = false;
+      group.add(mw);
+    });
     var mr = new THREE.Mesh(roof.build(), matR); mr.name = 'realRoof'; mr.receiveShadow = true;
-    mw.matrixAutoUpdate = false; mr.matrixAutoUpdate = false;
-    group.add(mw); group.add(mr); scene.add(group);
+    mr.matrixAutoUpdate = false;
+    group.add(mr); scene.add(group);
     info = { count: n, withLevels: lv, moved: moved, dropped: dropped, wet: wet, steep: steep, maxMove: +maxMove.toFixed(1), source: data.source || '', warped: warpOn, total: data.buildings.length, tiny: tiny };
     return info;
   };

@@ -625,9 +625,11 @@ TG.buildTerrain = function (scene, city, cfg) {
   for (var sv = 0; sv < spos.count; sv++) { var yy = spos.getY(sv) / 2200, tcol = mix(HOR, ZEN, sstep(-0.05, 0.6, yy)); scol.push(tcol[0], tcol[1], tcol[2]); }
   sky.setAttribute('color', new THREE.Float32BufferAttribute(scol, 3));
   var skyMesh = new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); skyMesh.userData.noTile = true; skyMesh.renderOrder = -10; scene.add(skyMesh);
+  skyMesh.matrixAutoUpdate = true;   // (v0.10.52) 하늘은 카메라를 따라온다 — 서초구 1:1(4.5km)에서는 원점에 둔 반지름 2.2km 하늘 밖으로 나가 **하늘이 검게** 나왔다
   var cg = new G(), crng = TG.makeRNG(77);
   for (var ci = 0; ci < 18; ci++) { var cx2 = -800 + crng() * 2200, cz2 = -900 + crng() * 2000, cw = 180 + crng() * 200; cg.rect(cx2, cz2, cw, cw * 0.5, crng() * 3, 260 + crng() * 100, 0xffffff); }
-  mesh(cg.build(), new THREE.MeshBasicMaterial({ map: TG.tex.cloud(), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), false, false);
+  var cloudMesh = mesh(cg.build(), new THREE.MeshBasicMaterial({ map: TG.tex.cloud(), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), false, false);
+  cloudMesh.userData.noTile = true; cloudMesh.matrixAutoUpdate = true;   // 구름도 카메라를 따라온다(main renderFrame) — 조각으로 나누지 않는다
 
   // 도로 리본(링크 전부)
   var road = new G(), mark = new G(), props = new G(), busTextGeo = new G(), signFaces = {};
@@ -1042,7 +1044,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   }
 
   return {
-    links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
+    links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, cloudMesh: cloudMesh, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
     heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
