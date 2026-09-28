@@ -752,7 +752,7 @@
     // 조이스틱(#stickBase)은 넣지 않는다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
     // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
     // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
-    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR', 'btnSport',
+    if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR', 'btnSport', 'btnEmerg',
                         'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
@@ -917,6 +917,21 @@
     function applyDrive(m) { settings.drive = m === 'sport' ? 'sport' : 'normal'; var sb = $('btnSport'); if (sb) { sb.classList.toggle('on', m === 'sport'); var st2 = sb.querySelector('.sp-t'); if (st2) st2.textContent = m === 'sport' ? '스포츠' : '노멀'; } TG.save.set('settings', settings); if (optDr) optDr.value = settings.drive; var dm = $('driveMode'); if (dm) { dm.textContent = settings.drive === 'sport' ? 'S' : 'N'; dm.classList.toggle('sport', settings.drive === 'sport'); } }
     if (optDr) optDr.addEventListener('change', function () { applyDrive(optDr.value); });
     input.bindTap($('btnSport'), function () { applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '🏎 스포츠 모드 — 가속·최고속도가 올라갑니다' : '노멀 모드', 'info', 1500); if (TG.audio.whoosh) TG.audio.whoosh(); });
+    // 🚨 긴급 운행(v0.10.48 · 소유자 「비상버튼을 만들어줘 — 그거 누르고 이동하면 되니까」) — 경광등·사이렌을 켜고 **긴급 용도**를 밝힌다.
+    //  그동안은 도로교통법 제30조 특례(신호·속도·중앙선·안전거리·앞지르기 등)로 감점하지 않는다. 지키는 선은 그대로 — 교차로 서행·교차 차량 정지 확인(제29조) ·
+    //  어린이보호구역 속도(§30 에 §12 없음) · 충돌. 긴급한 일이 없는데 오래 켜 두면 끄라고 알린다(특례는 본래의 긴급한 용도일 때만 — 대법 2017도12194).
+    function setEmerg(on) {
+      if (G.state !== 'play' || !player || onFoot()) return;
+      G.emergOn = !!on; G.emergIdle = 0;
+      if (on && !player.siren) { player.setSiren(true); TG.audio.resume(); TG.audio.setSiren(true, 'wail'); hud.setSiren(true); }
+      if (!on && player.siren && !enforcement.target && !(G.chase && G.chase.car)) { player.setSiren(false); TG.audio.setSiren(false); hud.setSiren(false); }
+      var eb = $('btnEmerg'); if (eb) eb.classList.toggle('on', G.emergOn);
+      if (on) { hud.notice('🚨 긴급 운행 — 제30조 특례 · 교차로는 서행', 'alert', 2200); hud.hint('💭 신호·속도·중앙선 특례 — 교차 차량이 멈춘 것을 확인하고 들어간다 · 어린이보호구역 속도는 특례 없음'); if (TG.audio.whoosh) TG.audio.whoosh(); }
+      else hud.notice('긴급 운행 끝 — 일반 규칙으로', 'info', 1600);
+    }
+    G.setEmerg = setEmerg;
+    input.bindTap($('btnEmerg'), function () { setEmerg(!G.emergOn); });
+    input.onKey('KeyU', function () { setEmerg(!G.emergOn); });
     input.onKey('KeyN', function () { if (totKeysOn()) { G.tot.next(); return; } applyDrive(settings.drive === 'sport' ? 'normal' : 'sport'); hud.notice(settings.drive === 'sport' ? '스포츠 모드 — 가속·조향 응답이 빨라집니다' : '노멀 모드', 'info', 1500); });
     applyDrive(settings.drive || 'normal');
     // ---------- 대상 선택(화면 터치/클릭) + 「단속」 ----------
@@ -1135,6 +1150,7 @@
   function toggleSiren() {
     if (G.state !== 'play' || !player || onFoot()) return;
     player.setSiren(!player.siren); TG.audio.resume(); TG.audio.setSiren(player.siren, 'wail'); hud.setSiren(player.siren);   // 손으로 켤 때는 늘 웨일 — 옐프는 비스트 모드에서만
+    if (!player.siren && G.emergOn) { G.emergOn = false; var eb0 = document.getElementById('btnEmerg'); if (eb0) eb0.classList.remove('on'); }   // 경광등을 끄면 긴급 운행도 끝
   }
 
   function start(carId, modeOverride) {
@@ -1250,6 +1266,7 @@
       player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)
       lap.hold = 3.2; lap.lights = -1; document.body.classList.add('startlit'); paintLights(0, false); }   // 🏁 출발 신호등 3·2·1
     G.stats = { score: 0, stops: 0, correct: 0, violatorStops: 0, witnessed: 0, penalty: 0, lesson: '', reason: '', warned: 0 };
+    G.emergOn = false; G.emergIdle = 0; var ebs = document.getElementById('btnEmerg'); if (ebs) ebs.classList.remove('on');   // 🚨 긴급 운행은 근무마다 꺼진 채로 시작
     traffic.stats.violations = 0; traffic.stats.witnessed = 0;
     rules = { prevDist: null, prevNode: null, speedT: 0, clT: 0, cornerCd: 0, crashCd: 0, gapWarnCd: 0, busHintCd: 0, jayCd: 0, saveT: 0, lastRoad: { x: player.pos.x, z: player.pos.z, h: player.heading } };
     G.pauseReasons = {}; G.paused = false; G.lastCrash = null; G.lead = null; camInit = false;
@@ -2708,7 +2725,9 @@
     // 긴급 용도 = 112 코드0·1 출동 · 단속 대상 추적. 적색은 **서행**하며 지날 수 있고, 속도 특례는 어린이보호구역에 없다(v0.9.53).
     // (v0.10.47) 소유자 「단속을 위해 경찰차가 위반을 해도 되는데 자동으로 점수가 깎인다」 — 눈앞 위반(👁 알림을 띄운 차 · c._cued)을 쫓는 것도 단속 용도로 본다.
     var chasing = !!enforcement.target || traffic.cars.some(function (c) { return !!c.violation || !!c._cued; });
-    var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || chasing);
+    if (G.emergOn && !player.siren) { G.emergOn = false; var ebx = document.getElementById('btnEmerg'); if (ebx) ebx.classList.remove('on'); }   // 경광등이 꺼졌으면(정차 유도 끝 등) 긴급 운행도 끝
+    var exempt = player.siren && ((G.dispatch && G.dispatch.emergency()) || chasing || !!G.emergOn);
+    if (G.emergOn && !(G.dispatch && G.dispatch.emergency()) && !chasing) { G.emergIdle = (G.emergIdle || 0) + dt; if (G.emergIdle > 60) { G.emergIdle = -60; hud.hint('💭 긴급한 일이 끝났으면 🚨 긴급 운행을 끈다 — 특례는 본래의 긴급한 용도일 때만(대법 2017도12194)'); } } else G.emergIdle = 0;
     G.emergExempt = exempt; G.emergNeedSiren = !player.siren && chasing;   // 무인 카메라 감점도 같은 판정을 쓴다
     var sirenTip = '🚨 단속 추적 중이면 경광등·사이렌을 켠다 — 켜야 긴급자동차 특례(도로교통법 제30조)';
     var schoolNow = city.inSchoolZone ? city.inSchoolZone(player.pos.x, player.pos.z) : false;
@@ -2720,7 +2739,7 @@
       var node = city.nodeAhead(player.pos.x, player.pos.z, d, -16);
       // 🚨 긴급 출동(사이렌 + 코드0·1 · 추격) — 앞 교차로 70m 안이면 다른 차가 교차로를 피하여 멈춘다(제29조 제4항).
       //  적색이면 **교차 차량이 멈춘 것을 확인하고** 서행 진입하도록 안내한다(소유자 현장 지시).
-      var emRun = player.siren && ((G.dispatch && G.dispatch.emergency()) || !!(G.chase && G.chase.car));
+      var emRun = player.siren && ((G.dispatch && G.dispatch.emergency()) || !!(G.chase && G.chase.car) || !!G.emergOn);
       if (emRun && node) {
         var dAhead = (node.x - player.pos.x) * f[0] + (node.z - player.pos.z) * f[1];
         if (dAhead > -6 && dAhead < 70) {

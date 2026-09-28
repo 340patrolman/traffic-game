@@ -1235,6 +1235,19 @@ body.portrait .coachline{top:calc(var(--hudh,56px) + 70px);font-size:16px}
 /* 🏎 주행 모드(노멀 ↔ 스포츠) — 차 안에서만. 자리: 세로 = 후진·하차 줄 끝 · 눕힌 폰 = 후진 왼쪽 · 그 밖 = 후진 위 */
 .tbtn.sportbtn{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(438px + var(--sa-b));width:60px;height:60px;flex-direction:column;background:rgba(255,255,255,.08)}
 .tbtn.sportbtn .ico{font-size:20px}
+/* 🚨 긴급 운행(v0.10.48) — 스포츠 단추 옆. 세로 화면은 그 줄의 빈 자리(오른쪽)에, 비스트·현장·관문 단추가 뜨는 동안은 그 자리를 비켜 준다 */
+.tbtn.emergbtn{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(504px + var(--sa-b));width:60px;height:60px;flex-direction:column;background:rgba(255,255,255,.08)}
+.tbtn.emergbtn .ico{font-size:20px}
+.tbtn.emergbtn .em-t{font-size:10.5px;font-weight:900}
+.tbtn.emergbtn.on{background:rgba(255,40,40,.32);border-color:#ff6b6b;box-shadow:0 0 16px rgba(255,60,60,.6);animation:blink .6s steps(2) infinite}
+body.can-foot .tbtn.emergbtn,body.desktop .tbtn.emergbtn{display:flex}
+body.onfoot .tbtn.emergbtn,body.afoot .tbtn.emergbtn,body.kidmode .tbtn.emergbtn,body.totmode .tbtn.emergbtn,body.bikemode .tbtn.emergbtn{display:none}
+@media (orientation:landscape){.tbtn.emergbtn{right:calc(226px + var(--sa-r));bottom:calc(100px + var(--sa-b))}}
+@media (orientation:portrait){body.portrait .tbtn.emergbtn{top:calc(65dvh + 2px);bottom:auto;left:calc(var(--sa-l) + 282px);right:auto;width:48px;height:48px}
+  body.portrait .tbtn.emergbtn .ico{font-size:17px}
+  body.portrait.chasing .tbtn.emergbtn,body.portrait.scene-near .tbtn.emergbtn,body.portrait.gate-near .tbtn.emergbtn{display:none}}
+/* 좁거나(≤340) 낮은(≤700) 세로 폰은 그 줄에 자리가 없다(경광등·단속 무리가 줄 높이까지 올라온다 — 320x640 실측) → 방향지시등 줄 바로 위 왼쪽 */
+@media (orientation:portrait) and (max-width:340px),(orientation:portrait) and (max-height:700px){body.portrait .tbtn.emergbtn{top:calc(65dvh - 50px);left:calc(var(--sa-l) + 12px);width:46px;height:46px}}
 .tbtn.sportbtn .sp-t{font-size:10.5px;font-weight:900}
 .tbtn.sportbtn.on{background:rgba(255,80,60,.28);border-color:rgba(255,110,80,.95);box-shadow:0 0 14px rgba(255,90,60,.55)}
 body.can-foot .tbtn.sportbtn,body.desktop .tbtn.sportbtn{display:flex}
