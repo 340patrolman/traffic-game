@@ -396,9 +396,9 @@ TG.BikeClass = function (game) {
     if (on && !passenger && TG.Character && TG.Character.build) {
       passenger = TG.Character.build('kid', { shirt: 0xf2b134 });
       if (TG.Character.pose) TG.Character.pose(passenger, 'ride');
-      passenger.group.position.set(0, 0.46, -0.95);         // 자전거 메시는 사람보다 0.5m 앞에 붙어 있다(walker.setBike) — 탄 사람 0.45m 뒤
+      passenger.group.position.set(0, 0.46, -0.72);         // 자전거 메시는 사람보다 0.3m 앞에(v0.10.56) 붙어 있다(walker.setBike) — 탄 사람 0.45m 뒤
       passenger.group.scale.setScalar(1.3);                     // 어린이 리그(0.62배)를 청소년 키로 — 앞사람보다 조금 낮게 앉는다
-      W.bike.add(passenger.group);
+      W.bike.add(passenger.group); if (TG.Humans && TG.Humans.fit) TG.Humans.fit(passenger, 1.55);
     }
     if (passenger) passenger.group.visible = !!on;
   }
@@ -752,7 +752,7 @@ TG.BikeClass = function (game) {
     if (!st) return;
     st.grade = k === 'teen' ? 'teen' : 'elem';
     showGrade(false);
-    if (G.walker && G.walker.rig && G.walker.rig.group) G.walker.rig.group.scale.setScalar(st.grade === 'teen' ? 1.12 : 0.95);
+    if (G.walker && G.walker.rig && G.walker.rig.group) { G.walker.rig.group.scale.setScalar(st.grade === 'teen' ? 1.12 : 0.95); if (TG.Humans && TG.Humans.fit) TG.Humans.fit(G.walker.rig, st.grade === 'teen' ? 1.62 : 1.36); }   // 모델 키: 중·고생 1.62m · 초등 1.36m
     say('네 가지 장면을 차례로 해 봐요. 멈추고, 살피고, 안전하게', true);
     nextScene();
   };

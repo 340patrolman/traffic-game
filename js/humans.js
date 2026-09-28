@@ -12,17 +12,19 @@
 TG.Humans = (function () {
   var S = { ready: false, failed: false, reason: '', proto: null, restModel: {}, mats: {}, measure: {}, count: 0 };
   // 사람 종류별 프리셋. height = 부품을 뺀 키(m, 월드). head·leg = 뼈 배율(머리 크기·다리 길이로 나이를 구분한다 — 파이프라인 2절)
+  //  (v0.10.56 · 소유자 「초등 보행에 다리가 안 보여 · 자전거 타는 동작이 자연스럽지 않아」) 원래 모델은 머리가 큰 캐릭터형이라 골반이 키의 31~38% 였다 →
+  //  경찰 머리 0.66·다리 1.45(골반 46% · 머리 19%) · 어린이 머리 0.82·다리 1.40(골반 약 43% · 머리 23% — 어른보다 머리가 크고 다리가 짧다).
   var KIND = {
-    officer: { skin: 'police_m', height: 1.76, head: 0.80, leg: 1.14, hat: 'police', baton: true },
+    officer: { skin: 'police_m', height: 1.76, head: 0.66, leg: 1.45, hat: 'police', baton: true },
     // 어린이 = prototype-v3(파이프라인 7절): 바가지 머리·삐친 머리 · 노란 목 스카프 · 파란 반팔·검정 반바지·흰 양말·빨간 운동화(스킨)
-    kid:     { skin: 'kid',      height: 1.20, head: 1.45, leg: 0.86, chest: 1.08, hips: 1.06, arm: 0.90, acc: ['bowl', 'scarf'] }
+    kid:     { skin: 'kid',      height: 1.28, head: 0.82, leg: 1.40, chest: 1.00, hips: 1.00, arm: 1.00, acc: ['bowl', 'scarf'] }
   };
   // 👮 내 경찰관 변형(소유자: 「내가 준비한 것에 바리에이션만」) — 같은 모델·같은 스킨에 **체형과 선글라스만** 바꾼다.
   //  이름: officer_<체형>[_sh]. 새 그림·새 모델은 들여오지 않는다(파이프라인 1절 결정 전).
   var BUILDS = {
     std:    { name: '보통',   over: {} },
-    tall:   { name: '큰 키',   over: { height: 1.86, leg: 1.20, chest: 1.04 } },
-    short:  { name: '작은 키', over: { height: 1.68, head: 0.84, leg: 1.08 } },
+    tall:   { name: '큰 키',   over: { height: 1.86, leg: 1.52, chest: 1.04 } },
+    short:  { name: '작은 키', over: { height: 1.68, head: 0.70, leg: 1.38 } },
     sturdy: { name: '다부진',  over: { height: 1.78, chest: 1.16, hips: 1.10, arm: 1.05 } }
   };
   Object.keys(BUILDS).forEach(function (b) {
@@ -165,18 +167,43 @@ TG.Humans = (function () {
 
   var partMat = null;
   function partMaterial() { return partMat || (partMat = new THREE.MeshLambertMaterial({ vertexColors: true })); }
+  // 👮 남자 교통정모 — 「경찰복제에 관한 규칙」 별표 1 (시행 2021.12.31 · 국가법령정보센터 원문 대조 2026-09-28):
+  //  「가. 남자 경찰공무원 정모 1) 모자의 천장은 타원형 2) 모자의 앞부분에 금색 턱끈 3) 모자의 주름 테에 사괘무늬 장식띠
+  //   4) 모자의 차양은 반원형 5) 모자표장은 정장」 · 색 진청색(**교통정모는 흰색**) · 차양 검은색.
+  //  (여자 정모는 「천장을 원형으로 하되 테 둘레에 누빈 차양」 — 모양이 다르다. 지금 경찰관 모델은 남자라 남자 정모를 씌운다.)
+  //  v0.10.56 전에는 납작한 흰 원판 + 곧게 뻗은 챙이라 소유자가 「성별과 안 맞는 모자」라고 했다.
+  var capMats = null;
+  function policeCap(hb) {
+    var C = TG.Character.COLORS, W = (hb.max.x - hb.min.x) / 2, D = (hb.max.z - hb.min.z) / 2, top = hb.max.y, Hh = hb.max.y - hb.min.y;
+    var R0 = Math.max(W, D) * 1.02, cz = (hb.max.z + hb.min.z) / 2, y0 = top - Hh * 0.34;   // 테가 앉는 높이(이마 위)
+    if (!capMats) capMats = {
+      white: new THREE.MeshLambertMaterial({ color: C.WHITE }), band: new THREE.MeshLambertMaterial({ color: 0x14161b }),
+      pat: new THREE.MeshLambertMaterial({ color: 0x3a3f4a }), visor: new THREE.MeshLambertMaterial({ color: 0x0a0b0e, side: THREE.DoubleSide }),
+      gold: new THREE.MeshStandardMaterial({ color: C.GOLD, roughness: 0.35, metalness: 0.7 })
+    };
+    var cap = new THREE.Group(), bandH = Hh * 0.17;
+    function add(geo, mat, x, y, z, rx, sx, sy, sz) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (sx) m.scale.set(sx, sy, sz); m.castShadow = true; cap.add(m); return m; }
+    // 주름 테(검정) + 사괘무늬 장식띠(가운데 가는 무늬 띠)
+    add(new THREE.CylinderGeometry(R0 * 1.00, R0 * 0.98, bandH, 28, 1, true), capMats.band, 0, y0 + bandH / 2, cz);
+    add(new THREE.CylinderGeometry(R0 * 1.006, R0 * 0.99, bandH * 0.36, 28, 1, true), capMats.pat, 0, y0 + bandH * 0.5, cz);
+    // 천장(흰 커버) — 타원형, 테보다 넓게 부풀고 앞이 들린다
+    var crown = add(new THREE.CylinderGeometry(R0 * 1.30, R0 * 1.00, Hh * 0.20, 28, 1, false), capMats.white, 0, y0 + bandH + Hh * 0.10, cz, -0.10, 1.0, 1.0, 1.12);
+    // 차양 — 반원형 검정, 앞으로 기울어 내려간다
+    var vis = new THREE.CircleGeometry(R0 * 0.9, 20, 0, Math.PI); vis.rotateX(Math.PI / 2); vis.scale(1.0, 1, 0.55);
+    add(vis, capMats.visor, 0, y0 + 0.004, cz + R0 * 0.93, 0.42);
+    // 금색 턱끈 — 테 앞부분(차양 바로 위)을 가로지른다
+    var cord = new THREE.TorusGeometry(R0 * 1.012, R0 * 0.028, 5, 20, Math.PI * 0.62); cord.rotateX(Math.PI / 2); cord.rotateY(Math.PI * 0.31 - Math.PI / 2);
+    add(cord, capMats.gold, 0, y0 + bandH * 0.22, cz);
+    // 모자표장(정장) — 천장 앞, 테 위
+    add(new THREE.BoxGeometry(R0 * 0.34, Hh * 0.10, R0 * 0.05), capMats.gold, 0, y0 + bandH + Hh * 0.07, cz + R0 * 1.12, -0.25);
+    return cap;
+  }
   // 머리 부품: 경찰 정모(흰 덮개·금색 밴드·검정 챙·금색 표장) · 어린이 노란 안전모
   function hatMesh(type, hb) {
     var C = TG.Character.COLORS, W = (hb.max.x - hb.min.x) / 2, D = (hb.max.z - hb.min.z) / 2, top = hb.max.y, Hh = hb.max.y - hb.min.y;
     var R0 = Math.max(W, D), g = new TG.GeoBuilder();
-    if (type === 'police') {
-      var y0 = top - Hh * 0.30;
-      g.cylinder(0, y0, 0, R0 * 1.02, R0 * 0.99, Hh * 0.10, 20, C.GOLD, false);                  // 금색 밴드
-      g.cylinder(0, y0 - 0.006, 0, R0 * 1.03, R0 * 1.03, 0.014, 20, C.BLACK, false);             // 밴드 아래 검정 선
-      g.cylinder(0, y0 + Hh * 0.10, 0, R0 * 0.99, R0 * 1.12, Hh * 0.13, 20, C.WHITE, true);      // 흰 덮개(위가 넓다)
-      g.box(0, y0 + 0.004, R0 * 0.98, R0 * 1.55, 0.03, R0 * 0.80, C.BLACK, {});                  // 검정 챙
-      g.box(0, y0 + Hh * 0.05, R0 * 1.04, R0 * 0.34, Hh * 0.08, 0.02, C.GOLD, {});               // 참수리 표장
-    } else {
+    if (type === 'police') return policeCap(hb);
+    else {
       var yk = top - Hh * 0.34;
       g.sphere(0, yk, 0, R0 * 1.06, 18, 10, C.KID_CAP, 0.62);                                     // 노란 안전모(둥근 모자)
       g.box(0, yk + 0.004, R0 * 0.98, R0 * 1.3, 0.026, R0 * 0.62, C.KID_CAP, {});                // 챙
@@ -296,8 +323,15 @@ TG.Humans = (function () {
     return { group: g, body: body };
   }
   // 그룹 좌표로 본 키(우산 높이 등) — 모델이 아니면 null
+  // 입힌 뒤 리그 그룹 배율을 바꾸는 곳(청소년 1.12 · 4세 0.8 · 뒤에 탄 친구 1.3)은 모델 키가 그 배율만큼 같이 커진다 —
+  //  배율은 코드 리그 기준이라 모델에는 맞지 않았다(v0.10.56 실측: 청소년 교실 학생 2.3m). 원하는 실제 키(m)로 다시 맞춘다.
+  function fit(R, worldH) {
+    if (!R || !R.glb || !(worldH > 0)) return false;
+    var G = R.glb, ws = new THREE.Vector3(); R.group.updateWorldMatrix(true, false); R.group.getWorldScale(ws); var K = worldH / ((ws.y || 1) * G.M.H);   // 부모(자전거에 태운 친구)의 배율까지 본다
+    G.root.scale.setScalar(K); G.K = K; sync(R); return true;
+  }
   function heightLocal(R) { return R && R.glb ? KIND[R.glb.kind].height / (R.group.scale.y || 1) : null; }
 
   load();
-  return { state: S, attach: attach, sync: sync, ready: function () { return S.ready; }, kinds: KIND, builds: BUILDS, avatarKind: avatarKind, measure: measure, vest: vest, heightLocal: heightLocal };
+  return { state: S, attach: attach, sync: sync, ready: function () { return S.ready; }, kinds: KIND, builds: BUILDS, avatarKind: avatarKind, measure: measure, vest: vest, heightLocal: heightLocal, fit: fit };
 })();

@@ -285,7 +285,8 @@
         //  제동을 누른 채 세우면 차가 뒤로 굴러갔다(단속 정차 자리를 맞추기 어려웠던 까닭). 이제 멈추면 **그 자리에 선다** —
         //  제동을 1.2초 더 누르고 있으면 그때 후진(↓ 키·스틱 아래 계속 누르기). 바로 뒤로 가려면 🔙 후진 단추.
         this.stopT += dt;
-        if ((this.stopT > 1.2 && c.brakeRev !== false) || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;   // 폰 조이스틱(brakeRev false)은 서 있기만 한다
+        // (v0.10.56 · 소유자 「제동 후 후진이 잘 작동을 안 한다」) 기다림 1.2 → 0.6초. 스틱을 반 넘게 당기거나 ↓ 키를 누른 채면 곧 뒤로 간다.
+        if ((this.stopT > 0.6 && c.brakeRev !== false) || vF < -0.1) vF = Math.max(-s.revMax, vF - 3.0 * dt); else vF = 0;   // 폰 조이스틱(brakeRev false)은 서 있기만 한다
       } else vF = 0;
     } else if (c.throttle > 0) {
       this.stopT = 0;

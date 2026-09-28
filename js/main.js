@@ -1180,7 +1180,7 @@
     if (G.share) G.share.close();
     if (G.first) G.first.stop();
     if (G.crew) G.crew.reset();
-    hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1);   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
+    hud.clearHint(); hud.setTarget(null); setTimeScale(settings.speed || 1); G.revHinted = false; G.revHintT = 0;   // 배속은 **고른 값을 이어서** 쓴다(소유자 지시)
     if (G.cinema) G.cinema.clear();   // 🎬 앞 근무의 연출이 남지 않게
     if (G.inspect) G.inspect.close();
     if (G.praise) { G.praise.reset(); G.praise.showBar(); }   // 🎖 근무를 시작하면 콤보는 0 부터, 계급은 이어서(경험치는 기기에 남는다)
@@ -1384,7 +1384,7 @@
     if (kid) peds.clearJaywalkers && peds.clearJaywalkers();
 
     walker = new TG.Walker(scene, city, terrain, C, { kid: kid }); G.walker = walker;
-    if (G.mode === 'tot' && walker.rig && walker.rig.group) walker.rig.group.scale.setScalar(0.8);   // 4세는 더 작고 동글동글하게
+    if (G.mode === 'tot' && walker.rig && walker.rig.group) { walker.rig.group.scale.setScalar(0.8); if (TG.Humans && TG.Humans.fit) TG.Humans.fit(walker.rig, 1.03); }   // 4세 약 1.03m   // 4세는 더 작고 동글동글하게
     traffic.player = walker; peds.player = walker; peds.walker = walker;
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
     if (G.mode === 'bike') {
@@ -3086,6 +3086,8 @@
     var inp = input.read();
     player.controls.steer = inp.steer; player.controls.throttle = inp.throttle; player.controls.brake = inp.brake; player.controls.reverse = inp.reverse; player.controls.brakeRev = inp.brakeRev;
     if (G.testOverride) { for (var k in G.testOverride) player.controls[k] = G.testOverride[k]; if (G.testOverride.brakeRev === undefined) player.controls.brakeRev = true; }   // 검사 입력은 자판처럼 본다
+    // ⏪ 서서 스틱을 살짝만 당기고 있으면(제동만) 후진하는 법을 한 번 알려 준다
+    if (player.controls.brake > 0 && !player.controls.brakeRev && Math.abs(player.vF || 0) < 0.05) { G.revHintT = (G.revHintT || 0) + dt; if (G.revHintT > 1.4 && !G.revHinted) { G.revHinted = true; hud.hintNow('💭 뒤로 가려면 — 스틱을 아래로 끝까지 당긴 채 잠깐(0.6초)'); } } else G.revHintT = 0;
     startLightUpdate(dt);                                  // 🏁 출발 신호등이 켜지는 동안에는 차를 출발선에 붙잡아 둔다
     // ⚠ 여기서 **제동을 물면 안 된다** — 이 게임은 정지 중 제동을 0.08초 누르면 **후진**으로 간다(실측 뒤로 16km/h).
     //    그래서 입력을 모두 0 으로 두고 **출발선에 붙잡아** 둔다.

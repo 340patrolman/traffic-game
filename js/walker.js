@@ -45,7 +45,7 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
     if (this.bike) this.bike.visible = !!mode;
     var wasRiding = this.riding;
     this.riding = mode === 'ride';
-    if (this.bike) { if (this.riding) this.bike.position.set(0, -0.02, 0.5); else this.bike.position.set(-0.62, -0.02, 0.35); }   // +x 가 몸 왼쪽 — 끌 때는 오른쪽 옆
+    if (this.bike) { if (this.riding) this.bike.position.set(0, -0.02, 0.3); else this.bike.position.set(-0.62, -0.02, 0.35); }   // +x 가 몸 왼쪽 — 끌 때는 오른쪽 옆
     if (this.riding && !wasRiding) { TG.Character.pose(rig, 'ride'); this.v = Math.min(this.v, 1.0); }
     // 내릴 때 **자세를 되돌린다** — 안 되돌리면 탈 때의 벌린 다리·굽힌 허리가 그대로 남아 어색하게 서 있다
     // (소유자 2026-09-16: 「자전거를 타고 있다가 내렸을 때 다리를 너무 벌리고 서 있어서 부자연스러워」).
@@ -90,7 +90,27 @@ TG.Walker = function (scene, city, terrain, cfg, opts) {
   this.sync = function (dt) {
     this.y = terrain ? terrain.heightAt(this.pos.x, this.pos.z, this.y) : 0;
     rig.baseY = this.y; g.position.x = this.pos.x; g.position.z = this.pos.z; g.rotation.y = this.heading;
-    if (this.riding) { g.position.y = this.y + 0.02; g.rotation.z = this.leanZ || 0; if (rig.joints && rig.joints.neck) rig.joints.neck.rotation.y = this.look || 0; if (rig.glb) TG.Humans.sync(rig); return; }
+    if (this.riding) {
+      g.position.y = this.y + 0.02; g.rotation.z = this.leanZ || 0;
+      var J = rig.joints;
+      if (J) {
+        if (J.neck) J.neck.rotation.y = this.look || 0;
+        // 🚲 페달 밟기(v0.10.56 · 소유자 「자전거를 타는 동작이 안 나와 자연스럽지 않아」) — 크랭크는 1m 에 약 1.25rad(바퀴 둘레 × 기어비 ≈ 5m/바퀴)
+        //  무릎이 올라올 때 더 굽고, 두 다리는 반 바퀴 어긋난다. 서 있으면(0.2m/s 아래) 왼발을 땅에 내린다.
+        if (this.v > 0.2) {
+          this.crank = ((this.crank || 0) + this.v * 1.25 * (dt || 0.016)) % (Math.PI * 2);
+          var a = this.crank, sL = Math.sin(a), sR = Math.sin(a + Math.PI);
+          J.hpL.rotation.x = -1.0 - 0.30 * sL; J.knL.rotation.x = 1.45 + 0.40 * sL;
+          J.hpR.rotation.x = -1.0 - 0.30 * sR; J.knR.rotation.x = 1.45 + 0.40 * sR;
+          J.hpL.rotation.z = 0.20; J.hpR.rotation.z = -0.20;
+        } else {
+          J.hpL.rotation.x = -0.35; J.knL.rotation.x = 0.25; J.hpL.rotation.z = 0.32;   // 왼발 땅에
+          J.hpR.rotation.x = -1.0; J.knR.rotation.x = 1.55; J.hpR.rotation.z = -0.20;
+        }
+      }
+      if (rig.glb) TG.Humans.sync(rig);
+      return;
+    }
     var sp = TG.audio.speaking, talking = sp === (this.kid ? 'kid' : 'officer');
     TG.Character.animate(rig, { speed: this.v, moving: this.moving, hand: this.hand, gesture: this.gesture, look: this.look, lookScan: this.lookScan, talking: talking, smile: !!this.smile }, dt || 0.016);
   };

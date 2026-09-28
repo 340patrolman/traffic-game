@@ -29,10 +29,11 @@ TG.Pop = function (game) {
   // 📍 **지금 선 자리**의 행정동(v0.10.54 · 소유자 「길로 가면 길 따라 행정동이 달라지는데」) — 큰 길이 동 경계인 곳이 많아 길 건너편은 다른 동이다.
   //  통계청 행정동 경계(data/dong-seocho.json)를 **그 지도의 변환**으로 게임 좌표에 옮겨 둔다: 고무판(트윈·서초구 1:1 — 실제 건물·도로와 같은 변환) ·
   //  1:1 지도는 아핀. 기본(베타) 지도는 배치가 실제와 달라 쓰지 않는다(교차로 도로 쌍 값으로 물러선다).
-  var DG = null, GP = null;
+  var DG = null, GP = null, DN = null, NP = null;   // DN·NP = 서초구와 맞닿은 강남·동작·관악구 동(v0.10.56 · 경계와 이름만)
   this.loadDong = function (path) {
     if (location.protocol.indexOf('http') !== 0) return;
     fetch(path || 'data/dong-seocho.json').then(function (r) { return r.json(); }).then(function (j) { DG = j; GP = null; }).catch(function () {});
+    fetch('data/dong-near.json').then(function (r) { return r.json(); }).then(function (j) { DN = j; NP = null; }).catch(function () {});
   };
   function toGame(lon, lat) {
     var M = TG.MAP; if (!M || !M.wgs84) return null;
@@ -40,6 +41,24 @@ TG.Pop = function (game) {
     if (M.scale1to1) { var W = M.wgs84, u = lon - W.lon0, w = lat - W.lat0; return [W.x[0] * u + W.x[1] * w + W.x[2], W.z[0] * u + W.z[1] * w + W.z[2]]; }
     return null;
   }
+  function polysOf(list, withGu) {
+    return list.map(function (d) {
+      var polys = d.polys.map(function (P) { return P.map(function (ring) { return ring.map(function (q) { return toGame(q[0], q[1]); }); }); });
+      var x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+      polys.forEach(function (P) { P[0].forEach(function (q) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < z0) z0 = q[1]; if (q[1] > z1) z1 = q[1]; }); });
+      return { name: d.name, gu: withGu ? d.gu : null, polys: polys, box: [x0, x1, z0, z1] };
+    });
+  }
+  // 서초구 밖이면 맞닿은 동 이름(「강남구 역삼1동」) — 모르면 ''
+  this.nearAtPos = function (x, z) {
+    if (!DN || !toGame(127.0, 37.49)) return '';
+    if (!NP) NP = polysOf(DN.dong, true);
+    for (var k = 0; k < NP.length; k++) {
+      var d = NP[k], b = d.box; if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) continue;
+      for (var p = 0; p < d.polys.length; p++) { var P = d.polys[p]; if (inRing(P[0], x, z) && !P.slice(1).some(function (h) { return inRing(h, x, z); })) return d.gu + ' ' + d.name; }
+    }
+    return '';
+  };
   function build() {
     if (GP || !DG) return GP;
     if (!toGame(127.0, 37.49)) { GP = []; return GP; }
@@ -65,7 +84,7 @@ TG.Pop = function (game) {
   this.dongHere = function (x, z) {
     var nm = self.dongAtPos(x, z);
     if (nm === null) { var nd = G.city && G.city.nearestNode(x, z); var r = nd && self.dongInfo(nd); return r ? { name: r.name, dong: r.dong, exact: false, also: r.also } : null; }
-    if (!nm) return { name: '', dong: null, exact: true, outside: true };
+    if (!nm) return { name: '', dong: null, exact: true, outside: true, near: self.nearAtPos(x, z) };
     return { name: nm, dong: byName[nm] || null, exact: true, also: [] };
   };
   // 경계에 걸친 교차로면 「서초3동 · 서초1동 경계」

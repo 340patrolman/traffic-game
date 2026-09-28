@@ -52,7 +52,7 @@ TG.Here = function (game) {
     if (nd) rows.push({ k: '가까운 교차로', v: C.nodeName(nd) + ' · ' + dist(d) });
     if (G.pop && G.pop.ready() && G.pop.dongOf) {
       var hereD = G.pop.dongHere ? G.pop.dongHere(p.x, p.z) : null;
-      if (hereD && hereD.exact) rows.push({ k: '행정동', v: (hereD.outside ? '서초구 밖' : hereD.name) + ' — 지금 선 자리 (통계청 행정동 경계 2026.7)' });
+      if (hereD && hereD.exact) rows.push({ k: '행정동', v: (hereD.outside ? '서초구 밖' + (hereD.near ? ' — ' + hereD.near : '') : hereD.name) + ' — 지금 선 자리 (통계청 행정동 경계 2026.7)' });
       var dong = G.pop.dongOf(nd);
       if (dong && dong.name) rows.push({ k: hereD && hereD.exact ? '교차로 동' : '행정동', v: (G.pop.dongLabel ? G.pop.dongLabel(nd) : dong.name) + (hereD && hereD.exact ? '' : ' (통계청 행정동 경계 2026.7 · 교차로 기준)') });
     }
