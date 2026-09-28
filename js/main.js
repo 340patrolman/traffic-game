@@ -90,6 +90,7 @@
     G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
     facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
+    traffic.onFlag = function (car, type, node) { if (facil && facil.onFlag) facil.onFlag(type, node); };   // 📈 효과 기록(v0.10.62)
     layers = new TG.Layers(G, city, C, scene); G.layers = layers; if (TG.Hood) G.hood = new TG.Hood(G); if (TG.Dex) G.dex = new TG.Dex(G); if (TG.ShareCard) G.share = new TG.ShareCard(G);   // 🗺 동네 안전 지수(#6) · 📚 도감(#8)
           // 지도 레이어(TAAS 사고 자료 · 어린이보호구역 · 단속 장비 · 시뮬레이션 위험도)
 
@@ -608,8 +609,10 @@
       input.bindTap($('apClose'), function () { pick.style.display = 'none'; });
       input.bindTap($('jamClose'), function () { if (G.jam) G.jam.close(); showTitle(); });
       paint();
-      G.areaPicker = { open: openList, detail: detail, key: KEY, label: label };
+      G.areaPicker = { open: openList, detail: detail, key: KEY, label: label, set: function (i, j) { TG.save.set(KEY, i + ',' + j); paint(); } };
     })();
+    // 🗺 우리 동네 카드의 「🚓 여기서 출근」(v0.10.62) — 출발 지역을 그 교차로로 두고 순찰 근무를 연다
+    G.startPatrolAt = function (i, j) { if (G.areaPicker && G.areaPicker.set) G.areaPicker.set(i, j); applyMode('patrol'); G.chapterNext = false; start(settings.car); };
     document.querySelectorAll('.mpick[data-mode]').forEach(function (b) { input.bindTap(b, function () { var m = b.getAttribute('data-mode'); if (lockedTap(b, m)) return; applyMode(m); if (MODES[m] && G.state === 'title') start(settings.car); }); });   // 서랍 안 근무·교실은 누르면 바로 시작한다(고르고 또 누르지 않게)
     applyMode(settings.mode || 'patrol');
     // 조작 배치: 조이스틱(원형 스틱 + 버튼) / 게임패드(십자키 + △○×□ + L1·R1). 타이틀 버튼 · 일시정지 선택 · 설명 창에서 고른다
@@ -2492,22 +2495,35 @@
     camInit = false;
   };
   // 교통시설 관리 화면(심시티 요소): 교차로 신호 녹색 시간 · 무인 단속 장비 설치
-  var planEl = null;
-  function openPlan() {
+  // (v0.10.62) 한 장으로 길게 늘어져 있던 것을 **탭 넷**으로 — 🚦 교차로(진단·조언·효과 기록·녹색·장비) · 📋 신호 근무표 · 🧭 지도 층 · 🗺 지도
+  var planEl = null, planTab = 'node';
+  var PLAN_TABS = [['node', '🚦 교차로', 'planHost'], ['tod', '📋 신호 근무표', 'todHost'], ['layer', '🧭 지도 층', 'layerHost'], ['map', '🗺 지도', 'mapHost']];
+  function planShow(t) {
+    planTab = t;
+    PLAN_TABS.forEach(function (x) { var h = planEl.querySelector('#' + x[2]), b = planEl.querySelector('[data-ptab="' + x[0] + '"]'); if (h) h.style.display = x[0] === t ? '' : 'none'; if (b) b.classList.toggle('sel', x[0] === t); });
+    if (t === 'map') renderMapPanel(planEl.querySelector('#mapHost'));
+    if (t === 'tod' && facil.openTod) facil.openTod(planEl.querySelector('#todHost'));
+    if (t === 'layer' && layers) layers.openPanel(planEl.querySelector('#layerHost'));
+    if (t === 'node') facil.refreshPanel();
+    var sc = planEl.querySelector('.plan-card'); if (sc) sc.scrollTop = 0;
+  }
+  function openPlan(nodeSel) {
     if (!planEl) {
       planEl = document.createElement('div'); planEl.id = 'plan'; planEl.className = 'overlay plan';
       var inner = document.createElement('div'); inner.className = 'card wide plan-card';
-      inner.innerHTML = '<div class="badge">🏗 교통시설 관리 — 신호 주기 · 무인 단속 장비</div><h2>교통시설</h2>' +
-        '<div class="dim small">교차로마다 신호 녹색 시간을 정하고, 접근로에 무인 교통단속 장비를 세웁니다. 설정은 기기에 저장됩니다(localStorage tg_facil).</div>' +
-        '<div id="mapHost"></div><div id="planHost"></div><div id="layerHost"></div>';
+      inner.innerHTML = '<div class="badge">🏗 교통시설 관리 — 진단 · 신호 · 무인 단속 · 효과 기록</div><h2>교통시설</h2>' +
+        '<div class="dim small">교차로마다 실제 사고로 진단하고, 신호 녹색 시간과 무인 단속 장비를 바꿔 본 뒤 근무하며 효과를 견줍니다. 설정·기록은 기기에만(tg_facil · tg_facilobs).</div>' +
+        '<div class="pl-tabs">' + PLAN_TABS.map(function (x) { return '<button class="pl-tab" data-ptab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+        '<div id="planHost"></div><div id="todHost"></div><div id="layerHost"></div><div id="mapHost"></div>';
       var bx = document.createElement('button'); bx.className = 'primary'; bx.textContent = '닫기';
       bx.addEventListener('click', closePlan); inner.appendChild(bx);
       planEl.appendChild(inner); document.body.appendChild(planEl);
+      planEl.querySelectorAll('[data-ptab]').forEach(function (b) { b.addEventListener('click', function () { planShow(b.getAttribute('data-ptab')); }); });
     }
     planEl.style.display = 'flex';
-    renderMapPanel(planEl.querySelector('#mapHost'));
-    facil.openPanel(planEl.querySelector('#planHost'));
-    if (layers) layers.openPanel(planEl.querySelector('#layerHost'));
+    if (facil.obsFlush) facil.obsFlush();
+    facil.openPanel(planEl.querySelector('#planHost'), nodeSel && nodeSel.i !== undefined ? nodeSel : null);
+    planShow(nodeSel && nodeSel.i !== undefined ? 'node' : planTab);
     setPaused(true, 'plan');
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
@@ -3096,6 +3112,7 @@
     if (G.crew) G.crew.update(dt);
     if (G.metrics) G.metrics.update();
     if (G.hood) G.hood.update(dt);
+    if (G.dex && G.dex.update) G.dex.update(dt);   // 🏢 장소 도감(v0.10.62)
     // 👥 v0.10.26 — 이 동네의 실제 연령 구성대로 행인이 만들어진다(행안부 동별 자료 · 교차로마다 가까운 동, 근사)
     if (G.pop && G.pop.ready() && !onFoot()) {
       G.popT = (G.popT || 0) - dt;

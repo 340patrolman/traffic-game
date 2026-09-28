@@ -21,6 +21,48 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   function store() { TG.save.set('facil', data); }
   self.save = store;
 
+  // ---- 📈 효과 기록(v0.10.62 · 심시티의 되먹임) — 설정마다 **근무 중 지켜본 시간**과 그동안 그 교차로에서 기록된 위반을 모은다 ----
+  //  설정 = 내가 바꾼 녹색 시간 + 설치한 무인 단속 장비. 바꾸면 새 칸에 쌓인다 → 「바꾸기 전 / 바꾼 뒤」를 10분당 건수로 견준다.
+  //  세는 것: 교통 AI 가 그 교차로에서 남긴 신호위반·과속·보행자 보호 위반·꼬리물기 기록 + 무인 단속 적발. 지켜본 시간 = 근무 중 교차로 90 단위 안.
+  //  **게임 속 비교다** — 시간대·교통량이 섞이고 실제 효과 평가가 아니다(화면에 밝힌다). 기기에만(tg_facilobs).
+  var obs = TG.save.get('facilobs', null); if (!obs || typeof obs !== 'object') obs = {};
+  var OBS_MODES = { patrol: 1, open: 1, free: 1, duty: 1, walk: 1, chase: 1 }, OBS_R = 90, obsSaveT = 0, obsTick = 0;
+  var FLAG_KEY = { signal: 'red', speeding: 'speed', pedestrian: 'ped', gridlock: 'grid' };
+  function sigOf(node) {
+    var k = node.i + ',' + node.j, g = data.green[k];
+    var cs = self.camsAt(node).map(function (c) { return (c.kind === 'speed' ? 'P' : 'S') + c.d; }).sort().join('');
+    return (g && (g.v || g.h) ? '녹색 ' + (g.v || '·') + '/' + (g.h || '·') : '기본') + (cs ? ' · 장비 ' + cs : '');
+  }
+  function bucket(node) {
+    var k = node.i + ',' + node.j, o = obs[k] || (obs[k] = {}), s = sigOf(node);
+    return o[s] || (o[s] = { sec: 0, red: 0, speed: 0, ped: 0, grid: 0, caught: 0, t0: new Date().toISOString().slice(0, 10) });
+  }
+  function obsOn() { return game.state === 'play' && OBS_MODES[game.mode] && !(TG.mode && TG.mode.sim); }
+  function me() { var g = game; return (g.afoot || g.mode === 'walk' || g.mode === 'duty') && g.walker ? g.walker : g.player; }
+  function nearNode(p, r) { var nd = p && city.nearestNode ? city.nearestNode(p.pos.x, p.pos.z) : null; return nd && Math.hypot(nd.x - p.pos.x, nd.z - p.pos.z) <= r ? nd : null; }
+  function observe(dt) {
+    if (!obsOn()) return;
+    obsTick += dt; if (obsTick < 0.5) return;
+    var st = obsTick; obsTick = 0;
+    var nd = nearNode(me(), OBS_R); if (nd) bucket(nd).sec += st;
+    obsSaveT += st; if (obsSaveT > 12) { obsSaveT = 0; TG.save.set('facilobs', obs); }
+  }
+  // 교통 AI 가 위반을 기록할 때(traffic.onFlag) — 그 교차로를 지켜보는 중일 때만 센다
+  self.onFlag = function (type, node) {
+    var f = FLAG_KEY[type]; if (!f || !node || !obsOn()) return;
+    var p = me(); if (!p || Math.hypot(node.x - p.pos.x, node.z - p.pos.z) > OBS_R * 1.6) return;
+    bucket(node)[f]++;
+  };
+  // 한 교차로의 설정별 기록(지금 설정이 맨 앞) — 우리 동네·교통시설이 읽는다
+  self.obsRows = function (node) {
+    var k = node.i + ',' + node.j, o = obs[k] || {}, cur = sigOf(node);
+    return Object.keys(o).map(function (s) { var r = o[s], m = r.sec / 600; return { sig: s, cur: s === cur, min: r.sec / 60, red: r.red, speed: r.speed, ped: r.ped, grid: r.grid, caught: r.caught, t0: r.t0,
+      per10: m > 0 ? (r.red + r.speed + r.ped + r.grid) / m : 0 }; })
+      .sort(function (a, b) { return (b.cur ? 1 : 0) - (a.cur ? 1 : 0) || b.min - a.min; });
+  };
+  self.obsReset = function (node) { if (node) delete obs[node.i + ',' + node.j]; else obs = {}; TG.save.set('facilobs', obs); };
+  self.obsFlush = function () { TG.save.set('facilobs', obs); };
+
   // 저장된 녹색 시간을 신호기에 적용한다(하한에 걸리면 신호기가 알아서 올린다)
   function apply() {
     Object.keys(data.green).forEach(function (k) {
@@ -98,6 +140,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   // 한 대가 한 번 지날 때 한 번만 센다(car.__cam 표식).
   var cool = 0;
   self.update = function (dt, traffic, player, onCatch) {
+    observe(dt);
     if (!data.cams.length) return;
     cool -= dt;
     for (var ci = 0; ci < data.cams.length; ci++) {
@@ -134,6 +177,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   };
   function hit(C, obj, isPlayer, why, kmh, onCatch) {
     stats.caught++; stats.byKind[C.kind] = (stats.byKind[C.kind] || 0) + 1;
+    if (!isPlayer && obsOn()) bucket(city.nodes[C.i][C.j]).caught++;
     var nm = city.nodeName(city.nodes[C.i][C.j]);
     if (onCatch) onCatch({ kind: C.kind, node: city.nodes[C.i][C.j], dir: C.d, name: nm, why: why, kmh: kmh, player: !!isPlayer });
   }
@@ -141,7 +185,53 @@ TG.Facil = function (game, city, signals, cfg, scene) {
 
   // ---- 교통시설 관리 화면(심시티식): 왼쪽 교차로 목록 · 오른쪽 설정판 ----
   // 손가락으로 쓰도록 목록에서 골라 큰 단추로 바꾼다(3D 화면을 찍는 방식은 폰에서 어렵다).
-  var sel = null, host = null, todSel = '';
+  var sel = null, host = null, todSel = '', todHost = null;
+  // 💡 게임 조언(v0.10.62): 그 교차로의 실제 사고 경위(TAAS) → 해 볼 만한 조치. **실제 시설 설치 기준(교통안전시설 심의)이 아니다.**
+  var TIP = {
+    '신호위반': ['🚦 신호위반 단속 장비', '신호위반 사고가 많다 — 사고가 난 접근로에 신호위반 단속 장비를 세워 보고 아래 효과 기록으로 견준다'],
+    '교차로운행방법위반': ['📷 과속 단속 장비', '교차로 운행방법 위반 — 들어오는 속도를 낮추는 것부터 본다'],
+    '과속': ['📷 과속 단속 장비', '과속 사고 — 과속 단속 장비와 예고 표지'],
+    '안전거리미확보': ['📷 과속 단속 · 순찰', '추돌 — 속도가 낮아야 멈출 거리가 생긴다'],
+    '보행자보호의무위반': ['🚸 보행 시간 지키기', '보행자 사고 — 녹색을 하한 아래로 줄이지 않는다(줄일 수도 없다) · 우회전 일시정지(§27) 계도는 순찰로'],
+    '안전운전불이행': ['👀 순찰로 본다', '전방 주시 태만(휴대전화 등)은 무인 장비가 못 잡는다 — 이 교차로를 순찰하며 본다'],
+    '중앙선침범': ['👀 순찰로 본다', '중앙선 침범 — 무인 장비 대상이 아니다, 순찰로 본다']
+  };
+  function mpu() { var W = TG.MAP && TG.MAP.wgs84; return W && W.x && W.x[0] ? 88800 / W.x[0] : 1; }
+  function diagHtml(nd) {
+    var L = game.layers, h = '', k = nd.i + ',' + nd.j;
+    var rn = L && L.realNodes ? L.realNodes() : [], rk = null, R = null;
+    rn.slice().sort(function (a, b) { return b.score - a.score; }).forEach(function (r, i) { if (r.key === k) { R = r; rk = i + 1; } });
+    var cv = L && L.nodeViolations ? L.nodeViolations(nd.i, nd.j) : null;
+    var dg = game.pop && game.pop.dongLabel ? game.pop.dongLabel(nd) : '';
+    h += '<div class="pl-diag"><b>📊 이 교차로</b>';
+    if (dg) h += '<span>🏘 ' + esc(dg) + '</span>';
+    if (R) h += '<span>🚗 실제 사고 <b>' + R.total + '건</b>' + (R.death ? ' · 사망 ' + R.death : '') + ' · 서초 ' + rn.length + '곳 중 ' + rk + '위 <i>(TAAS ' + esc(L.realYears ? L.realYears() : '') + ')</i></span>';
+    else h += '<span class="dim">🚗 이 지도에는 교차로 사고 자료가 없습니다</span>';
+    if (cv && cv.violations && cv.violations.length) h += '<span>🔎 주된 경위 — ' + cv.violations.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · ') + '</span>';
+    var cd = game.citydata; if (cd && cd.ready && cd.ready() && cd.camerasNear) { var nc = cd.camerasNear(nd.x, nd.z, 300 / mpu()).length; h += '<span>📷 반경 300m 실제 무인 단속 카메라 ' + nc + '대 <i>(표준데이터 ' + esc(cd.cameraRef ? cd.cameraRef() || '' : '') + ')</i></span>'; }
+    var tips = [];
+    if (cv && cv.violations) cv.violations.forEach(function (v) { if (TIP[v[0]] && tips.length < 2 && !tips.some(function (t) { return t[0] === TIP[v[0]][0]; })) tips.push(TIP[v[0]]); });
+    if (tips.length) h += '<div class="pl-tips">' + tips.map(function (t) { return '<div>💡 <b>' + t[0] + '</b> — ' + esc(t[1]) + '</div>'; }).join('') + '<i>게임 조언 — 실제 교통안전시설 설치 기준(심의)이 아니다</i></div>';
+    h += '</div>';
+    // 📈 효과 기록
+    var rows = self.obsRows(nd);
+    h += '<h4>📈 효과 기록 <span class="pl-min">근무 중 이 교차로를 지켜본 시간과 그동안 기록된 위반 — 설정을 바꾸면 새 줄에 쌓인다</span></h4>';
+    if (!rows.length) h += '<div class="pl-note">아직 이 교차로를 지켜본 기록이 없습니다 — 근무 중 이 교차로 부근에 머물면 쌓입니다.</div>';
+    else {
+      h += '<div class="pl-tod"><table><thead><tr><th>설정</th><th>지켜본</th><th>신호</th><th>과속</th><th>보행</th><th>꼬리</th><th>📷</th><th>10분당</th></tr></thead><tbody>';
+      rows.slice(0, 4).forEach(function (r) {
+        var few = r.min < 5;
+        h += '<tr' + (r.cur ? ' class="on"' : '') + '><td>' + (r.cur ? '▶ ' : '') + esc(r.sig) + '</td><td>' + r.min.toFixed(1) + '분</td><td>' + r.red + '</td><td>' + r.speed + '</td><td>' + r.ped + '</td><td>' + r.grid + '</td><td>' + r.caught +
+             '</td><td><b>' + (few ? '—' : r.per10.toFixed(1)) + '</b></td></tr>';
+      });
+      h += '</tbody></table></div>';
+      var cur = rows.filter(function (r) { return r.cur; })[0], prev = rows.filter(function (r) { return !r.cur && r.min >= 5; })[0];
+      if (cur && prev && cur.min >= 5) { var dlt = cur.per10 - prev.per10;
+        h += '<div class="pl-now">지금 설정 10분당 <b>' + cur.per10.toFixed(1) + '건</b> · 앞 설정 ' + prev.per10.toFixed(1) + '건 → ' + (Math.abs(dlt) < 0.05 ? '변화 없음' : dlt < 0 ? '<b style="color:#3fbf6f">' + Math.abs(dlt).toFixed(1) + '건 줄었다</b>' : '<b style="color:#e0a93a">' + dlt.toFixed(1) + '건 늘었다</b>') + '</div>'; }
+      h += '<div class="pl-note">5분 넘게 지켜본 설정끼리만 견줍니다. 시간대·교통량·날씨가 섞이는 <b>게임 속 비교</b>이지 실제 효과 평가가 아닙니다.</div>';
+    }
+    return h;
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
   function nodesWithSignal() {
     var out = [];
@@ -151,7 +241,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
   function render() {
     if (!host) return;
     var all = nodesWithSignal();
-    if (!sel) sel = city.nodes[2][2];
+    if (!sel) sel = city.nodes[Math.min(2, city.xs.length - 1)][Math.min(2, city.zs.length - 1)];
     var gi = signals.greenInfo(sel), cams = self.camsAt(sel);
     var h = '<div class="pl-wrap">';
     h += '<div class="pl-list">';
@@ -166,6 +256,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
     });
     h += '</div><div class="pl-body">';
     h += '<h3>' + esc(city.nodeName(sel)) + '</h3>';
+    h += diagHtml(sel);
     h += '<div class="pl-sub">한 주기 <b>' + gi.cycle + '초</b> (황색 ' + cfg.SIG_YELLOW + ' + 전적색 ' + cfg.SIG_ALLRED + '초 포함) · 최소 녹색 ' + gi.minGreen + '초</div>';
     var ci = signals.cycleInfo ? signals.cycleInfo(sel) : null;
     if (ci && ci.target) {
@@ -191,7 +282,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
            '<button class="pl-tog' + (self.hasCam(sel, d, 'speed') ? ' on' : '') + '" data-cd="' + d + '" data-ck="speed"' + (up ? '' : ' disabled') + '>📷 과속</button></div>';
     }
     h += '</div>';
-    h += todHtml();
+    if (!todHost) h += todHtml();   // 근무표는 따로 된 칸(탭)이 있으면 그쪽에
     h += '<div class="pl-foot"><button class="pl-btn wide" data-reset="1">이 교차로 기본값으로</button>' +
          '<span class="pl-min">단속 실적 ' + stats.caught + '건 (신호 ' + (stats.byKind.signal || 0) + ' · 과속 ' + (stats.byKind.speed || 0) + ')</span></div>';
     h += '</div></div>';
@@ -266,8 +357,17 @@ TG.Facil = function (game, city, signals, cfg, scene) {
          '<span class="pl-src2">' + esc(T.source()) + '<br>' + esc(T.area()) + '</span></div>';
     return h;
   }
-  self.openPanel = function (el) { host = el; render(); };
+  self.openPanel = function (el, nodeSel) { host = el; if (nodeSel) sel = nodeSel; render(); };
   self.refreshPanel = render;
+  // 📋 신호 근무표를 따로 된 칸에(v0.10.62 · 교통시설 화면 탭)
+  function renderTod() {
+    if (!todHost) return;
+    if (!sel) sel = city.nodes[Math.min(2, city.xs.length - 1)][Math.min(2, city.zs.length - 1)];
+    todHost.innerHTML = todHtml();
+    var ts = todHost.querySelector('#todSel');
+    if (ts) ts.addEventListener('change', function () { todSel = ts.value; renderTod(); });
+  }
+  self.openTod = function (el) { todHost = el; renderTod(); };
 
   load(); apply(); build();
 };

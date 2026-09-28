@@ -979,6 +979,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car.violation && car.violation.seen && !seen) return;
     car.violation = { type: type, t: self.time, node: node, seen: !!seen }; car.marker.visible = !!seen;
     if (car.pendingAlso) { car.violation.also = car.pendingAlso; car.pendingAlso = null; }   // 함께 위반 — 알림이 나가기 전에 붙인다
+    if (self.onFlag) self.onFlag(car, type, node);   // 📈 교통시설 효과 기록(facil.onFlag)
     if (seen) { self.stats.witnessed++; self.onEvent('witness', car); } else car.unseen++;
   }
   this.witness = function (car) {

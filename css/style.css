@@ -1577,3 +1577,26 @@ body.hereon #hud > *:not(#hereCard){filter:blur(1.5px) brightness(.62)}
   body:not(.portrait).onfoot:not(.kidmode) .tbtn.hand{right:calc(50% + 62px);left:auto;bottom:calc(18px + var(--sa-b));width:64px;height:64px}
 }
 @media (orientation:landscape) and (max-height:380px){ body:not(.portrait) .sigs{bottom:calc(176px + var(--sa-b))} body:not(.portrait) .tbtn.sig{height:40px} }
+/* v0.10.62 🏗 교통시설 탭 · 진단 · 조언 · 효과 기록 / 🗺 우리 동네 교차로 카드 */
+.pl-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px}
+.pl-tab{flex:1 1 auto;min-height:40px;padding:6px 10px;border-radius:10px;border:1.5px solid rgba(160,190,255,.35);background:rgba(20,30,52,.85);color:#dfe8ff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.pl-tab.sel{background:#2b5fd9;border-color:#8fb2ff;color:#fff}
+.pl-diag{display:flex;flex-direction:column;gap:3px;text-align:left;margin:6px 0 10px;padding:8px 10px;border-radius:10px;background:rgba(40,60,100,.35);border:1px solid rgba(160,190,255,.25);font-size:12.5px;line-height:1.45}
+.pl-diag span i,.pl-diag i{font-style:normal;opacity:.7;font-size:11px}
+.pl-tips{margin-top:4px;padding:6px 8px;border-radius:8px;background:rgba(255,200,80,.1);border:1px solid rgba(255,200,80,.35)}
+.pl-tips div{margin:2px 0}
+.hfocus{display:block;width:100%;margin:8px 0 2px;padding:8px 10px;border-radius:10px;border:1.5px solid #e0a93a;background:rgba(224,169,58,.14);color:#fff;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+button.hcell{font:inherit;color:inherit;cursor:pointer;appearance:none}
+.hcell.sel{outline:3px solid #fff;outline-offset:1px}
+.hdet{margin:4px 0 10px;padding:9px 11px;border-radius:12px;background:rgba(20,30,52,.9);border:1.5px solid rgba(160,190,255,.35);text-align:left}
+.hdet-h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:6px}
+.hdet-h b{font-size:15px}.hdet-h span{font-size:12px;opacity:.85}
+.hbar{position:relative;height:20px;border-radius:10px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:6px}
+.hbar i{position:absolute;left:0;top:0;bottom:0;border-radius:10px;opacity:.85}
+.hbar span{position:relative;display:block;text-align:center;font-size:11.5px;line-height:20px;font-weight:700}
+.hrow{font-size:12.5px;line-height:1.45;margin:2px 0}.hrow i{font-style:normal;opacity:.7;font-size:11px}
+.hbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hbtns button,.hbtns .hlink{flex:1 1 auto;min-height:40px;padding:6px 10px;border-radius:10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.hbtns button:not(.primary),.hbtns .hlink{background:rgba(20,30,52,.85);border:1.5px solid rgba(160,190,255,.45);color:#dfe8ff}
+.hdongs{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0 10px;font-size:11.5px}
+.hdongs span{padding:2px 7px;border-radius:8px;border:1.5px solid var(--hc)}
