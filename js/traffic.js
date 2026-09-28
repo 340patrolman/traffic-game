@@ -68,6 +68,15 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       nd = (d + 3) % 4; lb = gridLane(car, N, nd); R = 5 + Math.max(0, city.crossHalf(N, d) - 6) * 0.3;   // 넓은 교차로는 우회전 반경도 크게
       cx = C.x + (la + R) * r[0] - (lb + R) * f[0]; cz = C.z + (la + R) * r[1] - (lb + R) * f[1];
       for (k = 1; k <= 5; k++) { th = k / 5 * Math.PI / 2; pts.push({ x: cx - r[0] * R * Math.cos(th) + f[0] * R * Math.sin(th), z: cz - r[1] * R * Math.cos(th) + f[1] * R * Math.sin(th), y: 0, vmax: cfg.AI_TURN_SPEED }); }
+    } else if (m === 'U') {
+      // ⑮ 유턴(v0.10.61): 1차로에서 교차로 안으로 들어가 반원을 그리고 되돌아 나온다. 나가는 차로는 맞은편 2~3차로(반원이 너무 좁지 않게).
+      //  「방해할 우려」(§18①)는 반원에 들어서는 순간 둘레에 달리는 차가 있는지로 본다(uturnCheck).
+      nd = (d + 2) % 4; var rdU = city.roadOf(N, nd), laneU = Math.min(2, city.lanesOf(rdU.axis, rdU.idx) - 1);
+      lb = city.laneOff(rdU.axis, rdU.idx, laneU); R = (la + lb) / 2;
+      var ccU = la - R, s0U = -Math.min(R * 0.4, city.crossHalf(N, d) * 0.5);
+      for (k = 0; k <= 8; k++) { th = k / 8 * Math.PI; pts.push({ x: C.x + f[0] * (s0U + R * Math.sin(th)) + r[0] * (ccU + R * Math.cos(th)), z: C.z + f[1] * (s0U + R * Math.sin(th)) + r[1] * (ccU + R * Math.cos(th)), y: 0, vmax: 4.5, uarc: k === 0 ? N : undefined }); }
+      pts.push({ x: C.x - f[0] * (city.crossHalf(N, nd) + 3) - r[0] * lb, z: C.z - f[1] * (city.crossHalf(N, nd) + 3) - r[1] * lb, y: 0 });
+      car.uLane = laneU; car.uDone = true;
     } else {
       nd = (d + 1) % 4; lb = gridLane(car, N, nd); R = 8 + Math.max(0, city.crossHalf(N, d) - 6);
       cx = C.x + (la - R) * r[0] + (lb - R) * f[0]; cz = C.z + (la - R) * r[1] + (lb - R) * f[1];
@@ -81,12 +90,17 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       appendLink(car, 30);
     } else {
       var N2 = city.nodeFrom(N, nd);
-      car.path.push(approachPoint(car, N2, nd));
+      if (m === 'U') { var li0 = car.laneIdx; car.laneIdx = car.uLane; car.path.push(approachPoint(car, N2, nd)); car.laneIdx = li0; }   // 차로 번호는 반원에 들어설 때 바꾼다
+      else car.path.push(approachPoint(car, N2, nd));
       car.lastNode = N2; car.lastDir = nd;
     }
   }
   function chooseManeuver(N, d, car) {
     var opts = [], exit = city.exitFor(N, d);
+    // ⑮ 유턴 습관(v0.10.61): 편도 2차로 이상 도로의 1차로에서 한 번만 돈다(이륜차·자전거·킥보드·버스 제외)
+    if (car && car.trait === 'uturn' && !car.uDone && car.laneIdx === 0 && !car.isBus && !car.isMoto && !car.isBike && !car.isPM && car.mode === 'drive' && city.nodeFrom(N, (d + 2) % 4)) {
+      var rdT = city.roadOf(N, d); if (city.lanesOf(rdT.axis, rdT.idx) >= 2) return 'U';
+    }
     if (car && car.straight && city.nodeFrom(N, d)) return 'S';
     if (car && car.wantsExit && exit) return 'X';
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
@@ -200,14 +214,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       laneIdx: opts.laneIdx !== undefined ? opts.laneIdx : (rng() < 0.5 ? 0 : 1),
       // 운전자 습관(위반 소재): phone(휴대전화) · litter(꽁초 던지기) · animal(동물 안고 운전). 방향지시등 없이 차로 변경(noSignalViolator), 실선 구간 변경은 위치로 판정.
       // 12대 중과실 소재: drunk(비틀거림) · overtake(우측 앞지르기) · sidewalk(보도 주행) · cargo(트럭 낙하물) · door(버스 문 열고 주행 = passenger). noLicense 는 정차 후 면허 조회에서만 드러난다.
-      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.10 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk', 'clpass', 'speeder', 'speeder', 'tailgate', 'nobelt', 'nobelt', 'tint', 'nolight']) : null)),
+      trait: opts.trait !== undefined ? opts.trait : (type === 'bus' ? (rng() < 0.12 ? 'door' : null) : type === 'truck' ? (rng() < 0.25 ? 'cargo' : null) : (rng() < 0.10 ? TG.pick(rng, ['phone', 'litter', 'animal', 'drunk', 'overtake', 'sidewalk', 'clpass', 'speeder', 'speeder', 'tailgate', 'nobelt', 'nobelt', 'tint', 'nolight', 'uturn', 'uturn']) : null)),
       noLicense: opts.noLicense !== undefined ? !!opts.noLicense : rng() < 0.04, weaveT: rng() * 6, swT: rng() * 20, cargoT: 8 + rng() * 12, doorT: 0, otBoost: 0,
       signal: null, signalT: 0, lcShift: 0, lcCd: 6 + rng() * 20, noSignalViolator: opts.noSignalViolator !== undefined ? opts.noSignalViolator : (violator && rng() < 0.6), traitT: rng() * 6, litterT: 6 + rng() * 10,
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
     if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
     // 교실(영아·어린이·청소년 — quiet)에는 과속·중앙선 앞지르기·바짝 붙기 차를 내지 않는다 — 아이 앞에서 급제동으로도 못 서는 차가 생긴다(v0.10.36 검증에서 잡힘)
-    if (self.quiet && (car.trait === 'speeder' || car.trait === 'clpass' || car.trait === 'tailgate')) car.trait = null;
+    if (self.quiet && (car.trait === 'speeder' || car.trait === 'clpass' || car.trait === 'tailgate' || car.trait === 'uturn')) car.trait = null;
     if (car.trait === 'speeder') { car.cruise = 20.5 + rng() * 2.5; car.speedK *= 1.25; }   // ⑬ 과속 습관: 시내 약 74~83km/h(게임 설계값 — 제한 50 + 20 을 확실히 넘어야 목격으로 잡힌다)
     if (car.trait === 'tailgate') car.cruise *= 1.15;                                     // ⑲ 안전거리 미확보 습관: 조금 빨리 가며 앞차에 붙는다
     // 시내 도로에서도 **대형승합·화물은 오른쪽 차로군**으로 간다(시행규칙 별표9 — 편도 3차로 이상 일반도로).
@@ -496,6 +510,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (incidentGroup) { scene.remove(incidentGroup); incidentGroup = null; }
   };
   function drive(car, dt) {
+    if (car.mode === 'parked') {   // ⑳ 불법 주정차: 운전자 없이 서 있다 — 등 모두 꺼짐 · 목격 화살표만 흔든다
+      car.v = 0; car.braking = false; car.brakeLamp.visible = false; if (car.brakeGroup) car.brakeGroup.visible = false;
+      if (car.marker.visible) car.marker.position.y = 3.2 + Math.sin(self.time * 4) * 0.2;
+      return;
+    }
     if (car.mode === 'incident') {   // 현장 차량: 비상등(양쪽 깜빡이)만 켜고 정지
       var on = ((self.time * 1.4) % 1) < 0.5;
       for (var bi3 = 0; bi3 < car.blinkL.length; bi3++) { car.blinkL[bi3].visible = on; car.blinkR[bi3].visible = on; }
@@ -511,7 +530,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       // 적색·긴급차 정지를 그대로 통과했다(v0.10.13 검증에서 찾음).
       var p = path[car.idx], dx = p.x - car.pos.x, dz = p.z - car.pos.z, pf = (p.stop && p.d !== undefined && car.mode === 'drive') ? TG.DIR_VEC[p.d] : null;   // 정차 유도(yield)는 종전대로 차 방향
       var along = pf ? dx * pf[0] + dz * pf[1] : dx * fx + dz * fz;
-      if (p.stop ? along < -0.8 : (along < 0.6 || Math.hypot(dx, dz) < 1.2)) car.idx++; else break;
+      if (p.stop ? along < -0.8 : (along < 0.6 || Math.hypot(dx, dz) < 1.2)) { if (p.uarc) uturnCheck(car, p.uarc); car.idx++; } else break;
     }
     if (car.idx > 40) { path.splice(0, car.idx); car.idx = 0; }
     var cur = path[Math.min(car.idx, path.length - 1)], onLink = !!cur.lp;
@@ -554,7 +573,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (distStop > -0.5 && distStop < 60) {
         // 보호 좌회전 교차로에서 좌회전 차는 **좌회전 화살표**를 따른다(v0.9.49). 직진·우회전은 직진 신호.
         // 실측 현시가 있는 교차로는 그 접근로의 이동류 신호를 따른다(v0.9.50) — 서측 직좌 현시에 동측 차는 선다
-        var axS = (ap.d === 0 || ap.d === 2) ? 'v' : 'h', st = signals.moveState(ap.node, ap.d, ap.maneuver === 'L' ? 'L' : 'S');
+        var axS = (ap.d === 0 || ap.d === 2) ? 'v' : 'h', st = signals.moveState(ap.node, ap.d, (ap.maneuver === 'L' || ap.maneuver === 'U') ? 'L' : 'S');
         // **황색 없이 바로 적색**(수동 전환 · 녹색 편집 · 실측 자료 적용으로 신호 시각이 건너뛰었다)을 본 차는 그 교차로에서 위반으로 기록하지 않는다.
         // 진짜 신호기는 황색을 건너뛰지 않는다 — 준법 차가 「신호위반」으로 단속되면 틀린 것을 가르친다(v0.9.51 검증: 적색 37초·123초째에 9m/s 로 통과한 준법 차).
         // 처음 본 신호가 **이미 적색인데 못 설 거리**인 차도 같다 — 정지선 바로 앞에 생겨났거나(스폰) 경로가 늦게 이어진 것이지 운전자가 신호를 무시한 것이 아니다
@@ -620,7 +639,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
           }
         }
         // 보호 좌회전 접근로의 1차로는 좌회전 전용 — 직진 차는 2차로로 옮긴다(좌회전 신호를 기다리는 차 뒤에 막히지 않게)
-        if (ap.maneuver !== 'L' && car.laneIdx === 0 && distStop < 60 && distStop > 8 && car.mode === 'drive' && signals.hasLeftFor(ap.node, ap.d)) {
+        if (ap.maneuver !== 'L' && ap.maneuver !== 'U' && car.laneIdx === 0 && distStop < 60 && distStop > 8 && car.mode === 'drive' && signals.hasLeftFor(ap.node, ap.d)) {
           var rdP = city.roadOf(ap.node, ap.d);
           if (city.lanesOf(rdP.axis, rdP.idx) >= 2) { car.lcShift += city.laneOff(rdP.axis, rdP.idx, 1) - city.laneOff(rdP.axis, rdP.idx, 0); car.laneIdx = 1; car.signal = 'R'; car.signalT = 2; }
         }
@@ -628,7 +647,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         if (car.pedViolator && car.mode === 'drive' && distStop < 30 && car.cooldown <= 0) pedIgnore = true;
       }
       if (car.prevDistStop !== undefined && car.prevDistStop > 0 && distStop <= 0 && car.prevAp === ap) {
-        var st2 = signals.moveState(ap.node, ap.d, ap.maneuver === 'L' ? 'L' : 'S');
+        var st2 = signals.moveState(ap.node, ap.d, (ap.maneuver === 'L' || ap.maneuver === 'U') ? 'L' : 'S');
         if (st2.s === 'red' && st2.elapsed > 0.6 && car.v > 1.5 && !rightTurn && car.noFlagNode !== ap.node) {
           // 기록이 붙는 순간의 사정(검증이 읽는다) — 준법 차에 신호위반이 붙는 원인을 찾으려고 남긴다
           car.sigDiag = { k: ap.node.i + ',' + ap.node.j, real: !!(signals.realInfo && signals.realInfo(ap.node)), m: ap.maneuver, d: ap.d, el: +st2.elapsed.toFixed(1), v: +car.v.toFixed(1),
@@ -655,8 +674,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     } else car.laneT = 0;
     // ---- 방향지시등·차로 변경·운전자 습관 ----
     car.lcCd -= dt; car.signalT -= dt;
-    if (ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop > -2 && distStop < 40) car.signal = ap.maneuver;   // 교차로 회전 예고
-    else if (car.signalT <= 0 && !(ap && (ap.maneuver === 'L' || ap.maneuver === 'R') && distStop < 40)) car.signal = null;
+    if (ap && (ap.maneuver === 'L' || ap.maneuver === 'R' || ap.maneuver === 'U') && distStop > -2 && distStop < 40) car.signal = ap.maneuver === 'U' ? 'L' : ap.maneuver;   // 교차로 회전 예고(유턴은 왼쪽)
+    else if (car.signalT <= 0 && !(ap && (ap.maneuver === 'L' || ap.maneuver === 'R' || ap.maneuver === 'U') && distStop < 40)) car.signal = null;
     if (car.prevApRef && car.prevApRef !== ap) car.lcShift = 0;   // 교차로를 지나면 새 경로가 새 차로에 있다
     car.prevApRef = ap;
     // 이륜차·자전거·개인형 이동장치: **이 도로의 맨 오른쪽 차로**로 붙는다(도로마다 차로 수가 다르므로 도로에 들어갈 때 잡는다).
@@ -926,6 +945,35 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       if (self.time - car.violation.t > cfg.VIOLATION_MEMORY && car.mode === 'drive') { car.violation = null; car.marker.visible = false; }
     }
   }
+  // ⑮ 유턴 「방해할 우려」(§18① · T-Book v23.35 「우려」 요건): 반원에 들어서는 순간 교차로 35m 안에 달리는(2m/s 넘게) 다른 차가 있으면 위반으로 기록한다.
+  //  순찰차도 「다른 차마」다. 둘레가 비어 있으면 기록하지 않는다(요건이 없다). 게임 설계값: 35m · 2m/s.
+  function uturnCheck(car, N) {
+    car.laneIdx = car.uLane !== undefined ? car.uLane : car.laneIdx; car.uTurnAt = self.time;
+    var near = 0;
+    for (var i = 0; i < cars.length; i++) { var o = cars[i]; if (o === car || o.mode !== 'drive' || o.v < 2) continue; if (Math.hypot(o.pos.x - N.x, o.pos.z - N.z) < 35) near++; }
+    var pl = self.player; if (pl && pl.telemetry && Math.abs(pl.telemetry.speed || 0) > 2 && Math.hypot(pl.pos.x - N.x, pl.pos.z - N.z) < 35) near++;
+    car.uNear = near;
+    if (near > 0) { car.uBlock = true; self.stats.violations++; flag(car, 'uturn', N, self.witness(car)); }
+  }
+  // ⑳ 불법 주정차(v0.10.61 · T-Book v23.35): 운전자 없이 횡단보도 10m 안(§32 5호)에 세워 둔 차. 정차 유도 대상이 아니다 — 사진 채증 후 과태료 통지.
+  //  opts: node·d(그 교차로로 들어가는 접근로) · type. 없으면 플레이어 앞 교차로. 앞범퍼가 정지선 약 0.5m 뒤 · 갓길(차로 밖).
+  this.spawnParked = function (opts) {
+    opts = opts || {}; var pl = self.player;
+    var d = opts.d !== undefined ? opts.d : (pl ? TG.headingToDir(pl.heading) : 0);
+    var N = opts.node || (pl ? city.nodeAhead(pl.pos.x, pl.pos.z, d, 30) : null); if (!N) return null;
+    if (opts.maxD && pl && Math.hypot(N.x - pl.pos.x, N.z - pl.pos.z) > opts.maxD) return null;
+    var rd = city.roadOf(N, d); if (!rd || !city.nodeFrom(N, (d + 2) % 4)) return null;
+    var type = opts.type || TG.pick(rng, ['sedan', 'hatch', 'suv']), T = TG.vehmesh.TYPES[type];
+    var f = TG.DIR_VEC[d], r = [-f[1], f[0]], off = city.shoulderOff(rd.axis, rd.idx) - 0.6, back = city.stopDist(N, d) + T.l / 2 + 0.5;
+    var x = N.x - f[0] * back + r[0] * off, z = N.z - f[1] * back + r[1] * off;
+    for (var i = 0; i < cars.length; i++) if (Math.hypot(cars[i].pos.x - x, cars[i].pos.z - z) < 7) return null;   // 겹치면 놓지 않는다
+    var c = makeCar(type, x, z, TG.DIR_HEADING[d], { violator: false, straight: true, trait: null, noLicense: false, mount: false });
+    c.mode = 'parked'; c.v = 0; c.cruise = 0; c.speedK = 0; c.path = []; c.route = null; c.lastNode = null;
+    c.illegalPark = true; c.parkNode = N; c.parkD = d; c.parkCw = +(back - T.l / 2 - city.crossFar(N, d)).toFixed(1);   // 횡단보도 바깥 끝까지(음수면 이미 걸침)
+    if (c.driverMesh) c.driverMesh.visible = false;   // 운전자 부재 — 창 너머 빈 자리
+    var hy = city.heightAt ? city.heightAt(x, z, 0) : 0; c.y = isFinite(hy) ? hy : 0; c.mesh.position.y = c.y;
+    return c;
+  };
   // 위반은 목격 여부와 상관없이 차량에 기록한다(터치 단속 퀴즈의 정답 근거). 화살표·HUD 알림은 플레이어가 목격했을 때만.
   function flag(car, type, node, seen) {
     if (car.violation && car.violation.seen && !seen) return;
@@ -947,6 +995,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     self.time += dt; spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.5; if (cars.length < budget) spawn(); }
     for (var i = 0; i < cars.length; i++) drive(cars[i], dt);
+    for (var pk = cars.length - 1; pk >= 0; pk--) {   // ⑳ 불법 주정차: 보이면 기록(화살표) · 멀어지면 치운다(단속 중인 차는 남긴다)
+      var pc = cars[pk]; if (pc.mode !== 'parked') continue;
+      if (pc.illegalPark && !pc.parkDone && !pc.violation && self.witness(pc)) { self.stats.violations++; flag(pc, 'parking', pc.parkNode, true); }
+      if (self.player && Math.hypot(pc.pos.x - self.player.pos.x, pc.pos.z - self.player.pos.z) > cfg.DESPAWN * 1.6 && !pc.keep) remove(pc);
+    }
     for (var li = litters.length - 1; li >= 0; li--) {   // 던져진 꽁초: 포물선으로 떨어져 2초 뒤 사라진다
       var lt = litters[li]; lt.t += dt; lt.vy -= 9.8 * dt;
       var gnd = lt.ground || 0.03;

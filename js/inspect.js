@@ -30,12 +30,14 @@ TG.Inspect = function (game) {
     motorcycle: ['sideNear', '이륜차가 보도를 달린다'], bicycle: ['sideNear', '자전거가 보도를 타고 달린다'], bikeCross: ['sideNear', '횡단보도를 타고 건넌다'],
     sidewalk: ['side', '차가 보도로 올라가 달린다'], signal: ['rearHigh', '적색 신호에 정지선을 넘었다'], pedestrian: ['rearHigh', '횡단보도의 사람 앞에서 서지 않았다'],
     buslane: ['rearHigh', '버스전용차로를 달린다'], lane: ['rearHigh', '지정차로가 아닌 왼쪽 차로를 달린다'], nosignal: ['rearHigh', '방향지시등 없이 차로를 바꿨다'],
-    overtake: ['rearHigh', '오른쪽으로 앞지르기를 했다'], gridlock: ['rearHigh', '막힌 교차로에 들어가 섰다'], railroad: ['rearHigh', '차단기가 내려온 건널목을 지났다']
+    overtake: ['rearHigh', '오른쪽으로 앞지르기를 했다'], gridlock: ['rearHigh', '막힌 교차로에 들어가 섰다'], railroad: ['rearHigh', '차단기가 내려온 건널목을 지났다'],
+    uturn: ['rearHigh', '다른 차가 오가는 교차로에서 차 사이로 유턴했다'], parking: ['side', null]
   };
   function typeOf(e) { return G.enforcement && G.enforcement.suspectOf ? G.enforcement.suspectOf(e) : (e.violation && e.violation.type); }
   function lineOf(e, ty) {
     var sh = SHOTS[ty]; if (!sh) return null;
     if (ty === 'speeding') { var v = e.violation && e.violation.kmh ? e.violation : e._evSpd; return v ? '측정 ' + v.kmh + 'km/h · 제한 ' + v.limit + ' — ' + (v.kmh - v.limit) + 'km/h 넘게 달린다' : '제한속도보다 훨씬 빠르게 달린다'; }
+    if (ty === 'parking') return '운전자 없이 서 있다 — 횡단보도까지 ' + (e.parkCw > 0 ? e.parkCw.toFixed(1) + 'm' : '걸쳐') + ' (10m 안 정차·주차 금지)';
     if (ty === 'distance') return (e.tgGap ? '앞차와 ' + e.tgGap.toFixed(1) + 'm · ' + Math.round(e.v * 3.6) + 'km/h — ' : '') + '멈출 거리 없이 바짝 붙어 달린다';
     return sh[1];
   }

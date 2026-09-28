@@ -33,7 +33,7 @@ TG.Junction = function (game) {
     var n = 0;
     for (var i = 0; i < traffic.cars.length; i++) {
       var c = traffic.cars[i];
-      if (c.v > 1 || c.mode === 'incident') continue;
+      if (c.v > 1 || c.mode === 'incident' || c.mode === 'parked') continue;
       if (Math.abs(c.pos.x - node.x) <= city.halfV[node.i] + 1 && Math.abs(c.pos.z - node.z) <= city.halfH[node.j] + 1) n++;
     }
     return n;

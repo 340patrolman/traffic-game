@@ -62,7 +62,7 @@ TG.Enforcement = function (game) {
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
                 drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
                 pm: '개인형 이동장치 보도 통행', pmHelmet: 'PM 인명보호장구 미착용', pmTwo: 'PM 2인 이상 탑승',
-                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', speeding: '속도위반(과속)', distance: '안전거리 미확보', seatbelt: '좌석안전띠 미착용(운전자)', tint: '짙은 선팅(창유리)', nolight: '밤 무등화(등화 불이행)', gridlock: '교차로 통행방법 위반(꼬리물기)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
+                bikeCross: '자전거등 횡단보도 통행방법 위반(타고 건넘)', speeding: '속도위반(과속)', distance: '안전거리 미확보', seatbelt: '좌석안전띠 미착용(운전자)', tint: '짙은 선팅(창유리)', nolight: '밤 무등화(등화 불이행)', uturn: '불법 유턴(통행 방해 우려)', parking: '불법 주정차(횡단보도 10m 안)', gridlock: '교차로 통행방법 위반(꼬리물기)', wanted: '수배차량(중대 사건)', none: '위반 없음' };
   this.nameOf = function (id) { return NAMES[id] || id; };
   this.optionsFor = function (car) { return carOptions(car); };   // 검증에서 보기 목록을 직접 본다
   var TRAIT_V = { speeder: 'speeding', tailgate: 'distance', nobelt: 'seatbelt', tint: 'tint', nolight: 'nolight', clpass: 'centerline' };   // 습관 → 위반 이름(v0.10.36)
@@ -77,6 +77,7 @@ TG.Enforcement = function (game) {
     // **비틀거리는 차는 언제나 「음주운전 의심」을 보기에 둔다.** 눈으로 사행 주행을 보고 세웠는데
     // 고를 항목이 없으면 단속을 할 수가 없다(소유자: 「음주의심차량을 단속하려면 단속항목에 있어야 하는데 없다」).
     var forced = false;
+    if (car.mode === 'parked') { ids = ['signal', 'parking', 'pedestrian', 'nosignal']; forced = true; }   // ⑳ 운전자 없는 차 — 달리는 위반은 보기에 넣지 않는다
     if (car.trait === 'drunk' || (car.violation && car.violation.type === 'drunk')) {
       if (ids.indexOf('drunk') < 0) ids[ids.length - 1] = 'drunk';
       forced = true;   // 아래 무작위 보기가 이 자리를 **덮어쓰지 않게** 한다(처음엔 덮어써서 음주가 사라졌다)
@@ -110,6 +111,8 @@ TG.Enforcement = function (game) {
     if (t === 'speeder') { f = city.frameAt(car.pos.x, car.pos.z, car.heading); var kmh = Math.round(car.v * 3.6); if (f.kind !== 'off' && f.limit < 900 && kmh > f.limit + 20) { ev.push('speeding'); car._evSpd = { kmh: kmh, limit: f.limit, school: !!f.school }; } }
     if (car.edgeRider && car.mode === 'drive') ev.push(car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : car.isPM ? 'pm' : 'sidewalk');
     if (car.isPM) { if (car.pmTwo) ev.push('pmTwo'); if (car.pmHelmet === false) ev.push('pmHelmet'); }
+    if (car.mode === 'parked' && car.illegalPark && !car.parkDone) ev.push('parking');                        // ⑳ 불법 주정차(서 있는 동안 늘 보인다)
+    if (car.uBlock && game.traffic && game.traffic.time - (car.uTurnAt || -99) < 12) ev.push('uturn');        // ⑮ 방금 다른 차 사이로 유턴했다
     if (mv && !city.nearIntersectionZone(car.pos.x, car.pos.z)) { f = f || city.frameAt(car.pos.x, car.pos.z, car.heading); if (f.kind === 'grid' && f.lateral < -0.5) ev.push('centerline'); }
     return ev.filter(function (id) { return !!NAMES[id]; });
   }
@@ -129,7 +132,8 @@ TG.Enforcement = function (game) {
     var d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z), d = Math.hypot(e.pos.x - pl.pos.x, e.pos.z - pl.pos.z), maxD = onFoot() ? 45 : 75;
     if (sel.kind === 'car' && d > maxD) { game.hud.notice('너무 멉니다 — ' + maxD + 'm 이내로 접근하세요', 'warn', 2000); return false; }
     if (sel.kind === 'ped' && d > 40) { game.hud.notice('너무 멉니다 — 보행자 40m 이내로 접근하세요', 'warn', 2000); return false; }
-    if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
+    if (sel.kind === 'car' && e.mode === 'parked' && e.parkDone) { game.hud.notice('이미 채증한 차량입니다', 'warn', 1800); return false; }
+    if (sel.kind === 'car' && e.mode !== 'drive' && e.mode !== 'release' && e.mode !== 'parked') { game.hud.notice('이미 정차 중인 차량입니다', 'warn', 1800); return false; }
     if (sel.kind === 'ped' && e.warned) { game.hud.notice('이미 계도한 보행자입니다', 'warn', 1800); return false; }
     var ev = sel.kind === 'car' ? evidenceOf(e) : [];
     var answer = sel.kind === 'car' ? (e.violation ? e.violation.type : (ev[0] || 'none')) : pedViolationOf(e);
@@ -176,6 +180,7 @@ TG.Enforcement = function (game) {
         ticket = null; game.hud.hideTicket(); game.setPaused(false, 'ticket'); self.state = 'idle';
         if (act) {
           if (sel.kind !== 'car') warnPed(e);
+          else if (e.mode === 'parked') parkedDone(e);   // ⑳ 운전자 부재 — 세우지 않고 사진 채증으로 끝낸다
           else if (game.response && game.response.tierOf(e) === 'C') game.response.blackbox(e);   // 이륜차·자전거·PM 단순 위반: 추격·정차 유도 없이 영상 단속
           else startPullover(e);
         }
@@ -187,6 +192,19 @@ TG.Enforcement = function (game) {
     game.hud.setTarget(null);
     return true;
   };
+  // ⑳ 불법 주정차 채증(v0.10.61): 운전자가 없으니 정차 유도·고지가 없다. 사진을 남기고 고용주등 과태료로 통지한다(T-Book v23.35).
+  function parkedDone(car) {
+    car.parkDone = true; car.illegalPark = false; car.violation = null; if (car.marker) car.marker.visible = false;
+    if (game.metrics) game.metrics.ev('pulloverDone');
+    TG.audio.shutter && TG.audio.shutter();
+    var L = lawById('parking'), bonus = 10;
+    game.addScore(bonus, null);
+    game.hud.notice('📸 사진 채증 · 운전자 부재 — 과태료 통지 (+' + bonus + ')', 'good', 2600);
+    if (L && L.absentNote) game.hud.hint(L.absentNote);
+    game.stats.parkPhotos = (game.stats.parkPhotos || 0) + 1;
+    if (game.story) game.story.onEnforced(car);
+    if (game.praise) game.praise.cheer('stop_ok', 20, { feed: '불법 주정차 채증' });
+  }
   function warnPed(p) { p.warned = true; if (p.state !== 'jaywalk' && p.state !== 'cross') { p.state = 'warned'; p.waitT = 0; } game.hud.notice('보행자 계도 완료 — 횡단보도로 안내', 'good', 2400); }
   // 정차 유도 시작(정답 뒤 자동). 경광등을 켜고 대상을 우측으로 세운다.
   function startPullover(car) {

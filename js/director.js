@@ -67,6 +67,17 @@ TG.Director = function (game) {
     var lane = n > 1 ? (myLane === 0 ? 1 : myLane - 1) : 0;
     if (n <= 1) return null;                                           // 차로가 하나뿐이면 내 앞을 막는다
     var la = city.laneOff(axis, idx, lane);
+    // ⑳ 다섯 번에 한 번은 앞 교차로 횡단보도 옆 불법 주정차(서 있어서 곧 보인다) · ⑮ 한 번은 1차로 유턴 차(앞 교차로에서 돌아 내 쪽으로 온다)
+    if (!self.bias && nth % 5 === 4 && tr.spawnParked) { var pk = tr.spawnParked({ d: d, maxD: 110 }); if (pk) { pk.directed = true; nth++; return pk; } }
+    if (!self.bias && nth % 5 === 2 && myLane !== 0) {
+      for (var ui = 0; ui < 3; ui++) {
+        var ua = 30 + ui * 6, ux = (axis === 'v' ? city.xs[idx] : P.pos.x + f[0] * ua) + r[0] * city.laneOff(axis, idx, 0), uz = (axis === 'v' ? P.pos.z + f[1] * ua : city.zs[idx]) + r[1] * city.laneOff(axis, idx, 0);
+        if (city.nearIntersectionZone(ux, uz)) continue;
+        var und = city.nodeAhead(ux, uz, (d + 2) % 4); if (!und) continue;
+        var uc = tr.spawn({ at: { x: ux, z: uz, d: d, node: und }, laneIdx: 0, v: Math.max(5, Math.abs(P.vF || 0) + 1), type: 'sedan', trait: 'uturn', violator: false });
+        if (uc) { uc.directed = true; nth++; return uc; }
+      }
+    }
     var pool = (self.bias && BIAS[self.bias]) || POOL, pick = pool[nth % pool.length];
     if (!self.bias && nth % 3 !== 2) { var lp = localPick(); if (lp && !(lp.lane0 && myLane === 0) && !(lp.lead && Math.abs(P.vF || 0) < 5)) pick = lp; }   // 셋 중 둘은 그 교차로의 실제 사고 경위대로, 하나는 섞는다
     // 과속 차는 **뒤에서 달려와 옆 차로로 지나간다**(v0.10.39) — 앞에 느리게 놓으면 빨라지는 동안 시야 밖으로 멀어져 목격이 안 됐다(트윈 검증)
