@@ -228,6 +228,7 @@
   function loadLocalPhases() {
     if (!signals.applyReal || typeof fetch !== 'function') return;
     if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) { G.realPhases = 0; return; }   // 배포판에는 없는 파일이다(비공개) — 404 를 남기지 않는다
+    if ((city.roadNameV && city.roadNameV(2)) !== '반포대로' || city.xs.length !== 5) { G.realPhases = 0; return; }   // 교차로 번호(i,j)로 찾는 자료다 — 서초 5×5 격자가 아니면 엉뚱한 교차로에 붙는다(서초역·양재역 1:1)
     fetch('data/local/phases-seocho.json', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { G.realPhases = signals.applyReal(d, new Date()); log('실측 현시(로컬): ' + G.realPhases + '곳 적용'); if (facil && facil.refreshPanel) facil.refreshPanel(); })
@@ -1346,6 +1347,7 @@
     // 🔗 순찰 근무는 **하나의 사건 사슬**로 시작한다 — 무전 한 건이 다음 사건을 부른다(6초 뒤: 상황실 브리핑과 겹치지 않게)
     if (G.metrics) G.metrics.begin(G.mode);
     if (G.director) G.director.reset();
+    if (G.brt && G.brt.reset) G.brt.reset();
     if (G.hood) G.hood.begin();
     var chapNow = !!G.chapterNext; G.chapterNext = false; G.chapterRun = null; G.lastRunChapter = chapNow;
     if (chapNow && G.campaign) G.campaign.begin();   // 📖 출근하기로 연 판 = 지금 장
@@ -2426,6 +2428,12 @@
   // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
   var BRT_MODES = ['patrol', 'open', 'free', 'chase', 'duty', 'walk', 'crazy'];
   G.startScenario = function (id) {
+    // 🎞 실제 사망사고 재현(v0.10.69 · 양재역 1:1 · 지도 항목 brt.reenact) — 격자 크기와 무관하게 먼저 받는다
+    if (/^(yj|mj)20\d\d$/.test(id)) {
+      start(settings.car, 'patrol');
+      if (!(G.brt && G.brt.reenact && G.brt.reenact(id))) hud.notice('🎞 이 재현은 「양재역 정밀 구역 (1:1)」 지도에서 열립니다 — 첫 화면 🗺 지도에서 고른 뒤 다시 누르세요', 'warn', 5200);
+      return;
+    }
     // (v0.10.38) 체험 장면은 **기본 지도(5×5 · 간격 80) 좌표**로 짜여 있다 — 3×3 인 1:1 정밀 지도에서는 교차로가 없어 장면이 깨졌다(지도 점검에서 찾음).
     //  그 지도에서는 장면을 억지로 만들지 않고 알린 뒤 순찰로 시작한다.
     if (city.xs.length < 5 || city.zs.length < 5) { start(settings.car, 'patrol'); hud.notice('🗺 이 체험 장면은 기본 지도(5×5)에서 열립니다 — 지금 지도에서는 순찰로 시작합니다', 'warn', 4200); return; }

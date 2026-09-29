@@ -22,7 +22,7 @@ TG.study = (function () {
     });
     html += '</div>';
     // ② 어린이보호구역 · ③ 자전거·킥보드 — 학년별로 묶어서. 항목에 scene 이 있으면 「게임에서 시연」 버튼이 붙는다.
-    [G.laws && G.laws.schoolZone, G.laws && G.laws.carSafe, G.laws && G.laws.rideSafe].forEach(function (R) {
+    [G.laws && G.laws.schoolZone, G.laws && G.laws.carSafe, G.laws && G.laws.busStopSafe, G.laws && G.laws.rideSafe].forEach(function (R) {
     if (R && R.items && R.items.length) {
       html += '<h2 style="margin-top:22px">' + esc(R.title) + '</h2>';
       html += '<div class="dim small">' + esc(R.source) + '</div>';

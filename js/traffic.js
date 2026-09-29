@@ -101,6 +101,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car && car.trait === 'uturn' && !car.uDone && car.laneIdx === 0 && !car.isBus && !car.isMoto && !car.isBike && !car.isPM && car.mode === 'drive' && city.nodeFrom(N, (d + 2) % 4)) {
       var rdT = city.roadOf(N, d); if (city.lanesOf(rdT.axis, rdT.idx) >= 2) return 'U';
     }
+    if (car && car.forceTurn && !car.turnUsed) { var ftD = car.forceTurn === 'R' ? (d + 3) % 4 : car.forceTurn === 'L' ? (d + 1) % 4 : d; if (city.nodeFrom(N, ftD)) { car.turnUsed = true; return car.forceTurn; } }   // 재현 장면(v0.10.69): 다음 교차로 한 번만
     if (car && car.straight && city.nodeFrom(N, d)) return 'S';
     if (car && car.wantsExit && exit) return 'X';
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
@@ -395,6 +396,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var ctype = opts.type || TG.pick(rng, CITY_TYPES);
       car = makeCar(ctype, gx, gz, TG.DIR_HEADING[d], { violator: opts.violator, pedViolator: opts.pedViolator, straight: opts.straight, cruise: opts.cruise, wantsExit: opts.wantsExit, laneIdx: laneIdx, trait: opts.trait, noLicense: opts.noLicense, color: opts.color, mount: opts.mount, pmHelmet: opts.pmHelmet, pmTwo: opts.pmTwo });
       if (opts.at && opts.laneIdx === undefined) { var lf = city.laneFrame(gx, gz, TG.DIR_HEADING[d]); car.laneIdx = lf.lateral > 4 ? 1 : 0; }
+      if (opts.turn) car.forceTurn = opts.turn;
       car.path.push(approachPoint(car, N2, d));
       car.lastNode = N2; car.lastDir = d;
       extend(car); extend(car);
@@ -705,7 +707,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     //  승강장(버스 진행 방향 오른쪽 · 2차로 안쪽 1.9m)의 앞뒤에서는 2차로 차가 3차로로 옮기거나(편도 3차로 이상) 옆으로 비킨다(편도 2차로) ·
     //  버스는 제 방향 승강장에 서서 7~12초 머문다(뒤 버스는 따라 줄을 선다 — 노선이 많은 정류장일수록 버스가 몰린다).
     car.brtLane = null; car.stShift = 0;
-    if (city.brtAt && !onLink && ap && car.mode === 'drive' && !car.edgeRider && !car.rightLane) {
+    if (city.brtAt && !onLink && ap && car.mode === 'drive' && !car.edgeRider && !car.rightLane && car.trait !== 'sidewalk') {   // 보도 주행 습관 차는 뺀다(주기마다 차로 규칙이 번갈아 lcShift 가 쌓였다 — v0.10.69 실측 17.5m)
       var rdB = city.roadOf(ap.node, ap.d), sB = rdB.axis === 'v' ? car.pos.z : car.pos.x, BL = city.brtAt(rdB.axis, rdB.idx, sB);
       if (BL) {
         car.brtLane = BL; car.brtDir = ap.d;
@@ -727,11 +729,19 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
             if (dS < 0.8 && car.v < 0.6) {
               car.dwellKey = stB.key; car.dwellT = (car.dwellT || 0) + dt; if (!car.dwellNeed) car.dwellNeed = 7 + rng() * 5;
               if (car.dwellT > car.dwellNeed) { car.doneSt = stB.key; car.dwellKey = null; car.dwellT = 0; car.dwellNeed = 0; } else target = 0;
-            } else target = Math.min(target, stopProfile(Math.max(0, dS) + 1.3, cfg.AI_DECEL));   // stopProfile 은 1.3m 앞에서 멈춘다 — 그만큼 더해 정차 지점에 선다
+            } else target = dS <= 0 ? 0 : Math.min(target, stopProfile(dS + 1.3, cfg.AI_DECEL));   // (v0.10.69) 지나쳤으면 그 자리에 선다 — 1.3−1.0 이 0.30000000000000004 라 stopProfile 이 1.64m/s 를 돌려줘 영원히 기어갔다   // stopProfile 은 1.3m 앞에서 멈춘다 — 그만큼 더해 정차 지점에 선다
           }
         }
         if (car.dwellKey && (!stB || car.dwellKey !== stB.key)) { car.dwellKey = null; car.dwellT = 0; car.dwellNeed = 0; }
       } else if (car.dwellKey) { car.dwellKey = null; car.dwellT = 0; }
+    }
+    // 🚸 정류장 횡단보도(v0.10.69 · js/brt.js): 보행 녹색이면 정지선 앞에 선다(앞범퍼 기준) — 급제동으로도 못 서는 차는 빠져나간다(v0.9.46 규칙)
+    if (city.brtXwStop && !onLink && ap && car.mode === 'drive') {
+      var rdX = city.roadOf(ap.node, ap.d), sX = rdX.axis === 'v' ? car.pos.z : car.pos.x, dX = city.brtXwStop(rdX.axis, rdX.idx, ap.d, sX);
+      if (dX !== null) {
+        var dXF = dX - car.len / 2 + 0.8, cantX = (car.v > 2 && dXF - 0.3 < car.v * car.v / 2 / cfg.AI_EMERGENCY) || (car.v > 0.3 && dXF < 0.1);
+        if (!cantX && dXF > -0.5) { target = Math.min(target, stopProfile(Math.max(0, dXF), cfg.AI_DECEL)); car.xwWait = true; } else car.xwWait = false;
+      } else car.xwWait = false;
     }
     // 사고 현장 차로 차단(라바콘 구간): 130m 앞에서 **안쪽 차로로 옮기고**, 구간 안에서는 서행한다.
     // T-Book 「라바콘 3중 설치 → 정체유발 후방차량 감속」 · 「불꽃신호기 사선 배치로 차로를 점진 차단, 후속 차량을 감속」.

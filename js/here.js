@@ -61,6 +61,10 @@ TG.Here = function (game) {
     if (fr && fr.brt) rows.push({ k: '🚌 전용차로', v: fr.brt + ' — 1차로(청색 실선 안쪽)는 버스만 · 일반도로 전용차로 통행 위반(도로교통법 제15조 제3항)' });
     var bsq = G.brt && G.brt.on ? G.brt.stationNear(p.x, p.z, 320) : null;   // (v0.10.68) 가까운 중앙 정류장 — 실제로 서는 노선 수(서울시 버스도착정보)
     if (bsq) rows.push({ k: '🚏 중앙 정류장', v: bsq.st.name + ' · ' + dist(bsq.dist) + ' · 서는 노선 ' + bsq.st.routes + '(경기·광역·인천 ' + bsq.st.wide + ') · 하루 승하차 ' + (bsq.st.day || 0).toLocaleString() + '명' });
+    if (bsq && bsq.st.h) {   // (v0.10.69) 이 시각 승하차(서울시 교통카드 2026.6 · 시간대별) · 가장 붐비는 시각 · 정류장 횡단보도
+      var hN = G.brt.hourNow ? G.brt.hourNow() : new Date().getHours(), hA = bsq.st.h, pk = 0; for (var hk = 1; hk < 24; hk++) if (hA[hk] > hA[pk]) pk = hk;
+      rows.push({ k: '🚶 이용객 동선', v: hN + '시 승하차 ' + (hA[hN] || 0).toLocaleString() + '명(하루 평균) · 가장 붐비는 때 ' + pk + '시 ' + hA[pk].toLocaleString() + '명 · 횡단보도 ' + (bsq.st.xwGuess ? '자리 근사' : (bsq.st.xwSig ? '신호 있음' : '신호 표시 없음(OSM)')) + (bsq.st.exits && bsq.st.exits.length ? ' · 지하철 출입구 ' + bsq.st.exits.length + '곳' : '') });
+    }
     var szq = G.layers && G.layers.szNear ? G.layers.szNear(p.x, p.z, 400) : null;   // (v0.10.67) 실제 보호구역 시설(점) — 400m 안 가장 가까운 곳
     if (szq) rows.push({ k: '보호구역 시설', v: '🏫 ' + szq.name + (szq.kind === '초등학교' ? '초' : ' ' + szq.kind) + ' · ' + dist(szq.d) + ' (구역 경계선 자료 없음 — 표지로 확인)' });
     rows.push({ k: '지도 좌표', v: Math.round(p.x) + ', ' + Math.round(p.z) + (TG.MAP && TG.MAP.scale1to1 ? ' (1 unit = 1 m)' : '') });

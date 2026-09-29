@@ -109,6 +109,8 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     var f = TG.DIR_VEC[p.d];
     // 🚏 중앙 정류장 승강장 위(v0.10.68 · js/brt.js): 서서 버스를 기다린다 — 보도선으로 돌아가지 않는다
     if (p.state === 'plat') { p.jayT += dt; return; }
+    // 🚶 정류장 이용객 동선(v0.10.69): 길은 brt.js 가 한 걸음씩 옮긴다(출구 → 연석 신호 대기 → 횡단보도 → 승강장)
+    if (p.state === 'flow') { p.jayT += dt; return; }
     if (p.state === 'walk' || p.state === 'cross' || p.state === 'jaywalk') { p.pos.x += f[0] * p.speed * dt; p.pos.z += f[1] * p.speed * dt; }
     // **보도선으로 돌아온다 — 걷는 사람은 차도에 있을 수 없다.**
     // 사람끼리 어깨가 닿으면 옆으로 밀어내는데(separate) 밀린 사람이 돌아올 길이 없어서, 마주 걷는 사람이
@@ -351,13 +353,13 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     var pl = self.player;
     for (var i = peds.length - 1; i >= 0; i--) {
       var p = peds[i]; step(p, dt); p.t += dt;
-      if (pl && Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) > cfg.PED_DESPAWN) remove(p);
+      if (pl && Math.hypot(p.pos.x - pl.pos.x, p.pos.z - pl.pos.z) > cfg.PED_DESPAWN && !(p.fl && p.fl.kind === 'reenact')) remove(p);
     }
     // 걸음을 다 옮긴 뒤에 겹침을 푼다 — 그래야 밀어낸 자리가 그 프레임에 그대로 그려진다
     separate(); pushOutOfCars(dt); pushOutOfProps();
     for (var i2 = peds.length - 1; i2 >= 0; i2--) {
       var q = peds[i2];
-      var moving = q.state !== 'wait' && q.state !== 'warned' && q.state !== 'plat', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
+      var moving = q.state !== 'wait' && q.state !== 'warned' && q.state !== 'plat' && !(q.state === 'flow' && q.flowWait), w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
       q.mesh.position.set(q.pos.x, 0.2 + (moving ? Math.abs(Math.cos(w)) * 0.03 : 0), q.pos.z); q.mesh.rotation.y = TG.DIR_HEADING[q.d];
       q.limbs[0].rotation.x = sw; q.limbs[1].rotation.x = -sw; q.limbs[2].rotation.x = -sw * 0.7; q.limbs[3].rotation.x = sw * 0.7;
     }
