@@ -56,7 +56,11 @@ TG.Here = function (game) {
       var dong = G.pop.dongOf(nd);
       if (dong && dong.name) rows.push({ k: hereD && hereD.exact ? '교차로 동' : '행정동', v: (G.pop.dongLabel ? G.pop.dongLabel(nd) : dong.name) + (hereD && hereD.exact ? '' : ' (통계청 행정동 경계 2026.7 · 교차로 기준)') });
     }
-    if (C.inSchoolZone && C.inSchoolZone(p.x, p.z)) rows.push({ k: '구역', v: '⚠ 어린이보호구역 — 제한 30km/h · 범칙금·벌점 2배(08~20시)' + (C.schoolNote ? ' · ' + C.schoolNote : '') });
+    var szA = C.schoolZoneAt ? C.schoolZoneAt(p.x, p.z) : (C.inSchoolZone && C.inSchoolZone(p.x, p.z) ? {} : null);
+    if (szA) rows.push({ k: '구역', v: '⚠ 어린이보호구역 — 제한 30km/h · 범칙금·벌점 2배(08~20시)' + (szA.note ? ' · ' + szA.note : '') });
+    if (fr && fr.brt) rows.push({ k: '🚌 전용차로', v: fr.brt + ' — 1차로(청색 실선 안쪽)는 버스만 · 일반도로 전용차로 통행 위반(도로교통법 제15조 제3항)' });
+    var bsq = G.brt && G.brt.on ? G.brt.stationNear(p.x, p.z, 320) : null;   // (v0.10.68) 가까운 중앙 정류장 — 실제로 서는 노선 수(서울시 버스도착정보)
+    if (bsq) rows.push({ k: '🚏 중앙 정류장', v: bsq.st.name + ' · ' + dist(bsq.dist) + ' · 서는 노선 ' + bsq.st.routes + '(경기·광역·인천 ' + bsq.st.wide + ') · 하루 승하차 ' + (bsq.st.day || 0).toLocaleString() + '명' });
     var szq = G.layers && G.layers.szNear ? G.layers.szNear(p.x, p.z, 400) : null;   // (v0.10.67) 실제 보호구역 시설(점) — 400m 안 가장 가까운 곳
     if (szq) rows.push({ k: '보호구역 시설', v: '🏫 ' + szq.name + (szq.kind === '초등학교' ? '초' : ' ' + szq.kind) + ' · ' + dist(szq.d) + ' (구역 경계선 자료 없음 — 표지로 확인)' });
     rows.push({ k: '지도 좌표', v: Math.round(p.x) + ', ' + Math.round(p.z) + (TG.MAP && TG.MAP.scale1to1 ? ' (1 unit = 1 m)' : '') });

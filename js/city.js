@@ -68,6 +68,17 @@ TG.buildCity = function (cfg) {
   // (v0.10.67) 보호구역이 걸친 변 — 'v' = 블록 서쪽 남북 도로 · 'h' = 블록 남쪽 동서 도로. 지도가 적지 않으면 둘 다(종전).
   //  서초구 1:1 은 실제 초등학교 정문 주소가 간선에 있는 곳(서래초 · 방배로 260)의 **방배로 한 변만** 둔다.
   var schoolSides = mapv('schoolSides', ['v', 'h']), schoolNote = mapv('schoolNote', null);
+  // (v0.10.68) 변 이름: 'v' 블록 서쪽 남북 도로 · 've' 동쪽 남북 도로 · 'h' 남쪽 동서 도로 · 'hn' 북쪽 동서 도로.
+  //  보호구역을 둘 이상 둘 수 있다(schoolExtra) — 소유자 2026-09-29 「서래초도(서울교대부설초도)」. 학교 블록 모양은 첫째(schoolBlock)만 그린다.
+  var schoolZones = [{ i: schoolBlock.i, j: schoolBlock.j, sides: schoolSides, note: schoolNote }].concat((mapv('schoolExtra', []) || []).filter(function (z) { return z && inBlock(z.i, z.j); })
+    .map(function (z) { return { i: z.i, j: z.j, sides: z.sides || ['v'], note: z.note || null }; }));
+  // 🚌 중앙버스전용차로(v0.10.68 · 지도 항목 brt — 서초구 1:1 에만): 구간은 격자 좌표(주축 s0~s1), 승강장은 js/brt.js 가 그린다
+  var BRT = mapv('brt', null);
+  function brtAt(axis, idx, s) {
+    if (!BRT || !BRT.lanes) return null;
+    for (var k = 0; k < BRT.lanes.length; k++) { var L = BRT.lanes[k]; if (L.axis === axis && L.idx === idx && s >= L.s0 && s <= L.s1) return L; }
+    return null;
+  }
   // 서울 서초구를 본뜬 배치(축약).
   // 반포대로×서초대로 = 서울성모병원 사거리(교차로 근무 무대). 강남대로는 동쪽 구 경계다.
   // 서초구 축약 지도. 남북은 서 → 동, 동서는 북 → 남 순서로 실제 배열과 같게 놓았다.
@@ -92,11 +103,26 @@ TG.buildCity = function (cfg) {
   function nodeName(node) { var nm = NODE_NAMES[node.i + ',' + node.j]; if (nm) return nm; return roadNamesV[node.i] + '·' + hName(node.j, node.x - 1) + ' 교차로'; }
   // 어린이보호구역: 학교 블록(기본 지도 (1,2))에 붙은 방배로(x=xs[1])·효령로(z=zs[3]) 구간. 간선(반포대로·강남대로·서초대로)은 제외.
   //  지도가 schoolSides 를 적으면 그 변만(서초구 1:1 = 서래초 앞 방배로).
+  function schoolZoneAt(x, z) {
+    for (var k = 0; k < schoolZones.length; k++) {
+      var Z = schoolZones[k], sx0 = xs[Z.i], sx1 = xs[Z.i + 1], sz0 = zs[Z.j], sz1 = zs[Z.j + 1], sd = Z.sides;
+      if (sd.indexOf('v') >= 0 && Math.abs(x - sx0) <= halfV[Z.i] + 1 && z > sz0 + 12 && z < sz1 - 12) return Z;
+      if (sd.indexOf('ve') >= 0 && Math.abs(x - sx1) <= halfV[Z.i + 1] + 1 && z > sz0 + 12 && z < sz1 - 12) return Z;
+      if (sd.indexOf('h') >= 0 && Math.abs(z - sz1) <= halfH[Z.j + 1] + 1 && x > sx0 + 12 && x < sx1 - 12) return Z;
+      if (sd.indexOf('hn') >= 0 && Math.abs(z - sz0) <= halfH[Z.j] + 1 && x > sx0 + 12 && x < sx1 - 12) return Z;
+    }
+    return null;
+  }
+  // 체험 장면이 쓰는 「첫째 보호구역의 도로」 — 남북 도로면 idx 는 xs 번호, j0~j1 은 그 구간의 교차로 번호
+  function schoolRoad() {
+    var Z = schoolZones[0], sd = Z.sides;
+    if (sd.indexOf('ve') >= 0) return { axis: 'v', idx: Z.i + 1, j0: Z.j, j1: Z.j + 1 };
+    if (sd.indexOf('v') >= 0) return { axis: 'v', idx: Z.i, j0: Z.j, j1: Z.j + 1 };
+    if (sd.indexOf('hn') >= 0) return { axis: 'h', idx: Z.j, i0: Z.i, i1: Z.i + 1 };
+    return { axis: 'h', idx: Z.j + 1, i0: Z.i, i1: Z.i + 1 };
+  }
   function inSchoolZone(x, z) {
-    var sx0 = xs[schoolBlock.i], sx1 = xs[schoolBlock.i + 1], sz0 = zs[schoolBlock.j], sz1 = zs[schoolBlock.j + 1];
-    if (schoolSides.indexOf('v') >= 0 && Math.abs(x - sx0) <= halfV[schoolBlock.i] + 1 && z > sz0 + 12 && z < sz1 - 12) return true;
-    if (schoolSides.indexOf('h') >= 0 && Math.abs(z - sz1) <= halfH[schoolBlock.j + 1] + 1 && x > sx0 + 12 && x < sx1 - 12) return true;
-    return false;
+    return !!schoolZoneAt(x, z);
   }
   for (var bi = 0; bi < xs.length - 1; bi++) {
     for (var bj = 0; bj < zs.length - 1; bj++) {
@@ -331,8 +357,10 @@ TG.buildCity = function (cfg) {
       var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z);
       // 제한속도(안전속도 5030 취지): 4차로 간선 50, 2차로 40, 어린이보호구역 30
       var lim = school ? 30 : (lf.lanes >= 2 ? 50 : 40);
+      var brtL = BRT ? brtAt(lf.axis, lf.idx, lf.axis === 'v' ? z : x) : null;   // 🚌 중앙버스전용차로 구간(1차로 = 청색 실선 안쪽)
       return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + '(왕복 ' + (lf.lanes * 2) + '차로)' + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
-               shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center };
+               shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center,
+               brt: brtL ? brtL.name : null, brtLane: !!brtL && lf.lateral > 0.25 && lf.lateral < 3.75 };
     }
     if (terrain) {
       var q = terrain.nearest(x, z, true);
@@ -361,7 +389,7 @@ TG.buildCity = function (cfg) {
 
   var city = {
     xs: xs, zs: zs, nodes: nodes, bounds: bounds, buildings: buildings, trees: trees, lamps: lamps, signs: signs, roadTexts: roadTexts, parks: parks, blocks: blocks,
-    schoolBlock: schoolBlock, schoolSides: schoolSides, schoolNote: schoolNote, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
+    schoolBlock: schoolBlock, schoolSides: schoolSides, schoolNote: schoolNote, schoolZones: schoolZones, schoolZoneAt: schoolZoneAt, schoolRoad: schoolRoad, brt: BRT, brtAt: brtAt, spawn: spawn, walls: walls, halfV: halfV, halfH: halfH, lanesV: lanesV, lanesH: lanesH, EXT: EXT,
     map: MAP, mapName: mapv('name', '서울 서초구'), mapBeta: !!mapv('beta', true), mapId: mapv('id', 'seocho'),
     gridFrom: gridFrom,   // 격자를 어디서 읽었는가 — 'map'(지도 파일) 또는 'config.js'(물러선 값)
     landmarks: landmarks, subways: subways, monuments: monuments, roadNamesV: roadNamesV, roadNamesH: roadNamesH, roadNameV: function (i) { return roadNamesV[i] || null; }, roadNameH: function (j) { return roadNamesH[j] || null; }, hName: hName, nodeName: nodeName, hasStub: hasStub, inSchoolZone: inSchoolZone,

@@ -57,7 +57,7 @@ TG.Enforcement = function (game) {
     if (law && law.precedent && law.precedent.indexOf('대법원') === 0) out.push('판례 — ' + law.precedent);
     return out;
   }
-  var NAMES = { lane: '지정차로 통행 위반', signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
+  var NAMES = { lane: '지정차로 통행 위반', signal: '신호위반', centerline: '중앙선 침범', pedestrian: '보행자 보호의무 위반', unsafe: '안전운전 의무 위반', buslane: '버스전용차로 위반', buslaneC: '중앙버스전용차로 통행 위반(일반도로)', jaywalk: '무단횡단(횡단보도 밖)', 'jaywalk-red': '보행자 신호위반(횡단보도 위 · 보행 적색)',
                 phone: '운전 중 휴대전화 사용', litter: '차 밖으로 물건(꽁초) 던지기', animal: '동물을 안고 운전', nosignal: '방향지시등 없이 차로 변경', solidline: '실선 구간 차로 변경',
                 motorcycle: '이륜차 보도 통행', bicycle: '자전거 보도 주행(타고 달림)', overtake: '앞지르기 방법 위반(우측 앞지르기)', railroad: '철길건널목 통과방법 위반', license: '무면허 운전',
                 drunk: '음주운전 의심(측정 필요)', sidewalk: '보도 침범(차가 보도로 주행)', passenger: '승객 추락방지의무 위반(문 열고 주행)', cargo: '적재물 추락방지 조치 위반(낙하물)',
@@ -112,6 +112,7 @@ TG.Enforcement = function (game) {
     if (car.edgeRider && car.mode === 'drive') ev.push(car.isMoto ? 'motorcycle' : car.isBike ? 'bicycle' : car.isPM ? 'pm' : 'sidewalk');
     if (car.isPM) { if (car.pmTwo) ev.push('pmTwo'); if (car.pmHelmet === false) ev.push('pmHelmet'); }
     if (car.mode === 'parked' && car.illegalPark && !car.parkDone) ev.push('parking');                        // ⑳ 불법 주정차(서 있는 동안 늘 보인다)
+    if (car.brtLane && !car.isBus && car.laneIdx === 0 && mv && car.mode === 'drive') ev.push('buslaneC');   // 🚌 중앙버스전용차로 1차로(v0.10.68)
     if (car.uBlock && game.traffic && game.traffic.time - (car.uTurnAt || -99) < 12) ev.push('uturn');        // ⑮ 방금 다른 차 사이로 유턴했다
     if (mv && !city.nearIntersectionZone(car.pos.x, car.pos.z)) { f = f || city.frameAt(car.pos.x, car.pos.z, car.heading); if (f.kind === 'grid' && f.lateral < -0.5) ev.push('centerline'); }
     return ev.filter(function (id) { return !!NAMES[id]; });

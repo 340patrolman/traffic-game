@@ -219,7 +219,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       signal: null, signalT: 0, lcShift: 0, lcCd: 6 + rng() * 20, noSignalViolator: opts.noSignalViolator !== undefined ? opts.noSignalViolator : (violator && rng() < 0.6), traitT: rng() * 6, litterT: 6 + rng() * 10,
     };
     if (type !== 'bus' && type !== 'truck') car.busLaneViolator = opts.busLaneViolator !== undefined ? opts.busLaneViolator : TG.chance(rng, cfg.BUSLANE_VIOLATOR_RATE);
-    if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = 1; }
+    if (type === 'bus') { car.cruise = cfg.AI_CRUISE_BUS * 0.5; car.laneIdx = opts.laneIdx !== undefined ? opts.laneIdx : 1; }   // 중앙버스전용차로 버스는 1차로로 넣는다(v0.10.68)
+    // 🚌 중앙버스전용차로 위반 성향(v0.10.68) — 청색 실선 안쪽 1차로를 달린다(§15③). 버스·화물·이륜차·자전거·PM 은 없음 · 교실에는 없음
+    car.brtViol = opts.brtViol !== undefined ? !!opts.brtViol : (!self.quiet && ['bus', 'truck', 'moto', 'bike', 'pm'].indexOf(type) < 0 && rng() < (cfg.BRT_VIOLATOR_RATE || 0.05));
     // 교실(영아·어린이·청소년 — quiet)에는 과속·중앙선 앞지르기·바짝 붙기 차를 내지 않는다 — 아이 앞에서 급제동으로도 못 서는 차가 생긴다(v0.10.36 검증에서 잡힘)
     if (self.quiet && (car.trait === 'speeder' || car.trait === 'clpass' || car.trait === 'tailgate' || car.trait === 'uturn')) car.trait = null;
     if (car.trait === 'speeder') { car.cruise = 20.5 + rng() * 2.5; car.speedK *= 1.25; }   // ⑬ 과속 습관: 시내 약 74~83km/h(게임 설계값 — 제한 50 + 20 을 확실히 넘어야 목격으로 잡힌다)
@@ -672,6 +674,10 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         car.route.lane < minCargoLane(RLn.nLanes || (RLn.nLanes = self.terrain.laneOffsets(RLn.pts[0]).length))) {
       if (self.witness(car)) { car.laneT += dt; if (car.laneT > cfg.LANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'lane', null, true); } }
     } else car.laneT = 0;
+    // 🚌 일반도로 전용차로 통행 위반(도로교통법 제15조 제3항 · v0.10.68): 중앙버스전용차로 구간 1차로를 버스가 아닌 차가 달린다(목격 1.5초)
+    if (!onLink && car.brtLane && !car.isBus && car.laneIdx === 0 && car.mode === 'drive' && car.v > 2) {
+      if (self.witness(car)) { car.brtT = (car.brtT || 0) + dt; if (car.brtT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslaneC', ap ? ap.node : null, true); } }
+    } else car.brtT = 0;
     // ---- 방향지시등·차로 변경·운전자 습관 ----
     car.lcCd -= dt; car.signalT -= dt;
     if (ap && (ap.maneuver === 'L' || ap.maneuver === 'R' || ap.maneuver === 'U') && distStop > -2 && distStop < 40) car.signal = ap.maneuver === 'U' ? 'L' : ap.maneuver;   // 교차로 회전 예고(유턴은 왼쪽)
@@ -680,7 +686,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     car.prevApRef = ap;
     // 이륜차·자전거·개인형 이동장치: **이 도로의 맨 오른쪽 차로**로 붙는다(도로마다 차로 수가 다르므로 도로에 들어갈 때 잡는다).
     // 보도로 올라가 달리는 차(edgeRider)는 그 계산이 edgeOff 로 따로 있으니 건드리지 않는다.
-    if (car.rightGroup && !onLink && ap && car.mode === 'drive' && !car.inZone) {
+    if (car.rightGroup && !onLink && ap && car.mode === 'drive' && !car.inZone && !(car.isBus && car.brtLane)) {
       var rdG = city.roadOf(ap.node, ap.d), nG = city.lanesOf(rdG.axis, rdG.idx);
       var loG = nG >= 3 ? minCargoLane(nG) : nG - 1, wantG = car.isBus ? nG - 1 : TG.clamp(loG + (car.id % 2), loG, nG - 1);
       if (car.laneIdx !== wantG) {
@@ -694,6 +700,38 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         car.lcShift += city.laneOff(rdW.axis, rdW.idx, wantW) - city.laneOff(rdW.axis, rdW.idx, TG.clamp(car.laneIdx, 0, nW - 1));
         car.laneIdx = wantW;
       }
+    }
+    // 🚌 중앙버스전용차로(v0.10.68 · city.brt · js/brt.js): 버스는 1차로 · 다른 차는 1차로에 들어가지 않는다(위반 성향 brtViol 은 일부러 1차로) ·
+    //  승강장(버스 진행 방향 오른쪽 · 2차로 안쪽 1.9m)의 앞뒤에서는 2차로 차가 3차로로 옮기거나(편도 3차로 이상) 옆으로 비킨다(편도 2차로) ·
+    //  버스는 제 방향 승강장에 서서 7~12초 머문다(뒤 버스는 따라 줄을 선다 — 노선이 많은 정류장일수록 버스가 몰린다).
+    car.brtLane = null; car.stShift = 0;
+    if (city.brtAt && !onLink && ap && car.mode === 'drive' && !car.edgeRider && !car.rightLane) {
+      var rdB = city.roadOf(ap.node, ap.d), sB = rdB.axis === 'v' ? car.pos.z : car.pos.x, BL = city.brtAt(rdB.axis, rdB.idx, sB);
+      if (BL) {
+        car.brtLane = BL; car.brtDir = ap.d;
+        var nB = city.lanesOf(rdB.axis, rdB.idx), curB = TG.clamp(car.laneIdx, 0, nB - 1), wantB = curB;
+        var sgB = (ap.d === 0 || ap.d === 1) ? 1 : -1, stB = null, toB = 1e9, SL = city.brtStations || [];
+        for (var sk = 0; sk < SL.length; sk++) { var S0 = SL[sk]; if (S0.axis !== rdB.axis || S0.idx !== rdB.idx || S0.d !== ap.d) continue; var dd0 = (S0.s - sB) * sgB; if (dd0 > -S0.len / 2 - 4 && dd0 < toB) { toB = dd0; stB = S0; } }
+        if (car.isBus || car.brtViol) wantB = 0;
+        else if (curB === 0 && nB >= 2) wantB = 1;
+        if (!car.isBus && wantB === 1 && stB && toB < stB.len / 2 + 45) { if (nB >= 3) wantB = 2; else car.stShift = 1.9; }
+        if (wantB !== curB && !car.inZone) {
+          car.lcShift += city.laneOff(rdB.axis, rdB.idx, wantB) - city.laneOff(rdB.axis, rdB.idx, curB); car.laneIdx = wantB;
+          if (!car.isBus) { car.signal = wantB > curB ? 'R' : 'L'; car.signalT = 2; }
+        }
+        if (car.isBus && stB && car.doneSt !== stB.key) {
+          var dS = toB + stB.len / 2 - 3 - car.len / 2;   // 앞범퍼가 승강장 앞끝 3m 뒤에 선다
+          car.brtDbg = [Math.round(toB * 10) / 10, Math.round(dS * 10) / 10, stB.key];   // 검사가 읽는다
+          if (dS > -6 && dS < 60) {   // 사람 때문에 한 번 섰다 가면 정차 지점을 조금 지나칠 수 있다(6m 까지는 그 자리에서 선다)
+            car.stShift = 0.35;   // 승강장 쪽으로 조금 붙는다(오른쪽 문)
+            if (dS < 0.8 && car.v < 0.6) {
+              car.dwellKey = stB.key; car.dwellT = (car.dwellT || 0) + dt; if (!car.dwellNeed) car.dwellNeed = 7 + rng() * 5;
+              if (car.dwellT > car.dwellNeed) { car.doneSt = stB.key; car.dwellKey = null; car.dwellT = 0; car.dwellNeed = 0; } else target = 0;
+            } else target = Math.min(target, stopProfile(Math.max(0, dS) + 1.3, cfg.AI_DECEL));   // stopProfile 은 1.3m 앞에서 멈춘다 — 그만큼 더해 정차 지점에 선다
+          }
+        }
+        if (car.dwellKey && (!stB || car.dwellKey !== stB.key)) { car.dwellKey = null; car.dwellT = 0; car.dwellNeed = 0; }
+      } else if (car.dwellKey) { car.dwellKey = null; car.dwellT = 0; }
     }
     // 사고 현장 차로 차단(라바콘 구간): 130m 앞에서 **안쪽 차로로 옮기고**, 구간 안에서는 서행한다.
     // T-Book 「라바콘 3중 설치 → 정체유발 후방차량 감속」 · 「불꽃신호기 사선 배치로 차로를 점진 차단, 후속 차량을 감속」.
@@ -717,7 +755,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         target = Math.min(target, 8.4);   // 약 30km/h 서행
       }
     }
-    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
+    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && !car.brtLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
       var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
       if (nL >= 2) {
@@ -840,7 +878,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       for (var mi = 0; mi < cars.length; mi++) { var o2 = cars[mi]; if (o2 === car) continue; var ddx = o2.pos.x - car.pos.x, ddz = o2.pos.z - car.pos.z; if (ddx * ddx + ddz * ddz < 14 * 14 && (ddx * fx + ddz * fz) < 0 && Math.abs(ddx * rx + ddz * rz) < 5) target = Math.min(target, 4); }
     }
     // 정차 유도: 갓길로 옮기고, 교차로·횡단보도 밖에서 선다
-    var extraT = car.mode === 'drive' ? (car.lcShift || 0) + (car.edgeRider ? car.edgeOff : 0) + (car.trait === 'drunk' ? (car.weave || 0) : 0) : 0;   // 차로 변경·보도 주행(이륜차·자전거 위반): 경로점 대비 옆 이동
+    var extraT = car.mode === 'drive' ? (car.lcShift || 0) + (car.stShift || 0) + (car.edgeRider ? car.edgeOff : 0) + (car.trait === 'drunk' ? (car.weave || 0) : 0) : 0;   // 차로 변경·보도 주행(이륜차·자전거 위반): 경로점 대비 옆 이동
     if (car.clT > 0.5 && car.mode === 'drive' && !onLink) {   // 중앙선 넘어 앞지르기: 마주 오는 1차로 가운데(중앙선 왼쪽 2.1m)로 — 경로점 차로와 상관없이
       var clFr = city.frameAt(car.pos.x, car.pos.z, car.heading);
       if (clFr.kind === 'grid') extraT = -2.1 - (clFr.lateral - car.extra);

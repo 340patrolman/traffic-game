@@ -91,7 +91,8 @@
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
     facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
     traffic.onFlag = function (car, type, node) { if (facil && facil.onFlag) facil.onFlag(type, node); };   // 📈 효과 기록(v0.10.62)
-    layers = new TG.Layers(G, city, C, scene); G.layers = layers; if (TG.Hood) G.hood = new TG.Hood(G); if (TG.Dex) G.dex = new TG.Dex(G); if (TG.ShareCard) G.share = new TG.ShareCard(G);   // 🗺 동네 안전 지수(#6) · 📚 도감(#8)
+    // 🚌 G.brt = 중앙버스전용차로·중앙 정류장(v0.10.68 · 서초구 1:1 · js/brt.js)
+    layers = new TG.Layers(G, city, C, scene); G.layers = layers; if (TG.Brt) G.brt = new TG.Brt(G, city, C, scene); if (TG.Hood) G.hood = new TG.Hood(G); if (TG.Dex) G.dex = new TG.Dex(G); if (TG.ShareCard) G.share = new TG.ShareCard(G);   // 🗺 동네 안전 지수(#6) · 📚 도감(#8)
           // 지도 레이어(TAAS 사고 자료 · 어린이보호구역 · 단속 장비 · 시뮬레이션 위험도)
 
     hud.init(settings);
@@ -2423,6 +2424,7 @@
     }
   }
   // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
+  var BRT_MODES = ['patrol', 'open', 'free', 'chase', 'duty', 'walk', 'crazy'];
   G.startScenario = function (id) {
     // (v0.10.38) 체험 장면은 **기본 지도(5×5 · 간격 80) 좌표**로 짜여 있다 — 3×3 인 1:1 정밀 지도에서는 교차로가 없어 장면이 깨졌다(지도 점검에서 찾음).
     //  그 지도에서는 장면을 억지로 만들지 않고 알린 뒤 순찰로 시작한다.
@@ -2432,7 +2434,7 @@
     else if (id === 'pedestrian') { player.teleport(xs[2] + 2, zs[2] + 60, Math.PI); signals.set(N22, 'v', 'red'); for (var k = 0; k < 3; k++) peds.spawn({ at: { x: xs[2] - 9 + k * 2, z: zs[2] - 12, axis: 'h', coord: zs[2], side: -1, d: 1 }, jaywalker: false }); traffic.spawn({ at: { x: xs[2] - 2, z: zs[2] - 60, d: 0, node: N22 }, v: 10, violator: false, straight: true, pedViolator: true }); hud.notice('체험 · 보행자 보호: 횡단보도에 보행자가 있는데 통과하는 차를 터치해서 단속. 순찰차도 정지선 앞에서 멈춘다', 'info', 6000); }
     else if (id === 'centerline') { var cE = terrain.connE, p10 = cE.P(10); player.teleport(p10.x + p10.rx * 2, p10.z + p10.rz * 2, Math.atan2(p10.tx, p10.tz)); traffic.spawn({ atLink: { link: cE, i: 40, dirA: false }, lane: 0, v: 12, type: 'sedan', stayRing: true }); hud.notice('체험 · 중앙선: 왕복 2차로 교외 길, 황색 중앙선을 넘으면 감점 — 마주 오는 차에 주의', 'info', 6000); }
     else if (id === 'speed') { var R = terrain.ring, rp = R.P(30); player.teleport(rp.x + rp.rx * 5.5, rp.z + rp.rz * 5.5, Math.atan2(rp.tx, rp.tz)); player.vx = rp.tx * 22; player.vz = rp.tz * 22; player.resync(); hud.notice('체험 · 과속: 경부고속도로 제한 100 — 120km/h 이상은 12대 중과실(20km/h 초과)', 'info', 6000); }
-    else if (id === 'school') { player.teleport(xs[city.schoolBlock.i] + 2, zs[city.schoolBlock.j + 1] + 40, Math.PI); hud.notice('체험 · 어린이보호구역: 앞 학교 블록 주변은 30km/h. 무신호 횡단보도 앞 일시정지', 'info', 6000); }
+    else if (id === 'school') { var sRo = city.schoolRoad(); player.teleport(xs[sRo.idx] + 2, zs[sRo.j1] + 40, Math.PI); hud.notice('체험 · 어린이보호구역: 앞 학교 블록 주변은 30km/h. 무신호 횡단보도 앞 일시정지', 'info', 6000); }
     else if (id === 'overtake') { player.teleport(xs[2] + 2, zs[3] + 20, Math.PI); var N23 = city.nodes[2][3]; traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 44, d: 2, node: N23 }, v: 4, cruise: 4, straight: true, violator: false, laneIdx: 0, trait: null }); var ot = traffic.spawn({ at: { x: xs[2] + 2, z: zs[2] + 62, d: 2, node: N23 }, v: 10, cruise: 11, straight: true, violator: false, laneIdx: 0, trait: 'overtake' }); if (ot) ot.lcCd = 0; hud.notice('체험 · 앞지르기 위반: 앞의 빠른 차가 느린 차를 우측(바깥 차로)으로 추월한다 — 앞지르기는 좌측으로(§21)', 'info', 6000); }
     else if (id === 'railroad') { var LW = terrain.conns[3], p6 = LW.P(6); player.teleport(p6.x + p6.rx * 2, p6.z + p6.rz * 2, Math.atan2(p6.tx, p6.tz)); rail.forceClose(); var rc = traffic.spawn({ atLink: { link: LW, i: 11, dirA: true }, lane: 0, v: 11, type: 'sedan', violator: true, stayRing: true }); if (rc) rc.railRun = true; hud.notice('체험 · 철길건널목: 앞 건널목 차단기가 내려온다 — 정지선 앞에 선다. 앞차는 그대로 통과(위반)', 'info', 6000); }
     else if (id === 'license') { player.teleport(xs[2] + 2, zs[2] + 48, Math.PI); signals.set(N22, 'h', 'red'); var lc = traffic.spawn({ at: { x: xs[2] - 70, z: zs[2] - 2, d: 1, node: N22 }, v: 9, violator: true, straight: true, noLicense: true }); hud.notice('체험 · 무면허: 왼쪽에서 신호위반으로 들어오는 차를 세우면 MDT 면허 조회에서 무면허가 드러난다', 'info', 6000); }
@@ -2441,8 +2443,28 @@
     else if (id === 'passenger') { player.teleport(xs[2] + 2, zs[3] + 30, Math.PI); traffic.spawn({ at: { x: xs[2] + 5.5, z: zs[2] + 62, d: 2, node: city.nodes[2][3] }, v: 7, cruise: 8, straight: true, violator: false, laneIdx: 1, type: 'bus', trait: 'door' }); hud.notice('체험 · 승객 추락방지: 앞 버스가 문을 연 채 달린다(문가에 승객) — 3초 목격이면 위반 기록(§39③)', 'info', 6000); }
     // 어린이보호구역 시연(소유자: 「말로만 하지 말고 게임 움직임으로 자연스럽게 시연해 줘」):
     // 학교 블록(1,2) 앞 보호구역 진입로에 세우고, 횡단보도에 어린이 셋을 보낸다. 제한 30 이 HUD 에 뜨고 차들이 선다.
+    // 🚏 중앙버스정류장 체험(v0.10.68 · 소유자 「사고가 잦았던 곳 — 버스 이용객 · 횡단보도 인파 · 버스와 인파」):
+    //  노선이 많은 정류장에 버스가 몰려 서고, 버스를 쫓아 차도로 뛰어드는 사람이 나온다. 정류장 앞은 속도를 줄이고 2차로에서 한 번 더 본다.
+    //  T-Book 「서울 중앙버스전용차로 정류장 402곳 · 8년」: 위험을 가른 것은 이용객 수가 아니라 실제로 서는 노선 수(광역·직행좌석), 위험은 정류장으로 가는 동선.
+    else if (id === 'brtstop') {
+      var BR = G.brt && G.brt.on ? G.brt : null, BS = null;
+      if (BR) { BR.stations.forEach(function (S) { if (!BS || S.wide > BS.wide) BS = S; }); }
+      if (!BS) { hud.notice('🚏 이 체험은 서초구 1:1 지도에서 열립니다(중앙버스전용차로 자료가 그 지도에만 있다)', 'warn', 4200); }
+      else {
+        while (traffic.cars.length) traffic.remove(traffic.cars[0]);
+        var sgS = (BS.d === 0 || BS.d === 1) ? 1 : -1, fS = TG.DIR_VEC[BS.d], rS = [-fS[1], fS[0]], lat2 = city.laneOff(BS.axis, BS.idx, 2), up = BS.s - sgS * 120;
+        var baseS = BS.axis === 'v' ? city.xs[BS.idx] : city.zs[BS.idx];
+        if (BS.axis === 'v') player.teleport(baseS + rS[0] * lat2, up, TG.DIR_HEADING[BS.d]); else player.teleport(up, baseS + rS[1] * lat2, TG.DIR_HEADING[BS.d]);
+        player.vx = fS[0] * 11; player.vz = fS[1] * 11; player.resync();
+        [BS.len / 2 - 8, BS.len / 2 + 7, BS.len / 2 + 22].forEach(function (o) { var cb = BR.spawnBus(BS.axis, BS.idx, BS.d, BS.s + sgS * (BS.len / 2 - 3) - sgS * o, 0); if (cb) cb.v = 0; });
+        BR.later(3.2, function () { BR.rush(BS, { along: BS.s - sgS * (BS.len / 2 + 6), far: false, speed: 2.7 }); });
+        BR.later(5.0, function () { BR.rush(BS, { along: BS.s - sgS * (BS.len / 2 + 14), far: true, speed: 2.9 }); });
+        hud.notice('체험 · 🚏 ' + BS.name + ' 중앙 정류장 — 서는 노선 ' + BS.routes + '(경기·광역·인천 ' + BS.wide + ') · 버스가 몰려 서면 사람이 뛰어든다', 'info', 6000);
+        officerSay('정류장 앞은 속도를 줄이고 2차로에서 한 번 더 본다 — 사고는 타고 내릴 때가 아니라 정류장으로 가는 길에서 난다');
+      }
+    }
     else if (id === 'schoolzone') {
-      var szN = city.nodes[city.schoolBlock.i][city.schoolBlock.j + 1], szD = 0, szF = TG.DIR_VEC[szD], szR = [-szF[1], szF[0]];   // 방배로를 남행 — 학교 블록 옆 보호구역 안
+      var szRo = city.schoolRoad(), szN = city.nodes[szRo.idx][szRo.j1], szD = 0, szF = TG.DIR_VEC[szD], szR = [-szF[1], szF[0]];   // 방배로를 남행 — 학교 블록 옆 보호구역 안
       var szRd = city.roadOf(szN, szD), szLo = city.laneOff(szRd.axis, szRd.idx, 0);
       var szBack = city.stopDist(szN, szD) + 40;   // 보호구역 안에서 출발해야 HUD 가 제한 30 으로 보인다
       player.teleport(szN.x - szF[0] * szBack + szR[0] * szLo, szN.z - szF[1] * szBack + szR[1] * szLo, TG.DIR_HEADING[szD]);
@@ -2898,6 +2920,7 @@
     G.lead = lead;
     // 6) 버스전용차로(플레이어): 안내만
     rules.busHintCd -= dt;
+    if (frame.kind === 'grid' && frame.brtLane && !player.siren && kmh > 10 && rules.busHintCd <= 0) { hud.hint('🚌 중앙버스전용차로 — 청색 실선 안 1차로는 버스만(제15조 제3항) · 순찰차도 긴급한 용도가 아니면 2차로로'); rules.busHintCd = 15; }
     if (frame.kind === 'link' && frame.busLane && !player.siren && kmh > 10 && rules.busHintCd <= 0) { hud.hint('1차로는 버스전용차로 — 순찰차도 긴급 상황이 아니면 2차로로'); rules.busHintCd = 15; }
     // 7) 물에 빠짐 → 마지막 도로 위치로
     rules.saveT -= dt;
@@ -3186,6 +3209,7 @@
     collisions(dt);
     if (G.state !== 'play') return;
     enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.daily) G.daily.tick(dt); hotEvent(dt);
+    if (G.brt && G.brt.on && BRT_MODES.indexOf(G.mode) >= 0) G.brt.update(dt, onFoot() && G.walker ? G.walker : player);   // 🚌 버스·승강장 사람(교실에서는 돌리지 않는다)
     if (G.iscene) {
       G.iscene.update(dt);
       var tw = G.iscene.towUpdate(dt);

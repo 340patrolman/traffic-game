@@ -180,7 +180,8 @@ TG.Layers = function (game, city, cfg, scene) {
       defs.push({ id: 'districts', name: '자치구 경계(테두리)', color: '#9fd3ff', kind: 'dist', src: dist,
         desc: dist.districts.map(function (d0) { return d0.name; }).join(' · ') + ' · ' + (dist.source || '') });
     }
-    defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' + (city.schoolNote ? ' · ' + city.schoolNote : '') });
+    var szNotes = (city.schoolZones || []).map(function (z) { return z.note; }).filter(Boolean);
+    defs.push({ id: 'schoolZone', name: '어린이보호구역', color: '#f5c518', kind: 'zone', desc: '제한 30km/h · 범칙금·벌점 2배(08~20시)' + (szNotes.length ? ' · ' + szNotes.join(' / ') : '') });
     if (szd && szd.items.length) defs.push({ id: 'schoolPts', name: '실제 어린이보호구역 시설', color: '#eab308', kind: 'szpts', src: szd,
       desc: szd.items.length + '곳의 대상 시설 자리(초등학교 큰 점) · 구역 경계선은 자료에 없다 · ' + ((szd.source && szd.source.zones) || '') });
     defs.push({ id: 'camera', name: '무인 단속 장비', color: '#2f8f5a', kind: 'cam', desc: '교통시설 관리에서 설치한 신호·과속 단속 장비' });
@@ -389,12 +390,17 @@ TG.Layers = function (game, city, cfg, scene) {
         any = true;
       });
     } else if (d.kind === 'zone') {
-      var sb = city.schoolBlock, x0 = city.xs[sb.i], x1 = city.xs[sb.i + 1], z0 = city.zs[sb.j], z1 = city.zs[sb.j + 1], sd = city.schoolSides || ['v', 'h'];
-      if (sd.length >= 2) gb.rect((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 0.08, col);
-      else {   // 한 변만(1:1) — 그 도로 위에 띠로
-        if (sd[0] === 'v') gb.rect(x0, (z0 + z1) / 2, (city.halfV[sb.i] + 1) * 2, z1 - z0 - 24, 0, 0.14, col);
-        else gb.rect((x0 + x1) / 2, z1, x1 - x0 - 24, (city.halfH[sb.j + 1] + 1) * 2, 0, 0.14, col);
-      }
+      var ZS = city.schoolZones || [{ i: city.schoolBlock.i, j: city.schoolBlock.j, sides: city.schoolSides || ['v', 'h'] }];
+      ZS.forEach(function (Z) {
+        var x0 = city.xs[Z.i], x1 = city.xs[Z.i + 1], z0 = city.zs[Z.j], z1 = city.zs[Z.j + 1], sd = Z.sides || ['v', 'h'];
+        if (sd.length === 2 && sd.indexOf('v') >= 0 && sd.indexOf('h') >= 0) { gb.rect((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 0.08, col); return; }   // 옛 두 변(블록 통째)
+        sd.forEach(function (s) {   // 변마다 그 도로 위에 띠로
+          if (s === 'v') gb.rect(x0, (z0 + z1) / 2, (city.halfV[Z.i] + 1) * 2, z1 - z0 - 24, 0, 0.14, col);
+          else if (s === 've') gb.rect(x1, (z0 + z1) / 2, (city.halfV[Z.i + 1] + 1) * 2, z1 - z0 - 24, 0, 0.14, col);
+          else if (s === 'h') gb.rect((x0 + x1) / 2, z1, x1 - x0 - 24, (city.halfH[Z.j + 1] + 1) * 2, 0, 0.14, col);
+          else if (s === 'hn') gb.rect((x0 + x1) / 2, z0, x1 - x0 - 24, (city.halfH[Z.j] + 1) * 2, 0, 0.14, col);
+        });
+      });
       any = true;
     } else if (d.kind === 'szpts') {
       d.src.items.forEach(function (it) { var big = it.kind === '초등학교' || it.kind === '특수학교'; disc(gb, it.x, it.z, big ? 22 : 11, col, 0.12); if (big) ring(gb, it.x, it.z, 30, 2, col, 0.13); });

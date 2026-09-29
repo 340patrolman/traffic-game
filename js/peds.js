@@ -107,6 +107,8 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (p.state === 'jaywalk') { p.state = 'walk'; p.d = p.jayD !== undefined ? p.jayD : p.d; }
     }
     var f = TG.DIR_VEC[p.d];
+    // 🚏 중앙 정류장 승강장 위(v0.10.68 · js/brt.js): 서서 버스를 기다린다 — 보도선으로 돌아가지 않는다
+    if (p.state === 'plat') { p.jayT += dt; return; }
     if (p.state === 'walk' || p.state === 'cross' || p.state === 'jaywalk') { p.pos.x += f[0] * p.speed * dt; p.pos.z += f[1] * p.speed * dt; }
     // **보도선으로 돌아온다 — 걷는 사람은 차도에 있을 수 없다.**
     // 사람끼리 어깨가 닿으면 옆으로 밀어내는데(separate) 밀린 사람이 돌아올 길이 없어서, 마주 걷는 사람이
@@ -126,6 +128,20 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
       if (offNow * p.side < curb) { if (p.axis === 'v') p.pos.x = p.coord + p.side * curb; else p.pos.z = p.coord + p.side * curb; }
     }
     if (p.state === 'warned') { p.waitT += dt; if (p.waitT > 3) p.state = 'walk'; return; }
+    if (p.state === 'jaywalk' && p.brt && p.brt.rusher) {   // 버스를 쫓아 승강장으로 뛰어드는 사람 — 승강장 가운데에 닿으면 선다
+      var latN = (p.axis === 'v' ? p.pos.x : p.pos.z) - p.coord;
+      var alN = p.axis === 'v' ? p.pos.z : p.pos.x, a0 = p.brt.a0, a1 = p.brt.a1;
+      if (p.brt.walkAlong) {   // 승강장 끝을 향해 걷는 중
+        if (alN > a0 + 0.8 && alN < a1 - 0.8) { p.state = 'plat'; p.jayLive = false; p.platT = 0; p.d = p.jayD !== undefined ? p.jayD : p.d; }
+      } else if ((latN - p.brt.lat) * p.brt.dir >= 0) {
+        if (p.axis === 'v') p.pos.x = p.coord + p.brt.lat; else p.pos.z = p.coord + p.brt.lat;
+        if (a0 !== undefined && (alN < a0 + 0.8 || alN > a1 - 0.8)) {   // 승강장 밖 — 끝까지 걷는다(아직 차로 위라 무단횡단이 이어진다)
+          p.brt.walkAlong = true; var toA = alN < a0 ? 1 : -1;
+          p.d = p.axis === 'v' ? (toA > 0 ? 0 : 2) : (toA > 0 ? 1 : 3);
+        } else { p.state = 'plat'; p.jayLive = false; p.platT = 0; p.d = p.jayD !== undefined ? p.jayD : p.d; }
+      }
+      p.jayT += dt; return;
+    }
     if (p.state === 'jaywalk') {
       var cross = p.axis === 'v' ? Math.abs(p.pos.x - p.coord) : Math.abs(p.pos.z - p.coord), sideO = mySide(p);
       if (cross >= sideO - 0.1 && p.jayT > 2) {
@@ -341,7 +357,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     separate(); pushOutOfCars(dt); pushOutOfProps();
     for (var i2 = peds.length - 1; i2 >= 0; i2--) {
       var q = peds[i2];
-      var moving = q.state !== 'wait' && q.state !== 'warned', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
+      var moving = q.state !== 'wait' && q.state !== 'warned' && q.state !== 'plat', w = q.t * 7.5 * (q.speed / 1.3), sw = moving ? Math.sin(w) * 0.6 : 0;
       q.mesh.position.set(q.pos.x, 0.2 + (moving ? Math.abs(Math.cos(w)) * 0.03 : 0), q.pos.z); q.mesh.rotation.y = TG.DIR_HEADING[q.d];
       q.limbs[0].rotation.x = sw; q.limbs[1].rotation.x = -sw; q.limbs[2].rotation.x = -sw * 0.7; q.limbs[3].rotation.x = sw * 0.7;
     }
@@ -351,6 +367,7 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     var best = null, list = self.walker ? peds.concat([self.walker]) : peds;
     for (var i = 0; i < list.length; i++) {
       var p = list[i], dx = p.pos.x - x, dz = p.pos.z - z, along = dx * fx + dz * fz;
+      if (p.state === 'plat') continue;   // 승강장 위(연석 높이)는 차로가 아니다
       if (along <= 0 || along > maxAlong || Math.abs(dx * -fz + dz * fx) > maxLat || !city.onRoad(p.pos.x, p.pos.z)) continue;
       if (best === null || along < best) best = along;
     }

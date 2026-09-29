@@ -150,14 +150,23 @@
 
     // 노면 표시: 중앙 황색 복선, 차로 경계(4차로면 3.7 점선), 가장자리 실선
     var mk = new GeoBuilder(), Y = 0.07, YEL = 0xf0c000, WHT = 0xf2f2ee;
-    function seg(axis, fixed, a0, a1, lanes) {
+    function seg(axis, fixed, a0, a1, lanes, idx) {
       var len = a1 - a0, mid = (a0 + a1) / 2; if (len <= 0) return;
       var edge = 0.25 + cfg.LANE_W * lanes;   // 마지막 차로 밖 가장자리 실선
       function line(off, wdt, col) { if (axis === 'v') mk.rect(fixed + off, mid, wdt, len, 0, Y, col); else mk.rect(mid, fixed + off, len, wdt, 0, Y, col); }
       line(-0.22, 0.15, YEL); line(0.22, 0.15, YEL); line(-edge, 0.14, WHT); line(edge, 0.14, WHT);
+      // 🚌 중앙버스전용차로(v0.10.68 · city.brt): 1차로와 2차로 사이를 **청색 복선**으로 — 1차로를 버스에 확보한다(시행규칙 별표6 504 청색 실선)
+      var brtOn = function (s0) { return !!(city.brtAt && idx !== undefined && city.brtAt(axis, idx, s0)); };
+      if (lanes >= 2 && city.brt) {
+        var BLU = 0x2a6ff0, b1 = 0.25 + cfg.LANE_W, c0 = null;
+        var blue = function (p0, p1) { var l2 = p1 - p0, m2 = (p0 + p1) / 2; if (l2 <= 0) return;
+          [-1, 1].forEach(function (sd) { [b1 - 0.32, b1 + 0.18].forEach(function (o) { if (axis === 'v') mk.rect(fixed + sd * o, m2, 0.2, l2, 0, Y, BLU); else mk.rect(m2, fixed + sd * o, l2, 0.2, 0, Y, BLU); }); }); };
+        for (var sb = a0; sb <= a1 + 0.01; sb += 4) { var onB = sb <= a1 && brtOn(sb); if (onB && c0 === null) c0 = sb; if ((!onB || sb + 4 > a1) && c0 !== null) { blue(c0, onB ? a1 : sb); c0 = null; } }
+      }
       for (var lk = 1; lk < lanes; lk++) {   // 차로 사이 점선(4m 선, 4m 공백) — 편도 차로 수 −1 개
         var bnd = 0.25 + cfg.LANE_W * lk;
         for (var s = a0 + 1; s < a1 - 2; s += 8) {
+          if (lk === 1 && brtOn(s + 2)) continue;   // 전용차로 구간은 청색 복선이 대신한다
           if (axis === 'v') { mk.rect(fixed - bnd, s + 2, 0.14, 4, 0, Y, WHT); mk.rect(fixed + bnd, s + 2, 0.14, 4, 0, Y, WHT); }
           else { mk.rect(s + 2, fixed - bnd, 4, 0.14, 0, Y, WHT); mk.rect(s + 2, fixed + bnd, 4, 0.14, 0, Y, WHT); }
         }
@@ -165,15 +174,15 @@
     }
     for (var i2 = 0; i2 < xs.length; i2++) {
       var nd0 = city.nodes[i2][0], ndL = city.nodes[i2][zs.length - 1];
-      if (city.hasStub('v', i2, 0)) seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2]);
-      for (var j2 = 0; j2 < zs.length - 1; j2++) seg('v', xs[i2], zs[j2] + city.crossFar(city.nodes[i2][j2], 2), zs[j2 + 1] - city.crossFar(city.nodes[i2][j2 + 1], 0), city.lanesV[i2]);
-      if (city.hasStub('v', i2, 1)) seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2]);
+      if (city.hasStub('v', i2, 0)) seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2], i2);
+      for (var j2 = 0; j2 < zs.length - 1; j2++) seg('v', xs[i2], zs[j2] + city.crossFar(city.nodes[i2][j2], 2), zs[j2 + 1] - city.crossFar(city.nodes[i2][j2 + 1], 0), city.lanesV[i2], i2);
+      if (city.hasStub('v', i2, 1)) seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2], i2);
     }
     for (var j3 = 0; j3 < zs.length; j3++) {
       var nd1 = city.nodes[0][j3], ndR = city.nodes[xs.length - 1][j3];
-      if (city.hasStub('h', j3, 0)) seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3]);
-      for (var i3 = 0; i3 < xs.length - 1; i3++) seg('h', zs[j3], xs[i3] + city.crossFar(city.nodes[i3][j3], 3), xs[i3 + 1] - city.crossFar(city.nodes[i3 + 1][j3], 1), city.lanesH[j3]);
-      if (city.hasStub('h', j3, 1)) seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3]);
+      if (city.hasStub('h', j3, 0)) seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3], j3);
+      for (var i3 = 0; i3 < xs.length - 1; i3++) seg('h', zs[j3], xs[i3] + city.crossFar(city.nodes[i3][j3], 3), xs[i3 + 1] - city.crossFar(city.nodes[i3 + 1][j3], 1), city.lanesH[j3], j3);
+      if (city.hasStub('h', j3, 1)) seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3], j3);
     }
     // 교차로: 접근로마다 정지선(접근 도로의 우측 반폭) + 횡단보도(접근 도로 전폭)
     for (var ni = 0; ni < xs.length; ni++) for (var nj = 0; nj < zs.length; nj++) {

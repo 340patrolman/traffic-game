@@ -31,6 +31,7 @@ TG.Inspect = function (game) {
     sidewalk: ['side', '차가 보도로 올라가 달린다'], signal: ['rearHigh', '적색 신호에 정지선을 넘었다'], pedestrian: ['rearHigh', '횡단보도의 사람 앞에서 서지 않았다'],
     buslane: ['rearHigh', '버스전용차로를 달린다'], lane: ['rearHigh', '지정차로가 아닌 왼쪽 차로를 달린다'], nosignal: ['rearHigh', '방향지시등 없이 차로를 바꿨다'],
     overtake: ['rearHigh', '오른쪽으로 앞지르기를 했다'], gridlock: ['rearHigh', '막힌 교차로에 들어가 섰다'], railroad: ['rearHigh', '차단기가 내려온 건널목을 지났다'],
+    buslaneC: ['rearHigh', '중앙버스전용차로(청색 실선 안쪽 1차로)를 버스가 아닌 차가 달린다'],
     uturn: ['rearHigh', '다른 차가 오가는 교차로에서 차 사이로 유턴했다'], parking: ['side', null]
   };
   function typeOf(e) { return G.enforcement && G.enforcement.suspectOf ? G.enforcement.suspectOf(e) : (e.violation && e.violation.type); }
