@@ -60,7 +60,7 @@ TG.Brt = function (G, city, cfg, scene) {
     // 붉은 포장: 승강장 앞뒤 버스 1차로(서울 중앙차로 정류장 구간) — 진행 방향 오른쪽 1차로(0.25~3.75)
     var s0 = -L / 2 - 18, s1 = L / 2 + 10; if (sgnOf(S.d) < 0) { var t = s0; s0 = -s1; s1 = -t; }
     var pl0 = sg * 0.3, pl1 = sg * 3.7, sm2 = S.s + (s0 + s1) / 2, lm2 = base + (pl0 + pl1) / 2;
-    if (S.axis === 'v') paint.rect(lm2, sm2, Math.abs(pl1 - pl0), s1 - s0, 0, 0.062, 0xa8453a); else paint.rect(sm2, lm2, s1 - s0, Math.abs(pl1 - pl0), 0, 0.062, 0xa8453a);
+    if (S.axis === 'v') paint.rect(lm2, sm2, Math.abs(pl1 - pl0), s1 - s0, 0, 0.064, 0xb3402e); else paint.rect(sm2, lm2, s1 - s0, Math.abs(pl1 - pl0), 0, 0.064, 0xb3402e);
     // 이름판(지붕 위) · 버스 표지
     var nb = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(9, 1.2 + S.name.length * 0.62), 0.9), new THREE.MeshBasicMaterial({ map: TG.tex.label(S.name, '#ffffff'), transparent: true, side: THREE.DoubleSide }));
     var bk = new THREE.Mesh(new THREE.BoxGeometry(Math.min(9.4, 1.6 + S.name.length * 0.62), 1.1, 0.12), new THREE.MeshLambertMaterial({ color: 0x1f3f7a }));
@@ -70,6 +70,20 @@ TG.Brt = function (G, city, cfg, scene) {
     var off = 0.07; if (S.axis === 'v') { nb.position.x += off; nb2.position.x -= off; } else { nb.position.z += off; nb2.position.z -= off; }
     put(gb, -0.1, 0.1, S.lat - 0.1, S.lat + 0.1, 3.08, 3.3, 0x4a5563);
     [bk, nb, nb2].forEach(function (m) { m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m); });
+  });
+  // 🟥 전용차로 전 구간 적색 포장(v0.10.72 · 소유자 「신반포로·강남대로 중앙버스전용차로와 승강장」): 두 방향 1차로를 구간 끝까지 칠한다.
+  //  교차로 상자·횡단보도(교차 도로 반폭 + 8m)는 비운다. 정류장 앞뒤는 위에서 더 짙게 칠한다.
+  //  ⚠ 서울 중앙버스전용차로의 실제 컬러포장 범위는 공개 자료에 없다 — 전 구간 적색은 눈에 띄게 하려는 게임 설계값이다.
+  B.lanes.forEach(function (Ln) {
+    var nodes = Ln.axis === 'v' ? city.zs : city.xs, cross = Ln.axis === 'v' ? 'h' : 'v', base = Ln.axis === 'v' ? city.xs[Ln.idx] : city.zs[Ln.idx];
+    var cuts = nodes.map(function (nc, k) { var h = city.halfOf(cross, k) + 8; return [nc - h, nc + h]; });
+    var a = Ln.s0, pieces = [];
+    cuts.sort(function (p, q) { return p[0] - q[0]; }).forEach(function (cu) { if (cu[1] <= a || cu[0] >= Ln.s1) return; if (cu[0] > a) pieces.push([a, cu[0]]); a = Math.max(a, cu[1]); });
+    if (a < Ln.s1) pieces.push([a, Ln.s1]);
+    pieces.forEach(function (pc) {
+      var len = pc[1] - pc[0], mid = (pc[0] + pc[1]) / 2; if (len < 2) return;
+      [-1, 1].forEach(function (sd) { var lm = base + sd * 2.0; if (Ln.axis === 'v') paint.rect(lm, mid, 3.4, len, 0, 0.055, 0x8f4639); else paint.rect(mid, lm, len, 3.4, 0, 0.055, 0x8f4639); });
+    });
   });
   // 「버스전용」 노면 글자: 구간마다 약 160m 간격, 그 방향 1차로 가운데
   var texts = new TG.GeoBuilder(), NT = 0;
