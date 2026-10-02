@@ -1,0 +1,12 @@
+# GitHub Pages(Jekyll) 설정 — 게임은 정적 파일 그대로 올라간다.
+# 소유자 2026-10-02 「아직까지는 검색 안 되게」: 저장소 문서(.md)가 사이트에 웹 페이지(CLAUDE.html 등)로 올라가 검색에 걸릴 수 있었다.
+# 문서는 사이트에 올리지 않는다(저장소에는 그대로 있다 — AI·개발자는 저장소에서 읽는다). 게임 화면(html)에는 noindex 를 단다.
+exclude:
+  - CLAUDE.md
+  - ROADMAP.md
+  - README.md
+  - DATA_WANTED.md
+  - CREDITS.md
+  - ONTOLOGY.md
+  - tools
+  - ref

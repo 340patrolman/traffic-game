@@ -14,6 +14,7 @@
       "beta": true,
       "note": "**진짜 디지털 트윈(소유자 2026-09-28).** 서초구 간선 10개가 만드는 구역(약 4.3 × 3.2 km)을 실제 크기로. 도로 자리는 OSM 실측 중심선, 사고·역·국가유산은 고무판 변환으로 맞는 블록·모퉁이에 둔다.",
       "file": "data/maps/seocho-full.json",
+      "ontology": "data/ontology-seocho.json",
       "warp": "data/maps/seocho-full-roads.json",
       "buildings": "data/maps/seocho-full-buildings.json",
       "events": "data/events-seocho.json",

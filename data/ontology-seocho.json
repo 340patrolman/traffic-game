@@ -1,0 +1,214 @@
+{
+  "schema": "tg-ontology/1",
+  "id": "seocho-congestion",
+  "title": "서초구 정체 원인 온톨로지 — 1단계: 서울성모병원사거리 일대",
+  "version": "2026-10-02",
+  "forAI": "AI·개발자가 이 파일만 읽어도 뜻을 알 수 있게 썼다. ① vocabulary 에 개념(클래스)·관계(술어)·출처 등급의 정의가 있다. ② entities 는 개념별 목록이고 모든 개체는 id 로 서로를 가리킨다. ③ relations 는 [주어 id, 관계, 목적어 id] 세 칸 + 조건(when) + 출처(src) 로 원인 사슬을 적는다. ④ 값이 사실인지 짐작인지는 모든 칸의 src 로 가린다 — src 가 '설계값'·'가설'·'확인 필요' 인 값을 사실처럼 쓰지 말 것. ⑤ 게임 좌표와의 연결은 game 칸(지도 seocho-full 의 격자 교차로 [i,j])이 맡는다. 사람용 설명은 저장소의 ONTOLOGY.md.",
+  "scope": {
+    "map": "seocho-full",
+    "area": "반포대교남단 ~ 강남터미널고가밑(고속터미널 사거리) ~ 서울성모병원사거리 ~ 삼호가든사거리 (반포대로 · 사평대로)",
+    "stage": "1단계 = 자료 구조만. 게임 속 차량·신호 동작은 아직 이 파일을 쓰지 않는다(2~5단계에서 연결)."
+  },
+  "source": {
+    "fieldKnowledge": "소유자(서초경찰서 교통) 「SEOUL PATROL 온톨로지 설계서 ver.1」 2026-10-01 — 정체 사례·원인·조치는 현장 판단이다.",
+    "signals": "서울 C-ITS 교차로 지도정보(신호 교차로 번호·이름·좌표 · data/pubdata-seocho.json sigx) · 경찰청 교차로계획정보(주기)",
+    "fountain": "미래한강본부 「달빛무지개분수(반포) 소개」 https://hangang.seoul.go.kr/www/contents/856.do?mid=849 (2026-10-02 확인 · 공공누리 제4유형 — 출처표시·상업적 이용 금지·변경 금지: 시각은 사실 정보로만 옮기고 글은 옮기지 않는다)",
+    "roads": "OpenStreetMap(ODbL) Overpass 2026-10-02 · 위키백과 「사평대로」(2차 자료)",
+    "busway": "OpenStreetMap highway=busway (게임 v0.10.68 brt 자료와 같은 원자료)"
+  },
+
+  "vocabulary": {
+    "classes": {
+      "CauseFacility": "원인 시설 — 정해진 시각·리듬에 차량 수요를 만드는 곳(학원가·터미널·백화점·공원 행사). 속성: kind, schedule(시간표 또는 리듬), season(운영 기간), scale(수요 규모).",
+      "Intersection": "교차로 — 차량을 구간으로 내보낸다. 속성: 이름·별칭, 신호 번호(C-ITS), 주기, 연동 그룹(linkGroup).",
+      "Segment": "구간 — 두 교차로 사이의 한 방향 도로. 속성: 차로 수, 수용량(capacityVph), 지금 대기열(queue). 다음 교차로가 받아 주는 만큼만 비워진다.",
+      "Branch": "분기점 — 앞이 막혔을 때 일부 차량이 다른 길로 갈라질 수 있는 마지막 자리. 원거리 대응은 이 자리 앞에서 한다.",
+      "Detour": "우회로 — 분기점에서 갈라진 차량을 받는 길. 속성: 수용량, 성격(간선·이면도로·어린이보호구역·지하차도). 넘치면 새 문제가 된다.",
+      "Measure": "조치 — 라바콘 차로 축소·신호 유입 조절·상류 적색 선행·수신호. 구간 수용량이나 교차로 녹색 배분을 바꾼다. 속성: 위치, 시간, 연동 영향.",
+      "CongestionCase": "정체 사례 — 현장에서 관찰된 정체(지점·시간·원인·조치·결과). 시뮬레이션이 맞는지 대어 보는 정답지다.",
+      "CauseType": "원인 유형 — 정해진 시간표 · 고정 시각 이벤트 · 생활 리듬 · 도로망 구조 넷.",
+      "Scenario": "시나리오 — 한 판에 교훈 하나. 상황·정답 판단·교훈.",
+      "Vehicle": "차량 — 출발지·목적지·우회 성향(아직 게임에 없다 — 4단계)."
+    },
+    "relations": {
+      "generatesDemandAt": "원인 시설 → 교차로: 그 시각에 그 교차로로 몰리는 차량을 만든다(when 에 시각).",
+      "feeds": "교차로 → 구간: 그 구간으로 차량을 내보낸다.",
+      "drainsInto": "구간 → 교차로: 구간 끝에서 다음 교차로가 받아 준다(받는 양이 수용량을 정한다).",
+      "spillsBackTo": "구간 → 구간: 하류가 못 받으면 대기열이 거꾸로 차올라 상류 구간까지 간다.",
+      "branchesTo": "분기점 → 우회로: 앞이 막히면 일부가 그 길로 빠진다.",
+      "bypasses": "우회로 → 교차로: 그 교차로(평면)를 거치지 않고 지난다.",
+      "upstreamOf": "분기점/교차로 → 교차로: 차량 흐름에서 앞(상류)에 있다.",
+      "modifies": "조치 → 구간/교차로: 수용량 또는 녹색 배분을 바꾼다.",
+      "linkedWith": "교차로 ↔ 교차로: 같은 신호 연동 그룹 — 한 곳을 크게 바꾸면 이웃이 꼬인다.",
+      "observedAt": "정체 사례 → 교차로/구간: 그 자리에서 관찰됐다.",
+      "causedBy": "정체 사례 → 원인 시설: 원인.",
+      "ofType": "원인 시설/정체 사례 → 원인 유형.",
+      "mitigatedBy": "정체 사례 → 조치: 실제로 쓴 조치.",
+      "teaches": "시나리오 → 정체 사례: 이 사례로 가르친다."
+    },
+    "provenance": {
+      "실측": "공공자료·OSM 등 1차 자료에서 받은 값(출처를 함께 적는다).",
+      "현장 지식": "소유자(교통경찰) 현장 판단. 공공자료로는 확인할 수 없는 값(예: 학원 수업 시각).",
+      "2차 자료": "위키백과 등 — 1차 자료로 다시 확인할 것.",
+      "가설": "검증 중인 주장(예: 고속버스 정시·30분 집중 출발 — TAGO 자료로 확인 중).",
+      "설계값": "게임이 정한 값. 실제 값이 아니다.",
+      "확인 필요": "아직 모른다. 지어내지 않고 비워 둔다."
+    },
+    "principles": [
+      "하류가 받아 줄 수 없으면 상류에서 먼저 끊는다 — 정체가 시작된 곳에서 조치하면 늦다.",
+      "원거리 대응의 핵심은 위치다 — 정체를 우회로가 갈라지는 분기점보다 앞에서 시작시키면, 우회 가능한 차량이 스스로 빠진다. 마지막 분기점보다 뒤에서 막으면 아무도 못 빠진다.",
+      "강남권 간선도로 신호는 연동으로 묶여 있다 — 신호는 기존 녹색을 조금 줄이는 정도만. 주기는 사실상 손대지 않는다. 라바콘처럼 연동에 영향이 없는 도구는 자유롭게 쓴다."
+    ]
+  },
+
+  "causeTypes": [
+    { "id": "ct.timetable", "name": "정해진 시간표", "trait": "주기적 반복", "response": "주기에 맞춰 사전 배치" },
+    { "id": "ct.fixedEvent", "name": "고정 시각 이벤트", "trait": "하루 한 번 집중", "response": "시작 전 유입 조절" },
+    { "id": "ct.lifeRhythm", "name": "생활 리듬", "trait": "사방에서 개별 차량 수렴", "response": "진입부·주차 대기 관리" },
+    { "id": "ct.network", "name": "도로망 구조", "trait": "시간 무관 상시 쏠림", "response": "신호 연동 내 미세 조정" }
+  ],
+
+  "entities": {
+    "intersections": [
+      { "id": "ix.banpoBridgeS", "name": "반포대교남단", "sig": { "no": "4032", "name": "반포대교남단", "src": "실측" }, "lat": 37.509924, "lon": 126.998765,
+        "roads": ["반포대로", "반포대교", "올림픽대로 진출입"], "game": { "node": null, "note": "격자(신반포로) 북쪽 약 560m — 게임에서는 반포대로 북쪽 연결로(반포대교 진출입로) 쪽이다. 격자 교차로가 아니다." } },
+      { "id": "ix.terminalUnder", "name": "고속터미널 사거리", "alias": ["강남터미널고가밑"], "sig": { "no": "4031", "name": "강남터미널고가밑", "src": "실측" }, "lat": 37.50495, "lon": 127.00126,
+        "roads": ["반포대로", "신반포로"], "structure": { "v": "반포대로가 강남터미널고가도로(OSM bridge)로 신반포로 위를 지난다 — 고가 위 직진 차는 이 교차로에서 돌 수 없다", "src": "실측", "ref": "OSM way 480856735 · 1420100037" },
+        "game": { "node": [2, 0] } },
+      { "id": "ix.stMary", "name": "서울성모병원사거리", "sig": { "no": "4034", "name": "서울성모병원", "src": "실측" }, "lat": 37.502, "lon": 127.00347,
+        "roads": ["반포대로", "사평대로"], "underpass": "dt.sapyeongUnderpass",
+        "cycle": { "v": "교통과 현시도(비공개 · 게임은 이 PC 의 data/local 에서만 읽음) · 공개 자료 없음", "src": "확인 필요" },
+        "game": { "node": [2, 1] } },
+      { "id": "ix.samhoGarden", "name": "삼호가든사거리", "sig": { "no": "4028", "name": "삼호가든사거리", "src": "실측" }, "lat": 37.504767, "lon": 127.010387,
+        "roads": ["사평대로", "서초중앙로"], "game": { "node": [3, 1] } },
+      { "id": "ix.gungjeon", "name": "궁전사거리", "sig": { "no": "4024", "name": "궁전가든", "src": "확인 필요", "note": "설계서의 「궁전사거리」를 C-ITS 「궁전가든」(삼호가든 남쪽 약 250m · 서초중앙로)으로 짐작했다 — 소유자 확인 전" },
+        "lat": 37.502609, "lon": 127.011491, "game": { "node": null, "note": "격자 교차로가 아니다(서초중앙로 중간)." } },
+      { "id": "ix.seochoPolice", "name": "서초경찰서 앞", "sig": { "no": "4036", "name": "서초경찰서", "src": "실측" }, "lat": 37.495571, "lon": 127.005808,
+        "roads": ["반포대로"], "game": { "node": null, "between": [[2, 1], [2, 2]], "note": "반포대로 서울성모병원~서초역 사이 블록 중간." } },
+      { "id": "ix.supremeProsecutors", "name": "대검찰청 앞", "sig": { "no": null, "src": "확인 필요", "note": "C-ITS 목록에서 「대검찰청」 이름의 신호를 찾지 못했다(서초경찰서 4036 남쪽 반포대로)." }, "lat": null, "lon": null, "game": { "node": null } }
+    ],
+    "segments": [
+      { "id": "sg.banpo.S.bridge2terminal", "road": "반포대로", "dir": "남행(외곽방향)", "from": "ix.banpoBridgeS", "to": "ix.terminalUnder",
+        "lanes": { "v": null, "src": "확인 필요" }, "capacityVph": { "v": null, "src": "확인 필요", "note": "3단계에서 정한다 — 도로용량편람 등 근거를 먼저 확인(지어내지 않음)" }, "game": { "inGrid": false } },
+      { "id": "sg.banpo.S.terminal2stMary", "road": "반포대로", "dir": "남행(외곽방향)", "from": "ix.terminalUnder", "to": "ix.stMary",
+        "lanes": { "v": 4, "src": "현장 지식", "note": "게임 v0.8.1 소유자 「반포대로 왕복 8차로」" }, "capacityVph": { "v": null, "src": "확인 필요" }, "game": { "from": [2, 0], "to": [2, 1] } },
+      { "id": "sg.banpo.S.stMary2police", "road": "반포대로", "dir": "남행(외곽방향)", "from": "ix.stMary", "to": "ix.seochoPolice",
+        "lanes": { "v": 4, "src": "현장 지식" }, "capacityVph": { "v": null, "src": "확인 필요" }, "busLane": { "v": false, "src": "실측", "note": "OSM busway 없음 — 강남권 남북 간선 중 강남대로·동작대로에는 있다(게임 brt 자료)" },
+        "game": { "from": [2, 1], "to": [2, 2] } },
+      { "id": "sg.sapyeong.E.stMary2samho", "road": "사평대로", "dir": "동행", "from": "ix.stMary", "to": "ix.samhoGarden",
+        "lanes": { "v": 2, "src": "설계값", "note": "게임 격자 편도 2 · OSM 삼호가든 동쪽 한 방향 lanes=4 · 위키백과 「왕복 6차선」 — 서로 다르다, 확인 필요" },
+        "capacityVph": { "v": null, "src": "확인 필요" }, "game": { "from": [2, 1], "to": [3, 1] } },
+      { "id": "sg.sapyeong.W.samho2stMary", "road": "사평대로", "dir": "서행", "from": "ix.samhoGarden", "to": "ix.stMary",
+        "lanes": { "v": 2, "src": "설계값" }, "capacityVph": { "v": null, "src": "확인 필요" }, "game": { "from": [3, 1], "to": [2, 1] } }
+    ],
+    "branches": [
+      { "id": "br.terminalRamp", "at": "ix.terminalUnder", "name": "강남터미널고가 앞 갈림(고가 위 직진 / 아래 측도)", "src": "실측",
+        "note": "남행 차가 고가로 올라가면 신반포로로 돌 수 없다 — 고가 진입 전이 반포대로 남행의 갈림길이다(OSM 고가 구조). 게임 격자는 고가를 그리지 않는다(미구현).", "to": ["dt.sinbanpo"] },
+      { "id": "br.bridgeSouth", "at": "ix.banpoBridgeS", "name": "반포대교남단 갈림(한강공원 주차장 · 반포대로 남행 · 올림픽대로)", "src": "현장 지식",
+        "note": "분수쇼 날 한강공원 주차장 진입 대기가 이곳부터 반포대로로 거꾸로 찬다. 라바콘 시작 지점과 차량이 빠지는 우회로는 소유자 확인 필요.", "to": [] }
+    ],
+    "detours": [
+      { "id": "dt.sapyeongUnderpass", "name": "사평지하차도", "kind": "지하차도(사평대로가 반포대로 밑을 지남)", "bypasses": "ix.stMary",
+        "src": "2차 자료", "note": "위키백과 「사평대로」 기준. OSM 에는 지하차도(tunnel) 표시가 없다 — 위치·차로 확인 필요. 게임 미구현.", "capacityVph": { "v": null, "src": "확인 필요" } },
+      { "id": "dt.sinbanpo", "name": "신반포로", "kind": "간선", "src": "실측", "capacityVph": { "v": null, "src": "확인 필요" }, "game": { "road": "h", "idx": 0 } }
+    ],
+    "facilities": [
+      { "id": "cf.academy", "name": "삼호가든·궁전사거리 학원가", "kind": "학원가", "type": "ct.fixedEvent",
+        "near": ["ix.samhoGarden", "ix.gungjeon"],
+        "schedule": { "v": "평일 16시 수업 → 15:30~19:00 학원차·학부모 차량", "src": "현장 지식", "note": "학원 수업 시각은 어떤 공공자료에도 없다" },
+        "season": { "v": "방학·시험 기간에 달라질 수 있음", "src": "확인 필요", "data": "나이스 학사일정(게임 data/schooltime.json 에 서초구 학교 값 있음)" },
+        "scale": { "v": null, "src": "확인 필요", "data": "학원교습소정보(한국교육학술정보원) — 아직 받지 않음" } },
+      { "id": "cf.fountain", "name": "반포 달빛무지개분수(반포한강공원)", "kind": "공원 행사", "type": "ct.fixedEvent", "address": "서초구 반포동 647",
+        "schedule": { "v": { "offSeason": { "period": "3월 15일~5월, 10월", "times": ["12:00", "19:30", "20:00", "20:30", "21:00"] }, "peakSeason": { "period": "6~9월", "times": ["12:00", "19:30", "20:00", "20:30", "21:00", "21:30"] }, "minutesEach": 20, "sameEveryDay": true },
+          "src": "실측", "ref": "미래한강본부 2026-10-02 확인", "note": "공식 시간표는 요일 구분이 없다 — 토요일 정체는 시간표가 아니라 방문 수요(현장 지식) 때문이다." },
+        "stopWhen": { "v": ["풍속 7m/s 이상", "분수 가동시간 중 강수 예보", "한강 탁도 15NTU 이상"], "src": "실측" },
+        "season": { "v": "3월 15일 ~ 10월 31일", "src": "실측", "note": "11월 토요일 19시에는 이 정체가 없어야 한다(설계서)." },
+        "congestion": { "v": "토요일 19:00~21:00 (4~10월) · 21시경 정상화", "src": "현장 지식" } },
+      { "id": "cf.expressTerminal", "name": "서울고속버스터미널·센트럴시티", "kind": "터미널", "type": "ct.timetable", "near": ["ix.samhoGarden", "ix.terminalUnder"],
+        "lat": 37.507432, "lon": 127.009026, "latSrc": "C-ITS 「고속터미널」 4019 신호 자리",
+        "schedule": { "v": "매시 정각·30분 출발 집중", "src": "가설", "note": "TAGO 고속버스정보로 출발·도착 시각을 분 단위로 세어 확인 중(저장소 밖 작업)." } },
+      { "id": "cf.shinsegae", "name": "신세계백화점 강남점 일대", "kind": "백화점", "type": "ct.lifeRhythm", "near": ["ix.terminalUnder"],
+        "schedule": { "v": "17시~ 인근 주민 차량(모임·식사·쇼핑)", "src": "현장 지식" }, "weekend": { "v": null, "src": "확인 필요" } },
+      { "id": "cf.banpodaeroStructure", "name": "반포대로 도로망 구조", "kind": "도로망", "type": "ct.network", "near": ["ix.seochoPolice"],
+        "schedule": { "v": "상시", "src": "현장 지식" }, "evidence": { "v": "강남권 남북 주요 도로 중 반포대로만 중앙버스전용차로가 없어 일반 차량이 쏠린다", "src": "현장 지식", "check": "OSM busway — 반포대로 없음 · 강남대로·동작대로 있음(실측, 같은 결론)" } }
+    ],
+    "measures": [
+      { "id": "ms.coneLaneDrop", "name": "라바콘 원거리 차로 축소", "tool": "라바콘", "at": "br.bridgeSouth", "linkImpact": "없음", "src": "현장 지식",
+        "how": "원거리에서 차로를 줄여 하류가 소화 가능한 양으로 미리 감축", "open": "시작 지점·우회로 확인 필요" },
+      { "id": "ms.stMaryMetering", "name": "신호 유입 조절", "tool": "신호", "at": "ix.stMary", "linkImpact": "작음", "src": "현장 지식",
+        "how": "직좌 동시신호 후 5초 뒤 좌회전만 · 평일 19시까지 · 사평대로 소화량 기준", "open": "변경 일자·배분값(시설담당) 확인 필요" },
+      { "id": "ms.policeRedLead", "name": "상류 적색 선행", "tool": "신호", "at": "ix.seochoPolice", "linkImpact": "작음", "src": "현장 지식",
+        "how": "반포대로 외곽방향 서초경찰서 앞 적색을 대검찰청보다 15초 먼저", "open": "변경 일자·배분값(시설담당) 확인 필요" }
+    ]
+  },
+
+  "cases": [
+    { "id": "cs.stMaryWeekday", "at": "ix.stMary", "when": { "days": "평일", "time": "15:30~19:00" }, "cause": "cf.academy",
+      "story": "학원 16시 수업 — 학원차·학부모 차량이 사평지하차도 대신 상부로 몰려 꼬리물기", "measure": "ms.stMaryMetering", "result": "많이 개선", "src": "현장 지식" },
+    { "id": "cs.banpoOutbound", "at": "ix.seochoPolice", "segment": "sg.banpo.S.stMary2police", "when": { "days": "매일", "time": "상시" }, "cause": "cf.banpodaeroStructure",
+      "story": "반포대로 외곽방향 서초경찰서 앞~대검찰청 — 중앙버스전용차로가 없는 반포대로로 일반 차량 쏠림", "measure": "ms.policeRedLead", "result": "많이 개선", "src": "현장 지식" },
+    { "id": "cs.fountainSat", "at": "ix.banpoBridgeS", "segment": "sg.banpo.S.bridge2terminal", "when": { "days": "토요일", "time": "19:00~21:00", "months": [4, 5, 6, 7, 8, 9, 10] }, "cause": "cf.fountain",
+      "story": "한강공원 분수쇼 주차장 진입 대기 — 반포대교남단에서 서울성모병원사거리 쪽으로 대기열 역류", "measure": "ms.coneLaneDrop", "result": "21시경 정상화", "src": "현장 지식" },
+    { "id": "cs.samhoHalfHour", "at": "ix.samhoGarden", "when": { "days": "매일", "time": "매시 정각·30분" }, "cause": "cf.expressTerminal",
+      "story": "고속버스 정시·30분 출발", "measure": null, "result": null, "src": "현장 지식", "check": "가설 — TAGO 분석으로 확인 중" },
+    { "id": "cs.shinsegaeEvening", "at": "ix.terminalUnder", "when": { "days": "평일(주말 확인 필요)", "time": "17시~" }, "cause": "cf.shinsegae",
+      "story": "인근 주민이 각자 차를 몰고 와 모임·식사·쇼핑", "measure": null, "result": null, "src": "현장 지식" }
+  ],
+
+  "relations": [
+    ["cf.academy", "generatesDemandAt", "ix.stMary", { "when": "평일 15:30~19:00", "src": "현장 지식" }],
+    ["cf.academy", "ofType", "ct.fixedEvent", { "src": "현장 지식" }],
+    ["cf.fountain", "generatesDemandAt", "ix.banpoBridgeS", { "when": "토 19:00~21:00 (4~10월)", "src": "현장 지식" }],
+    ["cf.fountain", "ofType", "ct.fixedEvent", { "src": "현장 지식" }],
+    ["cf.expressTerminal", "generatesDemandAt", "ix.samhoGarden", { "when": "매시 정각·30분", "src": "가설" }],
+    ["cf.expressTerminal", "ofType", "ct.timetable", { "src": "현장 지식" }],
+    ["cf.shinsegae", "generatesDemandAt", "ix.terminalUnder", { "when": "17시~", "src": "현장 지식" }],
+    ["cf.shinsegae", "ofType", "ct.lifeRhythm", { "src": "현장 지식" }],
+    ["cf.banpodaeroStructure", "ofType", "ct.network", { "src": "현장 지식" }],
+    ["ix.banpoBridgeS", "feeds", "sg.banpo.S.bridge2terminal", { "src": "실측" }],
+    ["sg.banpo.S.bridge2terminal", "drainsInto", "ix.terminalUnder", { "src": "실측" }],
+    ["ix.terminalUnder", "feeds", "sg.banpo.S.terminal2stMary", { "src": "실측" }],
+    ["sg.banpo.S.terminal2stMary", "drainsInto", "ix.stMary", { "src": "실측" }],
+    ["ix.stMary", "feeds", "sg.sapyeong.E.stMary2samho", { "src": "실측" }],
+    ["ix.stMary", "feeds", "sg.banpo.S.stMary2police", { "src": "실측" }],
+    ["sg.sapyeong.W.samho2stMary", "drainsInto", "ix.stMary", { "src": "실측" }],
+    ["sg.sapyeong.E.stMary2samho", "spillsBackTo", "sg.banpo.S.terminal2stMary", { "when": "사평대로가 못 받을 때", "src": "현장 지식" }],
+    ["sg.banpo.S.terminal2stMary", "spillsBackTo", "sg.banpo.S.bridge2terminal", { "when": "역류가 길어질 때", "src": "현장 지식" }],
+    ["br.terminalRamp", "upstreamOf", "ix.stMary", { "src": "실측" }],
+    ["br.terminalRamp", "branchesTo", "dt.sinbanpo", { "src": "실측" }],
+    ["br.bridgeSouth", "upstreamOf", "ix.terminalUnder", { "src": "실측" }],
+    ["dt.sapyeongUnderpass", "bypasses", "ix.stMary", { "src": "2차 자료" }],
+    ["ms.stMaryMetering", "modifies", "ix.stMary", { "src": "현장 지식" }],
+    ["ms.coneLaneDrop", "modifies", "sg.banpo.S.bridge2terminal", { "src": "현장 지식" }],
+    ["ms.policeRedLead", "modifies", "ix.seochoPolice", { "src": "현장 지식" }],
+    ["ix.seochoPolice", "linkedWith", "ix.supremeProsecutors", { "src": "현장 지식", "note": "반포대로 연동 — 게임에는 아직 연동이 없다(교차로마다 시계가 따로 돈다)" }],
+    ["ix.stMary", "linkedWith", "ix.seochoPolice", { "src": "확인 필요" }],
+    ["cs.stMaryWeekday", "causedBy", "cf.academy", { "src": "현장 지식" }],
+    ["cs.stMaryWeekday", "mitigatedBy", "ms.stMaryMetering", { "src": "현장 지식" }],
+    ["cs.banpoOutbound", "causedBy", "cf.banpodaeroStructure", { "src": "현장 지식" }],
+    ["cs.banpoOutbound", "mitigatedBy", "ms.policeRedLead", { "src": "현장 지식" }],
+    ["cs.fountainSat", "causedBy", "cf.fountain", { "src": "현장 지식" }],
+    ["cs.fountainSat", "mitigatedBy", "ms.coneLaneDrop", { "src": "현장 지식" }],
+    ["cs.samhoHalfHour", "causedBy", "cf.expressTerminal", { "src": "가설" }],
+    ["cs.shinsegaeEvening", "causedBy", "cf.shinsegae", { "src": "현장 지식" }]
+  ],
+
+  "scenarios": [
+    { "id": "sc.academy", "name": "학원 시간", "teaches": "cs.stMaryWeekday", "situation": "평일 15:30 성모병원사거리 정체 시작", "answer": "학원 레이어로 원인 파악 후 유입 조절", "lesson": "원인은 교통 밖에 있다", "stage": 6 },
+    { "id": "sc.fountain", "name": "토요일 분수쇼", "teaches": "cs.fountainSat", "situation": "반포대교남단에서 대기열 역류", "answer": "분기점 앞 라바콘 차로 축소", "lesson": "막힌 곳 말고 갈림길에서", "stage": 6 },
+    { "id": "sc.ambulance", "name": "구급차", "teaches": "cs.stMaryWeekday", "situation": "정체 속 서울성모병원 응급실행 구급차", "answer": "미리 유입을 줄여 둔 경우에만 길이 열림", "lesson": "정체는 생명 문제다", "stage": 8 },
+    { "id": "sc.signalGreed", "name": "신호 욕심", "teaches": "cs.banpoOutbound", "situation": "막힌 방향에 녹색을 크게 늘림", "answer": "소폭 조정", "lesson": "신호는 사슬로 묶여 있다", "stage": 8 },
+    { "id": "sc.sameIntersection", "name": "같은 교차로", "teaches": "cs.stMaryWeekday", "situation": "성모병원사거리 평일 vs 토요일", "answer": "요일별로 다른 처방", "lesson": "원인이 다르면 답도 다르다", "stage": 8 }
+  ],
+
+  "openQuestions": [
+    "시설담당: 성모병원사거리·서초경찰서 앞 신호 변경 일자와 배분값(전후 효과 비교용)",
+    "분수쇼 대응 라바콘 시작 지점과 차량이 빠지는 우회로",
+    "신세계백화점 정체가 주말에도 17시부터인지",
+    "「궁전사거리」 = C-ITS 「궁전가든」(4024)인지",
+    "사평지하차도 위치·차로 수(OSM 에 표시 없음)",
+    "사평대로 성모병원~삼호가든 차로 수(게임 편도 2 · OSM 한 방향 4 · 위키백과 왕복 6 이 서로 다름)",
+    "대검찰청 앞 신호 번호",
+    "고속버스 정각·30분 집중 — TAGO 분석 결과 대기"
+  ]
+}

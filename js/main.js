@@ -120,6 +120,7 @@
       });
     }
     // 🏙 도시 공공데이터(v0.10.44) — 행사·축제·집회·교통량·단속 카메라. 지도 항목에 적힌 것만 읽는다(기본 지도는 없음)
+    if (TG.Ontology) { G.onto = new TG.Ontology(G); G.onto.load(TG.MAP_ENTRY); }   // 🧭 정체 원인 온톨로지(v0.10.70 · 1단계 — 읽기만)
     if (TG.CityData) { G.citydata = new TG.CityData(G); if (minimap) minimap.cd = G.citydata; G.citydata.load(TG.MAP_ENTRY, function () { if (G.state === 'title' && G.areaPicker) { var an = document.getElementById('areaName'); if (an) an.textContent = G.areaPicker.label(); } }); }
     if (TG.JamPuzzle) G.jam = new TG.JamPuzzle(G);   // 🧩 꼬리물기 풀기
     if (TG.Here) G.here = new TG.Here(G);          // 📍 이 자리 — 지도가 품은 자료를 그 자리 기준으로 모아 보인다
