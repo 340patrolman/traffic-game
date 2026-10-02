@@ -1348,6 +1348,7 @@
     // 🔗 순찰 근무는 **하나의 사건 사슬**로 시작한다 — 무전 한 건이 다음 사건을 부른다(6초 뒤: 상황실 브리핑과 겹치지 않게)
     if (G.metrics) G.metrics.begin(G.mode);
     if (G.director) G.director.reset();
+    if (G.onto && G.onto.reset) G.onto.reset();   // 🧭 시간표 시계(v0.10.73) — 근무마다 처음부터
     if (G.brt && G.brt.reset) G.brt.reset();
     if (G.hood) G.hood.begin();
     var chapNow = !!G.chapterNext; G.chapterNext = false; G.chapterRun = null; G.lastRunChapter = chapNow;
@@ -3217,7 +3218,7 @@
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.daily) G.daily.tick(dt); hotEvent(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.onto && G.onto.tick) G.onto.tick(dt); if (G.daily) G.daily.tick(dt); hotEvent(dt);
     if (G.brt && G.brt.on && BRT_MODES.indexOf(G.mode) >= 0) G.brt.update(dt, onFoot() && G.walker ? G.walker : player);   // 🚌 버스·승강장 사람(교실에서는 돌리지 않는다)
     if (G.iscene) {
       G.iscene.update(dt);
