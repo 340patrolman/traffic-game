@@ -2,7 +2,7 @@
   "schema": "tg-ontology/1",
   "id": "seocho-congestion",
   "title": "서초구 정체 원인 온톨로지 — 1단계: 서울성모병원사거리 일대",
-  "version": "2026-10-02",
+  "version": "2026-10-02b",
   "forAI": "AI·개발자가 이 파일만 읽어도 뜻을 알 수 있게 썼다. ① vocabulary 에 개념(클래스)·관계(술어)·출처 등급의 정의가 있다. ② entities 는 개념별 목록이고 모든 개체는 id 로 서로를 가리킨다. ③ relations 는 [주어 id, 관계, 목적어 id] 세 칸 + 조건(when) + 출처(src) 로 원인 사슬을 적는다. ④ 값이 사실인지 짐작인지는 모든 칸의 src 로 가린다 — src 가 '설계값'·'가설'·'확인 필요' 인 값을 사실처럼 쓰지 말 것. ⑤ 게임 좌표와의 연결은 game 칸(지도 seocho-full 의 격자 교차로 [i,j])이 맡는다. 사람용 설명은 저장소의 ONTOLOGY.md.",
   "scope": {
     "map": "seocho-full",
@@ -12,6 +12,7 @@
   "source": {
     "fieldKnowledge": "소유자(서초경찰서 교통) 「SEOUL PATROL 온톨로지 설계서 ver.1」 2026-10-01 — 정체 사례·원인·조치는 현장 판단이다.",
     "signals": "서울 C-ITS 교차로 지도정보(신호 교차로 번호·이름·좌표 · data/pubdata-seocho.json sigx) · 경찰청 교차로계획정보(주기)",
+    "tgis": "서울시 T-GIS 교통안전시설물 「교차로(A008_P)」(교통운영과 테이블 정의서 · 공공데이터포털 공개자료 — 소유자 2026-10-02 받음 · EPSG:5186). 쓰는 칸은 교차로코드(CSS_NUM)·명칭·좌표·연동교차로코드(LK_CS_CDE)뿐 — LK_CS_CDE 는 실측상 「(연등)」 종속 신호의 부모 교차로 코드다(간선 연동 묶음이 아니다). 전기 고객번호·계량기번호 칸은 옮기지 않는다.",
     "fountain": "미래한강본부 「달빛무지개분수(반포) 소개」 https://hangang.seoul.go.kr/www/contents/856.do?mid=849 (2026-10-02 확인 · 공공누리 제4유형 — 출처표시·상업적 이용 금지·변경 금지: 시각은 사실 정보로만 옮기고 글은 옮기지 않는다)",
     "roads": "OpenStreetMap(ODbL) Overpass 2026-10-02 · 위키백과 「사평대로」(2차 자료)",
     "busway": "OpenStreetMap highway=busway (게임 v0.10.68 brt 자료와 같은 원자료)"
@@ -40,6 +41,7 @@
       "upstreamOf": "분기점/교차로 → 교차로: 차량 흐름에서 앞(상류)에 있다.",
       "modifies": "조치 → 구간/교차로: 수용량 또는 녹색 배분을 바꾼다.",
       "linkedWith": "교차로 ↔ 교차로: 같은 신호 연동 그룹 — 한 곳을 크게 바꾸면 이웃이 꼬인다.",
+      "satelliteOf": "종속 신호(T-GIS 「(연등)」 — 중간 횡단보도 등) → 부모 교차로: 부모 교차로 신호에 딸려 함께 돈다(T-GIS 연동교차로코드).",
       "observedAt": "정체 사례 → 교차로/구간: 그 자리에서 관찰됐다.",
       "causedBy": "정체 사례 → 원인 시설: 원인.",
       "ofType": "원인 시설/정체 사례 → 원인 유형.",
@@ -70,22 +72,24 @@
 
   "entities": {
     "intersections": [
-      { "id": "ix.banpoBridgeS", "name": "반포대교남단", "sig": { "no": "4032", "name": "반포대교남단", "src": "실측" }, "lat": 37.509924, "lon": 126.998765,
+      { "id": "ix.banpoBridgeS", "name": "반포대교남단", "sig": { "no": "4032", "name": "반포대교남단", "src": "실측" }, "tgis": { "no": 1010, "satellites": [5947, 8893] }, "lat": 37.509924, "lon": 126.998765,
         "roads": ["반포대로", "반포대교", "올림픽대로 진출입"], "game": { "node": null, "note": "격자(신반포로) 북쪽 약 560m — 게임에서는 반포대로 북쪽 연결로(반포대교 진출입로) 쪽이다. 격자 교차로가 아니다." } },
-      { "id": "ix.terminalUnder", "name": "고속터미널 사거리", "alias": ["강남터미널고가밑"], "sig": { "no": "4031", "name": "강남터미널고가밑", "src": "실측" }, "lat": 37.50495, "lon": 127.00126,
+      { "id": "ix.terminalUnder", "name": "고속터미널 사거리", "alias": ["강남터미널고가밑"], "sig": { "no": "4031", "name": "강남터미널고가밑", "src": "실측" }, "tgis": { "no": 352 }, "lat": 37.50495, "lon": 127.00126,
         "roads": ["반포대로", "신반포로"], "structure": { "v": "반포대로가 강남터미널고가도로(OSM bridge)로 신반포로 위를 지난다 — 고가 위 직진 차는 이 교차로에서 돌 수 없다", "src": "실측", "ref": "OSM way 480856735 · 1420100037" },
         "game": { "node": [2, 0] } },
-      { "id": "ix.stMary", "name": "서울성모병원사거리", "sig": { "no": "4034", "name": "서울성모병원", "src": "실측" }, "lat": 37.502, "lon": 127.00347,
+      { "id": "ix.stMary", "name": "서울성모병원사거리", "sig": { "no": "4034", "name": "서울성모병원", "src": "실측" }, "tgis": { "no": 548 }, "lat": 37.502, "lon": 127.00347,
         "roads": ["반포대로", "사평대로"], "underpass": "dt.sapyeongUnderpass",
         "cycle": { "v": "교통과 현시도(비공개 · 게임은 이 PC 의 data/local 에서만 읽음) · 공개 자료 없음", "src": "확인 필요" },
         "game": { "node": [2, 1] } },
-      { "id": "ix.samhoGarden", "name": "삼호가든사거리", "sig": { "no": "4028", "name": "삼호가든사거리", "src": "실측" }, "lat": 37.504767, "lon": 127.010387,
+      { "id": "ix.samhoGarden", "name": "삼호가든사거리", "sig": { "no": "4028", "name": "삼호가든사거리", "src": "실측" }, "tgis": { "no": 598 }, "lat": 37.504767, "lon": 127.010387,
         "roads": ["사평대로", "서초중앙로"], "game": { "node": [3, 1] } },
-      { "id": "ix.gungjeon", "name": "궁전사거리", "sig": { "no": "4024", "name": "궁전가든", "src": "확인 필요", "note": "설계서의 「궁전사거리」를 C-ITS 「궁전가든」(삼호가든 남쪽 약 250m · 서초중앙로)으로 짐작했다 — 소유자 확인 전" },
+      { "id": "ix.gungjeon", "name": "궁전사거리", "alias": ["궁전가든"], "sig": { "no": "4024", "name": "궁전가든", "src": "실측", "note": "신호 이름 「궁전가든」 = 현장 이름 「궁전사거리」(소유자 확인 2026-10-02) · 삼호가든 남쪽 약 250m · 서초중앙로" }, "tgis": { "no": 1046 },
         "lat": 37.502609, "lon": 127.011491, "game": { "node": null, "note": "격자 교차로가 아니다(서초중앙로 중간)." } },
-      { "id": "ix.seochoPolice", "name": "서초경찰서 앞", "sig": { "no": "4036", "name": "서초경찰서", "src": "실측" }, "lat": 37.495571, "lon": 127.005808,
+      { "id": "ix.seochoPolice", "name": "서초경찰서 앞", "sig": { "no": "4036", "name": "서초경찰서", "src": "실측" }, "tgis": { "no": 1026, "satellites": [1028] }, "lat": 37.495571, "lon": 127.005808,
         "roads": ["반포대로"], "game": { "node": null, "between": [[2, 1], [2, 2]], "note": "반포대로 서울성모병원~서초역 사이 블록 중간." } },
-      { "id": "ix.supremeProsecutors", "name": "대검찰청 앞", "sig": { "no": null, "src": "확인 필요", "note": "C-ITS 목록에서 「대검찰청」 이름의 신호를 찾지 못했다(서초경찰서 4036 남쪽 반포대로)." }, "lat": null, "lon": null, "game": { "node": null } }
+      { "id": "ix.supremeProsecutors", "name": "대검찰청 앞", "alias": ["서초경찰서(연등)"], "sig": { "no": "24036", "name": "서초경찰서(연등)", "src": "실측", "note": "현장 이름 「대검찰청 앞」 = 신호 「서초경찰서(연등)」(소유자 확인 2026-10-02) — 반포대로 남행으로 서초경찰서 바로 다음 신호이고, T-GIS 상 서초경찰서(1026)에 딸린 종속 신호다" },
+        "tgis": { "no": 1028, "parent": 1026 }, "lat": 37.494093, "lon": 127.006534, "latSrc": "T-GIS(C-ITS 좌표 37.494128,127.006566 과 4m 차이)",
+        "game": { "node": null, "between": [[2, 1], [2, 2]], "note": "반포대로 서초경찰서 앞 남쪽 약 180m." } }
     ],
     "segments": [
       { "id": "sg.banpo.S.bridge2terminal", "road": "반포대로", "dir": "남행(외곽방향)", "from": "ix.banpoBridgeS", "to": "ix.terminalUnder",
@@ -138,7 +142,7 @@
       { "id": "ms.stMaryMetering", "name": "신호 유입 조절", "tool": "신호", "at": "ix.stMary", "linkImpact": "작음", "src": "현장 지식",
         "how": "직좌 동시신호 후 5초 뒤 좌회전만 · 평일 19시까지 · 사평대로 소화량 기준", "open": "변경 일자·배분값(시설담당) 확인 필요" },
       { "id": "ms.policeRedLead", "name": "상류 적색 선행", "tool": "신호", "at": "ix.seochoPolice", "linkImpact": "작음", "src": "현장 지식",
-        "how": "반포대로 외곽방향 서초경찰서 앞 적색을 대검찰청보다 15초 먼저", "open": "변경 일자·배분값(시설담당) 확인 필요" }
+        "how": "반포대로 외곽방향 서초경찰서 앞(T-GIS 1026) 적색을 대검찰청 앞(서초경찰서(연등) 1028 — 그 종속 신호)보다 15초 먼저", "open": "변경 일자·배분값(시설담당) 확인 필요" }
     ]
   },
 
@@ -181,7 +185,7 @@
     ["ms.stMaryMetering", "modifies", "ix.stMary", { "src": "현장 지식" }],
     ["ms.coneLaneDrop", "modifies", "sg.banpo.S.bridge2terminal", { "src": "현장 지식" }],
     ["ms.policeRedLead", "modifies", "ix.seochoPolice", { "src": "현장 지식" }],
-    ["ix.seochoPolice", "linkedWith", "ix.supremeProsecutors", { "src": "현장 지식", "note": "반포대로 연동 — 게임에는 아직 연동이 없다(교차로마다 시계가 따로 돈다)" }],
+    ["ix.supremeProsecutors", "satelliteOf", "ix.seochoPolice", { "src": "실측", "note": "T-GIS 연동교차로코드 1028 → 1026. 「상류 적색 선행」(서초경찰서 앞 적색을 15초 먼저)은 이 한 쌍 안의 시차다 — 게임에는 아직 연동이 없다(교차로마다 시계가 따로 돈다)" }],
     ["ix.stMary", "linkedWith", "ix.seochoPolice", { "src": "확인 필요" }],
     ["cs.stMaryWeekday", "causedBy", "cf.academy", { "src": "현장 지식" }],
     ["cs.stMaryWeekday", "mitigatedBy", "ms.stMaryMetering", { "src": "현장 지식" }],
@@ -205,10 +209,8 @@
     "시설담당: 성모병원사거리·서초경찰서 앞 신호 변경 일자와 배분값(전후 효과 비교용)",
     "분수쇼 대응 라바콘 시작 지점과 차량이 빠지는 우회로",
     "신세계백화점 정체가 주말에도 17시부터인지",
-    "「궁전사거리」 = C-ITS 「궁전가든」(4024)인지",
     "사평지하차도 위치·차로 수(OSM 에 표시 없음)",
     "사평대로 성모병원~삼호가든 차로 수(게임 편도 2 · OSM 한 방향 4 · 위키백과 왕복 6 이 서로 다름)",
-    "대검찰청 앞 신호 번호",
     "고속버스 정각·30분 집중 — TAGO 분석 결과 대기"
   ]
 }
