@@ -222,6 +222,63 @@ def main():
             PTS[p['sgg']]['kg'].append([round(q[0], 6), round(q[1], 6), r['KDGT_NM'], r['FNDN_TYPE'], q[2]]); D[k]['kgN'] = D[k].get('kgN', 0) + 1
     print('경기 유치원 자리', kgok, '못 맞춤', kgno, '· 경기 경로당(OSM)', kyr2, '· 학교 점', sum(len(PTS[g]['edu']) for g in PTS))
     GGKG = kgno
+    # v0.10.103 경기 행정동 카드 매출(경기데이터드림 TB25BPTCARDDONGM) — 업종 코드가 세 글자인 달(같은 기준 · 2022.1~2025.6 중 24달)만 쓴다.
+    #   2018~2021 두 글자 코드 달은 규모가 다른 덩어리(월 합 약 3천억 ↔ 2.2조)라 이어 붙이면 거짓 추이가 된다 — 버린다. 비교는 같은 달끼리: 2022년 1~6월 월평균 ↔ 2025년 1~6월 월평균.
+    CD = os.path.join(REG, 'ggcard'); GCN = {}
+    if os.path.exists(CD):
+        GCN = json.load(open(os.path.join(CD, 'indnames.json'), encoding='utf-8'))
+        M = collections.defaultdict(lambda: collections.defaultdict(float)); I22 = collections.defaultdict(lambda: collections.defaultdict(float)); I25 = collections.defaultdict(lambda: collections.defaultdict(float))
+        for fn in sorted(os.listdir(CD)):
+            if not fn.startswith('TB25BPTCARDDONGM_0'): continue
+            for ym, dc, ic, amt in json.load(open(os.path.join(CD, fn), encoding='utf-8')):
+                if len(ic) != 3: continue
+                k = str(dc)[:8]; v = float(amt or 0); M[k][ym] += v
+                if ym[:4] == '2022' and ym[4:] <= '06': I22[k][ic] += v
+                if ym[:4] == '2025' and ym[4:] <= '06': I25[k][ic] += v
+        known = {f['properties']['adm_cd2'][:8] for f in feats}
+        def remap(k):   # 옛 시 코드(화성 41590 · 부천 41190 등 일반구 생기기 전) → 같은 시 앞 4자리 · 같은 동 번호(뒤 3자리)의 새 코드가 하나면 그것
+            if k in known: return k
+            c = [q for q in known if q[:4] == k[:4] and q[5:8] == k[5:8]]
+            return c[0] if len(c) == 1 else None
+        M2 = collections.defaultdict(lambda: collections.defaultdict(float)); J22 = collections.defaultdict(lambda: collections.defaultdict(float)); J25 = collections.defaultdict(lambda: collections.defaultdict(float)); lostc = set()
+        for src, dst in ((M, M2), (I22, J22), (I25, J25)):
+            for k, mm in src.items():
+                k2 = remap(k)
+                if not k2: lostc.add(k); continue
+                for a2, v in mm.items(): dst[k2][a2] += v
+        M, I22, I25 = M2, J22, J25
+        print('경기 카드 매출 옛 코드 못 이음', len(lostc))
+        for k, mm in M.items():
+            ms = sorted(mm); h22 = sum(mm.get('2022%02d' % i, 0) for i in range(1, 7)) / 6; h25 = sum(mm.get('2025%02d' % i, 0) for i in range(1, 7)) / 6
+            top = sorted(I25[k].items(), key=lambda x: -x[1])[:12]
+            D[k]['gcs'] = {'m': [[y, round(mm[y] / 10000)] for y in ms], 'h22': round(h22 / 10000), 'h25': round(h25 / 10000),
+                           'ind': [[GCN.get(c, c), round(v / 6 / 10000), round(I22[k].get(c, 0) / 6 / 10000)] for c, v in top],
+                           'bar': round(sum(v for c, v in I25[k].items() if c in ('Q01', 'Q08')) / 6 / 10000)}
+        print('경기 카드 매출 동', len(M))
+    # v0.10.103 관공서(OSM gov_scan.json — 이름·amenity 로 갈래 · 정류장·가게·역 이름은 버림)
+    GOVF = r'C:/Users/knpth/osmwork/gov_scan.json'
+    GOVCAT = [('주민센터', r'주민센터|행정복지센터|동사무소|읍사무소|면사무소|주민자치센터'), ('우체국', r'우체국|우편취급국|우편집중국'), ('보건소', r'보건소|보건지소|보건진료소'), ('시청·구청', r'(특별시청|광역시청|시청|구청|군청|도청|정부청사|정부서울청사|정부과천청사)(\s*(본관|별관|제\d청사|신관))?$'), ('세무서', r'세무서$|세무서\s'), ('등기소', r'등기소|등기국'), ('소방', r'소방서|119안전센터|119구조|소방본부|소방재난본부'), ('교육청', r'교육청|교육지원청'), ('경찰', r'경찰서|지구대|파출소|치안센터|경찰청'), ('검찰', r'검찰청|검찰'), ('법원', r'법원'), ('국가기관', r'병무청|출입국|고용센터|고용노동|선거관리위원회|세관|국민연금공단|건강보험공단|근로복지공단|보훈청|보훈지청|구의회|시의회|군의회|도의회|국세청|관세청|조달청|통계청|헌법재판소|감사원|차량등록사업소|가정법원')]
+    BADAM = {'restaurant', 'cafe', 'bicycle_rental', 'parking', 'clinic', 'hospital', 'bank', 'fast_food', 'pharmacy', 'bus_station', 'fuel', 'toilets', 'school', 'kindergarten', 'convenience'}
+    gseen = collections.defaultdict(list); ngov = 0
+    if os.path.exists(GOVF):
+        for n, am, lon, lat, st, hn, ph in json.load(open(GOVF, encoding='utf-8')):
+            if am in BADAM or re.search(r'\.|·|앞$| 앞|역$|입구$|사거리|삼거리|교차로|점$|마을회관|정류장|버스|아파트|빌딩$|약국|병원|의원|카페|편의점|주차장', n): continue
+            cat = None
+            for c2, rx in GOVCAT:
+                if re.search(rx, n): cat = c2; break
+            if not cat and am in ('police',): cat = '경찰'
+            if not cat and am in ('courthouse',): cat = '법원'
+            if not cat and am in ('fire_station',): cat = '소방'
+            if not cat and am in ('post_office',): cat = '우체국'
+            if not cat: continue
+            nn = norm(n)
+            if any(abs(lat - a) < 0.0027 and abs(lon - b) < 0.0034 for a, b in gseen[(cat, nn)]): continue
+            p = dong_of(lon, lat)
+            if not p: continue
+            gseen[(cat, nn)].append((lat, lon)); k = p['adm_cd2'][:8]; ngov += 1
+            PTS[p['sgg']]['gov'].append([round(lat, 6), round(lon, 6), n, cat, (st + ' ' + hn).strip(), ph])
+            g2 = D[k].setdefault('gov', {}); g2[cat] = g2.get(cat, 0) + 1
+    print('관공서', ngov)
     # 이 동의 상권(서울시 상권분석서비스 · 구마다 trdar.json 의 dong 칸) — 처음 4분기 합 ↔ 마지막 4분기 합
     for gu in gus:
         fn = os.path.join(ROOT, 'data', 'r', gu, 'trdar.json')
@@ -252,6 +309,8 @@ def main():
                           '경기 유치원': '경기도교육청 유치원 공시(경기데이터드림 Kndrgrschoolstus · 2026년 1차) — 좌표·주소가 없어 같은 이름의 어린이보호구역 대상 시설(표준데이터)·OSM 점이 경기 안에 하나일 때만 자리를 잡음',
                           '학교': '서울 초·중·고·특수 = 서울특별시교육청 2025(공식) · 경기 초등·특수 = 어린이보호구역 대상 시설(표준데이터) + OSM · 경기 중·고 · 서울·경기 대학 = OpenStreetMap(ODbL · 학교 이름으로 갈래)',
                           '경기 경로당': '경기 경로당 공식 목록(좌표)을 찾지 못함 — OpenStreetMap 에 이름이 「경로당·노인정·경로회관」인 점만',
+                          '경기 카드매출': '경기데이터드림 카드매출_행정동_집계(TB25BPTCARDDONGM · 2025-09-18 기준) — 행정동 × 카드사 업종 중분류 × 달 매출(만원으로 바꿈). 업종 코드가 세 글자인 같은 기준 달(2022.1~2025.6 중 24달)만 · 업종 이름 = 경기데이터드림 업종별 카드 가맹점 정보의 카드사 업종 분류. 카드사 집계라 실제 전체 매출보다 작다 — 동끼리·해끼리 견주는 값',
+                          '관공서': 'OpenStreetMap(ODbL · Geofabrik 2026-10-03) — 이름·시설 갈래(townhall·courthouse·police·fire_station·post_office·office=government)로 주민센터·시청/구청·세무서·등기소·법원·검찰·경찰·소방·교육청·보건소·우체국·그 밖 국가기관을 가름 · 정류장·가게·역 이름은 버림 · OSM 에 없는 곳은 빠진다',
                           '학원': '소상공인시장진흥공단 상가(상권)정보 2026년 6월 — 입시·교과학원(P10501) · 학원 전체 = 일반·기타 교육(P105·P106)'},
                'ix_names': {'LL': '다이나믹', 'LH': '상권확장', 'HL': '상권축소', 'HH': '정체'},
                'dong': {k: D[k] for k in ks if k in D}, 'kyrNo': D.get('G' + gu, {}).get('kyrNo', 0),
