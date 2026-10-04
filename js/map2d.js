@@ -1111,7 +1111,7 @@
     var h = '<h3>💰 ' + esc(it.name) + ' <small style="font-weight:400;color:var(--ink2)">' + esc(it.grp) + ' · 부동산원 표본 상권</small></h3>' + row('대표 자리', esc(it.how) + ' <em>(상권 경계는 공개되지 않는다)</em>');
     [['s', '소규모 상가'], ['m', '중대형 상가'], ['c', '집합 상가']].forEach(function (k) { if (it[k[0]]) h += row(k[1], lastV(it[k[0]]) + '천원/㎡ · 33㎡(10평)이면 월 약 ' + Math.round(lastV(it[k[0]]) * 3.3) + '만원') + '<div class="cap">' + k[1] + ' 임대료 분기별(천원/㎡ · 한 달 · 전용+공용 면적)</div>' + bar(it[k[0]].map(function (v) { return v || 0; }), '#b45309', L); });
     [['vs', '소규모 상가'], ['vm', '중대형 상가']].forEach(function (k) { if (it[k[0]]) h += '<div class="cap">' + k[1] + ' 공실률 분기별(% · 빈 점포 면적 비율)</div>' + bar(it[k[0]].map(function (v) { return v || 0; }), '#64748b', L); });
-    var A = RENT.agg['서울']; if (A && A.m) h += row('서울 평균', '중대형 ' + lastV(A.m) + '천원/㎡ · 공실 ' + lastV(A.vm) + '% · 소규모 ' + lastV(A.s) + '천원/㎡ · 공실 ' + lastV(A.vs) + '%');
+    var SD = it.sido === '경기' ? '경기' : '서울', A = RENT.agg[SD]; if (A && A.m) h += row(SD + ' 평균', '중대형 ' + lastV(A.m) + '천원/㎡ · 공실 ' + lastV(A.vm) + '% · 소규모 ' + lastV(A.s) + '천원/㎡ · 공실 ' + lastV(A.vs) + '%');
     h += '<div class="lg-btns"><button data-radhere="' + it.lon + ',' + it.lat + '">📐 여기서 반경 분석</button></div>';
     return h + '<p class="desc">' + esc(RENT.note) + '</p>' + src(RENT.source);
   }
@@ -1337,7 +1337,7 @@
   }
   function facCard(it) {
     var k = it.L[0], r = it.q.r, S = (it.q.m || {}).source || {}, h = '<h3>' + esc(FACL[k][0]) + '</h3>', s = '';
-    if (k === 'kyr') { h += row('이름', esc(r[2])) + row('주소', esc(r[3])) + row('자리', r[4] === '이름' ? '<em>OpenStreetMap 의 같은 이름 경로당 점(근사)</em>' : '<em>OpenStreetMap 건물 도로명주소와 맞춘 자리</em>'); s = S['경로당']; }
+    if (k === 'kyr') { h += row('이름', esc(r[2])) + row('주소', esc(r[3])) + row('자리', r[4] === '이름' ? '<em>OpenStreetMap 의 같은 이름 경로당 점(근사)</em>' : r[4] === '근사' ? '<em>같은 길의 가장 가까운 번호 자리(근사 — 이 방법을 시험해 보니 오차 가운데 약 40m · 열에 아홉은 125m 안)</em>' : '<em>OpenStreetMap 건물 도로명주소와 맞춘 자리</em>'); s = S['경로당']; }
     else if (k === 'cc') { h += row('이름', esc(r[2])) + row('유형', esc(r[3])) + row('정원 · 현원', r[4] + '명 · ' + r[5] + '명' + (r[4] ? ' <em>(채운 비율 ' + Math.round(r[5] / r[4] * 100) + '%)</em>' : '')); s = S['어린이집']; }
     else if (k === 'kg') { h += row('이름', esc(r[2])) + row('설립', esc(r[3])); s = S['유치원·학교']; }
     else if (k === 'aca') { h += row('상호', esc(r[2])) + '<p class="desc">등록된 상가 정보다 — 영업 여부·수강생 수는 이 자료에 없다.</p>'; s = S['학원']; }
@@ -1357,7 +1357,7 @@
       '<div class="cap">연령대별 남녀 인구(명 · 주민등록 2026년 9월 · 위가 나이 많음)</div>' + pyr(x.sex[2], x.sex[3]); srcs.push(S['남녀']); }
     var fl = []; if (x.cc) fl.push('어린이집 ' + x.cc[0] + '곳(정원 ' + x.cc[1] + ' · 현원 ' + x.cc[2] + ')'); if (x.kgy) fl.push('유치원 ' + x.kgy[x.kgy.length - 1] + '곳');
     if (x.sch) fl.push('초 ' + x.sch.e + ' · 중 ' + x.sch.m + ' · 고 ' + x.sch.h); if (x.kyr) fl.push('경로당 ' + x.kyr + '곳'); if (x.aca != null || x.acaAll) fl.push('입시·교과학원 ' + (x.aca || 0) + '곳(학원 전체 ' + (x.acaAll || 0) + ')');
-    if (fl.length) h += row('아이·어르신·교육', fl.join(' · ') + (x.kyr && F.kyrNo ? ' <em>(경로당은 주소가 OSM 과 맞은 곳만 — 이 구 ' + F.kyrNo + '곳 빠짐)</em>' : ''));
+    if (fl.length) h += row('아이·어르신·교육', fl.join(' · ') + (x.kyr && F.kyrNo ? ' <em>(경로당은 주소로 자리를 잡은 곳만 — 이 구 ' + F.kyrNo + '곳 빠짐)</em>' : ''));
     if (x.ccy && x.ccy.some(function (v) { return v; })) { var c0 = x.ccy[0], c1 = x.ccy[x.ccy.length - 1];
       h += row('어린이집 추이', F.cyears[0] + '년 ' + c0 + '곳 → ' + F.cyears[F.cyears.length - 1] + '년 ' + c1 + '곳 <b>' + sgn(pctCh(c0, c1)) + '</b>') + '<div class="cap">해마다 운영 중인 어린이집 수(곳 · 그해 말 · 인가일~폐지일로 셈 · ' + F.cyears[F.cyears.length - 1] + '년은 지금)</div>' + bar(x.ccy, '#db2777', F.cyears.map(function (y) { return "'" + String(y).slice(2); })); srcs.push(S['어린이집']); }
     if (x.kgy && x.kgy.some(function (v) { return v; })) { var g0 = x.kgy[0], g1 = x.kgy[x.kgy.length - 1];

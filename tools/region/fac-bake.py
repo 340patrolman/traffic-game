@@ -79,16 +79,27 @@ def main():
     for n, lon, lat, st, hn in AS['kyr']:
         p = dong_of(lon, lat)
         if p: OK[p['sggnm']].append((re.sub(r'\s|경로당|노인정|경로회관', '', n), lon, lat))
+    ST = collections.defaultdict(list)   # 길 이름 → [(본번, 부번, 경도, 위도)] — 같은 길 가까운 번호로 근사할 때
+    for key, q in A.items():
+        st, _, hn = key.rpartition(' '); mm = re.match(r'(\d+)(?:-(\d+))?$', hn)
+        if mm: ST[st].append((int(mm.group(1)), int(mm.group(2) or 0), q[0], q[1]))
+    hit2 = 0
     for r in kyr:
-        m = re.match(r'\s*(?:서울(?:특별시)?\s*)?(\S+구)\s+(\S+(?:로|길))\s*(\d+(?:-\d+)?)', r['ADDRESS'] or '')
-        gu = r['SIGUN_NM']
-        k8 = None
+        gu = r['SIGUN_NM']; k8 = None
+        ad = re.sub(r'\s+', ' ', (r['ADDRESS'] or '').replace(' ', ' ')).strip()
+        ad = re.sub(r'^(?:서울(?:특별시)?\s*)?(?:\S+구\s+)?', '', ad)
+        m = re.match(r'(\S+?(?:로|길))\s*(\d+[가-힣]?(?:번?가?길))?\s*(\d+)(?:-(\d+))?', ad)
         if m:
-            q = A.get(m.group(2) + ' ' + m.group(3))
+            st = m.group(1) + (m.group(2) or ''); n1, n2 = int(m.group(3)), int(m.group(4) or 0)
+            q = A.get(st + ' ' + str(n1) + ('-' + str(n2) if n2 else '')); how = '주소'
+            if not q and n2: q = A.get(st + ' ' + str(n1))
+            if not q and ST.get(st):
+                c = sorted(ST[st], key=lambda x: (abs(x[0] - n1), x[0] % 2 != n1 % 2))
+                if abs(c[0][0] - n1) <= 20: q = [c[0][2], c[0][3]]; how = '근사'
             if q:
                 p = dong_of(q[0], q[1])
                 if p and p['sggnm'] == gu:
-                    PTS[p['sgg']]['kyr'].append([q[1], q[0], r['SISUL_NM'], r['ADDRESS'].strip(), '주소']); hit += 1; k8 = p['adm_cd2'][:8]
+                    PTS[p['sgg']]['kyr'].append([q[1], q[0], r['SISUL_NM'], (r['ADDRESS'] or '').strip(), how]); hit += 1; hit2 += how == '근사'; k8 = p['adm_cd2'][:8]
                     D[k8]['kyr'] = D[k8].get('kyr', 0) + 1
         if not k8:
             nm = re.sub(r'\s|경로당|노인정|경로회관', '', r['SISUL_NM'] or '')
@@ -99,7 +110,7 @@ def main():
         if not k8:
             g = [f['properties']['sgg'] for f in feats if f['properties']['sggnm'] == gu and f['properties']['adm_cd2'][:2] == '11']
             if g: c = D['G' + g[0]]; c['kyrNo'] = c.get('kyrNo', 0) + 1
-    print('경로당', len(kyr), '자리 맞음', hit)
+    print('경로당', len(kyr), '자리 맞음', hit, '그중 근사', hit2)
     # 상권변화지표 · 점포(행정동)
     for r in jl('VwsmAdstrdIxQq.json'):
         D[r['ADSTRD_CD']].setdefault('ix', []).append([r['STDR_YYQU_CD'], r['TRDAR_CHNGE_IX'], r['OPR_SALE_MT_AVRG'], r['CLS_SALE_MT_AVRG']])
@@ -148,7 +159,7 @@ def main():
                'source': {'남녀': '행정안전부 주민등록 인구통계 · 행정동별 연령별 · 남녀(2026년 9월)',
                           '어린이집': '서울시 어린이집 정보(ChildCareInfo · 서울 열린데이터광장 · 2026-10-04) — 해마다 수 = 인가일 ≤ 그해 < 폐지일(그해 말 운영) · 좌표 없는 곳 빠짐',
                           '유치원·학교': '서울특별시교육청 연도별 학교 위도 경도(공공데이터포털 15152021 · 2014~2025)',
-                          '경로당': '서울시 경로당 정보(OdsnBuildingInfo · OA-15052) — 주소만 있어 OpenStreetMap 건물 도로명주소(ODbL)와 맞은 곳만 점으로',
+                          '경로당': '서울시 경로당 정보(OdsnBuildingInfo · OA-15052) — 주소만 있어 OpenStreetMap 건물 도로명주소(ODbL)와 맞춤(번호가 없으면 같은 길 ±20번 안 가까운 번호 = 근사) · 못 맞춘 곳은 뺌',
                           '상권변화': '서울시 상권분석서비스 상권변화지표-행정동(VwsmAdstrdIxQq) — LL 다이나믹 · LH 상권확장 · HL 상권축소 · HH 정체 · 운영·폐업 평균 개월',
                           '점포': '서울시 상권분석서비스 점포-행정동(VwsmAdstrdStorW) — 업종 합 점포·개업·폐업(분기)',
                           '학원': '소상공인시장진흥공단 상가(상권)정보 2026년 6월 — 입시·교과학원(P10501) · 학원 전체 = 일반·기타 교육(P105·P106)'},
