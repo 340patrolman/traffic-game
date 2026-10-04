@@ -92,6 +92,21 @@
       j.cells.forEach(function (c) { A10.push({ c: c, p: P(c[1], c[0]), m: j }); }); j.fatal.forEach(function (f) { F10.push({ f: f, p: P(f[17], f[16]), m: j }); }); draw();
     }).catch(function () {}); return RLOADA[gu];
   }
+  // v0.10.98 계절 위험 서울(구마다 season.json · 서초 둘레 상자 밖만) — 서초 판(LATE)이 SEA 를 만든 뒤에 붙인다
+  var RLOADE = {}, SEA_KEYS = ['flt', 'flr', 'und', 'ice', 'hcab', 'advb'];
+  function bbOf(pts) { var b = [1e9, -1e9, 1e9, -1e9]; pts.forEach(function (q) { b[0] = Math.min(b[0], q[0]); b[1] = Math.max(b[1], q[0]); b[2] = Math.min(b[2], q[1]); b[3] = Math.max(b[3], q[1]); }); return b; }
+  function seaLoad(gu) {
+    if (RLOADE[gu]) return RLOADE[gu]; if (!SEA) return Promise.resolve();
+    RLOADE[gu] = fetch('data/r/' + gu + '/season.json').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
+      j.traces.forEach(function (t) { SEA.tr.push({ p: [t[0], t[1]], t: t, m: j }); });
+      j.floodRoads.forEach(function (r) { var pts = dec2(r, 6); SEA.fr.push({ r: r, pts: pts, bb: bbOf(pts), m: j }); });
+      j.under.forEach(function (u) { SEA.un.push({ p: [u[2], u[3]], u: u, m: j }); });
+      j.sbox.forEach(function (b) { SEA.ib.push({ p: [b[0], b[1]], b: b, m: j }); });
+      j.adv.forEach(function (a) { SEA.ad.push({ p: [a[0], a[1]], a: a, m: j }); });
+      j.heat.forEach(function (h) { SEA.ht.push({ h: h, segs: h[5].map(function (a) { return dec2(a, 0); }), m: j }); });
+      draw();
+    }).catch(function () {}); return RLOADE[gu];
+  }
   var RLOADX = {};
   function xLoad(gu) {   // v0.10.94 버스·지하철 승하차(구마다) — 서초 정류장·역이 이미 있으면 건너뛴다
     if (RLOADX[gu]) return RLOADX[gu];
@@ -104,6 +119,7 @@
     }).catch(function () {}); return RLOADX[gu];
   }
   function needRegions() {
+    if (view.s >= 0.02 && SEA && SEA_KEYS.some(function (k) { return on[k]; })) { var ve = viewLL(); rIdx().forEach(function (g) { if (RLOADE[g.gu] || !(g.bytes || {}).season) return; var x = g.box; if (x[2] < ve[0] || x[0] > ve[2] || x[3] < ve[1] || x[1] > ve[3]) return; seaLoad(g.gu); }); }
     if ((on.acc10 || on.fatal10) && view.s >= 0.012) { var va = viewLL(); rIdx().forEach(function (g) { if (RLOADA[g.gu] || !(g.bytes || {}).taas10) return; var x = g.box; if (x[2] < va[0] || x[0] > va[2] || x[3] < va[1] || x[1] > va[3]) return; aLoad(g.gu); }); }
     if (view.s >= 0.03 && SAFE_KEYS.some(function (k) { return on[k]; })) { var vs2 = viewLL(); rIdx().forEach(function (g) { if (RLOADS[g.gu] || !(g.bytes || {}).safety) return; var x = g.box; if (x[2] < vs2[0] || x[0] > vs2[2] || x[3] < vs2[1] || x[1] > vs2[3]) return; sfLoad(g.gu); }); }
     if ((on.bus && view.s > 0.07) || (on.subr && view.s >= 0.02)) { var vx = viewLL(); rIdx().forEach(function (g) { if (RLOADX[g.gu] || !(g.bytes || {}).transit) return; var x = g.box; if (x[2] < vx[0] || x[0] > vx[2] || x[3] < vx[1] || x[1] > vx[3]) return; xLoad(g.gu); }); }
@@ -1263,7 +1279,8 @@
     if (it) { var m = S(pts[Math.floor(pts.length / 2)]); hit.push({ x: m[0], y: m[1], r: 10, it: it }); } }
   var FR_C = ['#7dd3fc', '#38bdf8', '#0284c7', '#1e3a8a'];
   function drawSeason(dark) { if (!SEA) return; var Sd = D.season, z = view.s;
-    if (on.flr) SEA.fr.forEach(function (r) { var n = Math.min(3, r.r[2]); polyl(r.pts, FR_C[n], Math.max(3, (n + 2) * Math.min(1.6, z * 6)), dark, { kind: 'season', k: 'flr', r: r }); });
+    var va2 = M(0, 0), vb2 = M(cv.clientWidth, cv.clientHeight), offv = function (bb) { return bb && (bb[1] < va2[0] || bb[0] > vb2[0] || bb[3] < va2[1] || bb[2] > vb2[1]); };
+    if (on.flr) SEA.fr.forEach(function (r) { if (offv(r.bb)) return; var n = Math.min(3, r.r[2]); polyl(r.pts, FR_C[n], Math.max(3, (n + 2) * Math.min(1.6, z * 6)), dark, { kind: 'season', k: 'flr', r: r }); });
     if (on.hcab) SEA.ht.forEach(function (h) { h.segs.forEach(function (pts, i) { polyl(pts, '#f97316', Math.max(3, Math.min(7, z * 18)), dark, i === 0 ? { kind: 'season', k: 'hcab', h: h } : null); }); });
     if (on.flt) SEA.tr.forEach(function (t) { var d = t.t[4], c = d >= 1 ? '#1e3a8a' : d >= 0.5 ? '#2563eb' : '#60a5fa'; dot(t.p, z < 0.12 ? 2.2 : 3 + Math.min(4, Math.sqrt(t.t[3])), hexA(c, 0.75), z < 0.12 ? null : '#fff', z < 0.12 ? null : { kind: 'season', k: 'flt', t: t }); });
     if (on.und) SEA.un.forEach(function (u) { var a = S(u.p), wet = u.u[5] > 0, r = 7; ctx.fillStyle = wet ? '#b91c1c' : '#475569'; ctx.fillRect(a[0] - r, a[1] - r, r * 2, r * 2); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(a[0] - r, a[1] - r, r * 2, r * 2);
@@ -1273,7 +1290,7 @@
     if (on.advb) SEA.ad.forEach(function (a) { dot(a.p, 7, '#0e7490', '#fff', { kind: 'season', k: 'advb', a: a }); });
     if (on.pbtn) SEA.pb.forEach(function (b) { dot(b.p, 5.5, '#16a34a', '#fff', { kind: 'season', k: 'pbtn', b: b }); if (z > 0.3) label([b.p[0], b.p[1] + 14 / z], '보행자 작동', 10, '#14532d', 'rgba(255,255,255,.85)'); });
   }
-  function seasonCard(it) { var Sd = D.season, h = '', k = it.k, src2 = '';
+  function seasonCard(it) { var o0 = it.t || it.r || it.u || it.b || it.h || it.a || {}, Sd = o0.m || D.season, h = '', k = it.k, src2 = '';
     if (k === 'flt') { var t = it.t.t, near = SEA.tr.filter(function (o) { return Math.hypot(o.p[0] - it.t.p[0], o.p[1] - it.t.p[1]) < 40; }), ys = {}; near.forEach(function (o) { ys[o.t[2]] = 1; });
       h = '<h3>🌊 침수 흔적 — ' + t[2] + '년</h3>' + row('흔적', t[3] + '곳(20m 칸에 묶음)') + row('최대 침수심', t[4] ? t[4] + 'm' : '기록 없음') + row('원인', esc(Sd.causes[t[5]] || '-')) + row('동', esc(Sd.zones[t[6]] || '-')) +
         row('이 자리 40m 안 침수 해', Object.keys(ys).sort().join(' · ')) + '<p class="desc">건물·필지가 물에 잠긴 범위의 가운데 점이다(도로 침수 기록이 아니다). 2015·2021년은 서울시 자료가 없다.</p>'; src2 = Sd.source.flood; }
