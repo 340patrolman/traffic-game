@@ -48,14 +48,14 @@
   hashLayers();
 
   // ---------- 자료 읽기 ----------
-  var FILES = { season: 'data/season-seocho.json', pbtn: 'data/pedbtn-seocho.json', enf: 'data/enforce-seocho.json', dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
+  var FILES = { pstat: 'data/police-stats.json', season: 'data/season-seocho.json', pbtn: 'data/pedbtn-seocho.json', enf: 'data/enforce-seocho.json', dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
     base: 'data/maps/seocho.json', gu: 'data/maps/seoul-districts.json', acc: 'data/taas-nodes-seocho.json', fatal: 'data/taas-fatal-seocho.json', hot: 'data/taas.json',
     cam: 'data/cameras-seocho.json', sig: 'data/signal-tod-seocho.json', evt: 'data/events-seocho.json', vol: 'data/traffic-vol-seocho.json', her: 'data/heritage-seocho.json',
     near: 'data/dong-near.json', xing: 'data/intersections-seocho.json', pub: 'data/pubdata-seocho.json', police: 'data/police-seocho.json', sz: 'data/schoolzone-seocho.json', st: 'data/stores-seocho.json',
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
     osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
+  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn', 'pstat'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
   Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
     Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); seasonPrep(); paintPre(); summary(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
@@ -423,7 +423,9 @@
   function ring(pts, fill, stroke) { if (!pts || pts.length < 3) return; path(pts); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); }
   // ---------- 관할 · T-GIS · 길목(v0.10.74 — T-Book 교통관리 요청) ----------
   var JUR = [], TG = [], TGC = {}, SPOTS = [], SPA = [];
-  var JUR_C = { seocho: ['rgba(37,99,235,.10)', '#2563eb'], bangbae: ['rgba(13,148,136,.12)', '#0d9488'], banpo: ['rgba(124,58,237,.10)', '#7c3aed'] };
+  var JUR_C = { seocho: ['rgba(37,99,235,.10)', '#2563eb'], bangbae: ['rgba(13,148,136,.12)', '#0d9488'], banpo: ['rgba(124,58,237,.10)', '#7c3aed'],
+    yongsan: ['rgba(234,88,12,.06)', '#c2410c'], dongjak: ['rgba(22,163,74,.06)', '#15803d'], gwanak: ['rgba(202,138,4,.07)', '#a16207'], geumcheon: ['rgba(120,113,108,.06)', '#57534e'],
+    gangnam: ['rgba(219,39,119,.06)', '#be185d'], suseo: ['rgba(147,51,234,.06)', '#7e22ce'], songpa: ['rgba(8,145,178,.06)', '#0e7490'], gwacheon: ['rgba(101,163,13,.07)', '#4d7c0f'], sujeong: ['rgba(225,29,72,.06)', '#be123c'] };
   var SPA_C = { '음주': '#b45309', '이륜차': '#dc2626', '보행자': '#2563eb', '자전거': '#16a34a', '어린이': '#ca8a04', '고령자': '#7c3aed' };
   function extraPrep() {
     if (D.jur) JUR = D.jur.zones.map(function (z) { var rings = z.rings.map(function (r) { return r.map(function (q) { return P(q[0], q[1]); }); }); var r0 = rings[0], sx = 0, sy = 0; r0.forEach(function (q) { sx += q[0]; sy += q[1]; }); return { z: z, rings: rings, c: [sx / r0.length, sy / r0.length] }; });
@@ -449,7 +451,7 @@
       JUR.forEach(function (J) { var c = JUR_C[J.z.id] || ['rgba(100,116,139,.1)', '#64748b'];
         var nm = J.z.id === 'banpo' ? '서초서·방배서 번지로 나눔' : J.z.name.replace('서울', '');
         label(J.c, nm, view.s > 0.12 ? 14 : 12, c[1], dark ? 'rgba(15,22,36,.8)' : 'rgba(255,255,255,.88)'); var s = S(J.c); hit.push({ x: s[0], y: s[1], r: 16, it: { kind: 'jur', J: J } }); });
-      (D.jur.stations || []).forEach(function (st) { dot(P(st.lon, st.lat), 7, /방배/.test(st.name) ? '#0d9488' : '#2563eb', '#fff', { kind: 'jurst', st: st }); });
+      (D.jur.stations || []).forEach(function (st) { var zz = JUR.filter(function (J) { return J.z.name === st.name; })[0]; dot(P(st.lon, st.lat), 7, zz && JUR_C[zz.z.id] ? JUR_C[zz.z.id][1] : '#2563eb', '#fff', { kind: 'jurst', st: st }); });
     }
     if (on.tgis && TG.length && view.s > 0.07) {
       TG.forEach(function (t) { if (!t.par || t.par === t.c || !TGC[t.par]) return; path([t.p, TGC[t.par].p]); ctx.lineWidth = 1.2; ctx.strokeStyle = dark ? 'rgba(251,191,36,.6)' : 'rgba(180,83,9,.55)'; ctx.stroke(); });
@@ -463,8 +465,8 @@
   }
   function extraCard(it) {
     var h = '';
-    if (it.kind === 'jur') { var z = it.J.z; h = '<h3>🚓 ' + esc(z.id === 'banpo' ? '반포동 — 서초서·방배서가 번지로 나눔' : z.name + ' 관할') + '</h3>' + row('행정동', esc(z.dongs.join(' · '))) + enfRows(z.name) + '<p class="desc">' + esc(z.note) + '</p>' + (D.jur.src ? '<p class="desc">반포동 나눔 — ' + esc(D.jur.src) + '</p>' : '') + src(D.jur.law + ' · ' + D.jur.boundary); }
-    else if (it.kind === 'jurst') { var st = it.st; h = '<h3>🚓 ' + esc(st.name) + '</h3>' + row('청사', esc(st.addr)) + enfRows(st.name) + src('경찰민원24 청사 좌표(T-Book PS_PTS)'); }
+    if (it.kind === 'jur') { var z = it.J.z; h = '<h3>🚓 ' + esc(z.id === 'banpo' ? '반포동 — 서초서·방배서가 번지로 나눔' : z.name + ' 관할') + '</h3>' + row('행정동', esc(z.dongs.join(' · '))) + enfRows(z.name) + polStats(z.name) + '<p class="desc">' + esc(z.note) + '</p>' + (D.jur.src ? '<p class="desc">반포동 나눔 — ' + esc(D.jur.src) + '</p>' : '') + src(D.jur.law + ' · ' + D.jur.boundary); }
+    else if (it.kind === 'jurst') { var st = it.st; h = '<h3>🚓 ' + esc(st.name) + '</h3>' + (st.addr ? row('청사', esc(st.addr)) : '') + (st.tel ? row('대표번호', esc(st.tel)) : '') + enfRows(st.name) + polStats(st.name) + src('경찰민원24 청사 좌표(T-Book PS_PTS)'); }
     else if (it.kind === 'tgis') { var t = it.t, pa = t.par ? TGC[t.par] : null; h = '<h3>🚥 ' + esc(t.name) + '</h3>' + row('T-GIS 교차로코드', String(t.c)) + row('관할', t.pe === 380 ? '서울방배경찰서' : '서울서초경찰서') + (t.par && t.par !== t.c ? row('연동교차로코드', t.par + ' → ' + (pa ? esc(pa.name) + ' · ' + Math.round(Math.hypot(pa.p[0] - t.p[0], pa.p[1] - t.p[1])) + 'm' : '이 구역 밖') + (/연등/.test(t.name) ? ' <em>(「(연등)」 종속 신호)</em>' : ' <em>(그 교차로에 딸려 도는 신호)</em>')) : '') + (t.cits ? row('C-ITS 번호', String(t.cits) + ' <em>(15m 안 같은 신호)</em>') : '') + src(D.tgis.source + ' · 신호 현시·주기는 이 표에 없다'); }
     else if (it.kind === 'spot') { var q = it.q, o = q.o, hh = spotHour(); h = '<h3>🎯 ' + esc(q.name) + '</h3>' + row('종류', o.t === 's' ? '지하철역' + (o.g === '경계' ? ' <em>(구 경계 — 이웃 구와 나눠 셈)</em>' : '') : '버스 정류장') + row(hh + '시 하차', o.h[hh].toLocaleString() + '명(하루 평균) · 서초 ' + it.rank + '위') + row('하루 하차', q.day.toLocaleString() + '명') + row('밤 22~01시 비중', Math.round(q.night * 100) + '%') + '<div class="cap">시간대 하차(0~23시)</div>' + bar(o.h, o.t === 's' ? '#0284c7' : '#ea580c') + src(D.spot.source + ' · ' + D.spot.method); }
     else if (it.kind === 'spota') { var a = it.q.o; h = '<h3>🗂 ' + esc(a.k) + ' 다발지 — ' + esc(a.n) + '</h3>' + row('뽑힌 해', esc(a.y) + (a.yrs > 1 ? ' <em>(' + a.yrs + '해 — 고질 자리)</em>' : '')) + row('사고', a.c + '건 · 사상 ' + a.cs + (a.d ? ' · 사망 ' + a.d : '')) + '<p class="desc">참고 — 1년 전 자료·연 1회 갱신. 「0건」은 사고 없음이 아니다.</p>' + src(D.spot.source); }
@@ -515,7 +517,7 @@
     }
     else if (k === 'pol' && q.off) {
       var PL = D.police || {}, S3 = PL.source || {};
-      h += row('구분', esc(q.cat)) + (q.st ? row('대표번호', esc(q.o.tel)) + row('관할', esc(q.o.gu)) + enfRows(q.o.name || q.name || '') : row('소속', esc(q.o.station) + (q.ctr ? ' · ' + esc(q.o.box) : '')) + row('주소', esc(q.o.addr))) +
+      h += row('구분', esc(q.cat)) + (q.st ? row('대표번호', esc(q.o.tel)) + row('관할', esc(q.o.gu)) + enfRows(q.o.name || q.name || '') + polStats(q.o.name || q.name || '') : row('소속', esc(q.o.station) + (q.ctr ? ' · ' + esc(q.o.box) : '')) + row('주소', esc(q.o.addr))) +
         (q.st ? '' : row('자리', (q.o.approx ? '⚠ ' : '') + esc(q.o.locNote || '')));
       s = q.st ? S3.stations : ((q.ctr ? S3.centers : S3.boxes) + ' · ' + S3.loc);
     }
@@ -887,6 +889,29 @@
     return barRows(ind, '이 동') + '<div class="cap">업종 × 연령(%) — 이 동 매출 많은 업종 8</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(%)</div>' + indTable(ind, 'tb');
   }
   // ---------- 🚗 교통사고 10년(v0.10.79 · TAAS 2016~2025 서초 22,546건 · 100m 칸 + 사망사고 한 건씩) ----------
+  // v0.10.89 경찰서 통계 — 소유자 「단속 실적도 5년치 · 범죄나 생활에 필요한 정보」: 현장 단속 5개 해 · 112 출동 15년 · 5대 범죄 · 지구대·파출소
+  function stKey(name) { return String(name || '').replace(/^서울/, '').replace(/경찰서$/, ''); }
+  function polStats(name) { var S = D.pstat; if (!S || !name) return ''; var k = stKey(name), h = '';
+    var E = S.enf[k];
+    if (E) { var ys = Object.keys(E).sort(), last = E[ys[ys.length - 1]];
+      h += '<div class="cap">🚓 현장 단속 — 해마다 건수(경찰관 단속 기록 · 무인 장비 제외 · 2017~2020 파일 없음)</div>' + bar(ys.map(function (y) { return E[y].n; }), '#1d4ed8', ys.map(function (y) { return yLab(+y, 1)[0]; }));
+      h += row(ys[ys.length - 1] + '년 많이 단속한 조항', last.art.slice(0, 6).map(function (a) { var m = String(a[0]).match(/(\d+)조(의\d+)?/), t = m ? S.titles[m[1] + (m[2] || '')] : ''; return esc(a[0]) + (t ? ' <em>' + esc(t) + '</em>' : '') + ' ' + a[1].toLocaleString(); }).join('<br>'));
+      h += row('차종', last.veh.map(function (v) { return esc(v[0] || '-') + ' ' + v[1].toLocaleString(); }).join(' · '));
+      h += row('많이 단속한 자리', last.pl.slice(0, 4).map(function (v) { return esc(v[0]) + ' ' + v[1].toLocaleString(); }).join('<br>') + ' <em>(기록 글 그대로)</em>');
+      if (k === '동작' && E['2023'] && E['2023'].n < 2000) h += '<p class="desc">⚠ 동작서 2023년 파일은 건수가 다른 해의 10분의 1도 안 된다 — 원자료 그대로 둔다(빠진 기록으로 보임).</p>'; }
+    var C = S.call[k];
+    if (C) h += '<div class="cap">📞 112 신고 출동 — 해마다(' + S.callYears[0] + '~' + S.callYears[S.callYears.length - 1] + ')</div>' + bar(C.map(function (v) { return v || 0; }), '#7c3aed', S.callYears.map(function (y) { return "'" + String(y).slice(2); }));
+    var R = S.crime[k], ry = S.crimeYear;
+    if (!R && S.gn) { R = S.gn[k]; ry = S.gnYear; }
+    if (R) { var KS = ['살인', '강도', '강간·추행', '절도', '폭력'];
+      h += '<div class="cap">🚨 5대 범죄 ' + ry + '년 — 발생 / 검거(검거율)</div><table class="it"><tr><th></th>' + KS.map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>' +
+        '<tr><td>발생</td>' + KS.map(function (x) { return '<td>' + ((R[x] || [0])[0]).toLocaleString() + '</td>'; }).join('') + '</tr>' +
+        '<tr><td>검거</td>' + KS.map(function (x) { var v = R[x] || [0, 0]; return '<td>' + v[1].toLocaleString() + (v[0] ? '<br><small>' + Math.round(v[1] / v[0] * 100) + '%</small>' : '') + '</td>'; }).join('') + '</tr></table>'; }
+    var B = S.box[k];
+    if (B) { var n = B.length; h += row('지역경찰 관서(' + String(S.boxCols[n - 1]).slice(0, 4) + ')', '지구대 ' + B[n - 3] + ' · 파출소 ' + B[n - 2] + ' · 치안센터 ' + B[n - 1]); }
+    if (!E && !C && R) h += '<p class="desc">경기남부경찰청은 경찰서별 단속·112 출동 공개 파일을 찾지 못했다 — 5대 범죄만(' + ry + '년이 공개된 마지막 해).</p>';
+    if (h) h += '<p class="desc">출처 — ' + esc([S.source.enf, S.source.call, S.source.crime, S.source.box, S.source.gn].join(' · ')) + ' · ' + esc(S.license) + '</p>';
+    return h; }
   // v0.10.84 경찰서별 단속 건수(서울청 2024 · 무인·현장 합계) — 카메라 한 대 단위 건수는 공개되지 않는다
   function enfOf(name) { var E = D.enf; if (!E || !name) return null; var k = String(name).replace(/^서울/, '').replace(/경찰서$/, '');
     for (var i = 0; i < E.items.length; i++) if (E.items[i][0] === k) return E.items[i]; return null; }
@@ -1069,7 +1094,8 @@
     if (on.bus || on.subr) G('🚌🚇 ' + hh + '시 승하차', li('rgba(37,99,235,.8)', '타는 사람 많음(떠나는 곳)') + li('rgba(234,88,12,.8)', '내리는 사람 많음(모여드는 곳)') + li('rgba(13,148,136,.8)', '비슷') + '<small class="lg-n">원 크기 = 그 시각 승차+하차(하루 평균) · 지하철 옆 숫자 = 그 시각 승하차</small>');
     if (on.crowd) G('📡 실시간 인파', li(LVC['여유'], '여유') + li(LVC['보통'], '보통') + li(LVC['약간 붐빔'], '약간 붐빔') + li(LVC['붐빔'], '붐빔') + li('#64748b', '실선 지금 · 긴 점선 예측 · 회색 점선 받은 때', 'dash') + '<small class="lg-n">받은 시각 ' + esc(String((D.livep || {}).baked || '')) + '</small>');
     if (on.spd) G('🚥 도로 소통(받은 때)', li(IDXC['원활'], '원활', 'line') + li(IDXC['서행'], '서행', 'line') + li(IDXC['정체'], '정체', 'line'));
-    if (on.jur) G('🚓 관할', li('#2563eb', '서울서초경찰서', 'box') + li('#0d9488', '서울방배경찰서', 'box') + li('#b45309', '반포4동 반포대로 경계', 'dash'));
+    if (on.jur) G('🚓 관할', li('#2563eb', '서울서초경찰서', 'box') + li('#0d9488', '서울방배경찰서', 'box') + li('#b45309', '반포4동 반포대로 경계', 'dash') +
+      JUR.filter(function (J) { return J.z.near; }).map(function (J) { return li(JUR_C[J.z.id] ? JUR_C[J.z.id][1] : '#64748b', J.z.name.replace('서울', '') + '(별표2 · 행정동 근사)', 'box'); }).join('') + '<small class="lg-n">경계·청사를 누르면 단속 5개 해·112 출동·5대 범죄</small>');
     if (on.acc) G('🚗 교차로 사고 ' + (A10.length ? '2019~2025' : '2023~25'), li('rgba(234,88,12,.6)', '원 크기 = √사고 건수 · 아래 숫자 = 건수·사망') + li('rgba(220,38,38,.7)', '사망 포함') + '<small class="lg-n">585m 안 사고를 가장 가까운 교차로에 배정(근사) · 카드에 해마다 막대</small>');
     if (on.hot10) G('🗂 다발지 10년', Object.keys(H10C).map(function (k) { return li(H10C[k], k); }).join('') + '<small class="lg-n">원 크기 = 뽑힌 횟수 · 아래 숫자 = 횟수·해</small>');
     if (on.fatal) G('🕯 사망사고', li('#111827', '한 건씩(2020~2025)'));

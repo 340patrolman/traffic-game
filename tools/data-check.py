@@ -30,6 +30,7 @@ SETS = [
     ['data/season-seocho.json', 182, 'auto', '침수흔적도(OA-15636 · 해마다 봄에 전년분)·제설함·열선·전진기지 다시 받기 → `py -3.12 -X utf8 tools/season-bake.py`(받는 법은 파일 머리 주석)'],
     ['data/pedbtn-seocho.json', 182, 'auto', '서울 API trafficSafetyA077PInfo(OA-15545) → 07_API키/out/season/ped_button.json → `py -3.12 -X utf8 tools/pedbtn-bake.py`'],
     ['data/enforce-seocho.json', 365, 'hand', '경찰청 서울특별시경찰청_경찰서별 교통법규 위반 단속 수(공공데이터포털 15097296 · 해마다 새 해 파일)'],
+    ['data/police-stats.json', 365, 'hand', '공공데이터포털 15097296(단속)·15114082(112 출동)·15054738(5대 범죄)·15114084(지역경찰)·15126908(경기남부 범죄) 새 해 파일 → 07_API키/단속통계_20260929/seoul_years 집계 → `py -3.12 -X utf8 tools/map2d-build/police-stats-bake.py`'],
     ['data/heritage-seocho.json', 365, 'auto', '국가유산청 목록 OpenAPI(키 없음)'],
 ]
 
