@@ -33,6 +33,8 @@ SETS = [
     ['data/police-stats.json', 365, 'hand', '공공데이터포털 15097296(단속)·15114082(112 출동)·15054738(5대 범죄)·15114084(지역경찰)·15126908(경기남부 범죄) 새 해 파일 → 07_API키/단속통계_20260929/seoul_years 집계 → `py -3.12 -X utf8 tools/map2d-build/police-stats-bake.py`'],
     ['data/heritage-seocho.json', 365, 'auto', '국가유산청 목록 OpenAPI(키 없음)'],
     ['data/r/biz/index.json', 92, 'auto', '서울 상권 1,650곳(매출 분기 · 1년 전 · 점포 · 유동·직장·상주 · 변화지표) — 07_API키/out/region/trdar_* 를 지우고 `py -3.12 -X utf8 tools/region/trdar-bake.py fetch` → `build`(dong-bake build 뒤에 — r/index.json 에 상권 바이트를 더한다)'],
+    ['data/r/stores-index.json', 92, 'auto', '서울 상가 점포(소상공인 상가정보 · 분기마다 기준 연월 갱신) — 07_API키/out/region/stores_* 를 지우고 `py -3.12 -X utf8 tools/region/store-bake.py fetch` → `build`(dong·trdar build 뒤에)'],
+    ['data/r/rent.json', 92, 'hand', '한국부동산원 임대동향(R-ONE 화면 「임대동향 지역별 임대료·공실률(2024년3분기~)」 5개 표 — CLAUDE.md v0.10.93 받는 법) → `py -3.12 -X utf8 tools/region/rent-bake.py`'],
     ['data/r/index.json', 92, 'auto', '서울 25개 구 행정동(주민 연령 매월 · 상권 매출 분기 · 생활인구 월 파일) — 07_API키/out/region 의 받은 것을 지우거나 JUMIN_YM·LOCAL_PEOPLE 달을 올리고 `py -3.12 -X utf8 tools/region/dong-bake.py fetch` → `build`'],
 ]
 
