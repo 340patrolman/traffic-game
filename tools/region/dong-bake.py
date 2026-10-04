@@ -179,8 +179,19 @@ def build():
         open(pth2, 'w', encoding='utf-8', newline='\n').write(json.dumps({'schema': 'tg-rdongx/1', 'gu': gu, 'quarters': QS, 'dong': ext}, ensure_ascii=False, separators=(',', ':')))
         idx.append({'gu': gu, 'name': gus[gu], 'box': [round(v, 5) for v in box], 'n': len(out), 'd': [[o['name']] + o['c'] for o in out], 'bytes': {'dong': os.path.getsize(pth), 'dongx': os.path.getsize(pth2)}})
         print(gu, gus[gu], len(out), os.path.getsize(pth), os.path.getsize(pth2))
+    try:   # 다른 굽기(상권·점포·승하차·안전)가 적어 둔 바이트·층은 남긴다
+        old = json.load(open(os.path.join(ROOT, 'data', 'r', 'index.json'), encoding='utf-8')); om = {g['gu']: g for g in old.get('gus', [])}
+        for e in idx:
+            o2 = om.get(e['gu']) or {}
+            for k, v in (o2.get('bytes') or {}).items():
+                if k not in e['bytes']: e['bytes'][k] = v
+            for k in ('ntrdar', 'nstores'):
+                if k in o2: e[k] = o2[k]
+        oldL = old.get('layers', {})
+    except Exception: oldL = {}
     ix = {'schema': 'tg-rindex/1', 'baked': time.strftime('%Y-%m-%d'), 'layers': {'dong': '행정동 — 경계·주민 연령·생활인구·카드 매출 요약', 'dongx': '행정동 카드에서만 — 업종 줄(업종×연령·시간대)·분기 추이'},
           'note': '서울 25개 구 — 한 구 한 파일. 지도는 화면에 걸린 구만 받는다. 서초구(11650)는 기존 서초 자료가 그대로 우선이다.', 'gus': idx}
+    for k, v in oldL.items(): ix['layers'].setdefault(k, v)
     open(os.path.join(ROOT, 'data', 'r', 'index.json'), 'w', encoding='utf-8', newline='\n').write(json.dumps(ix, ensure_ascii=False, separators=(',', ':')))
     print('miss', miss, 'total', sum(i['bytes']['dong'] for i in idx), sum(i['bytes']['dongx'] for i in idx))
 

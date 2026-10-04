@@ -55,9 +55,9 @@
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
     bidx: 'data/base/index.json', ov: 'data/base/ov.json', sgg: 'data/base/sgg.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn', 'pstat'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
+  var LATE = ['livep', 'trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn', 'pstat'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
   Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); sggPrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
-    Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); seasonPrep(); paintPre(); summary(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
+    Promise.all(LATE.map(get)).then(function () { livePrep(); trdPrep(); safePrep(); a10Prep(); seasonPrep(); paintPre(); summary(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
     if (D.bld !== undefined) return;
     D.bld = null; fetch('data/maps/seocho-full-buildings.json').then(function (r) { return r.json(); }).then(function (j) { D.bld = j; prepBld(); draw(); }).catch(function () {});
@@ -70,6 +70,20 @@
   var RDONG = [], RGUN = {}, RLOAD = {}, RX = {}, LMX = {}, SMX = {}, RWANT = null, RLOADT = {}, TWANT = null;
   function rIdx() { return D.ridx && D.ridx.gus || []; }
   function viewLL() { var a = M(0, 0), b = M(cv.clientWidth, cv.clientHeight); return [a[0] / KX + LON0, LAT0 - b[1] / KY, b[0] / KX + LON0, LAT0 - a[1] / KY]; }
+  // v0.10.95 단속 카메라 · 어린이보호구역 · 생활안전 시설(구마다 safety.json) — 서초는 기존 서초 파일이 우선(서초 구 파일은 안 받는다)
+  var RLOADS = {}, SAFE_KEYS = ['cam', 'sz', 'srbell', 'srcctv', 'srlamp', 'sr112', 'srsvc', 'aed', 'fw', 'tow', 'wc2', 'box', 'dem'];
+  function sfLoad(gu) {
+    if (RLOADS[gu]) return RLOADS[gu]; if (gu === '11650') return (RLOADS[gu] = Promise.resolve());
+    RLOADS[gu] = fetch('data/r/' + gu + '/safety.json').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
+      var key = function (a, b) { return a + '|' + b; };
+      if (!D.cam) D.cam = { items: [], source: j.source.cam }; var hc = {}; D.cam.items.forEach(function (c) { hc[key(c.lat, c.lon)] = 1; }); j.cam.forEach(function (c) { if (!hc[key(c.lat, c.lon)]) D.cam.items.push(c); });
+      if (!D.sz) D.sz = { zones: [], hot: [], source: { zones: j.source.sz } }; var hz = {}; D.sz.zones.forEach(function (z) { hz[key(z.name, z.lat)] = 1; }); j.sz.forEach(function (z) { if (!hz[key(z.name, z.lat)]) D.sz.zones.push(z); });
+      var I = j.items || {}, add = function (k, arr) { var L = SAFE.filter(function (x) { return x[0] === k; })[0]; if (!L || !arr) return; var hs = {}; L[3].forEach(function (q) { hs[key(q.r[0], q.r[1])] = 1; }); arr.forEach(function (r) { if (r[0] && r[1] && !hs[key(r[0], r[1])]) L[3].push({ p: P(r[1], r[0]), r: r }); }); };
+      var it = I.srItem || []; add('srbell', it.filter(function (r) { return r[2] === '301'; })); add('srcctv', it.filter(function (r) { return r[2] === '302'; })); add('srlamp', it.filter(function (r) { return r[2] === '305'; }));
+      add('sr112', it.filter(function (r) { return ['303', '304', '306', '307', '308'].indexOf(r[2]) >= 0; })); add('srsvc', I.srSvc); add('aed', I.aed); add('fw', I.fire); add('tow', I.tow); add('wc2', I.wc); add('box', I.box); add('dem', I.dem);
+      draw();
+    }).catch(function () {}); return RLOADS[gu];
+  }
   var RLOADX = {};
   function xLoad(gu) {   // v0.10.94 버스·지하철 승하차(구마다) — 서초 정류장·역이 이미 있으면 건너뛴다
     if (RLOADX[gu]) return RLOADX[gu];
@@ -82,6 +96,7 @@
     }).catch(function () {}); return RLOADX[gu];
   }
   function needRegions() {
+    if (view.s >= 0.03 && SAFE_KEYS.some(function (k) { return on[k]; })) { var vs2 = viewLL(); rIdx().forEach(function (g) { if (RLOADS[g.gu] || !(g.bytes || {}).safety) return; var x = g.box; if (x[2] < vs2[0] || x[0] > vs2[2] || x[3] < vs2[1] || x[1] > vs2[3]) return; sfLoad(g.gu); }); }
     if ((on.bus && view.s > 0.07) || (on.subr && view.s >= 0.02)) { var vx = viewLL(); rIdx().forEach(function (g) { if (RLOADX[g.gu] || !(g.bytes || {}).transit) return; var x = g.box; if (x[2] < vx[0] || x[0] > vx[2] || x[3] < vx[1] || x[1] > vx[3]) return; xLoad(g.gu); }); }
     if (on.trd && view.s >= 0.02) { var vt = viewLL(); rIdx().forEach(function (g) { if (RLOADT[g.gu] || !(g.bytes || {}).trdar) return; var x = g.box; if (x[2] < vt[0] || x[0] > vt[2] || x[3] < vt[1] || x[1] > vt[3]) return; tLoad(g.gu); }); }
     if (!(on.dong || on.live || on.sales) || view.s < 0.012) return; var v = viewLL();
@@ -200,7 +215,7 @@
   var PAL = ['#dbeafe', '#fce7f3', '#dcfce7', '#fef9c3', '#ede9fe', '#ffedd5', '#cffafe', '#fee2e2', '#e0e7ff'];
   function path(pts) { ctx.beginPath(); pts.forEach(function (q, k) { var s = S(q); if (k) ctx.lineTo(s[0], s[1]); else ctx.moveTo(s[0], s[1]); }); }
   function zk() { return Math.max(0.55, Math.min(1.35, view.s / 0.3)); }
-  function dot(q, r, fill, stroke, item) { var s = S(q); r = r * zk(); ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); } if (item) hit.push({ x: s[0], y: s[1], r: Math.max(r, 9), it: item }); }
+  function dot(q, r, fill, stroke, item) { var s = S(q); if (s[0] < -40 || s[1] < -40 || s[0] > cv.clientWidth + 40 || s[1] > cv.clientHeight + 40) return; r = r * zk(); ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); } if (item) hit.push({ x: s[0], y: s[1], r: Math.max(r, 9), it: item }); }
   function label(q, text, size, color, bg) { var s = S(q); ctx.font = 'bold ' + size + 'px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if (bg) { var w = ctx.measureText(text).width; ctx.fillStyle = bg; ctx.fillRect(s[0] - w / 2 - 3, s[1] - size / 2 - 2, w + 6, size + 4); } ctx.fillStyle = color; ctx.fillText(text, s[0], s[1]); }
   function draw() {
     var needW = Math.round(cv.clientWidth * DPR), needH = Math.round(cv.clientHeight * DPR);
@@ -780,7 +795,10 @@
   var IDXC = { '원활': '#16a34a', '서행': '#f59e0b', '정체': '#dc2626' };
   function flowPrep() {
     var F = D.flow; if (F) { FLOW.bus = (F.bus && F.bus.items) || {}; FLOW.sub = (F.subway && F.subway.items) || {}; FLOW.sales = (F.sales && F.sales.items) || {}; }
-    var L = D.livep; if (!L) return; var seen = {};
+    livePrep();
+  }
+  function livePrep() {   // v0.10.95 실시간 도시데이터는 서울 121장소(약 1MB) — 첫 그림 뒤에 읽는다
+    var L = D.livep; if (!L) return; var seen = {}; LINKS = [];
     LIVEP = (L.places || []).map(function (o) { var rings = (o.rings || []).map(function (r) { return r.map(function (q) { return P(q[0], q[1]); }); }); var r0 = rings[0] || [[0, 0]], sx = 0, sy = 0; r0.forEach(function (q) { sx += q[0]; sy += q[1]; });
       ((o.road && o.road.links) || []).forEach(function (k) { if (!k[3] || k[3].length < 2) return; var key = k[3][0].join() + '|' + k[3][k[3].length - 1].join(); if (seen[key]) return; seen[key] = 1; LINKS.push({ name: k[0], idx: k[1], spd: k[2], pts: k[3].map(function (q) { return P(q[0], q[1]); }), t: o.road.time, place: o.name }); });
       return { o: o, rings: rings, c: [sx / r0.length, sy / r0.length] }; });
@@ -1277,7 +1295,7 @@
     if (k.indexOf('sr') === 0 && k !== 'srsvc') { h += row('시설', esc((C.srItem || {})[r[2]] || r[2]) + (r[5] > 1 ? ' ' + r[5] + '개' : '')) + row('안심귀갓길', esc(r[3] + ' · ' + r[4])) + (r[6] ? row('비고', esc(r[6])) : '') + (r[7] ? row('관리', esc(r[7] + ' ' + (r[8] || ''))) : ''); s = Sx.source.srItem + ' · 코드: ' + C.srItemSrc; }
     else if (k === 'srsvc') { h += row('이름', esc(r[3])) + row('구분', esc((C.srSvc || {})[r[2]] || r[2])) + row('주소', esc(r[4])) + row('운영', esc(String(r[7] || '').replace('_', '~'))) + row('관리', esc(r[5] + ' ' + (r[6] || ''))); s = Sx.source.srSvc; }
     else if (k === 'aed') { h += row('기관', esc(r[2])) + row('설치 자리', esc(r[3])) + row('주소', esc(r[4])) + (r[5] ? row('전화', esc(r[5])) : ''); s = Sx.source.aed; }
-    else if (k === 'fw') { var st = (Sx.items.fireSt || [])[r[4]] || []; h += row('종류 코드', esc(r[2])) + row('사용', r[3] ? '가능' : '<b>불가·점검</b>') + row('관할 소방서', esc((st[0] || '') + ' ' + (st[1] || ''))); s = Sx.source.fire; }
+    else if (k === 'fw') { var st = typeof r[4] === 'string' ? [r[4], ''] : (Sx.items.fireSt || [])[r[4]] || []; h += row('종류 코드', esc(r[2])) + row('사용', r[3] ? '가능' : '<b>불가·점검</b>') + row('관할 소방서', esc((st[0] || '') + ' ' + (st[1] || ''))); s = Sx.source.fire; }
     else if (k === 'pkcctv') { h += row('단속 지점', esc(r[2])) + row('주소', esc(r[3])) + row('구분', esc(r[4])); s = Sx.source.pkcctv; }
     else if (k === 'tow') { h += row('이름', esc(r[2])) + row('주소', esc(r[3])) + row('전화', esc(r[4])) + row('보관', esc(r[5]) + '대') + '<p class="desc">' + esc(r[6]) + '</p>'; s = Sx.source.tow; }
     else if (k === 'wc2') { h += row('이름', esc(r[2])) + row('주소', esc(r[3])) + row('구분', esc(r[4])) + row('개방', esc(r[5])) + row('남녀', esc(r[6])); s = Sx.source.wc; }
@@ -1559,7 +1577,7 @@
     var gus = rIdx().filter(function (g) { var b = g.box; return !(b[2] < bx[0] || b[0] > bx[2] || b[3] < bx[1] || b[1] > bx[3]); });
     var jobs = [sLoadIdx(), rentLoad()];
     if (!STNS) jobs.push(fetch('data/r/stations.json').then(function (x) { return x.json(); }).then(function (j) { STNS = j.items.map(function (s2) { return { n: s2[0], l: s2[1], p: P(s2[2], s2[3]) }; }); }).catch(function () { STNS = []; }));
-    gus.forEach(function (g) { jobs.push(sLoad(g.gu)); jobs.push(new Promise(function (res) { tLoad(g.gu, res); setTimeout(res, 20000); })); jobs.push(rLoadGu(g.gu)); if ((g.bytes || {}).transit) jobs.push(xLoad(g.gu)); });
+    gus.forEach(function (g) { jobs.push(sLoad(g.gu)); jobs.push(new Promise(function (res) { tLoad(g.gu, res); setTimeout(res, 20000); })); jobs.push(rLoadGu(g.gu)); if ((g.bytes || {}).transit) jobs.push(xLoad(g.gu)); if ((g.bytes || {}).safety) jobs.push(sfLoad(g.gu)); });
     Promise.all(jobs).then(function () { RAD.gus = gus; RAD.res = radCalc(gus); RAD.busy = false; radPaint(); draw(); });
   }
   function radCalc(gus) {
@@ -1585,6 +1603,8 @@
     o.stn = (STNS || []).map(function (s2) { return { s: s2, d: Math.hypot(s2.p[0] - c[0], s2.p[1] - c[1]) }; }).filter(function (q) { return q.d <= r; }).sort(function (a, b) { return a.d - b.d; });
     var seenN = {}; o.stn = o.stn.filter(function (q) { var k = seenN[q.s.n]; if (k) { if (k.ls.indexOf(q.s.l) < 0) k.ls.push(q.s.l); return false; } seenN[q.s.n] = { ls: [q.s.l] }; q.ls = seenN[q.s.n].ls; return true; });
     o.rent = rentNear(c, 1500);
+    o.cam = D.cam ? D.cam.items.filter(function (q) { var p2 = P(q.lon, q.lat); return Math.hypot(p2[0] - c[0], p2[1] - c[1]) <= r; }).length : 0;
+    o.szn = D.sz ? D.sz.zones.filter(function (q) { var p2 = P(q.lon, q.lat); return Math.hypot(p2[0] - c[0], p2[1] - c[1]) <= r; }).length : 0;
     o.bus = { n: 0, on: [], off: [] }; o.sub = { n: 0, on: [], off: [], names: [] }; for (var hh2 = 0; hh2 < 24; hh2++) { o.bus.on.push(0); o.bus.off.push(0); o.sub.on.push(0); o.sub.off.push(0); }
     if (PUB) { PUB.bus.forEach(function (q) { var f = FLOW.bus[q.o.id]; if (!f || Math.hypot(q.p[0] - c[0], q.p[1] - c[1]) > r) return; o.bus.n++; for (var k = 0; k < 24; k++) { o.bus.on[k] += f[0][k]; o.bus.off[k] += f[1][k]; } });
       PUB.subr.forEach(function (q) { var f = FLOW.sub[q.name]; if (!f || Math.hypot(q.p[0] - c[0], q.p[1] - c[1]) > r) return; o.sub.n++; o.sub.names.push(q.name); for (var k = 0; k < 24; k++) { o.sub.on[k] += f[0][k]; o.sub.off[k] += f[1][k]; } }); }
@@ -1631,6 +1651,7 @@
       var sumA = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
       if (o.bus.n) h += row('버스 승하차', '정류장 ' + o.bus.n + '곳 · 하루 승차 ' + man(sumA(o.bus.on)) + ' · 하차 ' + man(sumA(o.bus.off)) + ' <em>(2026년 6월 하루 평균)</em>') + '<div class="cap">시간대별 버스 승차(파랑) · 하차(주황) 인원(명/시 · 반경 안 정류장 합 · 하루 평균)</div>' + bar2(o.bus.on, o.bus.off);
       if (o.sub.n) h += row('지하철 승하차', esc(o.sub.names.join('·')) + ' · 하루 승차 ' + man(sumA(o.sub.on)) + ' · 하차 ' + man(sumA(o.sub.off))) + '<div class="cap">시간대별 지하철 승차(파랑) · 하차(주황) 인원(명/시 · 반경 안 역 합 · 하루 평균)</div>' + bar2(o.sub.on, o.sub.off);
+      h += row('안전', '무인 단속 카메라 ' + o.cam + '대 · 어린이보호구역 대상 시설 ' + o.szn + '곳');
       h += row('지하철역', o.stn.length ? o.stn.map(function (q) { return esc(q.s.n) + ' <small>' + esc(q.ls.join('·')) + ' · ' + Math.round(q.d) + 'm</small>'; }).join(' · ') : '반경 안에 없음');
       h += rentRows(RAD.c, '임대료(가까운 표본)');
       h += row('걸친 동', o.dongs.slice(0, 6).map(function (d) { return esc(d[0]) + ' ' + d[1] + '%'; }).join(' · ') + ' <em>(동 넓이 중 반경 안 비율)</em>');

@@ -19,11 +19,12 @@ def num(x):
     try: return float(x)
     except Exception: return None
 BBOX = (126.955, 37.425, 127.085, 37.525)
+LIVE_BBOX = (126.76, 37.41, 127.19, 37.72)   # v0.10.95 실시간 도시데이터는 서울 121장소 전부(지역 자료 ⑦)
 
 def bake_live(areafile):
     import shapefile
     from shapely.geometry import shape, box
-    r = shapefile.Reader(areafile, encoding='utf-8'); bb = box(*BBOX); places = []
+    r = shapefile.Reader(areafile, encoding='utf-8'); bb = box(*LIVE_BBOX); places = []
     for sr in r.shapeRecords():
         g = shape(sr.shape.__geo_interface__)
         if not g.intersects(bb): continue
