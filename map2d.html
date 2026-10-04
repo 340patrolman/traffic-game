@@ -104,7 +104,9 @@
   #m2dPre button { flex: 0 0 auto; height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid var(--acc); background: transparent; color: var(--acc); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
   #m2dPre button.on { background: var(--acc); color: #fff; }
   #m2dPre button.ctl { border-color: var(--line); color: var(--ink); background: var(--chip); font-weight: 600; }
-  #m2dPre button[data-x="none"] { margin-left: 6px; }
+  #m2dPre button[data-x="biz"] { margin-right: 6px; }
+  #m2dPre.two { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: max-content; gap: 5px 6px; }
+  #m2dPre.two button[data-x="biz"] { margin-right: 0; }
   #m2dSum { font-size: 12.5px; color: var(--ink2); padding-top: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
   #m2dSum::-webkit-scrollbar { display: none; }
   #m2dSum button { border: 0; background: none; color: var(--acc); font: inherit; font-weight: 700; padding: 0 2px; min-height: 28px; cursor: pointer; }
@@ -118,6 +120,31 @@
   /* v0.10.90 지역 받기 판 */
   #m2dGetP { display: none; position: fixed; right: 64px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 6; width: 340px; max-width: calc(100vw - 80px); max-height: 62vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
   #m2dGetP.on { display: block; }
+  /* v0.10.92 창업 자리 찾기 */
+  #m2dBiz { display: none; position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 7; max-height: 58vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13px; }
+  @media (min-width: 760px) { #m2dBiz { right: auto; width: 400px; max-height: 64vh; } }
+  #m2dBiz.on { display: block; }
+  #m2dBiz.min { max-height: 44px; overflow: hidden; cursor: pointer; }
+  #m2dBiz.min > :not(.lg-h) { display: none; }
+  @media (max-width: 759px) { #m2dBiz.min { display: none; } }
+  #m2dCard .bizwhy button { float: right; border: 1px solid #7c3aed; background: transparent; color: #7c3aed; border-radius: 8px; padding: 3px 8px; font-size: 12px; min-height: 30px; cursor: pointer; }
+  #m2dBiz .lg-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  #m2dBiz button, #m2dBiz select { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 5px 8px; font-size: 12.5px; min-height: 34px; cursor: pointer; }
+  #m2dBiz .lg-btns { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  #m2dBiz .lg-btns button.on { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+  #m2dBiz .bizrow { display: flex; flex-wrap: wrap; gap: 6px; }
+  #m2dBiz .bizrow label { display: flex; align-items: center; gap: 4px; font-weight: 700; }
+  #m2dBiz .bizrow select { max-width: 210px; }
+  #m2dBiz .lg-n { color: var(--ink2); font-size: 11.5px; margin: 4px 0; display: block; }
+  #m2dBiz ol.bizl { margin: 4px 0; padding: 0; list-style: none; }
+  #m2dBiz ol.bizl li { padding: 6px 4px; border-top: 1px dashed var(--line); cursor: pointer; line-height: 1.35; }
+  #m2dBiz ol.bizl li:hover { background: var(--chip); }
+  #m2dBiz ol.bizl li i { float: right; font-style: normal; font-weight: 800; color: #fff; background: linear-gradient(90deg, #7c3aed var(--w), #c4b5fd var(--w)); border-radius: 6px; padding: 0 6px; min-width: 34px; text-align: center; }
+  #m2dBiz ol.bizl small { color: var(--ink2); }
+  #m2dBiz ol.bizl small.f { color: var(--ink); }
+  #m2dPre button.biz { border-color: #7c3aed; color: #7c3aed; }
+  #m2dCard .bizwhy { background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.35); border-radius: 10px; padding: 6px 8px; margin: 0 0 6px; font-size: 12.5px; line-height: 1.45; }
+  @media (max-width: 759px) { body.bizon #m2dBiz:not(.min) ~ #m2dCard, body.bizon:has(#m2dBiz.on:not(.min)) #m2dCard { display: none; } }
   #m2dGetP .lg-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
   #m2dGetP .lg-h button { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 4px 8px; }
   #m2dGetP .dlg { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
@@ -180,10 +207,12 @@
   <button id="m2dFit" aria-label="전체 보기">전체</button>
   <button id="m2dLegB" aria-label="범례">범례</button>
   <button id="m2dGetB" aria-label="지역 받기">📥</button>
+  <button id="m2dFsB" aria-label="전체화면">⛶</button>
 </div>
 <div id="m2dCard" role="dialog" aria-live="polite"></div>
 <div id="m2dLeg" aria-label="범례"></div>
 <div id="m2dGetP" aria-label="지역 받기"></div>
+<div id="m2dBiz" aria-label="창업 자리 찾기"></div>
 <div id="m2dFoot">
   <details><summary>ⓘ 자료 출처 · 한계</summary>
     <ul class="all">
@@ -226,7 +255,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.91"></script>
+<script src="js/map2d.js?v=0.10.92"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
@@ -235,6 +264,12 @@
     fb.onclick = function () { setFold(!document.body.classList.contains("fold")); };
     function fitTop() { var t = document.getElementById('m2dTop'), c = document.getElementById('m2d'); var h = t.offsetHeight; document.documentElement.style.setProperty("--toph", h + "px"); c.style.top = h + "px"; c.style.height = (window.innerHeight - h) + 'px'; window.dispatchEvent(new Event('m2dresize')); }
     window.addEventListener("resize", fitTop); fitTop();
+    // v0.10.92 소유자 「스마트폰에서는 열면 자동으로 전체화면」 — 브라우저는 손가락이 닿아야 전체화면을 허락한다 → 첫 터치 때 한 번(아이폰 사파리는 이 기능이 없다 — 홈 화면에 추가하면 주소창 없이 열린다)
+    var phone = window.matchMedia && matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 820, de = document.documentElement;
+    var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+    if (phone && !standalone && de.requestFullscreen) document.addEventListener("pointerdown", function fs(e) { document.removeEventListener("pointerdown", fs, true); if (e.target.closest && e.target.closest("a")) return; if (!document.fullscreenElement) de.requestFullscreen({ navigationUI: "hide" }).catch(function () {}); }, true);
+    var fsb = document.getElementById("m2dFsB");
+    if (fsb) { if (!de.requestFullscreen) fsb.style.display = "none"; fsb.onclick = function () { if (document.fullscreenElement) document.exitFullscreen(); else de.requestFullscreen({ navigationUI: "hide" }).catch(function () {}); }; document.addEventListener("fullscreenchange", function () { fsb.textContent = document.fullscreenElement ? "⤡" : "⛶"; setTimeout(fitTop, 50); }); }
     if (window.ResizeObserver) new ResizeObserver(fitTop).observe(document.getElementById("m2dTop"));   // 찾기 안내 줄이 생기면 막대가 커진다
   })();
 </script>
