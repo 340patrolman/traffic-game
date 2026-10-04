@@ -61,6 +61,7 @@ TG.Here = function (game) {
     if (fr && fr.brt) rows.push({ k: '🚌 전용차로', v: fr.brt + ' — 1차로(청색 실선 안쪽)는 버스만 · 일반도로 전용차로 통행 위반(도로교통법 제15조 제3항)' });
     var onq = G.onto && G.onto.ok ? G.onto.near(p.x, p.z, 260) : null;   // 🧭 (v0.10.70) 정체 원인 온톨로지 — 현장 판단이 정답지
     if (onq && onq.cases.length) onq.cases.forEach(function (k) { rows.push({ k: '🧭 정체 원인', v: onq.ix.name + ' — ' + G.onto.caseLine(k) }); });
+    if (G.onto && G.onto.queuesNear) G.onto.queuesNear(p.x, p.z, 320).forEach(function (sg) { var l = G.onto.queueLine(sg); if (l) rows.push({ k: '🚗 구간 대기열', v: l }); });   // (v0.10.75) 3단계 — 실측 교통량 · 편람 포화교통류율 · 실제 신호
     var bsq = G.brt && G.brt.on ? G.brt.stationNear(p.x, p.z, 320) : null;   // (v0.10.68) 가까운 중앙 정류장 — 실제로 서는 노선 수(서울시 버스도착정보)
     if (bsq) rows.push({ k: '🚏 중앙 정류장', v: bsq.st.name + ' · ' + dist(bsq.dist) + ' · 서는 노선 ' + bsq.st.routes + '(경기·광역·인천 ' + bsq.st.wide + ') · 하루 승하차 ' + (bsq.st.day || 0).toLocaleString() + '명' });
     if (bsq && bsq.st.h) {   // (v0.10.69) 이 시각 승하차(서울시 교통카드 2026.6 · 시간대별) · 가장 붐비는 시각 · 정류장 횡단보도

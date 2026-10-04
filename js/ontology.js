@@ -119,6 +119,81 @@ TG.Ontology = function (G) {
       spawnTo(node, F.dirs[(s.k++) % F.dirs.length], F.type);
     });
   };
+  // ---------- 3단계: 구간 대기열(v0.10.75) — 하류가 못 받으면 대기열이 상류로 차오른다 ----------
+  //  설계서 「구간 대기열 — 사평대로 수용량 초과 시 상류 역류」. 대기열은 **플레이어가 멀어도 늘 돈다**(차를 만들지 않고 숫자로) —
+  //  가까이 가면 그 수만큼 정지 차량을 접근로에 실제로 세운다.
+  //  값의 출처(data/ontology-seocho.json queueModel 이 정한다 · 코드에 숫자를 적지 않는다):
+  //   · 빠지는 양 = 포화교통류율(도로용량편람 2013 · 2차 자료) × 차로 수(구간 lanes · 출처 그대로) — **하류 신호가 실제로 녹색일 때만**
+  //   · 들어오는 양 = 서울시 교통량 조사 그 시각 값(실측 · 방향 구분 미확인이라 두 방향 평균) + 지금 작동 중인 원인 시설 수요(설계값)
+  //   · 대기 길이 = 대수 ÷ 차로 수 × 한 대 길이(설계값). 구간 길이를 넘으면 spillsBackTo 관계의 상류 구간으로 넘친다.
+  var Q = {}, QM = null, qMat = 0;
+  function nodeOf(ij) { return ij && G.city.nodes[ij[0]] && G.city.nodes[ij[0]][ij[1]]; }
+  function dirOf(a, b) { var dx = b.x - a.x, dz = b.z - a.z; return Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 1 : 3) : (dz > 0 ? 0 : 2); }
+  function sigOf(node, d) { var s = G.signals && G.signals.moveState ? G.signals.moveState(node, d, 'S') : null; return typeof s === 'string' ? s : s && s.s; }
+  function arrival(sg, A, B, date) {
+    var cd = G.citydata, vol = 0, vsrc = '자료 없음';
+    if (cd && cd.volSpot && cd.volAt) {
+      var axis = (sg._d === 0 || sg._d === 2) ? 'v' : 'h', idx = axis === 'v' ? A.i : A.j;
+      var sp = cd.volSpot(axis, idx, (A.x + B.x) / 2, (A.z + B.z) / 2), v = sp ? cd.volAt(sp, date) : null;
+      if (v && v.now === 0 && v.type !== 'wd') { var wd = new Date(date.getTime()); while (wd.getDay() === 0 || wd.getDay() === 6) wd.setDate(wd.getDate() + 1); v = cd.volAt(sp, wd); vsrc = ' (그날 조사 없음 → 평일 값)'; } else vsrc = '';
+      if (v && v.dir) { vol = (v.dir[0] + v.dir[1]) / 2; vsrc = sp.name + ' ' + date.getHours() + '시' + vsrc + ' · 두 방향 평균'; }
+    }
+    var cause = 0;   // 지금 작동 중인 원인 시설이 이 접근로로 보내는 차(2단계 FLOW · 설계값)
+    self.activeAt(date).forEach(function (a) {
+      var F = FLOW[a.c.id]; if (!F || F.pulse || F.node !== sg.to) return;
+      var k = F.dirs.filter(function (x) { return x === sg._d; }).length; if (k) cause += 3600 / F.every * k / F.dirs.length;
+    });
+    return { vph: vol + cause, vol: vol, cause: cause, src: vsrc };
+  }
+  self.queueTick = function (dt) {
+    if (!D || !self.ok || !G.city || !G.signals) return;
+    QM = QM || D.queueModel || null; if (!QM) return;
+    var date = G.ontoDate || new Date(), sat = QM.saturation.v, sp = QM.spacing.v;
+    (D.entities.segments || []).forEach(function (sg) {
+      if (!sg.game || !sg.game.from || !sg.lanes || !sg.lanes.v) return;
+      var A = nodeOf(sg.game.from), B = nodeOf(sg.game.to); if (!A || !B) return;
+      if (sg._d == null) { sg._d = dirOf(A, B); sg._len = Math.max(20, Math.hypot(B.x - A.x, B.z - A.z) - G.city.stopDist(B, sg._d)); }
+      var q = Q[sg.id] || (Q[sg.id] = { q: 0, max: 0, spill: false, inT: 0, in: null });
+      q.inT -= dt; if (q.inT <= 0 || !q.in) { q.in = arrival(sg, A, B, date); q.inT = 30; }
+      var lanes = sg.lanes.v, s = sigOf(B, sg._d), cap = sat * lanes;
+      var down = (D.relations || []).filter(function (r) { return r[1] === 'spillsBackTo' && r[2] === sg.id && Q[r[0]] && Q[r[0]].spill; }).length;   // 하류가 넘치면 이 구간도 막힌다
+      var out = (s === 'green' ? cap : 0) * (down ? QM.blockedShare.v : 1);
+      q.q = Math.min(lanes * sg._len / sp * 3, Math.max(0, q.q + (q.in.vph - out) * dt / 3600));   // 상한 = 구간 저장량의 3배(넘친 몫은 상류 구간까지 차 있는 것으로 본다)
+      q.lenM = q.q / lanes * sp; q.spill = q.lenM > sg._len; q.max = Math.max(q.max, q.q);
+      q.sig = s; q.cap = cap; q.blocked = !!down;
+    });
+    // 플레이어가 가까우면 대기열을 실제 정지 차량으로 세운다(초당 2대까지 · 이미 있는 차는 센다)
+    qMat -= dt; if (qMat > 0) return; qMat = 0.5;
+    var p = G.player && G.player.pos; if (!p || !G.traffic || G.state !== 'play' || !DEMAND_MODES[G.mode]) return;
+    if (G.traffic.cars.length > (TG.CONFIG.TRAFFIC_MAX || 26) * 1.6) return;
+    (D.entities.segments || []).forEach(function (sg) {
+      var q = Q[sg.id]; if (!q || q.q < 1 || sg._d == null) return;
+      var B = nodeOf(sg.game.to), d = sg._d; if (!B || Math.hypot(B.x - p.x, B.z - p.z) > 260) return;
+      var f = TG.DIR_VEC[d], r = [-f[1], f[0]], axis = (d === 0 || d === 2) ? 'v' : 'h', idx = axis === 'v' ? B.i : B.j, lanes = Math.min(G.city.lanesOf(axis, idx), sg.lanes.v);
+      var want = Math.min(Math.floor(q.q), lanes * 12), have = G.traffic.cars.filter(function (c) {
+        var dx = B.x - c.pos.x, dz = B.z - c.pos.z, along = dx * f[0] + dz * f[1];
+        return along > 0 && along < sg._len + G.city.stopDist(B, d) && Math.abs(dx * r[0] + dz * r[1]) < 3.5 * lanes + 2 && Math.abs(Math.sin(c.heading) * f[0] + Math.cos(c.heading) * f[1]) > 0.7;
+      }).length;
+      if (have >= want) return;
+      var k = have, lane = k % lanes, rank = Math.floor(k / lanes), dist = G.city.stopDist(B, d) + 3 + rank * QM.spacing.v;
+      if (dist > sg._len + G.city.stopDist(B, d) - 6 || Math.hypot(B.x - p.x - f[0] * dist, B.z - p.z - f[1] * dist) < 25) return;   // 구간 밖·플레이어 코앞에는 안 세운다
+      var off = G.city.laneOff(axis, idx, lane), x = B.x - f[0] * dist + r[0] * off, z = B.z - f[1] * dist + r[1] * off;
+      if (G.traffic.cars.some(function (c) { return Math.hypot(c.pos.x - x, c.pos.z - z) < 5.5; })) return;
+      var prev = G.city.nodeFrom(B, (d + 2) % 4); if (!prev) return;
+      var car = G.traffic.spawn({ at: { x: x, z: z, d: d, node: prev }, type: Math.random() < 0.15 ? 'van' : 'sedan', laneIdx: lane, violator: false, v: 0, cruise: 10 });
+      if (car) { car.ontoQueue = sg.id; self.queued = (self.queued || 0) + 1; }
+    });
+  };
+  self.queues = function () { return Q; };
+  self.queueLine = function (sg) {
+    var q = Q[sg.id]; if (!q || !q.in || !QM) return null;
+    return sg.road + ' ' + sg.dir + ' — 대기 약 ' + Math.round(q.q) + '대 · ' + Math.round(q.lenM) + 'm' + (q.spill ? ' ⚠ 구간을 넘쳐 상류로 역류' : '') + (q.blocked ? ' · 하류가 막혀 덜 빠짐' : '') +
+      ' (들어옴 ' + Math.round(q.in.vph) + '대/시 = 조사 ' + Math.round(q.in.vol) + (q.in.cause ? ' + 원인 시설 ' + Math.round(q.in.cause) : '') + ' · 녹색일 때 빠짐 ' + q.cap + '대/시 = ' + QM.saturation.v + ' × ' + sg.lanes.v + '차로[' + sg.lanes.src + '])';
+  };
+  self.queuesNear = function (x, z, r) {
+    if (!D) return [];
+    return (D.entities.segments || []).filter(function (sg) { var B = sg.game && nodeOf(sg.game.to); return B && Q[sg.id] && Math.hypot(B.x - x, B.z - z) <= (r || 300); });
+  };
   // 사례 한 줄(📍 이 자리) — 출처 등급을 늘 함께 적는다
   self.caseLine = function (k) {
     var c = k.c, f = k.cause;

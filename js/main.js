@@ -3218,7 +3218,7 @@
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.onto && G.onto.tick) G.onto.tick(dt); if (G.daily) G.daily.tick(dt); hotEvent(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.onto && G.onto.tick) { G.onto.tick(dt); if (G.onto.queueTick) G.onto.queueTick(dt); } if (G.daily) G.daily.tick(dt); hotEvent(dt);
     if (G.brt && G.brt.on && BRT_MODES.indexOf(G.mode) >= 0) G.brt.update(dt, onFoot() && G.walker ? G.walker : player);   // 🚌 버스·승강장 사람(교실에서는 돌리지 않는다)
     if (G.iscene) {
       G.iscene.update(dt);
