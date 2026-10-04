@@ -553,7 +553,7 @@
         return '<button class="mapchip' + (m.id === cur ? ' on' : '') + '" data-mapid="' + m.id + '">' + (m.icon || '🗺') + ' ' + (m.short || m.name) +
           '<small>' + (m.main ? '메인 · 실제 크기' : m.kind === 'twin' ? '디지털 트윈' : '놀이·교육') + '</small></button>'; }).join('') +
         // 다섯째 = 🗜 데이터 압축지도(v0.10.57 · 소유자 「단순히 2D 지도라고 하지 말고 데이터 압축지도」 · 「버튼이 4개인데 5개로」) — 게임과 따로 도는 한 쪽(map2d.html)
-        '<button class="mapchip m2d" data-href="map2d.html">🗜 데이터 압축지도<small>공공데이터 · 2D</small></button>';
+        '<button class="mapchip m2d" data-href="https://340patrolman.github.io/datamap/">🗜 데이터 압축지도<small>공공데이터 · 2D</small></button>';
       var m2 = el.querySelector('[data-href]'); if (m2) input.bindTap(m2, function () { location.href = m2.getAttribute('data-href'); });
       el.querySelectorAll('[data-mapid]').forEach(function (b) {
         input.bindTap(b, function () { var id = b.getAttribute('data-mapid'); if (id === cur) return;

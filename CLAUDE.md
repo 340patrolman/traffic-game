@@ -4274,3 +4274,13 @@ T-Book 세션 요청(소유자 지시 「서초구 지도를 T-Book 교통관리
 * **경기 생활인구는 넣지 못했다**: 경기데이터드림 「유동인구_행정동 단위 집계」(KT) 시트는 9,145줄 · 271개 동 무작위 표본이고 원본 파일은 규격서(hwp)만 올라 있다. 공공데이터포털 15128449 도 경기데이터드림으로 돌려보낸다. 표본으로 동을 칠하면 거짓 지도라 쓰지 않았다(카드에 밝힘). 「카드 소비 데이터」(시간대·성·연령)는 11개 시만·파일로만 열린다.
 * **⚠ 사고(바로잡음)**: v0.10.102 에서 경기 사고를 구울 때 서울 경계 안에 떨어진 칸이 있는 **서울 16개 구의 taas10.json 을 그 몇 칸으로 덮어썼다**(라이브 · c3820bc 로 서울 원자료에서 되살림 · 서초 2,113칸 22,546건 확인). `taas10-bake.py <원자료> <서울|경기>` 는 이제 그 시도 구 파일만 쓴다.
 * **다발지 10년 서울·경기**: `tools/region/hot10-bake.py`(받는 중) — 도로교통공단 다발지 API 는 브라우저 UA 필요 · **8개 동시 호출에 이 PC 를 한동안(수 분) 막았다** → 1개씩 0.6초 간격.
+
+## v0.10.104 — 🗜 데이터 압축지도를 별도 앱으로 분리(340patrolman/datamap)
+소유자(2026-10-04): 「지도를 별도의 앱으로 분리시키고 검색이 되지 않게 하자 — 너무 커지고 있는 듯」.
+* **새 저장소 [340patrolman/datamap](https://github.com/340patrolman/datamap)** · 사이트 **https://340patrolman.github.io/datamap/** (v1.0.0 · 공개 저장소 — 무료 Pages 조건 · 게임과 같은 계정·이름으로 커밋). 이 PC 에는 `지식베이스/datamap`.
+  옮긴 것: `index.html`(옛 map2d.html · ← 단추는 게임 주소) · `js/map2d.js` · 지도 자료 전부(바탕 조각 `data/base` 39MB · 구별 `data/r` 110MB · 서초 자료 30개 · 지도 파일 5개) · 굽는 도구(`tools/region`·`tools/map2d-build`·flow/trend/trdar/safety/season/pedbtn-bake·live-refresh·data-check) · `MAP2D.md`(정본은 그쪽).
+  새 앱에 따로 둔 것: 서비스워커 `sw.js`(앱 파일 미리 저장 · 바탕 조각·지역 받기 보관함 `tg-tiles` 먼저) · `manifest.json`(홈 화면에 추가) · `_config.yml`(문서·도구를 사이트에서 뺌).
+* **검색 막기**: 모든 쪽 `noindex, nofollow, noarchive, nosnippet, noimageindex` + googlebot noindex · 문서·도구는 사이트에 안 올라감. ⚠ `robots.txt` 는 넣었지만 프로젝트 사이트(/datamap/)의 robots 는 검색엔진이 보지 않는다(도메인 맨 위 것만 본다) — 실제 막음은 noindex 다. 저장소 자체는 공개라 GitHub 에서는 보인다(게임과 같음).
+* **게임 저장소에 남긴 것**: `map2d.html` = 길잡이(`location.replace('https://340patrolman.github.io/datamap/' + search + hash)`) — **T-Book 의 `traffic-game/map2d.html#lat=..&lon=..&ly=..&h=..&here=1&gps=1` 주소가 그대로 이어진다** · 첫 화면 지도 줄 「🗜 데이터 압축지도」·우리 동네 카드 링크는 새 주소로 · 게임이 같이 쓰는 자료(서초 지도·사고·신호·인구·행사·교통량·카메라·국가유산·교차로·이웃 동·보호구역)는 그대로 둠.
+  `tools/data-check.py`(지식베이스 SessionStart 훅이 부름)·`tools/live-refresh.py`(작업 스케줄러가 부름)는 `../datamap/tools/` 의 진짜 도구를 부르는 길잡이 — 실시간 인파 갱신은 이제 datamap 저장소에 커밋·푸시된다.
+* 게임 저장소에서 지도 전용 파일·도구를 지웠다(1,200여 개 · git 기록에는 남는다). 서비스워커 미리 저장 목록에서도 뺐다.

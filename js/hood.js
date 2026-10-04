@@ -110,7 +110,7 @@ TG.Hood = function (game) {
     }
     var xi = XI && XI[k];
     h += '<div class="hbtns"><button class="primary" data-hgo="' + k + '">🚓 여기서 출근</button><button data-hplan="' + k + '">🏗 교통시설에서 보기</button>' +
-      (xi && xi.lat ? '<a class="hlink" target="_blank" rel="noopener" href="map2d.html#lat=' + xi.lat + '&lon=' + xi.lon + '">🗜 데이터 압축지도</a>' : '') + '</div>';
+      (xi && xi.lat ? '<a class="hlink" target="_blank" rel="noopener" href="https://340patrolman.github.io/datamap/#lat=' + xi.lat + '&lon=' + xi.lon + '">🗜 데이터 압축지도</a>' : '') + '</div>';
     if (xi && xi.met === false) h += '<div class="hrow dim">※ 이 두 도로는 실제로는 만나지 않는다(' + esc(xi.why || '') + ') — 축약 지도의 교차로다</div>';
     return h + '</div>';
   }
