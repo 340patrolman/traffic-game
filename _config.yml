@@ -8,5 +8,6 @@ exclude:
   - DATA_WANTED.md
   - CREDITS.md
   - ONTOLOGY.md
+  - MAP2D.md
   - tools
   - ref
