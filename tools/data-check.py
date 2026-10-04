@@ -37,6 +37,7 @@ SETS = [
     ['data/r/rent.json', 92, 'hand', '한국부동산원 임대동향(R-ONE 화면 「임대동향 지역별 임대료·공실률(2024년3분기~)」 5개 표 — CLAUDE.md v0.10.93 받는 법) → `py -3.12 -X utf8 tools/region/rent-bake.py`'],
     ['data/r/11680/transit.json', 31, 'auto', '서울 버스·지하철 승하차(다음 달 교통카드 CSV·CardSubwayTime) — transit-bake.py 의 BUSCSV·YM 을 새 달로 · `py -3.12 -X utf8 tools/region/transit-bake.py`'],
     ['data/r/11680/safety.json', 182, 'auto', '서울 단속 카메라·어린이보호구역·생활안전 시설 — 07_API키/out/region/safe_* 를 지우고 `py -3.12 -X utf8 tools/region/safety-bake.py fetch` → `build`'],
+    ['data/r/11680/taas10.json', 365, 'hand', 'TAAS 사고 서울 25개 구 — TAAS GIS 화면 안에서 모으기(CLAUDE.md v0.10.96 절차) → 07_API키/out/region/taas10_raw.json → `py -3.12 -X utf8 tools/region/taas10-bake.py` · 새 해(2026) 자료가 열리면'],
     ['data/r/index.json', 92, 'auto', '서울 25개 구 행정동(주민 연령 매월 · 상권 매출 분기 · 생활인구 월 파일) — 07_API키/out/region 의 받은 것을 지우거나 JUMIN_YM·LOCAL_PEOPLE 달을 올리고 `py -3.12 -X utf8 tools/region/dong-bake.py fetch` → `build`'],
 ]
 

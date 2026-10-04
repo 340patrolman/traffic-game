@@ -4213,3 +4213,9 @@ T-Book 세션 요청(소유자 지시 「서초구 지도를 T-Book 교통관리
 * `dong-bake.py build` 가 r/index.json 을 다시 쓸 때 다른 굽기(상권·점포·승하차·안전)가 적은 바이트·층을 남긴다.
 * ⚠ 이 판에서도 줄 가운데 `//` 주석으로 map2d.js 를 한 번 깨뜨렸다(dot 한 줄 함수 뒤에 붙임) — 브라우저 `new Function` 검사로 바로 잡았다.
 * 아직 서초 둘레만: 계절 위험(OSM 길과 맞추는 부분을 바탕 조각 기준으로 다시 짜야 한다) · TAAS 사고 10년·다발지 10년·교차로 사고(TAAS 화면 절차 · 구마다).
+
+## v0.10.96 — 🚗 TAAS 사고 10년 서울 전역(지역 자료 ⑥)
+* 서울 25개 구 × (2016~18 · 2019~21 · 2022~24 · 2025) × 사고 등급 4 = 400번 조회 → **361,140건**(2016~2025). 100m 칸 34,090 · 사망사고 2,485건(한 건씩 · 연·월·요일·시만). 서초는 다시 모은 값이 기존 파일과 같다(22,546건 · 칸 2,113 · 사망 122).
+* **모은 길**(다음에 다시 할 때 — 서초 때 쓴 집계 코드가 저장소에 없어 다시 짰다): 앱 안 브라우저 `taas.koroad.or.kr/` → `gis/mcm/mcl/initMap.do?menuId=GIS_GMP_STS_RSN` → 페이지 안 `gis.com.req.requestAjaxByPost({url:'/gis/srh/ash/selectAccidentInfo.do', data:{searchType:'00', zoneYn:false, engnCode:'00', startAcdntYear, endAcdntYear, legaldongCode:'<구 5자리>%', acdntGaeCode:'01'~'04'}, callBack, isAsync:true})`(**인자 이름은 `callBack`** — `success` 가 아니다) → 응답 `resultValue.accidentInfoList` → 받는 자리에서 개인정보(나이·성별·상해 부위·사고번호·일) 버리고 UTM-K(x_crdnt·y_crdnt) 100m 칸으로 집계(칸 = 해마다 10 · 사망자 · 중상자 · 보행자 피해(피해 차종 500) · 자전거(200) · PM(210) · 이륜·원동기 가해(150·151·160) · 밤(20~6시) · 6시간 띠 4 · 주 법규위반·주 유형) · 일꾼 2개 동시 · 40초 넘으면 다시. 강남 경상 3년치처럼 큰 묶음은 시간이 넘어 **한 해씩 나눠** 다시 받았다(150초). 결과를 `window.name` 에 담아 localhost 페이지로 옮겨 127.0.0.1:8799 수신기로 `07_API키/out/region/taas10_raw.json`(2.9MB) → `tools/region/taas10-bake.py`(pyproj 5179 → WGS84) → `data/r/<구>/taas10.json`(합계 3.0MB).
+* 지도: 사고 10년·사망사고 10년 층을 켜면 화면에 걸린 구를 받는다(`aLoad`) · 칸 카드 사전은 그 파일 것(`DICT`) · 화면 밖 칸은 그리지 않는다. ⚠ 서초 파일(LATE)이 늦게 오면 `a10Prep` 이 먼저 온 구 칸을 지우던 것 → 남기게 고침 · 안전시설도 서초 안전 파일이 칸을 만들기 전에는 구 파일을 받지 않는다.
+* 📐 반경 분석에 「교통사고 10년」(건수 · 사망 · 중상 · 보행자 · 밤 비율 · 주 법규위반) + 해마다 막대 · 요약 복사에도.
