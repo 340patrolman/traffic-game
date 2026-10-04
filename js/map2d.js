@@ -1568,7 +1568,7 @@
   // ---------- 📐 반경 분석(v0.10.93 · 소유자 「상용 상권분석 프로그램만큼의 퍼포먼스」) ----------
   //  고른 자리에서 반경 300m·500m·1km — 점포(소상공인 상가정보 · 하나하나) · 경쟁점 · 추정 매출(걸친 상권을 겹친 넓이 비율로) · 생활인구·주민(걸친 동을 넓이 비율로) ·
   //  유동·직장 인구 · 지하철역 · 가까운 부동산원 임대료. 넓이 비율 = 반경 안을 격자로 찍어 센 것(근사 · 화면에 밝힌다).
-  var RAD = { c: null, r: 500, ind: '', res: null, busy: false, pick: false }, SIDX = null, SIDXP = null, SPTS = {}, STNS = null;
+  var RAD = { c: null, r: 500, ind: '', sind: '', res: null, busy: false, pick: false }, SIDX = null, SIDXP = null, SPTS = {}, STNS = null;
   function sLoadIdx() { if (SIDXP) return SIDXP; SIDXP = fetch('data/r/stores-index.json').then(function (r) { return r.json(); }).then(function (j) { SIDX = j; }).catch(function () {}); return SIDXP; }
   function sLoad(gu) {
     if (SPTS[gu]) return SPTS[gu].p; var o = SPTS[gu] = { a: null };
@@ -1607,9 +1607,13 @@
     dc.forEach(function (n, d) { if (d.area == null) d.area = polyA(d.polys); var w = Math.min(1, n * cell / (d.area || 1)); o.dongs.push([(d.gu ? d.gu + ' ' : '') + d.name, Math.round(w * 100)]);
       if (d.pop) { o.pop += d.pop.tot * w; d.pop.age.forEach(function (v, k) { o.age[k] += v * w; }); } var A = liveArr(d); if (A) A[key].forEach(function (v, k) { o.live[k] += v * w; }); });
     o.we = we; o.dongs.sort(function (a, b) { return b[1] - a[1]; });
-    o.amt = 0; o.cnt = 0; o.tb = [0, 0, 0, 0, 0, 0]; o.ag = [0, 0, 0, 0, 0, 0]; o.ind = {}; o.flp = 0; o.wrc = 0; o.trd = [];
+    o.amt = 0; o.cnt = 0; o.tb = [0, 0, 0, 0, 0, 0]; o.ag = [0, 0, 0, 0, 0, 0]; o.ind = {}; o.bi = {}; o.flp = 0; o.wrc = 0; o.trd = [];
     tc.forEach(function (n, X) { var t = X.t, w = Math.min(1, n * cell / (t.area || 1)); o.trd.push([t.name, Math.round(w * 100)]);
-      (t.ind || []).forEach(function (rr) { o.amt += rr[1] * w; o.cnt += rr[2] * w; for (var k = 0; k < 6; k++) { o.tb[k] += rr[3 + k] * w; o.ag[k] += rr[9 + k] * w; } o.ind[rr[0]] = (o.ind[rr[0]] || 0) + rr[1] * w; });
+      (t.ind || []).forEach(function (rr) { o.amt += rr[1] * w; o.cnt += rr[2] * w; for (var k = 0; k < 6; k++) { o.tb[k] += rr[3 + k] * w; o.ag[k] += rr[9 + k] * w; } o.ind[rr[0]] = (o.ind[rr[0]] || 0) + rr[1] * w;
+        var B = o.bi[rr[0]] || (o.bi[rr[0]] = { amt: 0, cnt: 0, tb: [0, 0, 0, 0, 0, 0], ag: [0, 0, 0, 0, 0, 0], we: 0, st: 0, pa: 0, pa2: 0, ps: 0, op: 0, cl: 0 });
+        B.amt += rr[1] * w; B.cnt += rr[2] * w; for (k = 0; k < 6; k++) { B.tb[k] += rr[3 + k] * w; B.ag[k] += rr[9 + k] * w; } B.we += (rr[22] + rr[23]) * w;
+        var q = t.indp && t.indp[rr[0]]; if (q && q[0] > 0) { B.pa += q[0] * w; B.pa2 += rr[1] * w; } });
+      (t.stor || []).forEach(function (st) { var B = o.bi[st[0]] || (o.bi[st[0]] = { amt: 0, cnt: 0, tb: [0, 0, 0, 0, 0, 0], ag: [0, 0, 0, 0, 0, 0], we: 0, st: 0, pa: 0, pa2: 0, ps: 0, op: 0, cl: 0 }); B.st += st[1] * w; B.op += st[3] * w; B.cl += st[4] * w; var ps = t.storp && t.storp[st[0]]; if (ps) B.ps += ps * w; });
       if (t.flp) o.flp += t.flp[0] / 91 * w; if (t.wrc) o.wrc += t.wrc[0] * w; });
     o.trd.sort(function (a, b) { return b[1] - a[1]; });
     o.stn = (STNS || []).map(function (s2) { return { s: s2, d: Math.hypot(s2.p[0] - c[0], s2.p[1] - c[1]) }; }).filter(function (q) { return q.d <= r; }).sort(function (a, b) { return a.d - b.d; });
@@ -1631,6 +1635,7 @@
       '점포 ' + o.n.toLocaleString() + '곳(' + (o.n / (Math.PI * o.r * o.r / 1e4)).toFixed(1) + '곳/ha) · ' + Object.keys(o.byL).sort(function (a, b) { return o.byL[b] - o.byL[a]; }).slice(0, 6).map(function (k) { return k + ' ' + o.byL[k]; }).join(' · '),
       RAD.ind ? '「' + RAD.ind + '」 ' + o.comp.length + '곳 · 가장 가까운 ' + (o.comp[0] ? Math.round(o.comp[0].d) + 'm' : '-') : '',
       '추정 카드 매출 한 달 약 ' + won(o.amt) + '(걸친 상권 ' + o.trd.length + '곳을 겹친 넓이 비율로)',
+      RAD.sind && o.bi[RAD.sind] && o.bi[RAD.sind].st >= 0.5 ? '「' + RAD.sind + '」 한 달 약 ' + won(o.bi[RAD.sind].amt) + ' · 점포 약 ' + Math.round(o.bi[RAD.sind].st) + '곳 · 점포당 약 ' + won(o.bi[RAD.sind].amt / o.bi[RAD.sind].st) : '',
       '생활인구 ' + nowH() + '시 약 ' + Math.round(o.live[nowH()]).toLocaleString() + '명 · 주민 약 ' + Math.round(o.pop).toLocaleString() + '명 · 하루 유동 약 ' + Math.round(o.flp).toLocaleString() + ' · 직장 약 ' + Math.round(o.wrc).toLocaleString(),
       o.stn.length ? '지하철역 ' + o.stn.map(function (q) { return q.s.n + ' ' + Math.round(q.d) + 'm'; }).join(' · ') : '반경 안 지하철역 없음',
       o.acc && o.acc.y.some(function (v) { return v; }) ? '교통사고 10년 ' + o.acc.y.reduce(function (a, b) { return a + b; }, 0).toLocaleString() + '건 · 사망 ' + o.acc.dead + '명 · 보행자 피해 ' + o.acc.ped : '',
@@ -1658,7 +1663,22 @@
       if (o.amt) { var ik = Object.keys(o.ind).sort(function (a, b) { return o.ind[b] - o.ind[a]; }).slice(0, 8);
         h += '<div class="cap">시간대별 시간당 카드 매출(원 · 하루 평균 · 반경 추정)</div>' + bar(o.tb.map(function (v, i) { return v / TBH[i] / 30.4; }), '#7c3aed', LB_TB6, 'w');
         h += '<div class="cap">연령대별 카드 매출(원 · 한 달 · 반경 추정)</div>' + bar(o.ag, '#a78bfa', LB_AGE6, 'w');
-        h += row('매출 많은 업종', ik.map(function (k) { return esc(k) + ' ' + won(o.ind[k]); }).join(' · ')); }
+        h += row('매출 많은 업종', ik.map(function (k) { return esc(k) + ' ' + won(o.ind[k]); }).join(' · '));
+        var bk = Object.keys(o.bi).filter(function (k) { return o.bi[k].amt > 0; }).sort(function (a, b) { return o.bi[b].amt - o.bi[a].amt; });
+        h += '<div class="bizrow"><label>💰 예상 매출 볼 업종 <select data-rz="sind"><option value="">(고르기 — 상권분석 업종)</option>' + bk.map(function (k) { return '<option' + (k === RAD.sind ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></label></div>';
+        var B = RAD.sind && o.bi[RAD.sind];
+        if (B) { var per = B.st >= 0.5 ? B.amt / B.st : null, pk = 0; for (var i2 = 1; i2 < 6; i2++) if (B.tb[i2] > B.tb[pk]) pk = i2; var agt = B.ag.reduce(function (a, b) { return a + b; }, 0);
+          var yy = B.pa > 0 ? (B.pa2 - B.pa) / B.pa : null, rn = o.rent && (lastV(o.rent.it.s) || lastV(o.rent.it.m));
+          h += '<div class="bizwhy"><b>💰 「' + esc(RAD.sind) + '」 이 반경에서</b><br>' +
+            '한 달 매출 약 ' + won(B.amt) + ' · 결제 약 ' + man(B.cnt) + '건 · 점포 약 ' + Math.round(B.st) + '곳' + (B.op || B.cl ? ' (분기 개업 ' + Math.round(B.op) + ' · 폐업 ' + Math.round(B.cl) + ')' : '') +
+            (per ? '<br><b>점포당 한 달 평균 매출 약 ' + won(per) + '</b>' : '<br><em>점포 수가 적어 점포당 값을 내지 않는다</em>') +
+            (yy != null ? ' · 1년 전 같은 분기보다 ' + (yy >= 0 ? '+' : '') + Math.round(yy * 100) + '%' : '') +
+            '<br>객단가 ' + (B.cnt ? Math.round(B.amt * 1e4 / B.cnt).toLocaleString() + '원' : '-') + ' · 피크 ' + TBL[pk] + '시 · 20·30대 ' + pct(B.ag[1] + B.ag[2], agt) + '% · 50대 이상 ' + pct(B.ag[4] + B.ag[5], agt) + '% · 주말 ' + pct(B.we, B.amt) + '%' +
+            (per && rn ? '<br>임대료 견주기: 33㎡(10평) 월 약 ' + Math.round(rn * 3.3) + '만원 ÷ 점포당 매출 = 매출의 약 ' + Math.round(rn * 3.3 / per * 100) + '% <em>(가까운 표본 임대료 · 점포 넓이를 10평으로 친 어림)</em>' : '') +
+            '</div><div class="cap">「' + esc(RAD.sind) + '」 시간대별 시간당 카드 매출(원 · 하루 평균 · 반경 추정)</div>' + bar(B.tb.map(function (v, i) { return v / TBH[i] / 30.4; }), '#7c3aed', LB_TB6, 'w') +
+            '<div class="cap">「' + esc(RAD.sind) + '」 연령대별 카드 매출(원 · 한 달 · 반경 추정)</div>' + bar(B.ag, '#a78bfa', LB_AGE6, 'w') +
+            '<p class="lg-n">예상 매출 = 반경에 걸친 상권의 그 업종 카드 매출 × 겹친 넓이 비율 ÷ 같은 방식으로 센 점포 수(서울시 상권분석서비스 추정 · 현금 제외 · 상권 밖 점포는 빠짐). 실제 한 점포의 매출이 아니라 평균이다.</p>'; }
+      }
       h += row('생활인구 지금', Math.round(o.live[nowH()]).toLocaleString() + '명 <em>(' + (o.we ? '주말' : '평일') + ' ' + nowH() + '시 · 걸친 동 × 넓이 비율)</em>');
       h += '<div class="cap">시간대별 생활인구(명 · 반경 안 추정 · 0~23시 ' + (o.we ? '주말' : '평일') + ' 평균)</div>' + bar(o.live.map(Math.round), '#f97316');
       h += row('주민', '약 ' + Math.round(o.pop).toLocaleString() + '명 · 19세 이하 ' + pct(o.age[0] + o.age[1], o.pop) + '% · 20·30대 ' + pct(o.age[2] + o.age[3], o.pop) + '% · 60세 이상 ' + pct(o.age[6] + o.age[7] + o.age[8] + o.age[9], o.pop) + '%');
@@ -1700,7 +1720,7 @@
       if (x === 'rep' && REP) { RAD.c = REP.p; radRun(); return; }
       if (x === 'copy') { var t = radText(); try { navigator.clipboard.writeText(t).then(function () { b.textContent = '✅ 복사했다'; }); } catch (e2) { prompt('복사', t); } return; }
       if (x === 'biz') { bizOpen(); return; } });
-    $('m2dRad').addEventListener('change', function (e) { var t = e.target; if (t.getAttribute('data-rz') === 'ind') { RAD.ind = t.value; if (RAD.c && RAD.res) { RAD.res = radCalc(RAD.gus || []); radPaint(); draw(); } } });
+    $('m2dRad').addEventListener('change', function (e) { var t = e.target; if (t.getAttribute('data-rz') === 'sind') { RAD.sind = t.value; radPaint(); return; } if (t.getAttribute('data-rz') === 'ind') { RAD.ind = t.value; if (RAD.c && RAD.res) { RAD.res = radCalc(RAD.gus || []); radPaint(); draw(); } } });
   }
   // 시계(행사·집회·신호·교통량이 「지금」을 본다)
   function clock() { var d = new Date(); $('m2dNow').textContent = (d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + '일월화수목금토'[d.getDay()] + ') ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
