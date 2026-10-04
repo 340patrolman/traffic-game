@@ -79,6 +79,33 @@
   #m2dFold { flex: 0 0 auto; width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 15px; cursor: pointer; }
   body.fold #m2dTime, body.fold #m2dPre, body.fold #m2dSum, body.fold #m2dLayers { display: none; }
   @media (max-width: 520px) { #m2dTime button, #m2dPre button, #m2dLayers button { height: 32px; } #m2dTime b { min-width: 64px; font-size: 12px; } .row1 h1 { font-size: 15px; } }
+  #m2dZoom #m2dLegB { font-size: 13px; }
+  #m2dLeg { display: none; position: fixed; left: 8px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 5; width: 250px; max-height: 46vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  body.legon #m2dLeg { display: block; }
+  body.legon #m2dLegB { background: var(--chipOn); color: #fff; }
+  #m2dLeg .lgh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  #m2dLeg .lgh button { height: 28px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
+  #m2dLeg .lg { border-top: 1px dashed var(--line); padding: 4px 0; }
+  #m2dLeg .lg > b { display: block; font-size: 12px; margin-bottom: 2px; }
+  #m2dLeg .lg > div { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  #m2dLeg span { display: inline-flex; align-items: center; gap: 4px; white-space: normal; max-width: 100%; }
+  #m2dLeg .lg-c { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); display: inline-block; }
+  #m2dLeg .lg-b { width: 14px; height: 10px; border-radius: 2px; border: 1px solid rgba(0,0,0,.2); display: inline-block; }
+  #m2dLeg .lg-l { width: 18px; height: 4px; border-radius: 2px; display: inline-block; border: 1px solid rgba(0,0,0,.2); }
+  #m2dLeg .lg-d { height: 0; border-width: 0 0 3px; border-style: dashed; background: none !important; }
+  #m2dLeg .lg-g { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  #m2dLeg .lg-g i { grid-column: 1 / 3; height: 10px; border-radius: 3px; display: block; }
+  #m2dLeg .lg-g small:last-child { text-align: right; }
+  #m2dLeg .lg-n { width: 100%; color: var(--ink2); }
+  @media (max-width: 520px) { #m2dLeg { width: auto; right: 64px; max-height: 34vh; } }
+  #m2dCard table.it { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 3px; }
+  #m2dCard table.it th, #m2dCard table.it td { border: 1px solid var(--line); padding: 2px 3px; text-align: center; }
+  #m2dCard table.it td:first-child { text-align: left; white-space: nowrap; max-width: 104px; overflow: hidden; text-overflow: ellipsis; }
+  #m2dCard table.it th.now { outline: 2px solid #dc2626; }
+  #m2dCard table.it tr.bar td:first-child { color: #b45309; font-weight: 800; }
+  #m2dLeg .lg-btns { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+  #m2dLeg .lg-btns button { height: 28px; padding: 0 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 11.5px; cursor: pointer; }
+  #m2dLeg .lg-btns button.on { background: var(--chipOn); color: #fff; }
   #m2dLoad { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9; background: var(--bg); color: var(--ink2); font-size: 15px; }
 </style>
 </head>
@@ -105,8 +132,10 @@
   <button id="m2dIn" aria-label="확대">＋</button>
   <button id="m2dOut" aria-label="축소">－</button>
   <button id="m2dFit" aria-label="전체 보기">전체</button>
+  <button id="m2dLegB" aria-label="범례">범례</button>
 </div>
 <div id="m2dCard" role="dialog" aria-live="polite"></div>
+<div id="m2dLeg" aria-label="범례"></div>
 <div id="m2dFoot">
   <details><summary>ⓘ 자료 출처 · 한계</summary>
     <ul class="all">
@@ -135,13 +164,16 @@
       <li>바탕 지도(도로 전부 · 물 · 녹지 · 철도 · 주차장) — © OpenStreetMap contributors (ODbL) · Overpass 2026-10-04</li>
       <li>실시간 인파 · 실시간 카드 결제 · 도로 소통 — 서울 열린데이터광장 「서울시 실시간 도시데이터」(OA-21285) · 장소 영역(OA-21778). <b>받은 시각의 한 장</b>이다(통신 0) — 받은 뒤 12시간은 서울시 예측값을 보이고, 그 뒤는 「받은 때」라고 적는다</li>
       <li>카드 매출(시간대) — 서울시 상권분석서비스 추정매출-행정동(카드사 결제 자료로 추정 · 분기) · 버스·지하철 시간대 승차/하차 — 서울시 교통카드(2026년 6월 · 하루 평균)</li>
+      <li>상권분석 — 서울시 상권분석서비스(상권 영역 OA-15560 · 업종별 추정매출(카드사 결제 자료로 추정 · 업종 × 시간대·연령·성별·요일) · 길단위 유동인구 · 직장·상주인구 · 점포 · 집객시설 · 상권변화지표 · 2026년 2분기). 업종 × 연령 × 시간대 셋을 함께 나눈 값은 공개되지 않는다</li>
+      <li>치안·생활안전 — 서울시 안심귀갓길 시설(코드표 첨부 xlsx)·안심 서비스 · AED · 소방용수 · 서초구 불법주정차 단속 CCTV · 견인차량보관소 · 공중화장실 · 안심택배함 · 치매안심센터(서울 열린데이터광장)</li>
+      <li>다발지 10년 — 도로교통공단 다발지역 OpenAPI(2016~2025) · 지하철 10년 — 서울시 CardSubwayTime(해마다 6월) · 카드 매출 추이 — 2021년 1분기~</li>
       <li>이 지도는 기기 안에서만 돈다 — 통신 0 · 위치를 묻지 않는다 · 켠 층은 이 기기에만 저장</li>
     </ul>
   </details>
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.77"></script>
+<script src="js/map2d.js?v=0.10.78"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
