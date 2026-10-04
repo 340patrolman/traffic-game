@@ -39,6 +39,9 @@ def main():
             if not gu: continue
         G.setdefault(gu, {'cells': [], 'fatal': []})['fatal'].append(f[1:17] + [round(lat, 6), round(lon, 6)])
     rp = os.path.join(ROOT, 'data', 'r', 'index.json'); IX = json.load(open(rp, encoding='utf-8')); gb = {}
+    keep = {'경기': '41', '서울': '11'}.get(region)
+    for gu, v in list(G.items()):
+        if keep and gu[:2] != keep: del G[gu]   # v0.10.102 사고: 경기 원자료 중 서울 경계 안 칸이 서울 구 파일을 덮어썼다 — 그 시도 구만 쓴다
     for gu, v in G.items():
         cnt = sum(sum(c[2:12]) for c in v['cells'])
         doc = {'schema': 'tg-taas10/1', 'gu': gu,
