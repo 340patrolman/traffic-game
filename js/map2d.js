@@ -268,10 +268,20 @@
   function hourKey(lv, color) { var b = []; lv.forEach(function (l, i) { if (l === 2) b.push(i); }); var r = [], s0 = null;
     b.forEach(function (h, k) { if (s0 == null) s0 = h; if (b[k + 1] !== h + 1) { r.push(s0 === h ? s0 + '시' : s0 + '~' + h + '시'); s0 = null; } });
     return '<div class="hk"><i style="background:' + C_BUSY + '"></i>붐빔' + (r.length ? ' <b>' + r.join(' · ') + '</b>' : '') + ' <i style="background:' + (color || '#3b82f6') + '"></i>보통 <i style="background:' + C_QUIET + '"></i>한산 <i class="nw"></i>지금</div>'; }
-  function bar(arr, color) { var mx = Math.max.apply(null, arr) || 1;
+  function bar(arr, color, lab) { var mx = Math.max.apply(null, arr) || 1;
     if (arr.length === 24) { var mn = Math.min.apply(null, arr), lv = arr.map(function (v) { return hourLv(v, mx, mn); }), hh = nowH();
       return '<div class="bars h24">' + arr.map(function (v, i) { return '<i title="' + i + '시 ' + Math.round(v).toLocaleString() + '" class="' + (i === hh ? 'n' : '') + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (lv[i] === 2 ? C_BUSY : lv[i] === 0 ? C_QUIET : (color || '#3b82f6')) + '"></i>'; }).join('') + '</div>' + hourAxis(lv) + hourKey(lv, color); }
-    return '<div class="bars">' + arr.map(function (v, i) { return '<i title="' + i + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (color || '#3b82f6') + '"></i>'; }).join('') + '</div>'; }
+    var ok = lab && lab.length === arr.length, few = ok && arr.length <= 12;
+    return (few ? '<div class="vx">' + arr.map(function (v) { return '<span>' + (v ? shortN(v) : '') + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="bars">' + arr.map(function (v, i) { return '<i title="' + esc(ok ? String(lab[i]).replace(/<[^>]+>/g, '') : String(i)) + ' ' + shortN(v) + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (color || '#3b82f6') + '"></i>'; }).join('') + '</div>' +
+      (ok ? '<div class="lx">' + lab.map(function (t) { return '<span>' + t + '</span>'; }).join('') + '</div>' : ''); }
+  // v0.10.86 막대 눈금 글자 — 소유자 「세로 막대에 몇 년도인지 숫자로 · 막대만 덜렁 있으니 이해하기 어렵다」
+  function shortN(v) { v = +v || 0; var a = Math.abs(v); return a >= 1e8 ? (v / 1e8).toFixed(a >= 1e9 ? 0 : 1) + '억' : a >= 1e4 ? (v / 1e4).toFixed(a >= 1e5 ? 0 : 1) + '만' : a >= 100 ? Math.round(v).toLocaleString() : a >= 10 ? Math.round(v) : (Math.round(v * 10) / 10); }
+  function yLab(y0, n) { var o = []; for (var i = 0; i < n; i++) o.push('<b>' + String(y0 + i).slice(0, 2) + '</b>' + String(y0 + i).slice(2)); return o; }
+  function qLab(qs) { return qs.map(function (q) { return q[4] === '1' ? "'" + q.slice(2, 4) : ''; }); }
+  var LB_Y16 = yLab(2016, 10), LB_TB6 = ['0~6', '6~11', '11~14', '14~17', '17~21', '21~24'], LB_TB4 = ['0~6', '6~12', '12~18', '18~24'], LB_DW = ['월', '화', '수', '목', '금', '토', '일'],
+    LB_AGE6 = ['10대', '20대', '30대', '40대', '50대', '60+'];
+  function ageLab(n) { var o = []; for (var i = 0; i < n; i++) o.push(i === 0 ? '~9' : i === n - 1 && n < 10 ? i * 10 + '+' : i * 10 + '대'); return o; }
   function show(it) {
     var card = $('m2dCard'), h = '';
     if (!it) { card.classList.remove('on'); return; }
@@ -289,7 +299,7 @@
     } else if (it.kind === 'dong') {
       var d = it.d, p = d.pop; h = '<h3>🏘 ' + esc(d.name) + '</h3>'; var jz = jurDongLine(d.name); if (jz) h += row('경찰서 관할', jz);
       if (p) { h += row('주민', p.tot.toLocaleString() + '명'); h += row('19세 이하', Math.round((p.age[0] + p.age[1]) / p.tot * 100) + '%') + row('70세 이상', Math.round((p.age[7] + p.age[8] + p.age[9]) / p.tot * 100) + '%');
-        h += '<div class="cap">연령대(0~9 … 90~99세)</div>' + bar(p.age, '#8b5cf6'); }
+        h += '<div class="cap">연령대(0~9 … 90~99세)</div>' + bar(p.age, '#8b5cf6', ageLab(p.age.length)); }
       var lv = liveNow(d.name);
       if (lv) { h += row('생활인구 지금', lv.n.toLocaleString() + '명 <em>(' + (lv.we ? '주말' : '평일') + ' ' + lv.h + '시 평균)</em>') + row('하루 폭', Math.min.apply(null, lv.arr).toLocaleString() + ' ~ ' + Math.max.apply(null, lv.arr).toLocaleString() + '명') +
         '<div class="cap">생활인구 시간대(0~23시 · ' + (lv.we ? '주말' : '평일') + ')</div>' + bar(lv.arr, '#f97316'); }
@@ -308,7 +318,7 @@
       if (n.nameSrc) h += row('이름', '<em>' + esc(n.nameSrc) + '</em>');
       if (n.dong) h += row('행정동', esc(n.dong.dong) + ((n.dong.also || []).length ? ' · ' + esc(n.dong.also.join('·')) + ' <em>경계</em>' : ''));
       if (n.y10) { var t19 = accN(n, 2019, 2025); h += row('사고 2019~2025', t19 + '건 · 사망 ' + deadN(n, 2019, 2025) + '명 <em>(사망사고 기록)</em> · 해마다 평균 ' + Math.round(t19 / 7)) + row('2016~2025', accN(n, 2016, 2025) + '건 · 사망·중상자 ' + n.sev + ' · 보행자 피해 ' + n.ped) +
-        '<div class="cap">해마다 사고(2016~2025 · 585m 안 100m 칸을 이 교차로에 배정)</div>' + bar(n.y10, '#ea580c') + (n.d10.some(function (v) { return v; }) ? '<div class="cap">해마다 사망자</div>' + bar(n.d10, '#111827') : ''); }
+        '<div class="cap">해마다 사고(2016~2025 · 585m 안 100m 칸을 이 교차로에 배정)</div>' + bar(n.y10, '#ea580c', LB_Y16) + (n.d10.some(function (v) { return v; }) ? '<div class="cap">해마다 사망자</div>' + bar(n.d10, '#111827', LB_Y16) : ''); }
       if (st && st.total) { h += row('사고(2023~25)', st.total + '건 · 사망 ' + st.death + ' · 중상 ' + st.serious + ' · 경상 ' + st.slight);
         h += row('주된 경위', st.violations.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · ')) + row('사고 유형', st.types.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · '));
         h += src('TAAS 도로교통공단 · 반경 약 585m 안 사고를 가장 가까운 교차로에 배정(근사)'); }
@@ -643,21 +653,21 @@
     var tot = ys.map(function (y) { return T[y][0].reduce(function (a, b) { return a + b; }, 0) + T[y][1].reduce(function (a, b) { return a + b; }, 0); }), atH = ys.map(function (y) { return T[y][1][hh]; });
     var a = tot[0], b = tot[tot.length - 1];
     return row(ys[0] + '→' + ys[ys.length - 1], '하루 승하차 ' + man(a) + ' → ' + man(b) + ' <em>(' + (b >= a ? '+' : '') + Math.round((b - a) / (a || 1) * 100) + '% · 6월 기준)</em>') +
-      '<div class="cap">해마다 하루 승하차(' + ys[0] + '~' + ys[ys.length - 1] + ' · 6월)</div>' + bar(tot, '#0284c7') + '<div class="cap">해마다 ' + hh + '시 하차</div>' + bar(atH, '#ea580c');
+      '<div class="cap">해마다 하루 승하차(' + ys[0] + '~' + ys[ys.length - 1] + ' · 6월)</div>' + bar(tot, '#0284c7', ys.map(function (y) { return yLab(+y, 1)[0]; })) + '<div class="cap">해마다 ' + hh + '시 하차</div>' + bar(atH, '#ea580c', ys.map(function (y) { return yLab(+y, 1)[0]; }));
   }
   function salesTrend(name) {
     var T = D.trend && D.trend.sales && D.trend.sales.items[name]; if (!T) return ''; var qs = D.trend.sales.quarters.filter(function (q) { return T[q]; }); if (qs.length < 2) return ''; var b = bandOf(nowH());
     var lab = function (q) { return q.slice(2, 4) + '.' + q[4] + 'Q'; };
     return '<div class="cap">분기 매출 추이(' + lab(qs[0]) + '~' + lab(qs[qs.length - 1]) + ')</div>' + bar(qs.map(function (q) { return T[q][0]; }), '#6d28d9') +
-      '<div class="cap">분기 주점·노래방류 매출</div>' + bar(qs.map(function (q) { return T[q][7]; }), '#b45309') + '<div class="cap">분기 ' + esc(D.flow.sales.tb[b]) + ' 매출</div>' + bar(qs.map(function (q) { return T[q][1 + b]; }), '#a78bfa');
+      '<div class="cap">분기 주점·노래방류 매출</div>' + bar(qs.map(function (q) { return T[q][7]; }), '#b45309', qLab(qs)) + '<div class="cap">분기 ' + esc(D.flow.sales.tb[b]) + ' 매출</div>' + bar(qs.map(function (q) { return T[q][1 + b]; }), '#a78bfa', qLab(qs));
   }
   function salesRows(name) {
     var x = FLOW.sales[name]; if (!x) return ''; var S5 = D.flow.sales, b = bandOf(nowH()), now = salesNow(name);
     var top = x.top.slice().sort(function (p, q) { return q[2 + b] - p[2 + b]; }).filter(function (t) { return t[2 + b] > 0; }).slice(0, 4);
     return row('카드 매출(추정)', '한 달 약 ' + won(x.amt) + ' · 결제 ' + man(x.cnt) + '건') + row('지금 시간대', esc(S5.tb[b]) + ' — 시간당 약 ' + won(now.perH) + ' <em>(하루 평균)</em>') +
       (top.length ? row('지금 많은 업종', top.map(function (t) { return esc(t[0]); }).join(' · ')) : '') +
-      '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24시)</div>' + bar(x.tb.map(function (v, i) { return v / TBH[i]; }), '#7c3aed') +
-      '<div class="cap">요일(월~일)</div>' + bar(x.dw, '#a78bfa') + salesTrend(name) + '<div class="src">' + esc(S5.source) + (D.trend ? ' · 추이: ' + esc(D.trend.sales.source) : '') + '</div>';
+      '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24시)</div>' + bar(x.tb.map(function (v, i) { return v / TBH[i]; }), '#7c3aed', LB_TB6) +
+      '<div class="cap">요일(월~일)</div>' + bar(x.dw, '#a78bfa', LB_DW) + salesTrend(name) + '<div class="src">' + esc(S5.source) + (D.trend ? ' · 추이: ' + esc(D.trend.sales.source) : '') + '</div>';
   }
   function onoffC(a, b, al) { var c = a > b * 1.25 ? '37,99,235' : b > a * 1.25 ? '234,88,12' : '13,148,136'; return 'rgba(' + c + ',' + al + ')'; }
   function bar2(on, off) { var mx = 1, hh = nowH(), sm = [], sx = 1; for (var i = 0; i < 24; i++) { mx = Math.max(mx, on[i], off[i]); sm[i] = on[i] + off[i]; sx = Math.max(sx, sm[i]); }
@@ -696,11 +706,11 @@
     h = '<h3>📡 ' + esc(o.name) + ' <small style="font-weight:400;color:var(--ink2)">' + esc(o.cat) + '</small></h3>';
     if (cw) h += row(cw.kind === 'now' ? '지금' : cw.kind === 'fcst' ? '예측(' + esc(cw.t.slice(11, 16)) + ')' : '받은 때', '<b style="color:' + (LVC[cw.lvl] || '#64748b') + '">' + esc(cw.lvl) + '</b> · ' + (cw.min ? man(cw.min) + '~' + man(cw.max) + '명' : '-') + (cw.kind === 'old' ? ' <em>(' + esc(cw.t) + ' 값 — 지금이 아니다)</em>' : cw.kind === 'fcst' ? ' <em>(서울시 예측)</em>' : ''));
     if (p.msg) h += '<p class="desc">' + esc(p.msg) + '</p>';
-    if (p.age) h += row('남·여', Math.round(p.male) + ' : ' + Math.round(100 - p.male) + ' · 상주 ' + Math.round(p.resnt) + '%') + '<div class="cap">연령(10세 미만 … 70대 이상 · ' + esc(p.time) + ')</div>' + bar(p.age, '#0ea5e9');
+    if (p.age) h += row('남·여', Math.round(p.male) + ' : ' + Math.round(100 - p.male) + ' · 상주 ' + Math.round(p.resnt) + '%') + '<div class="cap">연령(10세 미만 … 70대 이상 · ' + esc(p.time) + ')</div>' + bar(p.age, '#0ea5e9', ageLab(p.age.length));
     if (p.fcst && p.fcst.length) h += '<div class="cap">앞으로 12시간 예측(' + esc(p.fcst[0][0].slice(11, 16)) + '~ · 인구 상한)</div>' + bar(p.fcst.map(function (f) { return f[3] || 0; }), '#64748b');
     if (c) { h += row('실시간 카드', '<b style="color:' + (LVC[c.lvl] || '#64748b') + '">' + esc(c.lvl) + '</b> · 결제 ' + c.cnt + '건 · ' + won(c.amin / 1e4) + '~' + won(c.amax / 1e4) + ' <em>(' + esc(String(c.time || '').replace(/^(\d{4})(\d\d)(\d\d) (\d\d)(\d\d)$/, '$2-$3 $4:$5')) + ' 표본)</em>');
       if (c.rsb && c.rsb.length) h += row('업종', c.rsb.map(function (x) { return esc(x[1]) + ' ' + esc(x[2]) + ' ' + (x[3] || 0) + '건'; }).join(' · '));
-      if (c.age) h += '<div class="cap">결제 연령(10대 … 60대 이상)</div>' + bar(c.age, '#7c3aed'); }
+      if (c.age) h += '<div class="cap">결제 연령(10대 … 60대 이상)</div>' + bar(c.age, '#7c3aed', c.age.length === 6 ? LB_AGE6 : null); }
     if (o.bus) h += row('버스 오늘 누적', '승차 ' + man(o.bus.acc[0]) + '~' + man(o.bus.acc[1]) + ' · 하차 ' + man(o.bus.acc[2]) + '~' + man(o.bus.acc[3]) + ' <em>(정류장 ' + o.bus.n + ')</em>');
     if (o.sub) h += row('지하철 오늘 누적', '승차 ' + man(o.sub.acc[0]) + '~' + man(o.sub.acc[1]) + ' · 하차 ' + man(o.sub.acc[2]) + '~' + man(o.sub.acc[3]) + ' <em>(역 ' + o.sub.n + ')</em>');
     if (o.road && o.road.idx) h += row('둘레 도로', '<b style="color:' + (IDXC[o.road.idx] || '#64748b') + '">' + esc(o.road.idx) + '</b> · 평균 ' + o.road.spd + 'km/h · 링크 ' + ((o.road.links || []).length) + '개');
@@ -831,8 +841,8 @@
     return row('🍺 주점·유흥', esc(bars.map(function (r) { return r[0]; }).join('·')) + ' — 한 달 ' + won(amt) + ' (' + unit + ' 매출의 ' + pct(amt, all) + '%)') +
       row('밤 21~6시', '매출의 ' + pct(night, amt) + '% · 결제 하루 약 ' + Math.round(nCo / 30.4).toLocaleString() + '건') +
       row('누가', AGEL.map(function (a, i) { return a + ' ' + pct(ag[i], agt) + '%'; }).join(' · ') + ' <em>(20·30대 ' + pct(ag[1] + ag[2], agt) + '%)</em>') +
-      '<div class="cap">주점·유흥 시간대 결제 건수(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar(tbs, '#b45309') +
-      '<div class="cap">주점·유흥 연령대 결제 건수(10대 … 60+)</div>' + bar(ac, '#d97706') +
+      '<div class="cap">주점·유흥 시간대 결제 건수(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar(tbs, '#b45309', LB_TB6) +
+      '<div class="cap">주점·유흥 연령대 결제 건수(10대 … 60+)</div>' + bar(ac, '#d97706', LB_AGE6) +
       '<p class="desc">음주 단속·순찰 참고 — 술자리 결제가 몰리는 시간·연령이다. 결제 = 카드 추정치(현금 제외)이고, 결제한 사람이 운전한다는 뜻은 아니다.</p>';
   }
   function trdCard(it) {
@@ -841,7 +851,7 @@
     if (ind.length) { var amt = ind.reduce(function (a, r) { return a + r[1]; }, 0), co = ind.reduce(function (a, r) { return a + r[2]; }, 0), S3 = function (k) { return ind.reduce(function (a, r) { return a + r[k]; }, 0); };
       h += row('카드 매출(추정)', '한 달 ' + won(amt) + ' · 결제 ' + man(co) + '건 <em>(' + Q.slice(0, 4) + '년 ' + Q[4] + '분기)</em>') + row('남·여', pct(S3(15), S3(15) + S3(16)) + ' : ' + pct(S3(16), S3(15) + S3(16)));
       h += row('지금 시간대', TBL[b] + '시 — 시간당 약 ' + won(S3(3 + b) / TBH[b] / 30.4) + ' · 많은 업종 ' + ind.slice().sort(function (p, q) { return q[3 + b] - p[3 + b]; }).slice(0, 3).map(function (r) { return esc(r[0]); }).join(' · '));
-      h += '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(3 + i) / TBH[i]; }), '#7c3aed') + '<div class="cap">연령대 매출(10대 … 60+)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(9 + i); }), '#a78bfa') + '<div class="cap">요일(월~일)</div>' + bar([0, 1, 2, 3, 4, 5, 6].map(function (i) { return S3(17 + i); }), '#c4b5fd');
+      h += '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(3 + i) / TBH[i]; }), '#7c3aed', LB_TB6) + '<div class="cap">연령대 매출(10대 … 60+)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(9 + i); }), '#a78bfa', LB_AGE6) + '<div class="cap">요일(월~일)</div>' + bar([0, 1, 2, 3, 4, 5, 6].map(function (i) { return S3(17 + i); }), '#c4b5fd');
       var co2 = S3(2), wk = S3(17) + S3(18) + S3(19) + S3(20) + S3(21), we = S3(22) + S3(23), lunch = S3(5), eve = S3(7), nite = S3(8) + S3(3), pk = Math.max(lunch, eve, nite);
       h += row('객단가', (co2 ? Math.round(amt * 1e4 / co2).toLocaleString() : '-') + '원(건당 결제) · 주중 ' + pct(wk, wk + we) + '% · 주말 ' + pct(we, wk + we) + '%');
       h += row('피크', (pk === lunch ? '점심형(11~14시)' : pk === eve ? '저녁형(17~21시)' : '야간형(21~6시)') + ' — 점심 ' + pct(lunch, amt) + '% · 저녁 ' + pct(eve, amt) + '% · 밤 ' + pct(nite, amt) + '%');
@@ -851,7 +861,7 @@
       h += barRows(ind, '이 상권');
       h += '<div class="cap">업종 × 연령(그 업종 매출 안 비중 % · 매출 많은 업종 8)</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(그 업종 매출 안 비중 % · 테두리 = 지금)</div>' + indTable(ind, 'tb'); }
     else h += row('카드 매출', '이 상권은 매출 자료가 없다');
-    if (t.flp) { var f = t.flp; h += row('유동인구', '분기 ' + man(f[0]) + '명 · 하루 약 ' + man(f[0] / 91) + ' · 남 ' + pct(f[1], f[0]) + '%') + '<div class="cap">유동인구 시간대(0~6 … 21~24 · 시간당)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return f[9 + i] / TBH[i]; }), '#0284c7') + '<div class="cap">유동인구 연령(10대 … 60+)</div>' + bar(f.slice(3, 9), '#38bdf8'); }
+    if (t.flp) { var f = t.flp; h += row('유동인구', '분기 ' + man(f[0]) + '명 · 하루 약 ' + man(f[0] / 91) + ' · 남 ' + pct(f[1], f[0]) + '%') + '<div class="cap">유동인구 시간대(0~6 … 21~24 · 시간당)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return f[9 + i] / TBH[i]; }), '#0284c7', LB_TB6) + '<div class="cap">유동인구 연령(10대 … 60+)</div>' + bar(f.slice(3, 9), '#38bdf8'); }
     if (t.wrc) h += row('직장인구', man(t.wrc[0]) + '명 · 20·30대 ' + pct(t.wrc[4] + t.wrc[5], t.wrc[0]) + '%');
     if (t.rep) h += row('상주인구', man(t.rep[0]) + '명 · 가구 ' + man(t.rep[9]) + '(아파트 ' + man(t.rep[10]) + ')');
     if (t.stor && t.stor.length) { var st = t.stor.slice().sort(function (p, q) { return q[1] - p[1]; }), sn = st.reduce(function (a, s) { return a + s[1]; }, 0); h += row('점포', sn + '곳 · 개업 ' + st.reduce(function (a, s) { return a + s[3]; }, 0) + ' · 폐업 ' + st.reduce(function (a, s) { return a + s[4]; }, 0) + ' · 많은 업종 ' + st.slice(0, 4).map(function (s) { return esc(s[0]) + ' ' + s[1]; }).join(' · ')); }
@@ -894,7 +904,7 @@
     var v = r.few ? '둘레 사고가 적어 견주기 어렵다' : r.ch == null ? '설치 전 사고 0건' : (r.ch < r.ach - 0.1 ? '<b style="color:#15803d">서초 전체보다 더 줄었다</b>' : r.ch > r.ach + 0.1 ? '<b style="color:#b91c1c">서초 전체보다 덜 줄었다(늘었다)</b>' : '서초 전체와 비슷하게 변했다');
     return row('설치 전후 사고', '둘레 ' + CAM_R + 'm · 설치 전 ' + rng(y0) + ' 연평균 ' + r.lb.toFixed(1) + '건 → 설치 뒤 ' + rng(y1) + ' 연평균 ' + r.la.toFixed(1) + '건' + (r.ch != null ? ' (' + pctS(r.ch) + ')' : '')) +
       row('견주기', '서초 전체 같은 해 ' + (r.ach != null ? pctS(r.ach) : '-') + ' → ' + v) +
-      '<div class="cap">둘레 ' + CAM_R + 'm 해마다 사고(2016~2025 · 설치 ' + r.yr + '년)</div>' + bar(r.loc, '#2563eb') +
+      '<div class="cap">둘레 ' + CAM_R + 'm 해마다 사고(2016~2025 · 설치 ' + r.yr + '년)</div>' + bar(r.loc, '#2563eb', LB_Y16) +
       '<p class="desc">참고 지표 — 단속 건수가 아니라 둘레 사고의 변화다. 교통량·도로 공사·다른 시설 변화가 섞이고, 사고가 많아서 설치한 자리는 그 뒤 저절로 줄어 보일 수 있다(평균으로 돌아감). 100m 칸 가운데가 ' + CAM_R + 'm 안이면 센다.</p>'; }
   // 점 색 = 설치 전후 사고(참고) — 초록 서초 전체보다 더 줄었다 · 빨강 덜 줄거나 늘었다 · 파랑 비슷하거나 견줄 수 없음
   function camCol(c) { var r = camCalc(c); if (!r || r.no || r.few || r.ch == null) return '#2563eb'; return r.ch < r.ach - 0.1 ? '#16a34a' : r.ch > r.ach + 0.1 ? '#dc2626' : '#2563eb'; }
@@ -933,7 +943,7 @@
     var c = it.x.c, tot = c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0), ys = []; for (var y = 2016; y <= 2025; y++) ys.push(y);
     return '<h3>🚗 사고 10년 — 이 100m 칸</h3>' + row('2016~2025', tot + '건 · 사망 ' + c[12] + ' · 중상 ' + c[13]) + row('누가', '보행자 피해 ' + c[14] + ' · 자전거 ' + c[15] + ' · PM ' + c[16] + ' · 이륜·원동기 가해 ' + c[17]) +
       row('주 법규위반', esc(dic('v', c[23])) + ' ' + c[24] + '건') + row('주 유형', esc(dic('t', c[25]))) + row('밤(20~6시)', c[18] + '건 (' + pct(c[18], tot) + '%)') +
-      '<div class="cap">해마다 건수(2016~2025)</div>' + bar(c.slice(2, 12), '#ea580c') + '<div class="cap">시간대(0~6 · 6~12 · 12~18 · 18~24시)</div>' + bar(c.slice(19, 23), '#1e3a8a') + '<p class="desc">' + esc(T.note) + '</p>' + src(T.source);
+      '<div class="cap">해마다 건수(2016~2025)</div>' + bar(c.slice(2, 12), '#ea580c', LB_Y16) + '<div class="cap">시간대(0~6 · 6~12 · 12~18 · 18~24시)</div>' + bar(c.slice(19, 23), '#1e3a8a', LB_TB4) + '<p class="desc">' + esc(T.note) + '</p>' + src(T.source);
   }
   function a10Legend() {
     if (!on.acc10 && !on.fatal10) return null; var ys = ['', 19]; for (var y = 2016; y <= 2025; y++) ys.push(y);
