@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>서초 데이터 압축지도</title>
+<title>데이터 압축지도 — 서울·경기</title>
 <meta name="description" content="서울 서초구 공공데이터를 층으로 겹쳐 한 장에 담은 데이터 압축지도 — 행정동·사고·신호·단속 카메라·행사·집회·교통량·국가유산">
 <meta name="robots" content="noindex, nofollow">
 <style>
@@ -115,6 +115,16 @@
   #m2dZoom #m2dLegB { font-size: 13px; }
   #m2dLeg { display: none; position: fixed; left: 8px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 5; width: 250px; max-height: 46vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
   body.legon #m2dLeg { display: block; }
+  /* v0.10.90 지역 받기 판 */
+  #m2dGetP { display: none; position: fixed; right: 64px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 6; width: 340px; max-width: calc(100vw - 80px); max-height: 62vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  #m2dGetP.on { display: block; }
+  #m2dGetP .lg-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  #m2dGetP .lg-h button { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 4px 8px; }
+  #m2dGetP .dlg { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
+  #m2dGetP .dlg button, #m2dGetP .lg-btns button { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 5px 7px; font-size: 12px; cursor: pointer; min-height: 32px; }
+  #m2dGetP .dlg button.on { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+  #m2dGetP .dlg small { color: var(--ink2); font-size: 10.5px; }
+  #m2dGetP #m2dGetMsg { min-height: 16px; font-weight: 700; color: var(--acc); }
   body.legon #m2dLegB { background: var(--chipOn); color: #fff; }
   #m2dLeg .lgh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
   #m2dLeg .lgh button { height: 28px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
@@ -169,9 +179,11 @@
   <button id="m2dOut" aria-label="축소">－</button>
   <button id="m2dFit" aria-label="전체 보기">전체</button>
   <button id="m2dLegB" aria-label="범례">범례</button>
+  <button id="m2dGetB" aria-label="지역 받기">📥</button>
 </div>
 <div id="m2dCard" role="dialog" aria-live="polite"></div>
 <div id="m2dLeg" aria-label="범례"></div>
+<div id="m2dGetP" aria-label="지역 받기"></div>
 <div id="m2dFoot">
   <details><summary>ⓘ 자료 출처 · 한계</summary>
     <ul class="all">
@@ -214,7 +226,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.89"></script>
+<script src="js/map2d.js?v=0.10.90"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {

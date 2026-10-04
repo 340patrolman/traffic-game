@@ -20,7 +20,7 @@ SETS = [
     ['data/pop-seocho.json', 92, 'hand', '행안부 주민등록 인구(jumin.mois.go.kr POST · CLAUDE.md v0.10.26)'],
     ['data/traffic-vol-seocho.json', 92, 'auto', '서울시 VolInfo `…/VolInfo/1/40/{지점}/{YYYYMMDD}/{HH}/`(CLAUDE.md v0.10.44)'],
     ['data/safety-seocho.json', 182, 'auto', '`py -3.12 tools/safety-bake.py`'],
-    ['data/base-seocho.json', 182, 'auto', '빈 폴더에서 `py -3.12 tools/map2d-build/base-fetch.py` → 같은 폴더에서 `py -3.12 -X utf8 tools/map2d-build/base-bake.py`'],
+    ['data/base/index.json', 182, 'auto', 'Geofabrik south-korea-latest.osm.pbf 를 C:/Users/knpth/osmwork/kr.pbf 로 받고(영문 경로) → `py -3.12 -X utf8 tools/map2d-build/tiles-bake.py`(2분) → `tools/map2d-build/sgg-bake.py`'],
     ['data/cameras-seocho.json', 182, 'auto', '전국무인교통단속카메라표준데이터(키 data_go_kr)'],
     ['data/schoolzone-seocho.json', 182, 'auto', '전국어린이보호구역표준데이터 tn_pubr_public_child_prtc_zn_api(키 data_go_kr)'],
     ['data/tgis-seocho.json', 365, 'hand', '서울시 T-GIS A008_P(소유자가 받아 둔 shp) → `perl tools/map2d-build/tgis.pl`'],

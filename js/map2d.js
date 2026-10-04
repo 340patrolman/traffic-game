@@ -53,10 +53,10 @@
     cam: 'data/cameras-seocho.json', sig: 'data/signal-tod-seocho.json', evt: 'data/events-seocho.json', vol: 'data/traffic-vol-seocho.json', her: 'data/heritage-seocho.json',
     near: 'data/dong-near.json', xing: 'data/intersections-seocho.json', pub: 'data/pubdata-seocho.json', police: 'data/police-seocho.json', sz: 'data/schoolzone-seocho.json', st: 'data/stores-seocho.json',
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
-    osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
+    bidx: 'data/base/index.json', ov: 'data/base/ov.json', sgg: 'data/base/sgg.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
   var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn', 'pstat'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
-  Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
+  Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); sggPrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
     Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); seasonPrep(); paintPre(); summary(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
     if (D.bld !== undefined) return;
@@ -176,6 +176,7 @@
     GU.forEach(function (g) { path(g.pts); ctx.lineWidth = 2.4; ctx.setLineDash([8, 5]); ctx.strokeStyle = dark ? '#9fb3d1' : '#475569'; ctx.stroke(); ctx.setLineDash([]); });
     // 도로 — 바탕 지도가 있으면 OSM 도로 전부(종류별 폭·색 · 지하차도 점선 · 다리 테), 없으면 간선 10개
     if (on.road && OSM) drawBaseRoads(dark);
+    drawSgg(dark);   // v0.10.90 시·군·구 경계(서울·경기·인천)
     // 건물
     if (on.bld && BLD.length && view.s > 0.12) BLD.forEach(function (b) { path(b.p); ctx.closePath(); ctx.fillStyle = dark ? 'rgba(200,210,225,.28)' : (BASE ? 'rgba(186,176,164,.85)' : 'rgba(90,100,115,.30)'); ctx.fill(); if (BASE && !dark && view.s > 0.5) { ctx.lineWidth = 0.6; ctx.strokeStyle = 'rgba(120,110,100,.7)'; ctx.stroke(); } });
     if (on.road && OSM) drawBaseLabels(dark);
@@ -527,7 +528,10 @@
   // ---------- 🗺 바탕 지도(v0.10.76 · OSM 전 도로·물·녹지·철도·주차장) ----------
   //  소유자 「지금 지도가 거칠고 부족하고 허술해 보여 — 제대로 된 지도를 구현하자」. 간선 10개만 긋던 것을 OSM 도로 전부로.
   //  자료 공간은 P() 와 같다(평면 m · 127.01/37.49 기준). 종류별로 Path2D 를 한 번 만들고, 그릴 때는 캔버스 변환만 바꾼다(끌기·확대가 가볍다).
-  var OSM = null, OSMN = [], OSMLAB = [], WLAB = [], JLAB = [];
+  // v0.10.90 바탕 = 조각(소유자 「서울시 전역·경기도 전역 · 조각조각 나누어 받게」) — 개관 1장(고속·주간선·큰 물·큰 숲·철도) + 8km 조각(data/base/t/ix_iz.json)
+  //  화면에 걸린 조각만 받는다(배율 TILE_S 넘을 때) · 너무 많아지면 먼 조각부터 내려놓는다 · 꼴은 옛 base-seocho.json(tg-base/1)과 같다
+  var OSM = null, OSMN = [], OSMLAB = [], WLAB = [], JLAB = [], OSMBN = {}, PACKS = [], OVP = null, TILES = {}, TLOAD = {}, BIDX = null, BSET = {}, TILE_S = 0.045, TMAX = 64, TBAKE = '';
+  var RCLS = { m: '고속·도시고속', p: '주간선', s: '보조간선', t: '집산', r: '국지·주거', l: '연결로', v: '단지·서비스', f: '보행', c: '자전거' };
   var RSTY = {   // 종류: 실제 폭(m) · 최소 px · 보이기 시작하는 배율 · [채움, 테두리] 낮 · 밤
     m: [24, 3.2, 0, ['#f9c56b', '#c9801c'], ['#b7791f', '#7c5212']], p: [21, 2.8, 0, ['#ffe08a', '#d4a12a'], ['#9a7b2c', '#6b5420']],
     s: [16, 2.3, 0, ['#fff2c2', '#cdb06a'], ['#6d6447', '#4b4533']], l: [8, 1.6, 0.05, ['#ffe7a3', '#cdb06a'], ['#7a6a3e', '#4b4533']],
@@ -540,72 +544,144 @@
   function addRings(pa, rr) { rr.forEach(function (a) { var pts = decLine(a, 0); addLine(pa, pts); pa.closePath(); }); }
   function lenOf(pts) { var L = 0; for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
   function midOf(pts) { var L = lenOf(pts) / 2; for (var i = 1; i < pts.length; i++) { var a = pts[i - 1], b = pts[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L <= d) { var u = L / (d || 1); return { p: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], ang: Math.atan2(b[1] - a[1], b[0] - a[0]) }; } L -= d; } return { p: pts[0], ang: 0 }; }
-  function basePrep() {
-    var B = D.osm; if (!B || typeof Path2D === 'undefined') return;
-    OSM = { road: {}, green: { wood: new Path2D(), park: new Path2D(), pitch: new Path2D(), cem: new Path2D() }, water: new Path2D(), ww: [new Path2D(), new Path2D()], wwT: new Path2D(), rail: new Path2D(), railT: new Path2D(), pk: new Path2D() };
-    var NM = B.names || [], byName = {};
-    Object.keys(B.roads || {}).forEach(function (c) {
-      var R = OSM.road[c] = { n: new Path2D(), t: new Path2D(), b: new Path2D(), cnt: 0 };
-      B.roads[c].forEach(function (f) { var pts = decLine(f, 2), fl = f[1]; addLine(fl & 2 ? R.t : fl & 1 ? R.b : R.n, pts); if (fl & 1) addLine(R.n, pts); R.cnt++;
-        var nm = f[0] >= 0 ? NM[f[0]] : ''; if (!nm || fl & 2) return; var L = lenOf(pts), m = midOf(pts);
-        if ('mpstr'.indexOf(c) >= 0 && L > 60) OSMLAB.push({ name: nm, c: c, p: m.p, ang: m.ang, L: L });
-        var k = nm, e = byName[k]; if (!e || L > e.L) byName[k] = { name: nm, c: c, p: m.p, L: L, n: (e ? e.n : 0) + 1 }; else e.n++; });
-    });
-    var PR = { m: 0, p: 1, s: 2, t: 3, r: 4 }; OSMLAB.sort(function (a, b) { return PR[a.c] - PR[b.c] || b.L - a.L; });
-    OSMN = Object.keys(byName).map(function (k) { return byName[k]; });
-    var GK = { forest: 'wood', wood: 'wood', scrub: 'wood', park: 'park', garden: 'park', grass: 'park', grassland: 'park', recreation_ground: 'park', playground: 'park', golf_course: 'park', pitch: 'pitch', cemetery: 'cem' };
-    (B.green || []).forEach(function (g) { addRings(OSM.green[GK[g[1]] || 'park'], g[2]); var nm = g[0] >= 0 ? NM[g[0]] : ''; if (nm && /공원|산|숲/.test(nm)) { var pts = decLine(g[2][0], 0), sx = 0, sy = 0; pts.forEach(function (q) { sx += q[0]; sy += q[1]; }); var a = 0; for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) a += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]; if (Math.abs(a) / 2 > 20000) WLAB.push({ name: nm, p: [sx / pts.length, sy / pts.length], k: 'g', A: Math.abs(a) / 2 }); } });
-    (B.water || []).forEach(function (w) { addRings(OSM.water, w[1]); var nm = w[0] >= 0 ? NM[w[0]] : ''; if (nm) { var pts = decLine(w[1][0], 0), sx = 0, sy = 0; pts.forEach(function (q) { sx += q[0]; sy += q[1]; }); var A = 0; for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) A += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]; A = Math.abs(A) / 2; if (A > 300000 || /강$|천$|저수지$/.test(nm)) WLAB.push({ name: nm, p: [sx / pts.length, sy / pts.length], k: 'w', A: 1e9 }); } });   // 단지 안 연못·분수는 이름을 달지 않는다
-    (B.waterways || []).forEach(function (w) { var pts = decLine(w, 3); addLine(w[2] & 2 ? OSM.wwT : OSM.ww[w[1] ? 1 : 0], pts); var nm = w[0] >= 0 ? NM[w[0]] : ''; if (nm && !(w[2] & 2) && lenOf(pts) > 300) { var m = midOf(pts); WLAB.push({ name: nm, p: m.p, ang: m.ang, k: 'ww', A: lenOf(pts) }); } });
-    (B.rail || []).forEach(function (r) { var pts = decLine(r, 3); addLine(r[2] & 2 ? OSM.railT : OSM.rail, pts); });
-    (B.parking || []).forEach(function (rr) { addRings(OSM.pk, rr); });
-    WLAB.sort(function (a, b) { return b.A - a.A; });
-    // 교차로 이름(v0.10.78 · 소유자 「삼거리·사거리 이름을 빠짐없이」) — T-GIS 신호 교차로(연등 제외) · C-ITS 신호 · OSM 이름 있는 교차로. 같은 이름 150m 안·다른 이름 25m 안은 하나만
-    var cand = [];
-    TG.forEach(function (t) { if (!/연등/.test(t.name)) cand.push([t.name, t.p]); });
-    if (PUB) PUB.sigx.forEach(function (q) { if (q.name && !/연등/.test(q.name)) cand.push([q.name, q.p]); });
-    (B.junctions || []).forEach(function (j) { cand.push([j[0], [j[1], j[2]]]); });
-    var JR = /(사거리|삼거리|오거리|교차로|입구|IC|나들목)$/;
+  var JR = /(사거리|삼거리|오거리|교차로|입구|네거리|IC|나들목|JC|분기점)$/;
+  function addJunctions(cand, pk) {
     cand.sort(function (a, b) { return (JR.test(b[0]) ? 1 : 0) - (JR.test(a[0]) ? 1 : 0); });
     cand.forEach(function (c) {
       if (NODES.some(function (n) { return Math.hypot(n.p[0] - c[1][0], n.p[1] - c[1][1]) < 60; })) return;
       if (JLAB.some(function (o) { var d = Math.hypot(o.p[0] - c[1][0], o.p[1] - c[1][1]); return d < 25 || (o.name === c[0] && d < 150); })) return;
-      JLAB.push({ name: c[0], p: c[1], major: JR.test(c[0]) });
+      JLAB.push({ name: c[0], p: c[1], major: JR.test(c[0]), pk: pk });
     });
   }
+  function prepPack(B, key) {   // 한 묶음(개관 또는 조각)을 Path2D 로 — 이름표는 공용 목록에 key 를 달아 넣는다(내려놓을 때 같이 지운다)
+    var K = { key: key, ov: key === 'ov', road: {}, green: { wood: new Path2D(), park: new Path2D(), pitch: new Path2D(), cem: new Path2D() }, water: new Path2D(), ww: [new Path2D(), new Path2D()], wwT: new Path2D(), rail: new Path2D(), railT: new Path2D(), pk: new Path2D() };
+    if (B.tile) { var T = B.size; K.box = [B.tile[0] * T, B.tile[1] * T, (B.tile[0] + 1) * T, (B.tile[1] + 1) * T]; }
+    var NM = B.names || [];
+    Object.keys(B.roads || {}).forEach(function (c) {
+      var R = K.road[c] = { n: new Path2D(), t: new Path2D(), b: new Path2D(), cnt: 0 };
+      B.roads[c].forEach(function (f) { var pts = decLine(f, 2), fl = f[1]; addLine(fl & 2 ? R.t : fl & 1 ? R.b : R.n, pts); if (fl & 1) addLine(R.n, pts); R.cnt++;
+        var nm = f[0] >= 0 ? NM[f[0]] : ''; if (!nm || fl & 2) return; var L = lenOf(pts), m = midOf(pts);
+        if ('mpstr'.indexOf(c) >= 0 && L > 60) OSMLAB.push({ name: nm, c: c, p: m.p, ang: m.ang, L: L, pk: key, ov: K.ov });
+        if (K.ov) return; var e = OSMBN[nm]; if (!e) { OSMBN[nm] = e = { name: nm, c: c, p: m.p, L: L, n: 0 }; OSMN.push(e); } e.n++; if (L > e.L) { e.p = m.p; e.L = L; e.c = c; } });
+    });
+    var PR = { m: 0, p: 1, s: 2, t: 3, r: 4 }; OSMLAB.sort(function (a, b) { return PR[a.c] - PR[b.c] || b.L - a.L; });
+    var GK = { forest: 'wood', wood: 'wood', scrub: 'wood', park: 'park', garden: 'park', grass: 'park', grassland: 'park', recreation_ground: 'park', playground: 'park', golf_course: 'park', pitch: 'pitch', cemetery: 'cem' };
+    function cen(pts) { var sx = 0, sy = 0; pts.forEach(function (q) { sx += q[0]; sy += q[1]; }); return [sx / pts.length, sy / pts.length]; }
+    function area(pts) { var a = 0; for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) a += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1]; return Math.abs(a) / 2; }
+    (B.green || []).forEach(function (g) { addRings(K.green[GK[g[1]] || 'park'], g[2]); var nm = g[0] >= 0 ? NM[g[0]] : ''; if (nm && /공원|산|숲/.test(nm)) { var pts = decLine(g[2][0], 0), A = area(pts); if (A > 20000) WLAB.push({ name: nm, p: cen(pts), k: 'g', A: A, pk: key, ov: K.ov }); } });
+    (B.water || []).forEach(function (w) { addRings(K.water, w[1]); var nm = w[0] >= 0 ? NM[w[0]] : ''; if (nm) { var pts = decLine(w[1][0], 0), A = area(pts); if (A > 300000 || /강$|천$|저수지$|호$/.test(nm)) WLAB.push({ name: nm, p: cen(pts), k: 'w', A: 1e9, big: A > 4000000 || /강$/.test(nm), pk: key, ov: K.ov }); } });   // 단지 안 연못·분수는 이름을 달지 않는다
+    (B.waterways || []).forEach(function (w) { var pts = decLine(w, 3); addLine(w[2] & 2 ? K.wwT : K.ww[w[1] ? 1 : 0], pts); var nm = w[0] >= 0 ? NM[w[0]] : ''; if (nm && !(w[2] & 2) && lenOf(pts) > 300) { var m = midOf(pts); WLAB.push({ name: nm, p: m.p, ang: m.ang, k: 'ww', A: lenOf(pts), pk: key, ov: K.ov }); } });
+    (B.rail || []).forEach(function (r) { var pts = decLine(r, 3); addLine(r[2] & 2 ? K.railT : K.rail, pts); });
+    (B.parking || []).forEach(function (rr) { addRings(K.pk, rr); });
+    WLAB.sort(function (a, b) { return b.A - a.A; });
+    // 교차로 이름(v0.10.78 · 소유자 「삼거리·사거리 이름을 빠짐없이」) — 조각에 서울 C-ITS·OSM 이름 · 같은 이름 150m 안·다른 이름 25m 안은 하나만
+    if (!K.ov) addJunctions((B.junctions || []).map(function (j) { return [j[0], [j[1], j[2]]]; }), key);
+    return K;
+  }
+  function basePrep() {
+    if (typeof Path2D === 'undefined') return;
+    // 서초 둘레 T-GIS 신호 교차로·C-ITS(공공 자료) 이름을 먼저 — 조각 이름보다 앞에 선다
+    var cand = []; TG.forEach(function (t) { if (!/연등/.test(t.name)) cand.push([t.name, t.p]); });
+    if (PUB) PUB.sigx.forEach(function (q) { if (q.name && !/연등/.test(q.name)) cand.push([q.name, q.p]); });
+    addJunctions(cand, 'pub');
+    if (D.bidx) { BIDX = D.bidx; TBAKE = String(BIDX.bake || BIDX.total || ''); BIDX.tiles.forEach(function (t) { BSET[t[0] + '_' + t[1]] = t[2]; });
+      // 새로 구운 조각이 올라오면 보관함의 옛 조각은 지운다(받은 지역 표시는 다시 받으라고 비워진다)
+      if ('caches' in window) caches.open('tg-tiles').then(function (c) { c.keys().then(function (ks) { ks.forEach(function (r) { if (r.url.indexOf('b=' + encodeURIComponent(TBAKE)) < 0) c.delete(r); }); }); }).catch(function () {}); }
+    if (D.ov) { OVP = prepPack(D.ov, 'ov'); OSM = OVP; }
+  }
+  function visTiles() { if (!BIDX) return []; var W = cv.clientWidth, H = cv.clientHeight, a = M(0, 0), b = M(W, H), T = BIDX.size, out = [];
+    for (var ix = Math.floor(Math.min(a[0], b[0]) / T); ix <= Math.floor(Math.max(a[0], b[0]) / T); ix++) for (var iz = Math.floor(Math.min(a[1], b[1]) / T); iz <= Math.floor(Math.max(a[1], b[1]) / T); iz++) { var k = ix + '_' + iz; if (BSET[k]) out.push(k); }
+    return out; }
+  function tileUrl(k) { return 'data/base/t/' + k + '.json?b=' + encodeURIComponent(TBAKE); }
+  var TQ = 0, TRAF = 0;
+  function needTiles() { if (!BIDX || view.s < TILE_S) return; var vt = visTiles(); if (vt.length > 24) return;
+    vt.forEach(function (k) { if (TILES[k] || TLOAD[k] || TQ >= 4) return; TLOAD[k] = 1; TQ++;
+      fetch(tileUrl(k)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return caches.match(tileUrl(k), { ignoreSearch: true }).then(function (r) { if (!r) throw 0; return r.json(); }); }).then(function (j) { TILES[k] = prepPack(j, k); OSM = OSM || TILES[k]; trimTiles(); }).catch(function () {}).then(function () { TQ--; delete TLOAD[k]; if (!TRAF) TRAF = requestAnimationFrame(function () { TRAF = 0; draw(); }); }); }); }
+  function trimTiles() { var ks = Object.keys(TILES); if (ks.length <= TMAX) return; var T = BIDX.size;
+    ks.sort(function (a, b) { function d(k) { var q = k.split('_'); return Math.hypot((+q[0] + 0.5) * T - view.cx, (+q[1] + 0.5) * T - view.cy); } return d(b) - d(a); });
+    ks.slice(0, ks.length - TMAX).forEach(function (k) { delete TILES[k]; var f = function (L) { return L.pk !== k; }; OSMLAB = OSMLAB.filter(f); WLAB = WLAB.filter(f); JLAB = JLAB.filter(f); }); }
+  // ---------- 🗺 시·군·구 경계 · 📥 지역 받기(v0.10.90 · 소유자 「GPS 기반으로 구별·지역별로 받거나 골라서 받으면」·「인근 인접도 보이게」) ----------
+  var SGG = [];
+  function sggPrep() { if (!D.sgg) return; SGG = D.sgg.sgg.map(function (g) { return { g: g, rings: g.rings.map(function (r) { return r.map(function (q) { return P(q[0], q[1]); }); }), c: P(g.c[0], g.c[1]) }; }); }
+  function drawSgg(dark) { if (!SGG.length) return; var s = view.s;
+    SGG.forEach(function (G) { G.rings.forEach(function (r) { path(r); ctx.closePath(); ctx.setLineDash(s < 0.02 ? [6, 4] : [10, 6]); ctx.lineWidth = s < 0.02 ? 1.4 : 2; ctx.strokeStyle = dark ? 'rgba(203,213,225,.55)' : 'rgba(71,85,105,.55)'; ctx.stroke(); ctx.setLineDash([]); }); });
+    if (s < 0.05) SGG.forEach(function (G) { if (s < 0.006 && G.g.sido === '인천광역시') return; label(G.c, G.g.name, s < 0.01 ? 11 : 13, dark ? '#e2e8f0' : '#334155', dark ? 'rgba(15,22,36,.7)' : 'rgba(255,255,255,.8)'); }); }
+  function distToRings(pt, rings) { var inside = false, best = Infinity;
+    rings.forEach(function (r) { if (inRing(r, pt[0], pt[1])) inside = true;
+      for (var i = 1; i < r.length; i++) { var a = r[i - 1], b = r[i], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz, u = L ? Math.max(0, Math.min(1, ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dz) / L)) : 0; best = Math.min(best, Math.hypot(a[0] + u * dx - pt[0], a[1] + u * dz - pt[1])); } });
+    return inside ? 0 : best; }
+  var DL_AROUND = 3000;   // 고른 구·시 경계 밖 이만큼(맞닿은 둘레)까지 함께 받는다 — 설계값
+  function tilesForRings(rings) { if (!BIDX) return []; var T = BIDX.size, half = T * Math.SQRT1_2;
+    return BIDX.tiles.filter(function (t) { var c = [(t[0] + 0.5) * T, (t[1] + 0.5) * T]; return distToRings(c, rings) <= DL_AROUND + half; }).map(function (t) { return t[0] + '_' + t[1]; }); }
+  function tilesAround(p, R) { if (!BIDX) return []; var T = BIDX.size, half = T * Math.SQRT1_2;
+    return BIDX.tiles.filter(function (t) { return Math.hypot((t[0] + 0.5) * T - p[0], (t[1] + 0.5) * T - p[1]) <= R + half; }).map(function (t) { return t[0] + '_' + t[1]; }); }
+  function tbytes(ks) { return ks.reduce(function (a, k) { return a + (BSET[k] || 0); }, 0); }
+  function mb(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB'; }
+  var DLKEY = 'tg_map2d_dl';
+  function dlDone() { try { return JSON.parse(localStorage.getItem(DLKEY) || '{}'); } catch (e) { return {}; } }
+  function dlSave(o) { try { localStorage.setItem(DLKEY, JSON.stringify(o)); } catch (e) {} }
+  var DLBUSY = false;
+  function dlTiles(name, ks, msg) { if (DLBUSY || !('caches' in window)) { msg('이 브라우저에서는 미리 받기를 쓸 수 없다'); return; } DLBUSY = true;
+    var all = ks.slice(), n = 0, fail = 0;
+    caches.open('tg-tiles').then(function (c) {
+      function next() { var k = ks.shift(); if (!k) { DLBUSY = false; var o = dlDone(); o[name] = { n: all.length, b: tbytes(all), d: new Date().toISOString().slice(0, 10), bake: TBAKE }; dlSave(o); paintDl(); msg('✅ ' + name + ' — 조각 ' + all.length + '개(' + mb(tbytes(all)) + ') 받음' + (fail ? ' · 실패 ' + fail : '') + ' · 통신이 끊겨도 열린다'); return; }
+        c.match(tileUrl(k)).then(function (hitR) { if (hitR) return; return c.add(tileUrl(k)); }).catch(function () { fail++; }).then(function () { n++; msg('받는 중 ' + n + ' / ' + all.length); next(); }); }
+      next(); }); }
+  function paintDl() { var el = $('m2dGetP'); if (!el || !el.classList.contains('on')) return; var done = dlDone(), h = '';
+    h += '<div class="lg-h"><b>📥 지역 받기</b><button id="m2dGetX">닫기</button></div><p class="lg-n">화면에 보이는 곳은 저절로 받는다. 미리 받아 두면 <b>통신이 끊긴 곳에서도</b> 그 지역 지도가 열린다(고른 구·시 경계 밖 ' + (DL_AROUND / 1000) + 'km 둘레까지 함께).</p>';
+    h += '<div class="lg-btns"><button data-dl="gps">📍 지금 위치 둘레 6km</button><button data-dl="view">🖥 지금 화면 둘레</button></div><div id="m2dGetMsg" class="lg-n"></div>';
+    ['서울특별시', '경기도'].forEach(function (sd) { h += '<div class="lg"><b>' + sd + '</b><div class="dlg">' + SGG.filter(function (G) { return G.g.sido === sd; }).map(function (G) { var ks = tilesForRings(G.rings), d = done[G.g.name]; if (d && d.bake !== TBAKE) d = null;
+      return '<button data-sg="' + esc(G.g.name) + '" class="' + (d ? 'on' : '') + '">' + (d ? '✓ ' : '') + esc(G.g.name) + ' <small>' + mb(tbytes(ks)) + '</small></button>'; }).join('') + '</div></div>'; });
+    var keys = Object.keys(done); h += '<div class="lg-btns"><button data-dl="clear">받은 지역 지우기' + (keys.length ? '(' + keys.length + ')' : '') + '</button></div><small class="lg-n">조각은 OSM 2026-10-03 기준(© OpenStreetMap contributors · ODbL) · 바탕 지도만 받는다(인구·상권 등 자료 층은 따로 · 지금은 서초 둘레)</small>';
+    el.innerHTML = h; }
+  function dlMsg(t) { var m = $('m2dGetMsg'); if (m) m.textContent = t; }
+  function dlClick(e) { var b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'm2dGetX') { $('m2dGetP').classList.remove('on'); return; }
+    var sg = b.getAttribute('data-sg'), dl = b.getAttribute('data-dl');
+    if (sg) { var G = SGG.filter(function (x) { return x.g.name === sg; })[0]; if (G) { var ks = tilesForRings(G.rings); if (confirm(sg + ' 과 둘레 ' + (DL_AROUND / 1000) + 'km — 조각 ' + ks.length + '개(' + mb(tbytes(ks)) + ')를 받을까요?')) dlTiles(sg, ks, dlMsg); } return; }
+    if (dl === 'view') { var c = [view.cx, view.cy], W = cv.clientWidth / view.s, H = cv.clientHeight / view.s, ks2 = tilesAround(c, Math.hypot(W, H) / 2 + 2000); if (ks2.length > 120) { dlMsg('화면이 너무 넓다 — 조금 확대한 뒤 받으세요'); return; } dlTiles('화면 둘레 ' + new Date().toLocaleDateString('ko-KR'), ks2, dlMsg); return; }
+    if (dl === 'gps') { if (!navigator.geolocation) { dlMsg('위치를 쓸 수 없는 기기'); return; } dlMsg('위치를 잡는 중…'); navigator.geolocation.getCurrentPosition(function (pos) { var p = P(pos.coords.longitude, pos.coords.latitude), ks3 = tilesAround(p, 6000); if (!ks3.length) { dlMsg('지금 위치가 서울·경기 조각 밖이다'); return; } dlTiles('지금 위치 둘레(' + new Date().toLocaleDateString('ko-KR') + ')', ks3, dlMsg); }, function () { dlMsg('위치를 못 잡았다(권한 · 실내)'); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }); return; }
+    if (dl === 'clear') { if (!confirm('미리 받은 지도 조각을 모두 지울까요?')) return; caches.delete('tg-tiles').then(function () { dlSave({}); paintDl(); dlMsg('지웠다'); }); } }
+  if ($('m2dGetB')) $('m2dGetB').onclick = function () { var el = $('m2dGetP'); el.classList.toggle('on'); paintDl(); };
+  if ($('m2dGetP')) $('m2dGetP').addEventListener('click', dlClick);
+  function basePacks() { var out = [], vt = view.s >= TILE_S ? visTiles() : [], all = vt.length > 0 && vt.every(function (k) { return TILES[k]; });
+    if (OVP && !all) out.push(OVP); vt.forEach(function (k) { if (TILES[k]) out.push(TILES[k]); }); return out; }
   function worldT() { var W = cv.clientWidth, H = cv.clientHeight; ctx.setTransform(DPR * view.s, 0, 0, DPR * view.s, DPR * (W / 2 - view.cx * view.s), DPR * (H / 2 - view.cy * view.s)); }
   function screenT() { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
   function drawBaseAreas(dark) {
-    if (!OSM) return; worldT();
-    var G = OSM.green;
-    ctx.fillStyle = dark ? 'rgba(34,84,52,.55)' : '#cfe6bd'; ctx.fill(G.park, 'evenodd');
-    ctx.fillStyle = dark ? 'rgba(28,74,44,.75)' : '#b9dba3'; ctx.fill(G.wood, 'evenodd');
-    ctx.fillStyle = dark ? 'rgba(52,96,60,.6)' : '#bfe0b0'; ctx.fill(G.pitch, 'evenodd');
-    ctx.fillStyle = dark ? 'rgba(60,80,64,.5)' : '#d6e3cf'; ctx.fill(G.cem, 'evenodd');
-    if (view.s > 0.25) { ctx.fillStyle = dark ? 'rgba(80,92,110,.35)' : 'rgba(205,210,218,.75)'; ctx.fill(OSM.pk, 'evenodd'); }
-    ctx.fillStyle = dark ? '#1c3b5e' : '#a8d0f0'; ctx.fill(OSM.water, 'evenodd');
+    needTiles(); PACKS = basePacks(); if (!PACKS.length) return; worldT();
+    function each(f) { PACKS.forEach(f); }
+    ctx.fillStyle = dark ? 'rgba(34,84,52,.55)' : '#cfe6bd'; each(function (K) { ctx.fill(K.green.park, 'evenodd'); });
+    ctx.fillStyle = dark ? 'rgba(28,74,44,.75)' : '#b9dba3'; each(function (K) { ctx.fill(K.green.wood, 'evenodd'); });
+    ctx.fillStyle = dark ? 'rgba(52,96,60,.6)' : '#bfe0b0'; each(function (K) { ctx.fill(K.green.pitch, 'evenodd'); });
+    ctx.fillStyle = dark ? 'rgba(60,80,64,.5)' : '#d6e3cf'; each(function (K) { ctx.fill(K.green.cem, 'evenodd'); });
+    if (view.s > 0.25) { ctx.fillStyle = dark ? 'rgba(80,92,110,.35)' : 'rgba(205,210,218,.75)'; each(function (K) { ctx.fill(K.pk, 'evenodd'); }); }
+    ctx.fillStyle = dark ? '#1c3b5e' : '#a8d0f0'; each(function (K) { ctx.fill(K.water, 'evenodd'); });
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = dark ? '#2b5a8a' : '#8cc0ea';
-    ctx.lineWidth = Math.max(1.6 / view.s, 9); ctx.stroke(OSM.ww[1]); ctx.lineWidth = Math.max(1.2 / view.s, 4); ctx.stroke(OSM.ww[0]);
-    ctx.setLineDash([4 / view.s, 3 / view.s]); ctx.lineWidth = Math.max(1 / view.s, 3); ctx.globalAlpha = 0.6; ctx.stroke(OSM.wwT); ctx.globalAlpha = 1; ctx.setLineDash([]);
+    ctx.lineWidth = Math.max(1.6 / view.s, 9); each(function (K) { ctx.stroke(K.ww[1]); }); ctx.lineWidth = Math.max(1.2 / view.s, 4); each(function (K) { ctx.stroke(K.ww[0]); });
+    ctx.setLineDash([4 / view.s, 3 / view.s]); ctx.lineWidth = Math.max(1 / view.s, 3); ctx.globalAlpha = 0.6; each(function (K) { ctx.stroke(K.wwT); }); ctx.globalAlpha = 1; ctx.setLineDash([]);
     screenT();
   }
   function drawBaseRoads(dark) {
-    if (!OSM) return; worldT(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; var s = view.s, mode = dark ? 4 : 3;
+    needTiles(); PACKS = basePacks(); if (!PACKS.length) return; worldT(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; var s = view.s, mode = dark ? 4 : 3;   // 바탕 층을 꺼도 길 조각은 받는다
+    function each(f) { PACKS.forEach(f); }
+    function eachR(c, f) { PACKS.forEach(function (K) { var R = K.road[c]; if (R) f(R); }); }
     // 철도(지상 · 회색 + 흰 줄) — 지하 노선은 옅은 점선
-    if (s > 0.05) { ctx.strokeStyle = dark ? '#64748b' : '#8b95a3'; ctx.lineWidth = Math.max(2.6 / s, 4); ctx.stroke(OSM.rail); ctx.strokeStyle = dark ? '#0f1624' : '#ffffff'; ctx.lineWidth = Math.max(1.2 / s, 1.8); ctx.setLineDash([6 / s, 6 / s]); ctx.stroke(OSM.rail); ctx.setLineDash([]); }
+    if (s > 0.05) { ctx.strokeStyle = dark ? '#64748b' : '#8b95a3'; ctx.lineWidth = Math.max(2.6 / s, 4); each(function (K) { ctx.stroke(K.rail); }); ctx.strokeStyle = dark ? '#0f1624' : '#ffffff'; ctx.lineWidth = Math.max(1.2 / s, 1.8); ctx.setLineDash([6 / s, 6 / s]); each(function (K) { ctx.stroke(K.rail); }); ctx.setLineDash([]); }
+    else if (s > 0.008) { ctx.strokeStyle = dark ? '#64748b' : '#8b95a3'; ctx.lineWidth = 1.4 / s; each(function (K) { ctx.stroke(K.rail); }); }
     // 보행·자전거 길(가늘게 · 점선)
-    ['f', 'c'].forEach(function (c) { var R = OSM.road[c], st = RSTY[c]; if (!R || s < st[2]) return; ctx.strokeStyle = st[mode][0]; ctx.lineWidth = Math.max(st[1] / s, st[0]); ctx.setLineDash([3 / s, 2.5 / s]); ctx.stroke(R.n); ctx.stroke(R.b); ctx.setLineDash([]); });
+    ['f', 'c'].forEach(function (c) { var st = RSTY[c]; if (s < st[2]) return; ctx.strokeStyle = st[mode][0]; ctx.lineWidth = Math.max(st[1] / s, st[0]); ctx.setLineDash([3 / s, 2.5 / s]); eachR(c, function (R) { ctx.stroke(R.n); ctx.stroke(R.b); }); ctx.setLineDash([]); });
     // 지하차도·터널: 옅은 점선 한 겹
-    RORD.forEach(function (c) { var R = OSM.road[c], st = RSTY[c]; if (!R || s < st[2]) return; ctx.globalAlpha = 0.55; ctx.setLineDash([5 / s, 4 / s]); ctx.strokeStyle = st[mode][1]; ctx.lineWidth = Math.max(st[1] / s, st[0] * 0.8); ctx.stroke(R.t); ctx.setLineDash([]); ctx.globalAlpha = 1; });
+    RORD.forEach(function (c) { var st = RSTY[c]; if (s < st[2]) return; ctx.globalAlpha = 0.55; ctx.setLineDash([5 / s, 4 / s]); ctx.strokeStyle = st[mode][1]; ctx.lineWidth = Math.max(st[1] / s, st[0] * 0.8); eachR(c, function (R) { ctx.stroke(R.t); }); ctx.setLineDash([]); ctx.globalAlpha = 1; });
     // 테두리 → 채움(낮은 종류부터 — 큰길이 위로)
-    RORD.forEach(function (c) { var R = OSM.road[c], st = RSTY[c]; if (!R || s < st[2]) return; var w = Math.max(st[1] / s, st[0]); ctx.strokeStyle = st[mode][1]; ctx.lineWidth = w + Math.max(1.4 / s, w * 0.18); ctx.stroke(R.n); });
-    RORD.forEach(function (c) { var R = OSM.road[c], st = RSTY[c]; if (!R || s < st[2]) return; var w = Math.max(st[1] / s, st[0]); ctx.strokeStyle = dark ? '#0b1220' : '#5b6472'; ctx.lineWidth = w + Math.max(2.4 / s, w * 0.3); if (s > 0.15) ctx.stroke(R.b); ctx.strokeStyle = st[mode][0]; ctx.lineWidth = w; ctx.stroke(R.n); });
+    RORD.forEach(function (c) { var st = RSTY[c]; if (s < st[2]) return; var w = Math.max(st[1] / s, st[0]); ctx.strokeStyle = st[mode][1]; ctx.lineWidth = w + Math.max(1.4 / s, w * 0.18); eachR(c, function (R) { ctx.stroke(R.n); }); });
+    RORD.forEach(function (c) { var st = RSTY[c]; if (s < st[2]) return; var w = Math.max(st[1] / s, st[0]); ctx.strokeStyle = dark ? '#0b1220' : '#5b6472'; ctx.lineWidth = w + Math.max(2.4 / s, w * 0.3); if (s > 0.15) eachR(c, function (R) { ctx.stroke(R.b); }); ctx.strokeStyle = st[mode][0]; ctx.lineWidth = w; eachR(c, function (R) { ctx.stroke(R.n); }); });
     screenT();
   }
   function drawBaseLabels(dark) {
-    if (!OSM) return; var boxes = [], seen = {}, W = cv.clientWidth, H = cv.clientHeight, s = view.s;
+    if (!OSM) return; var boxes = [], seen = {}, W = cv.clientWidth, H = cv.clientHeight, s = view.s, zin = s >= TILE_S && PACKS.some(function (K) { return !K.ov; });
     function free(x, y, w, h) { for (var i = 0; i < boxes.length; i++) { var b = boxes[i]; if (x < b[0] + b[2] && x + w > b[0] && y < b[1] + b[3] && y + h > b[1]) return false; } boxes.push([x, y, w, h]); return true; }
-    WLAB.forEach(function (L) { if ((L.k === 'g' && s < 0.12) || (L.k === 'ww' && s < 0.08)) return; var q = S(L.p); if (q[0] < -50 || q[0] > W + 50 || q[1] < -20 || q[1] > H + 20) return; if (seen['w' + L.name] && L.k !== 'w') return;
+    WLAB.forEach(function (L) { if (zin && L.ov) return; if (s < 0.012 && !(L.k === 'w' && L.big)) return; if ((L.k === 'g' && s < 0.12) || (L.k === 'ww' && s < 0.08)) return; var q = S(L.p); if (q[0] < -50 || q[0] > W + 50 || q[1] < -20 || q[1] > H + 20) return; if (seen['w' + L.name] && L.k !== 'w') return;
       ctx.font = (L.k === 'g' ? '600 ' : 'italic 700 ') + (L.k === 'w' ? 15 : 12) + 'px system-ui, sans-serif'; var tw = ctx.measureText(L.name).width; if (!free(q[0] - tw / 2, q[1] - 9, tw, 18)) return; seen['w' + L.name] = 1;
       ctx.save(); ctx.translate(q[0], q[1]); if (L.ang) { var a = L.ang; if (a > Math.PI / 2) a -= Math.PI; if (a < -Math.PI / 2) a += Math.PI; ctx.rotate(a); } ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 3; ctx.strokeStyle = dark ? 'rgba(15,22,36,.8)' : 'rgba(255,255,255,.85)'; ctx.strokeText(L.name, 0, 0); ctx.fillStyle = L.k === 'g' ? (dark ? '#86efac' : '#166534') : (dark ? '#7dd3fc' : '#1d5f99'); ctx.fillText(L.name, 0, 0); ctx.restore(); });
@@ -615,7 +691,7 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = dark ? 'rgba(15,22,36,.9)' : 'rgba(255,255,255,.95)'; ctx.strokeText(L.name, q[0], q[1] - 11); ctx.fillStyle = dark ? '#fef3c7' : (L.major ? '#7c2d12' : '#334155'); ctx.fillText(L.name, q[0], q[1] - 11); });
     var lim = { m: 0.06, p: 0.08, s: 0.14, t: 0.22, r: 0.55 }, n = 0;
     for (var i = 0; i < OSMLAB.length && n < 90; i++) {
-      var L = OSMLAB[i]; if (s < lim[L.c]) continue; if (L.L * s < 50) continue;
+      var L = OSMLAB[i]; if (zin && L.ov) continue; if (s < lim[L.c]) continue; if (L.L * s < 50) continue;
       var q = S(L.p); if (q[0] < -40 || q[0] > W + 40 || q[1] < -20 || q[1] > H + 20) continue;
       var key = L.name, last = seen[key]; if (last && last.some(function (o) { return Math.hypot(o[0] - q[0], o[1] - q[1]) < 260; })) continue;
       var fs = L.c === 'r' ? 10.5 : L.c === 't' ? 11 : 12; ctx.font = '700 ' + fs + 'px system-ui, sans-serif'; var tw = ctx.measureText(L.name).width; if (tw + 12 > L.L * s) continue;
@@ -709,7 +785,7 @@
     if (it.kind === 'hot10') { var g = it.g; return '<h3>🗂 ' + esc(g.n) + '</h3>' + row('뽑힌 횟수', g.rec.length + '회(' + g.rec.map(function (r) { return r[1]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' · ') + ')') +
       g.rec.map(function (r) { return row(r[1] + ' ' + r[0], r[2] + '건 · 사상 ' + r[3] + ' (사망 ' + r[4] + ' · 중상 ' + r[5] + ' · 경상 ' + r[6] + ')'); }).join('') + '<p class="desc">' + esc(D.hot10.note) + '</p>' + src(D.hot10.source); }
     var h = '', L = D.livep || {};
-    if (it.kind === 'osmroad') { var r = it.r; return '<h3>🛣 ' + esc(r.name) + '</h3>' + row('종류', esc((D.osm.roadClass || {})[r.c] || r.c)) + row('구간', r.n + '개(OSM 길 조각)') + src(D.osm.source); }
+    if (it.kind === 'osmroad') { var r = it.r; return '<h3>🛣 ' + esc(r.name) + '</h3>' + row('종류', esc(RCLS[r.c] || r.c)) + row('구간', r.n + '개(OSM 길 조각)') + src(D.osm.source); }
     if (it.kind === 'link') { var k = it.k; return '<h3>🚥 ' + esc(k.name || '도로') + '</h3>' + row('소통', '<b style="color:' + (IDXC[k.idx] || '#64748b') + '">' + esc(k.idx) + '</b> · ' + k.spd + 'km/h') + row('받은 때', esc(k.t || '-') + ' <em>(지금 소통이 아니다)</em>') + row('장소', esc(k.place)) + src(L.source || ''); }
     var o = it.L.o, cw = crowdAt(it.L), p = o.pop || {}, c = o.card;
     h = '<h3>📡 ' + esc(o.name) + ' <small style="font-weight:400;color:var(--ink2)">' + esc(o.cat) + '</small></h3>';

@@ -54,7 +54,7 @@ three.js·게임 모듈에 기대지 않는다. **통신 0**(지도는 같은 �
 ## 6. 자료 파일과 굽는 도구(새로 굽기 = 이 표 순서대로)
 | 파일 | 크기 | 내용 | 원천(1차 출처) | 굽는 도구 | 다시 굽는 주기 |
 |---|---|---|---|---|---|
-| base-seocho.json | 1.33MB | OSM 도로 전부·물·녹지·철도·주차장 + 교차로 이름(C-ITS + OSM · 굽는 도구 안에서) · 범위 37.395~37.535 × 126.935~127.135(서초 둘레 밖은 보행·자전거·단지길 뺌) | Overpass(질의는 §8) | tools/map2d-build/base-bake.py | 반년 |
+| base/index.json · base/ov.json · base/t/*.json · base/sgg.json | 0.85MB + 조각 391개 38MB + 171KB | **서울·경기(+인천) 바탕 조각**(v0.10.90): 개관(고속·주간선·큰 물·큰 숲·철도) + 8km 조각(모든 길·물·녹지·철도·주차장·교차로 이름) + 시·군·구 경계 | Geofabrik south-korea-latest.osm.pbf(ODbL) · 서울 C-ITS · SGIS | tools/map2d-build/tiles-bake.py · sgg-bake.py | 반년 |
 | dong-seocho.json · dong-near.json | 25·18KB | 행정동 경계(서초 + 이웃 1.5km) | 통계청 SGIS 행정동(vuski/admdongkor) | dongnear.pl | 행정동 개편 때 |
 | maps/seoul-districts.json | — | 자치구 테두리(행정동 합침) | 같은 원자료 | gu.pl | 〃 |
 | pop-seocho.json | 7KB | 동별 주민·연령 | 행안부 주민등록 | (CSV 손굽기) | 분기 |
@@ -126,6 +126,13 @@ three.js·게임 모듈에 기대지 않는다. **통신 0**(지도는 같은 �
 Claude Code 를 지식베이스 폴더에서 켜면 `지식베이스/.claude/settings.json` 의 SessionStart 훅이 `tools/data-check.py` 를 돌린다(통신 0 · 1초).
 위 §6 표의 파일마다 마지막 커밋 날짜와 주기를 견줘 **기한 지난 것만** 세션 문맥에 적고, 그 세션의 Claude 가 1차 출처에 새 자료가 있는지 확인 → [자동] 은 다시 굽고 · [사람 단계] 는 막힌 단계를 소유자에게 알린다 → 브라우저 검사 → 「data:」 커밋·푸시.
 주기·명령은 `data-check.py` 의 `SETS` 한 곳에서 고친다(새 자료 파일을 만들면 여기에도 한 줄).
+
+## 10-2. 바탕 조각과 지역 받기(v0.10.90)
+* 좌표는 그대로 평면 m(127.01/37.49). 조각 = 8km 칸 `ix_iz`(ix = floor(x/8000)). `index.json` 에 조각 목록·바이트·굽은 때(`bake`).
+* 지도: 배율 `TILE_S`(0.045) 넘으면 화면에 걸린 조각만 받는다(동시 4 · 64개 넘으면 먼 것부터 내려놓음) · 그 아래는 개관 한 장. 그리기는 단계(숲·물·길 테두리·길 채움)마다 모든 묶음을 돌아 조각 경계가 안 보인다.
+* 「📥 지역 받기」: 구·시(경계 밖 3km 둘레까지 · `DL_AROUND`) · 지금 위치 둘레 6km · 지금 화면 → 보관함 `tg-tiles`(판을 올려도 안 지워짐 · sw.js 가 조각은 보관함 먼저) · 받은 기록 `tg_map2d_dl`. 새로 구우면 `?b=` 가 바뀌어 옛 조각은 지도가 지운다.
+* 다시 굽기: Geofabrik pbf 를 **영문 경로**(`C:/Users/knpth/osmwork/kr.pbf`)에 — libosmium 은 한글 경로를 못 연다 · `pip install osmium`(pyosmium) · 2분.
+* 아직 서초 둘레만 있는 것: 행정동·인구·상권·안전시설·사고 등 자료 층(2단계 = 서울 25개 구 · 3단계 = 경기).
 
 ## 11. 기록할 곳
 판마다 `CLAUDE.md`(v0.10.xx 절) · `ROADMAP.md` 한 줄 · `CREDITS.md` · **이 문서**. 소유자 결정(관할·공개 범위 등)은 날짜와 함께.
