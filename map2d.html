@@ -23,8 +23,8 @@
   #m2dDate { width: 138px; }
   #m2dFindMsg { font-size: 12px; color: var(--ink2); min-height: 0; }
   #m2dFindMsg:empty { display: none; }
-  #m2dLayers { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: max-content; gap: 5px 6px; overflow-x: auto; padding: 6px 0 2px; scrollbar-width: none; }
-  #m2dLayers button.all { grid-row: 1 / 3; height: auto !important; }
+  /* v0.10.82 두 줄 안에 든 단추만 — 오른쪽에서 잘리지 않게(넘치는 것은 「☰ 모든 층」 판에서) */
+  #m2dLayers { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px 6px; overflow: hidden; max-height: 81px; padding: 6px 0 2px; }
   #m2dLayers::-webkit-scrollbar { display: none; }
   #m2dLayers button { flex: 0 0 auto; height: 34px; padding: 0 11px; border-radius: 17px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 13px; white-space: nowrap; cursor: pointer; }
   #m2dLayers button.on { background: var(--chipOn); color: var(--chipOnInk); border-color: var(--chipOn); font-weight: 700; }
@@ -79,7 +79,7 @@
   #m2dSum:empty { display: none; }
   #m2dFold { flex: 0 0 auto; width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 15px; cursor: pointer; }
   body.fold #m2dTime, body.fold #m2dPre, body.fold #m2dSum, body.fold #m2dLayers { display: none; }
-  @media (max-width: 520px) { #m2dTime button, #m2dPre button, #m2dLayers button { height: 32px; } #m2dTime b { min-width: 64px; font-size: 12px; } .row1 h1 { font-size: 15px; } }
+  @media (max-width: 520px) { #m2dLayers { max-height: 77px; } #m2dLayers button { padding: 0 9px; font-size: 12.5px; } #m2dTime button, #m2dPre button, #m2dLayers button { height: 32px; } #m2dTime b { min-width: 64px; font-size: 12px; } .row1 h1 { font-size: 15px; } }
   #m2dZoom #m2dLegB { font-size: 13px; }
   #m2dLeg { display: none; position: fixed; left: 8px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 5; width: 250px; max-height: 46vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
   body.legon #m2dLeg { display: block; }
@@ -98,6 +98,8 @@
   #m2dLeg .lg-g i { grid-column: 1 / 3; height: 10px; border-radius: 3px; display: block; }
   #m2dLeg .lg-g small:last-child { text-align: right; }
   #m2dLeg .lg-n { width: 100%; color: var(--ink2); }
+  /* v0.10.82 폰에서는 카드와 범례가 겹친다 — 카드가 떠 있으면 범례를 잠깐 감춘다 */
+  @media (max-width: 759px) { body:has(#m2dCard.on) #m2dLeg { display: none; } }
   @media (max-width: 520px) { #m2dLeg { width: auto; right: 64px; max-height: 34vh; } }
   #m2dCard table.it { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 3px; }
   #m2dCard table.it th, #m2dCard table.it td { border: 1px solid var(--line); padding: 2px 3px; text-align: center; }
@@ -176,7 +178,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.81"></script>
+<script src="js/map2d.js?v=0.10.82"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {

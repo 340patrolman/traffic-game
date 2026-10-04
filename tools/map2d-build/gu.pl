@@ -1,5 +1,5 @@
 use utf8; use open qw(:std :utf8); use JSON::PP;
-my %want=('11650'=>'서초구','11680'=>'강남구','11590'=>'동작구','11620'=>'관악구');
+my %want=('11650'=>'서초구','11680'=>'강남구','11590'=>'동작구','11620'=>'관악구','41290'=>'과천시','41131'=>'성남시 수정구');
 open my $f,'<:raw','C:/Users/knpth/Desktop/지식베이스/13_관할경계/원자료/hjd20260701.geojson' or die;
 my %edges; my %pt; my $nf=0;
 while (my $l=<$f>) { next unless $l=~/"sgg": "(\d+)"/ && $want{$1}; my $sg=$1; $l=~s/,\s*$//; my $ft=JSON::PP->new->utf8->decode($l); $nf++;
@@ -25,7 +25,7 @@ for my $sg (sort keys %want) { my %adj; my $E=$edges{$sg};
     push @rr,[map { [0+sprintf("%.6f",$_->[0]),0+sprintf("%.6f",$_->[1])] } @s]; }
   @rr = sort { @$b <=> @$a } @rr;
   push @out,{name=>$want{$sg},code=>$sg,rings=>\@rr}; printf "%s rings=%d pts=%s\n",$want{$sg},scalar(@rr),join("/",map{scalar @$_}@rr); }
-my $d={schema=>'tg-districts/3',area=>'서울 서초구와 이웃 자치구(강남·동작·관악)',coords=>'wgs84 [lon, lat]',
+my $d={schema=>'tg-districts/3',area=>'서울 서초구와 이웃 시·구(강남·동작·관악 · 과천시 · 성남시 수정구 — v0.10.82)',coords=>'wgs84 [lon, lat]',
   source=>'통계청 SGIS 행정동 경계(가공 vuski/admdongkor ver20260701 · 공공누리 1유형) — 행정동을 자치구별로 합쳐 바깥 테두리만 남김(v0.10.65 · 행정동 층과 같은 원자료라 테두리가 맞는다) · 2.5m 단순화',
   note=>'테두리 표시용이고 측량 자료가 아니다. v0.10.64 까지는 통계청 2013 단순화판이라 2026 행정동 경계와 어긋났다(소유자 지적 2026-09-28).',
   districts=>\@out};

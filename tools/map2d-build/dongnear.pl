@@ -2,7 +2,7 @@ use utf8; use strict; use JSON::PP; use open qw(:std :utf8);
 my $src = 'C:/Users/knpth/Desktop/지식베이스/13_관할경계/원자료/hjd20260701.geojson';
 open my $h, '<:utf8', $src or die; my (@sc, @nb);
 while (my $l = <$h>) {
-  next unless $l =~ /"sgg": "(11650|11680|11590|11620)"/; my $g = $1;
+  next unless $l =~ /"sgg": "(11650|11680|11590|11620|41290|41131|41135|41173)"/; my $g = $1;
   $l =~ s/,\s*$//; my $f = eval { JSON::PP->new->decode($l) } or next;
   if ($g eq '11650') { push @sc, $f } else { push @nb, $f }
 }
@@ -15,11 +15,11 @@ my $KX = 88800, my $KY = 111000;
 sub near { my ($f) = @_; for my $P (@{$f->{geometry}{coordinates}}) { for my $q (@{$P->[0]}) { for (my $k = 0; $k < @sv; $k += 3) { my $s = $sv[$k];
   my $dx = ($q->[0] - $s->[0]) * $KX, my $dy = ($q->[1] - $s->[1]) * $KY; return 1 if $dx*$dx + $dy*$dy < 1500*1500 } } } 0 }
 my @out; my $pts = 0;
-for my $f (@nb) { next unless near($f); my $p = $f->{properties}; (my $nm = $p->{adm_nm}) =~ s/^\S+ \S+ //;
+for my $f (@nb) { next unless near($f); my $p = $f->{properties}; (my $nm = $p->{adm_nm}) =~ s/^.* //; (my $gu = $p->{sggnm}) =~ s/^(성남시|안양시)(\S)/$1 $2/;
   my @polys; for my $P (@{$f->{geometry}{coordinates}}) { my @rs; for my $r (@$P) { my $m = int(@$r / 2); my $s1 = dp([@$r[0 .. $m]], 0.00006); my $s2 = dp([@$r[$m .. $#$r]], 0.00006); pop @$s1; my $s = [@$s1, @$s2]; next if @$s < 4; push @rs, [map { [0 + sprintf('%.6f', $_->[0]), 0 + sprintf('%.6f', $_->[1])] } @$s]; $pts += @$s } push @polys, \@rs if @rs }
-  push @out, { gu => $p->{sggnm}, name => $nm, code => $p->{adm_cd2}, polys => \@polys } }
+  push @out, { gu => $gu, name => $nm, code => $p->{adm_cd2}, polys => \@polys } }
 @out = sort { $a->{gu} cmp $b->{gu} || $a->{name} cmp $b->{name} } @out;
-my $o = { schema => 'tg-dong-near/1', area => '서울 서초구와 맞닿은 강남구·동작구·관악구 행정동(서초구 경계에서 1.5km 안)',
+my $o = { schema => 'tg-dong-near/1', area => '서울 서초구와 맞닿은 강남구·동작구·관악구 · 과천시 · 성남시(수정·분당) · 안양시 동안구 행정동(서초구 경계에서 1.5km 안 — v0.10.82 경기 더함)',
   source => '통계청 통계지리정보서비스(SGIS) 행정동 경계를 가공한 vuski/admdongkor(HangJeongDong_ver20260701) — 공공누리 제1유형(출처 표시). dong-seocho.json 과 같은 원자료.',
   asOf => '2026-07-01', crs => 'WGS84 [lon, lat]', method => 'Douglas-Peucker 0.00006° 단순화 · 서초구 경계 꼭짓점에서 1.5km 안에 꼭짓점이 있는 동만',
   use => '표시용 — 이 동들은 경계와 이름만 담는다(인구·사고 등 자세한 자료는 서초구만 있다)', dong => \@out };

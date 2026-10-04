@@ -14,7 +14,7 @@
   // 층 = [키, 이름, 기본 켜짐, 갈래, 위 줄 단추]. 위 줄에는 자주 쓰는 것만, 나머지는 「☰ 모든 층」 판에서(v0.10.57 · 소유자 「파출소·지구대에서 써도 좋을 만큼 — 찾을 수 있는 것 싹 다」)
   var LAYERS = [
     ['dong', '🏘 행정동', true, '기본', 1], ['road', '🛣 도로', true, '기본', 1], ['base', '🗺 바탕(물·녹지·철도)', true, '기본', 0], ['bld', '🏢 건물', true, '기본', 0], ['sub', '🚇 지하철역', true, '기본', 0], ['exit', '🚪 지하철 출입구', false, '기본', 0],
-    ['acc', '🚗 교차로 사고', true, '교통안전', 1], ['acc10', '🚗 사고 10년(100m 칸)', false, '교통안전', 1], ['fatal10', '🕯 사망사고 10년', false, '교통안전', 0], ['fatal', '🕯 사망사고', false, '교통안전', 0], ['hot', '⚠ 사고다발지', false, '교통안전', 0], ['drunk', '🍺 음주 사고 다발지', false, '교통안전', 1],
+    ['acc', '🚗 교차로 사고(2019~)', true, '교통안전', 1], ['acc10', '🚗 사고 10년(100m 칸)', false, '교통안전', 1], ['fatal10', '🕯 사망사고 10년', false, '교통안전', 0], ['fatal', '🕯 사망사고', false, '교통안전', 0], ['hot', '⚠ 사고다발지', false, '교통안전', 0], ['drunk', '🍺 음주 사고 다발지', false, '교통안전', 1],
     ['risk', '🟥 사고위험지역', false, '교통안전', 0], ['sz', '🏫 어린이보호구역', false, '교통안전', 1], ['szh', '🧒 보호구역 어린이 사고', false, '교통안전', 0], ['cam', '📷 단속 카메라', false, '교통안전', 0], ['spd', '🚥 도로 소통(받은 때)', false, '교통안전', 0], ['sig', '🚦 신호 주기', false, '교통안전', 0], ['sigx', '🔢 신호 교차로 번호', false, '교통안전', 0],
     ['trd', '🏪 상권분석(카드·유동·점포)', false, '사람·흐름', 1], ['crowd', '📡 실시간 인파·카드', false, '사람·흐름', 1], ['live', '👥 생활인구(지금)', false, '사람·흐름', 1], ['sales', '💳 카드 매출(시간대)', false, '사람·흐름', 1], ['bus', '🚌 버스 승차·하차', false, '사람·흐름', 1], ['subr', '🚇 지하철 승차·하차', false, '사람·흐름', 0], ['vol', '🚙 교통량', false, '사람·흐름', 0], ['bike', '🚲 따릉이', false, '사람·흐름', 0],
     ['pol', '👮 경찰 관서', false, '치안·안전', 1], ['fire', '🚒 소방', false, '치안·안전', 0], ['er', '🏥 응급실', false, '치안·안전', 1], ['hosp', '🩺 병원·의원', false, '치안·안전', 0], ['phar', '💊 약국', false, '치안·안전', 1],
@@ -186,7 +186,9 @@
     NODES.forEach(function (n) {
       var st = D.acc && D.acc.nodes ? D.acc.nodes.filter(function (x) { return x.node[0] === n.i && x.node[1] === n.j; })[0] : null;
       if (!n.real) { var sx = S(n.p); ctx.strokeStyle = dark ? '#94a3b8' : '#64748b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx[0] - 5, sx[1] - 5); ctx.lineTo(sx[0] + 5, sx[1] + 5); ctx.moveTo(sx[0] + 5, sx[1] - 5); ctx.lineTo(sx[0] - 5, sx[1] + 5); ctx.stroke(); hit.push({ x: sx[0], y: sx[1], r: 9, it: { kind: 'node', n: n, st: null } }); return; }
-      if (on.acc && st && st.total) { var r = 5 + Math.sqrt(st.total) * 0.9; dot(n.p, r, st.death ? 'rgba(220,38,38,.55)' : 'rgba(234,88,12,.45)', '#7f1d1d', { kind: 'node', n: n, st: st }); }
+      var a19 = accN(n, 2019, 2025), d19 = deadN(n, 2019, 2025);
+      if (on.acc && a19) { var r19 = 5 + Math.sqrt(a19) * 0.55; dot(n.p, r19, d19 ? 'rgba(220,38,38,.55)' : 'rgba(234,88,12,.45)', '#7f1d1d', { kind: 'node', n: n, st: st }); if (view.s > 0.09) label([n.p[0], n.p[1] + (r19 * zk() + 9) / view.s], a19 + '건' + (d19 ? ' · 사망 ' + d19 : ''), 10.5, '#7f1d1d', 'rgba(255,255,255,.85)'); }
+      else if (on.acc && st && st.total) { var r = 5 + Math.sqrt(st.total) * 0.9; dot(n.p, r, st.death ? 'rgba(220,38,38,.55)' : 'rgba(234,88,12,.45)', '#7f1d1d', { kind: 'node', n: n, st: st }); }
       else dot(n.p, 4, dark ? '#e2e8f0' : '#1e293b', null, { kind: 'node', n: n, st: st });
       if (view.s > 0.13) label([n.p[0], n.p[1] - 22 / view.s], n.name, 11.5, dark ? '#fef3c7' : '#0f172a', dark ? 'rgba(15,22,36,.75)' : 'rgba(255,255,255,.85)');
     });
@@ -292,6 +294,8 @@
       h += row('신호 교차로', n.sig ? esc(n.sig.name) + ' <em>#' + esc(n.sig.no) + '</em>' : '<em>공개 신호 목록(C-ITS)에 없음</em>');
       if (n.nameSrc) h += row('이름', '<em>' + esc(n.nameSrc) + '</em>');
       if (n.dong) h += row('행정동', esc(n.dong.dong) + ((n.dong.also || []).length ? ' · ' + esc(n.dong.also.join('·')) + ' <em>경계</em>' : ''));
+      if (n.y10) { var t19 = accN(n, 2019, 2025); h += row('사고 2019~2025', t19 + '건 · 사망 ' + deadN(n, 2019, 2025) + '명 <em>(사망사고 기록)</em> · 해마다 평균 ' + Math.round(t19 / 7)) + row('2016~2025', accN(n, 2016, 2025) + '건 · 사망·중상자 ' + n.sev + ' · 보행자 피해 ' + n.ped) +
+        '<div class="cap">해마다 사고(2016~2025 · 585m 안 100m 칸을 이 교차로에 배정)</div>' + bar(n.y10, '#ea580c') + (n.d10.some(function (v) { return v; }) ? '<div class="cap">해마다 사망자</div>' + bar(n.d10, '#111827') : ''); }
       if (st && st.total) { h += row('사고(2023~25)', st.total + '건 · 사망 ' + st.death + ' · 중상 ' + st.serious + ' · 경상 ' + st.slight);
         h += row('주된 경위', st.violations.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · ')) + row('사고 유형', st.types.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · '));
         h += src('TAAS 도로교통공단 · 반경 약 585m 안 사고를 가장 가까운 교차로에 배정(근사)'); }
@@ -847,10 +851,18 @@
   // ---------- 🚗 교통사고 10년(v0.10.79 · TAAS 2016~2025 서초 22,546건 · 100m 칸 + 사망사고 한 건씩) ----------
   var A10 = [], F10 = [], A10M = 'all', A10Y = null;   // A10Y = 그 해만(null = 10년 전부)
   var A10MS = { all: ['전체 사고', '#ea580c'], sev: ['사망·중상자', '#b91c1c'], ped: ['보행자 피해', '#2563eb'], two: ['자전거·PM·이륜', '#16a34a'], night: ['밤(20~6시)', '#1e3a8a'] };
-  function a10Prep() { var T = D.taas10; if (!T) return; A10 = T.cells.map(function (c) { return { c: c, p: P(c[1], c[0]) }; }); F10 = T.fatal.map(function (f) { return { f: f, p: P(f[17], f[16]) }; }); }
+  function a10Prep() { var T = D.taas10; if (!T) return; A10 = T.cells.map(function (c) { return { c: c, p: P(c[1], c[0]) }; }); F10 = T.fatal.map(function (f) { return { f: f, p: P(f[17], f[16]) }; });
+    // 교차로 집계를 2019년부터(v0.10.82 · 소유자 「사고 데이터 2019년부터」) — 칸을 585m 안 가장 가까운 실제 교차로에 배정(23~25 집계와 같은 규칙)
+    NODES.forEach(function (n) { n.y10 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; n.d10 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; n.ped = 0; n.sev = 0; });
+    function near(p) { var b = null, bd = 585; NODES.forEach(function (n) { if (!n.real) return; var d = Math.hypot(n.p[0] - p[0], n.p[1] - p[1]); if (d < bd) { bd = d; b = n; } }); return b; }
+    A10.forEach(function (x) { var n = near(x.p); if (!n) return; for (var i = 0; i < 10; i++) n.y10[i] += x.c[2 + i]; n.ped += x.c[14]; n.sev += x.c[12] + x.c[13]; });
+    F10.forEach(function (x) { var n = near(x.p); if (n) n.d10[x.f[0] - 2016] += x.f[12]; });
+  }
+  function accN(n, a, b) { if (!n.y10) return 0; var t = 0; for (var y = a; y <= b; y++) t += n.y10[y - 2016]; return t; }
+  function deadN(n, a, b) { if (!n.d10) return 0; var t = 0; for (var y = a; y <= b; y++) t += n.d10[y - 2016]; return t; }
   function a10Val(c) {
-    if (A10M === 'all') return A10Y ? c[2 + A10Y - 2016] : c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0);
-    var share = A10Y ? c[2 + A10Y - 2016] / Math.max(1, c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0)) : 1;
+    if (A10M === 'all') return A10Y === 19 ? c.slice(5, 12).reduce(function (a, b) { return a + b; }, 0) : A10Y ? c[2 + A10Y - 2016] : c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0);
+    var share = A10Y === 19 ? c.slice(5, 12).reduce(function (a, b) { return a + b; }, 0) / Math.max(1, c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0)) : A10Y ? c[2 + A10Y - 2016] / Math.max(1, c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0)) : 1;
     return (A10M === 'sev' ? c[12] + c[13] : A10M === 'ped' ? c[14] : A10M === 'two' ? c[15] + c[16] + c[17] : c[18]) * share;
   }
   function drawA10(dark) {
@@ -859,7 +871,7 @@
         ctx.fillStyle = hexA(col, 0.12 + 0.7 * t); ctx.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
         if (view.s > 0.35) { ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = t > 0.5 ? '#fff' : '#111827'; ctx.fillText(String(Math.round(v)), (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
         hit.push({ x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, r: Math.max(6, (b[0] - a[0]) / 2), it: { kind: 'a10', x: x } }); }); }
-    if (on.fatal10 && F10.length) F10.forEach(function (x) { if (A10Y && x.f[0] !== A10Y) return; dot(x.p, 5.5, '#111827', '#fca5a5', { kind: 'f10', x: x }); });
+    if (on.fatal10 && F10.length) F10.forEach(function (x) { if (A10Y === 19 ? x.f[0] < 2019 : A10Y && x.f[0] !== A10Y) return; dot(x.p, 5.5, '#111827', '#fca5a5', { kind: 'f10', x: x }); });
   }
   function dic(k, v) { var D2 = D.taas10.dic[k] || {}; return D2[v] || v || '-'; }
   function a10Card(it) {
@@ -872,9 +884,9 @@
       '<div class="cap">해마다 건수(2016~2025)</div>' + bar(c.slice(2, 12), '#ea580c') + '<div class="cap">시간대(0~6 · 6~12 · 12~18 · 18~24시)</div>' + bar(c.slice(19, 23), '#1e3a8a') + '<p class="desc">' + esc(T.note) + '</p>' + src(T.source);
   }
   function a10Legend() {
-    if (!on.acc10 && !on.fatal10) return null; var ys = ['']; for (var y = 2016; y <= 2025; y++) ys.push(y);
+    if (!on.acc10 && !on.fatal10) return null; var ys = ['', 19]; for (var y = 2016; y <= 2025; y++) ys.push(y);
     return ['🚗 사고 10년(TAAS)', '<div class="lg-btns">' + Object.keys(A10MS).map(function (k) { return '<button data-a10m="' + k + '" class="' + (k === A10M ? 'on' : '') + '">' + A10MS[k][0] + '</button>'; }).join('') + '</div>' +
-      '<div class="lg-btns"><select data-a10y aria-label="해">' + ys.map(function (y) { return '<option value="' + y + '"' + ((A10Y || '') == y ? ' selected' : '') + '>' + (y ? y + '년만' : '10년 전부') + '</option>'; }).join('') + '</select></div>' +
+      '<div class="lg-btns"><select data-a10y aria-label="해">' + ys.map(function (y) { return '<option value="' + y + '"' + ((A10Y || '') == y ? ' selected' : '') + '>' + (y === 19 ? '2019~2025' : y ? y + '년만' : '10년 전부') + '</option>'; }).join('') + '</select></div>' +
       li(hexA(A10MS[A10M][1], 0.8), '100m 칸 · 진할수록 많음(√) · 확대하면 숫자', 'box') + (on.fatal10 ? li('#111827', '사망사고(한 건씩)') : '') + '<small class="lg-n">' + (D.taas10 ? D.taas10.count.toLocaleString() + '건 · 개인정보 없음' : '') + '</small>'];
   }
   // ---------- 🛡 치안·생활안전 시설(v0.10.78 · 서울 열린데이터 — 서초구) ----------
@@ -932,7 +944,7 @@
     if (on.crowd) G('📡 실시간 인파', li(LVC['여유'], '여유') + li(LVC['보통'], '보통') + li(LVC['약간 붐빔'], '약간 붐빔') + li(LVC['붐빔'], '붐빔') + li('#64748b', '실선 지금 · 긴 점선 예측 · 회색 점선 받은 때', 'dash') + '<small class="lg-n">받은 시각 ' + esc(String((D.livep || {}).baked || '')) + '</small>');
     if (on.spd) G('🚥 도로 소통(받은 때)', li(IDXC['원활'], '원활', 'line') + li(IDXC['서행'], '서행', 'line') + li(IDXC['정체'], '정체', 'line'));
     if (on.jur) G('🚓 관할', li('#2563eb', '서울서초경찰서', 'box') + li('#0d9488', '서울방배경찰서', 'box') + li('#b45309', '반포4동 반포대로 경계', 'dash'));
-    if (on.acc) G('🚗 교차로 사고(2023~25)', li('rgba(234,88,12,.6)', '원 크기 = √사고 건수') + li('rgba(220,38,38,.7)', '사망 포함'));
+    if (on.acc) G('🚗 교차로 사고 ' + (A10.length ? '2019~2025' : '2023~25'), li('rgba(234,88,12,.6)', '원 크기 = √사고 건수 · 아래 숫자 = 건수·사망') + li('rgba(220,38,38,.7)', '사망 포함') + '<small class="lg-n">585m 안 사고를 가장 가까운 교차로에 배정(근사) · 카드에 해마다 막대</small>');
     if (on.hot10) G('🗂 다발지 10년', Object.keys(H10C).map(function (k) { return li(H10C[k], k); }).join('') + '<small class="lg-n">원 크기 = 뽑힌 횟수 · 아래 숫자 = 횟수·해</small>');
     if (on.fatal) G('🕯 사망사고', li('#111827', '한 건씩(2020~2025)'));
     if (on.hot) G('⚠ 사고다발지', li('rgba(250,204,21,.9)', 'TAAS 공표 다발지'));
@@ -953,7 +965,8 @@
   }
   if ($('m2dLeg')) { $('m2dLeg').addEventListener('click', function (e) { var b = e.target.closest('[data-trdm]'); if (b) { TRDM = b.getAttribute('data-trdm'); draw(); return; } b = e.target.closest('[data-a10m]'); if (b) { A10M = b.getAttribute('data-a10m'); draw(); } });
     $('m2dLeg').addEventListener('change', function (e) { var t = e.target; if (t.hasAttribute('data-trdi')) { TRDI = t.value; draw(); } else if (t.hasAttribute('data-a10y')) { A10Y = t.value ? +t.value : null; draw(); } }); }
-  function legOpen(v) { document.body.classList.toggle('legon', v); try { localStorage.setItem('tg_map2d_leg', v ? '1' : '0'); } catch (e) {} if (v) legend(); }
+  function legOpen(v) { if (v && window.innerWidth < 760 && $('m2dCard').classList.contains('on')) $('m2dCard').classList.remove('on');
+    document.body.classList.toggle('legon', v); try { localStorage.setItem('tg_map2d_leg', v ? '1' : '0'); } catch (e) {} if (v) legend(); }
   if ($('m2dLegB')) $('m2dLegB').onclick = function () { legOpen(!document.body.classList.contains('legon')); };
   setTimeout(function () { try { var lv0 = localStorage.getItem('tg_map2d_leg'); legOpen(lv0 == null ? window.innerWidth >= 760 : lv0 === '1'); } catch (e) {} }, 0);
   // ---------- 📋 T-Book 보고 자리(v0.10.59 · 주소 #lat=..&lon=..) ----------
@@ -986,7 +999,7 @@
     var m = /[#&]lat=(-?[\d.]+)/.exec(location.hash), n = /[#&]lon=(-?[\d.]+)/.exec(location.hash);
     if (!m || !n) return false;
     var lat = +m[1], lon = +n[1];
-    if (!isFinite(lat) || !isFinite(lon) || lat < 37.425 || lat > 37.525 || lon < 126.965 || lon > 127.075) return false;
+    if (!isFinite(lat) || !isFinite(lon) || lat < 37.395 || lat > 37.535 || lon < 126.935 || lon > 127.135) return false;
     REP = { p: P(lon, lat), here: /[#&]here=1(?!\d)/.test(location.hash) };   // here=1 = T-Book 홈 「📍 지금 위치」(v0.10.77) — 아니면 최초보고 「보고 자리」
     view.s = Math.min(cv.clientWidth, cv.clientHeight) / (2 * 500); view.cx = REP.p[0]; view.cy = REP.p[1] + cv.clientHeight * 0.22 / view.s;   // 아래 카드에 가리지 않게 표시를 위쪽에   // 반경 약 500m
     if (on.bld && view.s > 0.12) loadBld();
@@ -998,7 +1011,7 @@
   function gpsHere() {
     if (gpsAsked || !/[#&]gps=1(?!\d)/.test(location.hash) || !navigator.geolocation) return; gpsAsked = true;
     navigator.geolocation.getCurrentPosition(function (pos) {
-      var c = pos.coords; if (!(c.accuracy <= 1000) || c.latitude < 37.425 || c.latitude > 37.525 || c.longitude < 126.965 || c.longitude > 127.075) return;
+      var c = pos.coords; if (!(c.accuracy <= 1000) || c.latitude < 37.395 || c.latitude > 37.535 || c.longitude < 126.935 || c.longitude > 127.135) return;
       REP = { p: P(c.longitude, c.latitude), here: true, acc: Math.round(c.accuracy) }; view.cx = REP.p[0]; view.cy = REP.p[1] + cv.clientHeight * 0.22 / view.s;
       draw(); var s = S(REP.p); sel = { x: s[0], y: s[1], r: 12, it: { kind: 'report' } }; show({ kind: 'report' }); draw();
     }, function () {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
