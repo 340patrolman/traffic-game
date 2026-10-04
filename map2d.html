@@ -63,6 +63,22 @@
   #m2dFoot summary { cursor: pointer; display: inline; }
   #m2dFoot .all { position: fixed; left: 8px; right: 8px; bottom: calc(26px + env(safe-area-inset-bottom)); max-height: 45vh; overflow: auto; white-space: normal; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--ink); font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   #m2dFoot .all li { margin: 2px 0; }
+  #m2dTime { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  #m2dTime button { flex: 0 0 auto; height: 34px; min-width: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 13px; cursor: pointer; }
+  #m2dTime button.on { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 800; }
+  #m2dTime input { flex: 1; min-width: 60px; height: 34px; accent-color: var(--acc); }
+  #m2dTime b { flex: 0 0 auto; font-size: 13px; min-width: 74px; text-align: right; }
+  #m2dPre { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 0; scrollbar-width: none; }
+  #m2dPre::-webkit-scrollbar { display: none; }
+  #m2dPre button { flex: 0 0 auto; height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid var(--acc); background: transparent; color: var(--acc); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+  #m2dPre button.on { background: var(--acc); color: #fff; }
+  #m2dSum { font-size: 12.5px; color: var(--ink2); padding-top: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+  #m2dSum::-webkit-scrollbar { display: none; }
+  #m2dSum button { border: 0; background: none; color: var(--acc); font: inherit; font-weight: 700; padding: 0 2px; min-height: 28px; cursor: pointer; }
+  #m2dSum:empty { display: none; }
+  #m2dFold { flex: 0 0 auto; width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 15px; cursor: pointer; }
+  body.fold #m2dTime, body.fold #m2dPre, body.fold #m2dSum, body.fold #m2dLayers { display: none; }
+  @media (max-width: 520px) { #m2dTime button, #m2dPre button, #m2dLayers button { height: 32px; } #m2dTime b { min-width: 64px; font-size: 12px; } .row1 h1 { font-size: 15px; } }
   #m2dLoad { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9; background: var(--bg); color: var(--ink2); font-size: 15px; }
 </style>
 </head>
@@ -72,12 +88,16 @@
     <a class="back" href="index.html">← 게임</a>
     <h1>🗜 데이터 압축지도</h1>
     <span id="m2dNow"></span>
+    <button id="m2dFold" aria-label="막대 접기">▴</button>
   </div>
   <div class="row2">
-    <input id="m2dFind" type="search" placeholder="찾기 — 동 · 교차로 · 역 · 국가유산 (Enter)" enterkeyhint="search" autocomplete="off">
+    <input id="m2dFind" type="search" placeholder="찾기 — 동 · 교차로 · 길 이름 · 역 · 정류장 · 병원 (Enter)" enterkeyhint="search" autocomplete="off">
     <input id="m2dDate" type="date" aria-label="행사·집회 날짜">
   </div>
   <div id="m2dFindMsg"></div>
+  <div id="m2dTime"><button id="m2dNowBtn" class="on" aria-label="지금 시각으로">지금</button><button id="m2dHm" aria-label="한 시간 앞">◀</button><input id="m2dHour" type="range" min="0" max="23" step="1" aria-label="볼 시각"><button id="m2dHp" aria-label="한 시간 뒤">▶</button><b id="m2dHourT"></b></div>
+  <div id="m2dPre" role="toolbar" aria-label="근무별 한 번에 켜기"></div>
+  <div id="m2dSum" aria-live="polite"></div>
   <div id="m2dLayers" role="toolbar" aria-label="지도 층"></div>
 </div>
 <canvas id="m2d" aria-label="서초구 지도 — 끌어서 옮기고, 두 손가락이나 휠로 확대, 눌러서 자세히"></canvas>
@@ -112,16 +132,22 @@
       <li>T-GIS 신호 교차로 — 서울시 T-GIS 교통안전시설물 「교차로(A008_P)」(공공데이터 · 서초서 313 · 방배서 119). 코드·이름·자리·연동교차로코드만 옮겼다. 현시·주기는 없다</li>
       <li>길목(이 시각 하차 · 다발지) — T-Book 길목(tbook-spot) 자료: 서울시 교통카드 정류장·역별 시간대 하차(2026년 6월 · 30일 평균) · TAAS 다발지(200m 묶음 · 연도 중복 제거 · 참고)</li>
       <li>주소 끝 <code>#ly=jur,tgis</code> 처럼 층 키를 적으면 그 층만 켜고 연다(켠 층 저장값은 그대로) · <code>#h=22</code> 는 길목 시각</li>
+      <li>바탕 지도(도로 전부 · 물 · 녹지 · 철도 · 주차장) — © OpenStreetMap contributors (ODbL) · Overpass 2026-10-04</li>
+      <li>실시간 인파 · 실시간 카드 결제 · 도로 소통 — 서울 열린데이터광장 「서울시 실시간 도시데이터」(OA-21285) · 장소 영역(OA-21778). <b>받은 시각의 한 장</b>이다(통신 0) — 받은 뒤 12시간은 서울시 예측값을 보이고, 그 뒤는 「받은 때」라고 적는다</li>
+      <li>카드 매출(시간대) — 서울시 상권분석서비스 추정매출-행정동(카드사 결제 자료로 추정 · 분기) · 버스·지하철 시간대 승차/하차 — 서울시 교통카드(2026년 6월 · 하루 평균)</li>
       <li>이 지도는 기기 안에서만 돈다 — 통신 0 · 위치를 묻지 않는다 · 켠 층은 이 기기에만 저장</li>
     </ul>
   </details>
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.75"></script>
+<script src="js/map2d.js?v=0.10.76"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
+    var fb = document.getElementById("m2dFold"); function setFold(f) { document.body.classList.toggle("fold", f); fb.textContent = f ? "▾" : "▴"; try { localStorage.setItem("tg_map2d_fold", f ? "1" : "0"); } catch (e) {} }
+    try { if (localStorage.getItem("tg_map2d_fold") === "1") setFold(true); } catch (e) {}
+    fb.onclick = function () { setFold(!document.body.classList.contains("fold")); };
     function fitTop() { var t = document.getElementById('m2dTop'), c = document.getElementById('m2d'); var h = t.offsetHeight; document.documentElement.style.setProperty("--toph", h + "px"); c.style.top = h + "px"; c.style.height = (window.innerHeight - h) + 'px'; window.dispatchEvent(new Event('m2dresize')); }
     window.addEventListener("resize", fitTop); fitTop();
     if (window.ResizeObserver) new ResizeObserver(fitTop).observe(document.getElementById("m2dTop"));   // 찾기 안내 줄이 생기면 막대가 커진다
