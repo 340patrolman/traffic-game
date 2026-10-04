@@ -45,14 +45,14 @@
   hashLayers();
 
   // ---------- 자료 읽기 ----------
-  var FILES = { dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
+  var FILES = { enf: 'data/enforce-seocho.json', dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
     base: 'data/maps/seocho.json', gu: 'data/maps/seoul-districts.json', acc: 'data/taas-nodes-seocho.json', fatal: 'data/taas-fatal-seocho.json', hot: 'data/taas.json',
     cam: 'data/cameras-seocho.json', sig: 'data/signal-tod-seocho.json', evt: 'data/events-seocho.json', vol: 'data/traffic-vol-seocho.json', her: 'data/heritage-seocho.json',
     near: 'data/dong-near.json', xing: 'data/intersections-seocho.json', pub: 'data/pubdata-seocho.json', police: 'data/police-seocho.json', sz: 'data/schoolzone-seocho.json', st: 'data/stores-seocho.json',
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
     osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
+  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
   Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
     Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
@@ -200,7 +200,7 @@
     if (on.sz && D.sz) D.sz.zones.forEach(function (z) { dot(P(z.lon, z.lat), z.kind === '초등학교' ? 6 : 4.5, SZC[z.kind] || '#eab308', '#1f2937', { kind: 'sz', z: z });
       if (view.s > 0.18 && z.kind === '초등학교') label([P(z.lon, z.lat)[0], P(z.lon, z.lat)[1] - 12 / view.s], z.name, 10, dark ? '#fde68a' : '#713f12', dark ? 'rgba(15,22,36,.7)' : 'rgba(255,255,255,.85)'); });
     if (on.szh && D.sz) D.sz.hot.forEach(function (t) { var q = P(t.lon, t.lat), s = S(q); ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(10, 60 * view.s), 0, Math.PI * 2); ctx.fillStyle = 'rgba(220,38,38,.18)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#dc2626'; ctx.stroke(); dot(q, 6, '#dc2626', '#fff', { kind: 'szh', t: t }); });
-    if (on.cam && D.cam) D.cam.items.forEach(function (c) { dot(P(c.lon, c.lat), 4.5, '#2563eb', '#fff', { kind: 'cam', c: c }); });
+    if (on.cam && D.cam) D.cam.items.forEach(function (c) { dot(P(c.lon, c.lat), 4.5, camCol(c), '#fff', { kind: 'cam', c: c }); });
     if (on.sig && D.sig) D.sig.spots.forEach(function (s) { dot(P(s.lon, s.lat), 5, '#16a34a', '#fff', { kind: 'sig', s: s }); });
     if (on.sub && F2) (F2.subways || []).forEach(function (s) { var n = nodeAt([s.i, s.j]); if (!n) return; var q = [n.p[0] + (s.side || 1) * 26, n.p[1] + 26], ls = s.lines || [];
       ls.forEach(function (l, k) { dot([q[0] + k * 13 / view.s, q[1]], 6, LINE_C[l] || '#64748b', '#fff', k ? null : { kind: 'sub', s: s, n: n }); });
@@ -330,7 +330,7 @@
       h += src((D.sz.source || {}).hot || '');
     } else if (it.kind === 'cam') {
       var cm = it.c; h = '<h3>📷 무인 단속 카메라</h3>' + row('자리', esc(cm.at)) + row('도로', esc(cm.road)) + row('제한속도', cm.lim ? cm.lim + 'km/h' : '-') + row('설치', esc(cm.yr || '-')) + row('단속구분 코드', esc(cm.se) + ' <em>(코드 뜻은 대조 전)</em>');
-      h += src('경찰청 전국무인교통단속카메라표준데이터(기준일 2026-04-06)');
+      h += camEff(cm) + src('경찰청 전국무인교통단속카메라표준데이터(기준일 2026-04-06) · 설치 전후 사고 = TAAS 사고 10년(100m 칸)');
     } else if (it.kind === 'sig') {
       var s = it.s; h = '<h3>🚦 ' + esc(s.name) + '</h3>' + row('교차로 번호', esc(s.no)) + row('지금', sigNow(s)) + src('경찰청 교차로계획정보(공공데이터포털) · 계획값 — 감응·수동 운영 중에는 다르다');
     } else if (it.kind === 'sub') {
@@ -442,8 +442,8 @@
   }
   function extraCard(it) {
     var h = '';
-    if (it.kind === 'jur') { var z = it.J.z; h = '<h3>🚓 ' + esc(z.id === 'banpo' ? '반포동 — 서초서·방배서가 번지로 나눔' : z.name + ' 관할') + '</h3>' + row('행정동', esc(z.dongs.join(' · '))) + '<p class="desc">' + esc(z.note) + '</p>' + (D.jur.src ? '<p class="desc">반포동 나눔 — ' + esc(D.jur.src) + '</p>' : '') + src(D.jur.law + ' · ' + D.jur.boundary); }
-    else if (it.kind === 'jurst') { var st = it.st; h = '<h3>🚓 ' + esc(st.name) + '</h3>' + row('청사', esc(st.addr)) + src('경찰민원24 청사 좌표(T-Book PS_PTS)'); }
+    if (it.kind === 'jur') { var z = it.J.z; h = '<h3>🚓 ' + esc(z.id === 'banpo' ? '반포동 — 서초서·방배서가 번지로 나눔' : z.name + ' 관할') + '</h3>' + row('행정동', esc(z.dongs.join(' · '))) + enfRows(z.name) + '<p class="desc">' + esc(z.note) + '</p>' + (D.jur.src ? '<p class="desc">반포동 나눔 — ' + esc(D.jur.src) + '</p>' : '') + src(D.jur.law + ' · ' + D.jur.boundary); }
+    else if (it.kind === 'jurst') { var st = it.st; h = '<h3>🚓 ' + esc(st.name) + '</h3>' + row('청사', esc(st.addr)) + enfRows(st.name) + src('경찰민원24 청사 좌표(T-Book PS_PTS)'); }
     else if (it.kind === 'tgis') { var t = it.t, pa = t.par ? TGC[t.par] : null; h = '<h3>🚥 ' + esc(t.name) + '</h3>' + row('T-GIS 교차로코드', String(t.c)) + row('관할', t.pe === 380 ? '서울방배경찰서' : '서울서초경찰서') + (t.par && t.par !== t.c ? row('연동교차로코드', t.par + ' → ' + (pa ? esc(pa.name) + ' · ' + Math.round(Math.hypot(pa.p[0] - t.p[0], pa.p[1] - t.p[1])) + 'm' : '이 구역 밖') + (/연등/.test(t.name) ? ' <em>(「(연등)」 종속 신호)</em>' : ' <em>(그 교차로에 딸려 도는 신호)</em>')) : '') + (t.cits ? row('C-ITS 번호', String(t.cits) + ' <em>(15m 안 같은 신호)</em>') : '') + src(D.tgis.source + ' · 신호 현시·주기는 이 표에 없다'); }
     else if (it.kind === 'spot') { var q = it.q, o = q.o, hh = spotHour(); h = '<h3>🎯 ' + esc(q.name) + '</h3>' + row('종류', o.t === 's' ? '지하철역' + (o.g === '경계' ? ' <em>(구 경계 — 이웃 구와 나눠 셈)</em>' : '') : '버스 정류장') + row(hh + '시 하차', o.h[hh].toLocaleString() + '명(하루 평균) · 서초 ' + it.rank + '위') + row('하루 하차', q.day.toLocaleString() + '명') + row('밤 22~01시 비중', Math.round(q.night * 100) + '%') + '<div class="cap">시간대 하차(0~23시)</div>' + bar(o.h, o.t === 's' ? '#0284c7' : '#ea580c') + src(D.spot.source + ' · ' + D.spot.method); }
     else if (it.kind === 'spota') { var a = it.q.o; h = '<h3>🗂 ' + esc(a.k) + ' 다발지 — ' + esc(a.n) + '</h3>' + row('뽑힌 해', esc(a.y) + (a.yrs > 1 ? ' <em>(' + a.yrs + '해 — 고질 자리)</em>' : '')) + row('사고', a.c + '건 · 사상 ' + a.cs + (a.d ? ' · 사망 ' + a.d : '')) + '<p class="desc">참고 — 1년 전 자료·연 1회 갱신. 「0건」은 사고 없음이 아니다.</p>' + src(D.spot.source); }
@@ -494,7 +494,7 @@
     }
     else if (k === 'pol' && q.off) {
       var PL = D.police || {}, S3 = PL.source || {};
-      h += row('구분', esc(q.cat)) + (q.st ? row('대표번호', esc(q.o.tel)) + row('관할', esc(q.o.gu)) : row('소속', esc(q.o.station) + (q.ctr ? ' · ' + esc(q.o.box) : '')) + row('주소', esc(q.o.addr))) +
+      h += row('구분', esc(q.cat)) + (q.st ? row('대표번호', esc(q.o.tel)) + row('관할', esc(q.o.gu)) + enfRows(q.o.name || q.name || '') : row('소속', esc(q.o.station) + (q.ctr ? ' · ' + esc(q.o.box) : '')) + row('주소', esc(q.o.addr))) +
         (q.st ? '' : row('자리', (q.o.approx ? '⚠ ' : '') + esc(q.o.locNote || '')));
       s = q.st ? S3.stations : ((q.ctr ? S3.centers : S3.boxes) + ' · ' + S3.loc);
     }
@@ -865,6 +865,37 @@
     return barRows(ind, '이 동') + '<div class="cap">업종 × 연령(%) — 이 동 매출 많은 업종 8</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(%)</div>' + indTable(ind, 'tb');
   }
   // ---------- 🚗 교통사고 10년(v0.10.79 · TAAS 2016~2025 서초 22,546건 · 100m 칸 + 사망사고 한 건씩) ----------
+  // v0.10.84 경찰서별 단속 건수(서울청 2024 · 무인·현장 합계) — 카메라 한 대 단위 건수는 공개되지 않는다
+  function enfOf(name) { var E = D.enf; if (!E || !name) return null; var k = String(name).replace(/^서울/, '').replace(/경찰서$/, '');
+    for (var i = 0; i < E.items.length; i++) if (E.items[i][0] === k) return E.items[i]; return null; }
+  function enfRows(name) { var r = enfOf(name), E = D.enf; if (!r) return '';
+    function rk(j) { var v = r[j], n = 1; E.items.forEach(function (x) { if (x[j] > v) n++; }); return n; }
+    var lab = ['', '중앙선 침범', '신호위반', '음주운전', '무면허운전', '속도위반'], ord = [5, 2, 1, 3, 4];
+    return row(E.year + '년 단속', ord.map(function (j) { return lab[j] + ' ' + r[j].toLocaleString() + '건 <em>(서울 ' + E.items.length + '서 중 ' + rk(j) + '위)</em>'; }).join('<br>')) +
+      '<p class="desc">경찰서 한 해 합계 — 무인 장비와 경찰관 현장단속이 섞여 있다(속도위반은 대부분 무인 장비로 본다 · 추정). 카메라 한 대 단위 건수는 공개되지 않는다. 출처 ' + esc(E.source) + '</p>'; }
+  // v0.10.84 카메라 설치 전후 둘레 사고(참고 지표) — 설치 해를 빼고 앞뒤 3년씩 연평균을 견주고, 같은 해 서초 전체 변화와 나란히 보인다
+  var CAM_R = 150, CAM_W = 3;
+  function camYears(yr) { var b = [], a = []; for (var y = Math.max(2016, yr - CAM_W); y < yr; y++) b.push(y); for (var y2 = yr + 1; y2 <= Math.min(2025, yr + CAM_W); y2++) a.push(y2); return [b, a]; }
+  function camCalc(cm) { if (!A10.length) return null; if (cm._e) return cm._e; return (cm._e = camCalc0(cm)); }
+  function camCalc0(cm) { var yr = parseInt(cm.yr, 10); if (!(yr >= 2017 && yr <= 2024)) return { no: '설치 ' + (cm.yr || '?') + '년 — 사고 자료(2016~2025)로 설치 전·뒤를 함께 볼 수 없다' };
+    var p = P(cm.lon, cm.lat), ys = camYears(yr), loc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], all = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    A10.forEach(function (x) { var c = x.c, near = Math.hypot(x.p[0] - p[0], x.p[1] - p[1]) <= CAM_R; for (var i = 0; i < 10; i++) { all[i] += c[2 + i]; if (near) loc[i] += c[2 + i]; } });
+    function avg(arr, list) { return list.reduce(function (t, y) { return t + arr[y - 2016]; }, 0) / list.length; }
+    var lb = avg(loc, ys[0]), la = avg(loc, ys[1]), ab = avg(all, ys[0]), aa = avg(all, ys[1]);
+    return { yr: yr, ys: ys, loc: loc, lb: lb, la: la, ch: lb ? (la - lb) / lb : null, ach: ab ? (aa - ab) / ab : null, few: (lb + la) * ys[0].length < 6 }; }
+  function pctS(v) { return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; }
+  function camEff(cm) { var r = camCalc(cm); if (!r) return row('설치 전후 사고', '사고 10년 자료를 읽는 중…'); if (r.no) return row('설치 전후 사고', esc(r.no));
+    var y0 = r.ys[0], y1 = r.ys[1], rng = function (l) { return l[0] + (l.length > 1 ? '~' + l[l.length - 1] : '') + '년'; };
+    var v = r.few ? '둘레 사고가 적어 견주기 어렵다' : r.ch == null ? '설치 전 사고 0건' : (r.ch < r.ach - 0.1 ? '<b style="color:#15803d">서초 전체보다 더 줄었다</b>' : r.ch > r.ach + 0.1 ? '<b style="color:#b91c1c">서초 전체보다 덜 줄었다(늘었다)</b>' : '서초 전체와 비슷하게 변했다');
+    return row('설치 전후 사고', '둘레 ' + CAM_R + 'm · 설치 전 ' + rng(y0) + ' 연평균 ' + r.lb.toFixed(1) + '건 → 설치 뒤 ' + rng(y1) + ' 연평균 ' + r.la.toFixed(1) + '건' + (r.ch != null ? ' (' + pctS(r.ch) + ')' : '')) +
+      row('견주기', '서초 전체 같은 해 ' + (r.ach != null ? pctS(r.ach) : '-') + ' → ' + v) +
+      '<div class="cap">둘레 ' + CAM_R + 'm 해마다 사고(2016~2025 · 설치 ' + r.yr + '년)</div>' + bar(r.loc, '#2563eb') +
+      '<p class="desc">참고 지표 — 단속 건수가 아니라 둘레 사고의 변화다. 교통량·도로 공사·다른 시설 변화가 섞이고, 사고가 많아서 설치한 자리는 그 뒤 저절로 줄어 보일 수 있다(평균으로 돌아감). 100m 칸 가운데가 ' + CAM_R + 'm 안이면 센다.</p>'; }
+  // 점 색 = 설치 전후 사고(참고) — 초록 서초 전체보다 더 줄었다 · 빨강 덜 줄거나 늘었다 · 파랑 비슷하거나 견줄 수 없음
+  function camCol(c) { var r = camCalc(c); if (!r || r.no || r.few || r.ch == null) return '#2563eb'; return r.ch < r.ach - 0.1 ? '#16a34a' : r.ch > r.ach + 0.1 ? '#dc2626' : '#2563eb'; }
+  function camSum() { if (!D.cam || !A10.length) return ''; var n = 0, more = 0, less = 0;
+    D.cam.items.forEach(function (c) { var r = camCalc(c); if (!r || r.no || r.few || r.ch == null) return; n++; if (r.ch < r.ach - 0.1) more++; else if (r.ch > r.ach + 0.1) less++; });
+    return '<small class="lg-n">설치 전후 사고를 견줄 수 있는 카메라 ' + n + '대 — 서초 전체보다 더 줄어든 곳 ' + more + ' · 덜 줄거나 는 곳 ' + less + ' · 비슷 ' + (n - more - less) + '(참고 지표 · 카드에 자세히)</small>'; }
   var A10 = [], F10 = [], A10M = 'all', A10Y = null;   // A10Y = 그 해만(null = 10년 전부)
   var A10MS = { all: ['전체 사고', '#ea580c'], sev: ['사망·중상자', '#b91c1c'], ped: ['보행자 피해', '#2563eb'], two: ['자전거·PM·이륜', '#16a34a'], night: ['밤(20~6시)', '#1e3a8a'] };
   function a10Prep() { var T = D.taas10; if (!T) return; A10 = T.cells.map(function (c) { return { c: c, p: P(c[1], c[0]) }; }); F10 = T.fatal.map(function (f) { return { f: f, p: P(f[17], f[16]) }; });
@@ -972,7 +1003,7 @@
     if (on.er || on.hosp) G('🏥 의료', (on.er ? li('#dc2626', '응급실') : '') + (on.hosp ? li('#0891b2', '병원·의원') : ''));
     if (on.bar || on.play || on.inn) G('🌙 밤 순찰', (on.bar ? li('#b45309', '주점') : '') + (on.play ? li('#db2777', '노래방·PC방') : '') + (on.inn ? li('#7c3aed', '숙박') : ''));
     if (on.evt) G('📅 행사·집회', li('#a855f7', '문화행사') + li('#ef4444', '집회(선 = 행진)'));
-    if (on.cam || on.sig) G('📷🚦', (on.cam ? li('#2563eb', '무인 단속 카메라') : '') + (on.sig ? li('#16a34a', '신호 주기(경찰청)') : ''));
+    if (on.cam || on.sig) G('📷🚦', (on.cam ? li('#2563eb', '무인 단속 카메라') + (A10.length ? li('#16a34a', '설치 뒤 둘레 사고가 서초 전체보다 더 줄었다') + li('#dc2626', '덜 줄었거나 늘었다') : '') + camSum() : '') + (on.sig ? li('#16a34a', '신호 주기(경찰청)') : ''));
     if (on.spot) G('🎯 길목', li('rgba(234,88,12,.5)', '버스 정류장') + li('rgba(14,165,233,.5)', '지하철역') + '<small class="lg-n">숫자 = 그 시각 하차 순위</small>');
     POLL.forEach(function (L) { if (on[L[0]]) G(L[1], li(L[2], L[3])); });
     var oth = Object.keys(FAC_C).filter(function (k) { return on[k] && k !== 'pol'; }); if (oth.length) G('📍 시설', oth.map(function (k) { return li(FAC_C[k], (LAYERS.filter(function (l) { return l[0] === k; })[0] || [0, k])[1].replace(/^\S+ /, '')); }).join(''));
