@@ -53,12 +53,15 @@ def fetch():
         z = []
         for i in range(25): z += datago('tn_pubr_public_child_prtc_zn_api', insttCode=str(3000000 + i * 10000))
         jput('safe_sz.json', z); print('sz', len(z))
+    if not jget('safe_cam_gg.json'): jput('safe_cam_gg.json', datago('tn_pubr_public_unmanned_traffic_camera_api', ctprvnNm='경기도')); print('cam gg')
+    if not jget('safe_sz_all.json'):   # 보호구역은 시·도로 못 거른다 — 전국을 받아 경기 상자로 거른다(v0.10.99)
+        z = datago('tn_pubr_public_child_prtc_zn_api'); jput('safe_sz_all.json', [r for r in z if 36.85 < (f6(r.get('latitude')) or 0) < 38.35 and 126.3 < (f6(r.get('longitude')) or 0) < 127.9]); print('sz all', len(z))
     for svc in ('tbSafeReturnItem', 'tbSafeReturnService', 'tbEmgcAedInfo', 'tbFireItem', 'TbTowCarsDepository', 'mgisToiletPoi', 'safeOpenBox', 'TbDementiaCenter'):
         if not jget('safe_%s.json' % svc): jput('safe_%s.json' % svc, rows(svc))
 
 def build():
     g = json.load(open(HJD, encoding='utf-8'))
-    F = [(shape(f['geometry']), f['properties']['sgg']) for f in g['features'] if f['properties']['adm_cd2'].startswith('11')]
+    F = [(shape(f['geometry']), f['properties']['sgg']) for f in g['features'] if f['properties']['adm_cd2'][:2] in ('11', '41')]
     tree = STRtree([x[0] for x in F])
     def gu_of(la, lo):
         if not la or not lo: return None
@@ -70,11 +73,11 @@ def build():
     def put(gu, k, v):
         if gu: G.setdefault(gu, {'cam': [], 'sz': [], 'items': {}}).setdefault('items', {})
         if gu: (G[gu][k] if k in ('cam', 'sz') else G[gu]['items'].setdefault(k, [])).append(v)
-    for r in jget('safe_cam.json') or []:
+    for r in (jget('safe_cam.json') or []) + (jget('safe_cam_gg.json') or []):
         la, lo = f6(r.get('latitude')), f6(r.get('longitude'))
         put(gu_of(la, lo), 'cam', {'at': r.get('itlpc'), 'road': r.get('roadRouteNm'), 'lat': la, 'lon': lo, 'se': r.get('regltSe'), 'lim': int(r.get('lmttVe') or 0), 'zone': r.get('prtcareaType'), 'yr': r.get('installationYear'), 'sec': r.get('ovrspdRegltSctnLt') or ''})
     seen = set()
-    for r in jget('safe_sz.json') or []:
+    for r in (jget('safe_sz.json') or []) + (jget('safe_sz_all.json') or []):
         la, lo = f6(r.get('latitude')), f6(r.get('longitude')); k = (r.get('trgetFcltyNm'), la)
         if k in seen or not la: continue
         seen.add(k)

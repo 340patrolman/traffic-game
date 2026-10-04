@@ -13,7 +13,15 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; overflow: hidden; }
   #m2dTop { position: fixed; left: 0; right: 0; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: calc(6px + env(safe-area-inset-top)) 10px 6px; }
-  .row1 { display: flex; align-items: center; gap: 8px; }
+  .row1 { display: flex; align-items: center; gap: 6px; }
+  .row1 .back { font-size: 18px; padding: 0 4px; }
+  #m2dMore { display: none; border-top: 1px solid var(--line); margin-top: 6px; }
+  body.more #m2dMore { display: block; max-height: calc(100vh - 140px); overflow-y: auto; }
+  #m2dDate { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  #m2dDateB { flex: 0 0 auto; height: 36px; padding: 0 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+  #m2dDateB.we { color: #dc2626; }
+  #m2dFoldX { display: block; width: 100%; height: 40px; margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--chip); color: var(--ink); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .row2 #m2dNow { flex: 0 0 auto; align-self: center; }
   .row1 h1 { font-size: 16px; margin: 0; white-space: nowrap; }
   .row1 .back { color: var(--acc); text-decoration: none; font-weight: 700; white-space: nowrap; min-height: 36px; display: inline-flex; align-items: center; }
   .row1 #m2dNow { margin-left: auto; color: var(--ink2); font-size: 12.5px; white-space: nowrap; }
@@ -126,7 +134,7 @@
   #m2dFoot summary { cursor: pointer; display: inline; }
   #m2dFoot .all { position: fixed; left: 8px; right: 8px; bottom: calc(26px + env(safe-area-inset-bottom)); max-height: 45vh; overflow: auto; white-space: normal; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--ink); font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   #m2dFoot .all li { margin: 2px 0; }
-  #m2dTime { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  #m2dTime { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
   #m2dTime button { flex: 0 0 auto; height: 34px; min-width: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 13px; cursor: pointer; }
   #m2dTime button.on { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 800; }
   #m2dTime input { flex: 1; min-width: 60px; height: 34px; accent-color: var(--acc); }
@@ -143,8 +151,10 @@
   #m2dSum::-webkit-scrollbar { display: none; }
   #m2dSum button { border: 0; background: none; color: var(--acc); font: inherit; font-weight: 700; padding: 0 2px; min-height: 28px; cursor: pointer; }
   #m2dSum:empty { display: none; }
-  #m2dFold { flex: 0 0 auto; width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 15px; cursor: pointer; }
-  body.fold #m2dTime, body.fold #m2dPre, body.fold #m2dSum, body.fold #m2dLayers { display: none; }
+  #m2dFold { flex: 0 0 auto; height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--acc); background: var(--acc); color: #fff; font-size: 13.5px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+  #m2dFold b { display: inline-block; min-width: 16px; margin-left: 2px; padding: 0 5px; border-radius: 8px; background: rgba(255,255,255,.25); font-size: 12px; }
+  body.more #m2dFold { background: var(--chip); color: var(--ink); border-color: var(--line); }
+  @media (max-width: 430px) { #m2dHm, #m2dHp { display: none; } #m2dHourT .wk { display: none; } #m2dTime b { min-width: 34px !important; } #m2dFold { padding: 0 8px; } #m2dDateB { padding: 0 7px; } }
   @media (max-width: 520px) { #m2dLayers { max-height: 77px; } #m2dLayers button { padding: 0 9px; font-size: 12.5px; } #m2dTime button, #m2dPre button, #m2dLayers button { height: 32px; } #m2dTime b { min-width: 64px; font-size: 12px; } .row1 h1 { font-size: 15px; } }
   #m2dZoom #m2dLegB { font-size: 13px; }
   #m2dLeg { display: none; position: fixed; left: 8px; bottom: calc(30px + env(safe-area-inset-bottom)); z-index: 5; width: 250px; max-height: 46vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
@@ -249,21 +259,24 @@
 </head>
 <body>
 <div id="m2dTop">
+  <!-- v0.10.99 한 줄 막대: 메뉴(층·근무별·찾기) · 날짜 · 시각. 메뉴를 누르면 아래 판이 열린다(소유자 「지도만 전체로, 누르면 모든 층」) -->
   <div class="row1">
-    <a class="back" href="index.html">← 게임</a>
-    <h1>🗜 데이터 압축지도</h1>
-    <span id="m2dNow"></span>
-    <button id="m2dFold" aria-label="막대 접기">▴</button>
+    <a class="back" href="index.html" aria-label="게임으로">←</a>
+    <button id="m2dFold" aria-expanded="false" aria-controls="m2dMore" aria-label="층·근무별·찾기 열기">☰ 층 <b id="m2dLayN">0</b></button>
+    <button id="m2dDateB" aria-label="날짜 고르기"></button><input id="m2dDate" type="date" aria-label="행사·집회 날짜" tabindex="-1">
+    <div id="m2dTime"><button id="m2dNowBtn" class="on" aria-label="지금 시각으로">지금</button><button id="m2dHm" aria-label="한 시간 앞">◀</button><input id="m2dHour" type="range" min="0" max="23" step="1" aria-label="볼 시각"><button id="m2dHp" aria-label="한 시간 뒤">▶</button><b id="m2dHourT"></b></div>
   </div>
-  <div class="row2">
-    <input id="m2dFind" type="search" placeholder="찾기 — 동 · 교차로 · 길 이름 · 역 · 정류장 · 병원 (Enter)" enterkeyhint="search" autocomplete="off">
-    <input id="m2dDate" type="date" aria-label="행사·집회 날짜">
+  <div id="m2dMore">
+    <div class="row2">
+      <input id="m2dFind" type="search" placeholder="찾기 — 동 · 교차로 · 길 · 역 · 정류장 · 병원" enterkeyhint="search" autocomplete="off">
+      <span id="m2dNow"></span>
+    </div>
+    <div id="m2dFindMsg"></div>
+    <div id="m2dPre" role="toolbar" aria-label="근무별 한 번에 켜기"></div>
+    <div id="m2dSum" aria-live="polite"></div>
+    <div id="m2dLayers" role="toolbar" aria-label="지도 층"></div>
+    <button id="m2dFoldX" aria-label="닫고 지도 넓게">▴ 닫고 지도 넓게 보기</button>
   </div>
-  <div id="m2dFindMsg"></div>
-  <div id="m2dTime"><button id="m2dNowBtn" class="on" aria-label="지금 시각으로">지금</button><button id="m2dHm" aria-label="한 시간 앞">◀</button><input id="m2dHour" type="range" min="0" max="23" step="1" aria-label="볼 시각"><button id="m2dHp" aria-label="한 시간 뒤">▶</button><b id="m2dHourT"></b></div>
-  <div id="m2dPre" role="toolbar" aria-label="근무별 한 번에 켜기"></div>
-  <div id="m2dSum" aria-live="polite"></div>
-  <div id="m2dLayers" role="toolbar" aria-label="지도 층"></div>
 </div>
 <canvas id="m2d" aria-label="서초구 지도 — 끌어서 옮기고, 두 손가락이나 휠로 확대, 눌러서 자세히"></canvas>
 <div id="m2dZoom">
@@ -321,14 +334,18 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.98"></script>
+<script src="js/map2d.js?v=0.10.99"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
-    var fb = document.getElementById("m2dFold"); function setFold(f) { document.body.classList.toggle("fold", f); fb.textContent = f ? "▾" : "▴"; try { localStorage.setItem("tg_map2d_fold", f ? "1" : "0"); } catch (e) {} }
-    try { if (localStorage.getItem("tg_map2d_fold") === "1") setFold(true); } catch (e) {}
-    fb.onclick = function () { setFold(!document.body.classList.contains("fold")); };
-    function fitTop() { var t = document.getElementById('m2dTop'), c = document.getElementById('m2d'); var h = t.offsetHeight; document.documentElement.style.setProperty("--toph", h + "px"); c.style.top = h + "px"; c.style.height = (window.innerHeight - h) + 'px'; window.dispatchEvent(new Event('m2dresize')); }
+    // v0.10.99 처음에는 한 줄(지도 넓게) — ☰ 층을 누르면 판이 열린다. 판에서 층·근무별 단추를 눌러도 판은 그대로(여러 개 고르기) · 지도를 끌거나 「닫고 지도 넓게」면 닫힌다.
+    var fb = document.getElementById("m2dFold"); function setMore(f) { document.body.classList.toggle("more", f); fb.setAttribute("aria-expanded", f ? "true" : "false"); if (f && window.TGMap2D && TGMap2D.preFit) TGMap2D.preFit(); }
+    fb.onclick = function () { setMore(!document.body.classList.contains("more")); };
+    document.getElementById("m2dFoldX").onclick = function () { setMore(false); };
+    var cd = document.getElementById("m2dCard"); if (cd && window.MutationObserver) new MutationObserver(function () { if (cd.classList.contains("on") && document.body.classList.contains("more")) setMore(false); }).observe(cd, { attributes: true, attributeFilter: ["class"] });   // 찾기로 카드가 열리면 판을 닫아 지도와 카드를 보인다
+    document.getElementById("m2d").addEventListener("pointerdown", function () { if (document.body.classList.contains("more")) setMore(false); });
+    var di = document.getElementById("m2dDate"); document.getElementById("m2dDateB").onclick = function () { try { di.showPicker(); } catch (e) { di.style.pointerEvents = "auto"; di.focus(); di.click(); } };
+    function fitTop() { var t = document.getElementById('m2dTop'), c = document.getElementById('m2d'), mo = document.getElementById('m2dMore'); var h = t.offsetHeight - (mo ? mo.offsetHeight + (mo.offsetHeight ? 6 : 0) : 0); document.documentElement.style.setProperty("--toph", h + "px"); c.style.top = h + "px"; c.style.height = (window.innerHeight - h) + 'px'; window.dispatchEvent(new Event('m2dresize')); }
     window.addEventListener("resize", fitTop); fitTop();
     // v0.10.92 소유자 「스마트폰에서는 열면 자동으로 전체화면」 — 브라우저는 손가락이 닿아야 전체화면을 허락한다 → 첫 터치 때 한 번(아이폰 사파리는 이 기능이 없다 — 홈 화면에 추가하면 주소창 없이 열린다)
     var phone = window.matchMedia && matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 820, de = document.documentElement;

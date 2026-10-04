@@ -34,7 +34,7 @@ def jput(name, o):
 
 def seoul_gus():
     g = json.load(open(HJD, encoding='utf-8'))
-    feats = [f for f in g['features'] if f['properties']['adm_cd2'].startswith('11')]
+    feats = [f for f in g['features'] if f['properties']['adm_cd2'][:2] in ('11', '41')]   # v0.10.99 경기도 더함(주민·경계만 — 생활인구·카드 매출은 서울 자료)
     gus = {}
     for f in feats: gus.setdefault(f['properties']['sgg'], f['properties']['sggnm'])
     return feats, gus
@@ -46,7 +46,7 @@ def fetch_jumin(gus):
     y, m = JUMIN_YM[:4], JUMIN_YM[4:]
     for gu in sorted(gus):
         if gu in have: continue
-        body = ('tableChart=T&sltOrgType=2&sltOrgLvl1=1100000000&sltOrgLvl2=%s00000&sltUndefType=&nowYear=%s&searchYearMonth=month&searchYearStart=%s&searchMonthStart=%s'
+        body = ('tableChart=T&sltOrgType=2&sltOrgLvl1=' + gu[:2] + '00000000&sltOrgLvl2=%s00000&sltUndefType=&nowYear=%s&searchYearMonth=month&searchYearStart=%s&searchMonthStart=%s'
                 '&searchYearEnd=%s&searchMonthEnd=%s&sum=sum&sltArgTypes=10&sltArgTypeA=0&sltArgTypeB=100') % (gu, y, y, m, y, m)
         t = urllib.request.urlopen(urllib.request.Request('https://jumin.mois.go.kr/ageStatMonth.do', data=body.encode(), headers={'User-Agent': 'Mozilla/5.0'}), timeout=60).read().decode('utf-8', 'replace')
         rows = {}
@@ -177,7 +177,7 @@ def build():
         pth = os.path.join(d, 'dong.json'); pth2 = os.path.join(d, 'dongx.json')
         open(pth, 'w', encoding='utf-8', newline='\n').write(json.dumps(doc, ensure_ascii=False, separators=(',', ':')))
         open(pth2, 'w', encoding='utf-8', newline='\n').write(json.dumps({'schema': 'tg-rdongx/1', 'gu': gu, 'quarters': QS, 'dong': ext}, ensure_ascii=False, separators=(',', ':')))
-        idx.append({'gu': gu, 'name': gus[gu], 'box': [round(v, 5) for v in box], 'n': len(out), 'd': [[o['name']] + o['c'] for o in out], 'bytes': {'dong': os.path.getsize(pth), 'dongx': os.path.getsize(pth2)}})
+        idx.append({'gu': gu, 'sido': gu[:2], 'name': gus[gu], 'box': [round(v, 5) for v in box], 'n': len(out), 'd': [[o['name']] + o['c'] for o in out], 'bytes': {'dong': os.path.getsize(pth), 'dongx': os.path.getsize(pth2)}})
         print(gu, gus[gu], len(out), os.path.getsize(pth), os.path.getsize(pth2))
     try:   # 다른 굽기(상권·점포·승하차·안전)가 적어 둔 바이트·층은 남긴다
         old = json.load(open(os.path.join(ROOT, 'data', 'r', 'index.json'), encoding='utf-8')); om = {g['gu']: g for g in old.get('gus', [])}
