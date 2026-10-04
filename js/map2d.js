@@ -268,14 +268,20 @@
   function hourKey(lv, color) { var b = []; lv.forEach(function (l, i) { if (l === 2) b.push(i); }); var r = [], s0 = null;
     b.forEach(function (h, k) { if (s0 == null) s0 = h; if (b[k + 1] !== h + 1) { r.push(s0 === h ? s0 + '시' : s0 + '~' + h + '시'); s0 = null; } });
     return '<div class="hk"><i style="background:' + C_BUSY + '"></i>붐빔' + (r.length ? ' <b>' + r.join(' · ') + '</b>' : '') + ' <i style="background:' + (color || '#3b82f6') + '"></i>보통 <i style="background:' + C_QUIET + '"></i>한산 <i class="nw"></i>지금</div>'; }
-  function bar(arr, color, lab) { var mx = Math.max.apply(null, arr) || 1;
+  function bar(arr, color, lab, fmt) { var mx = Math.max.apply(null, arr) || 1;
     if (arr.length === 24) { var mn = Math.min.apply(null, arr), lv = arr.map(function (v) { return hourLv(v, mx, mn); }), hh = nowH();
-      return '<div class="bars h24">' + arr.map(function (v, i) { return '<i title="' + i + '시 ' + Math.round(v).toLocaleString() + '" class="' + (i === hh ? 'n' : '') + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (lv[i] === 2 ? C_BUSY : lv[i] === 0 ? C_QUIET : (color || '#3b82f6')) + '"></i>'; }).join('') + '</div>' + hourAxis(lv) + hourKey(lv, color); }
-    var ok = lab && lab.length === arr.length, few = ok && arr.length <= 12;
-    return (few ? '<div class="vx">' + arr.map(function (v) { return '<span>' + (v ? shortN(v) : '') + '</span>'; }).join('') + '</div>' : '') +
+      return vxRow(arr, hh) + '<div class="bars h24">' + arr.map(function (v, i) { return '<i title="' + i + '시 ' + Math.round(v).toLocaleString() + '" class="' + (i === hh ? 'n' : '') + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (lv[i] === 2 ? C_BUSY : lv[i] === 0 ? C_QUIET : (color || '#3b82f6')) + '"></i>'; }).join('') + '</div>' + hourAxis(lv) + hourKey(lv, color); }
+    var ok = lab && lab.length === arr.length;
+    return vxRow(arr, null, fmt) +
       '<div class="bars">' + arr.map(function (v, i) { return '<i title="' + esc(ok ? String(lab[i]).replace(/<[^>]+>/g, '') : String(i)) + ' ' + shortN(v) + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (color || '#3b82f6') + '"></i>'; }).join('') + '</div>' +
       (ok ? '<div class="lx">' + lab.map(function (t) { return '<span>' + t + '</span>'; }).join('') + '</div>' : ''); }
   // v0.10.86 막대 눈금 글자 — 소유자 「세로 막대에 몇 년도인지 숫자로 · 막대만 덜렁 있으니 이해하기 어렵다」
+  // v0.10.87 막대 위 값 — 소유자 「모든 막대에 숫자 · 좁으면 작게 · 지저분하면 처음·끝·중요한 것만」: 12칸 이하면 전부, 넘으면 처음·끝·가장 큰 값(·지금 시각)
+  function vxRow(arr, now, fmt) { var F = fmt === 'w' ? wonS : shortN; var n = arr.length, mx = -Infinity, im = 0; arr.forEach(function (v, i) { if (v > mx) { mx = v; im = i; } });
+    var show = n <= 12 ? null : [0, n - 1, im].concat(now != null ? [now] : []);
+    return '<div class="vx' + (n > 12 ? ' many' : '') + '">' + arr.map(function (v, i) { var on = show ? show.indexOf(i) >= 0 : true;
+      return '<span class="' + (i === im && n > 1 ? 'mx' : '') + (now === i ? ' n' : '') + '">' + (on && v ? F(v) : '') + '</span>'; }).join('') + '</div>'; }
+  function wonS(v) { return won(v).replace(/원$/, ''); }   // 만원 단위 값 → 「6,347만」「1.9억」
   function shortN(v) { v = +v || 0; var a = Math.abs(v); return a >= 1e8 ? (v / 1e8).toFixed(a >= 1e9 ? 0 : 1) + '억' : a >= 1e4 ? (v / 1e4).toFixed(a >= 1e5 ? 0 : 1) + '만' : a >= 100 ? Math.round(v).toLocaleString() : a >= 10 ? Math.round(v) : (Math.round(v * 10) / 10); }
   function yLab(y0, n) { var o = []; for (var i = 0; i < n; i++) o.push('<b>' + String(y0 + i).slice(0, 2) + '</b>' + String(y0 + i).slice(2)); return o; }
   function qLab(qs) { return qs.map(function (q) { return q[4] === '1' ? "'" + q.slice(2, 4) : ''; }); }
@@ -658,21 +664,21 @@
   function salesTrend(name) {
     var T = D.trend && D.trend.sales && D.trend.sales.items[name]; if (!T) return ''; var qs = D.trend.sales.quarters.filter(function (q) { return T[q]; }); if (qs.length < 2) return ''; var b = bandOf(nowH());
     var lab = function (q) { return q.slice(2, 4) + '.' + q[4] + 'Q'; };
-    return '<div class="cap">분기 매출 추이(' + lab(qs[0]) + '~' + lab(qs[qs.length - 1]) + ')</div>' + bar(qs.map(function (q) { return T[q][0]; }), '#6d28d9') +
-      '<div class="cap">분기 주점·노래방류 매출</div>' + bar(qs.map(function (q) { return T[q][7]; }), '#b45309', qLab(qs)) + '<div class="cap">분기 ' + esc(D.flow.sales.tb[b]) + ' 매출</div>' + bar(qs.map(function (q) { return T[q][1 + b]; }), '#a78bfa', qLab(qs));
+    return '<div class="cap">분기 매출 추이(' + lab(qs[0]) + '~' + lab(qs[qs.length - 1]) + ')</div>' + bar(qs.map(function (q) { return T[q][0]; }), '#6d28d9', qLab(qs), 'w') +
+      '<div class="cap">분기 주점·노래방류 매출</div>' + bar(qs.map(function (q) { return T[q][7]; }), '#b45309', qLab(qs), 'w') + '<div class="cap">분기 ' + esc(D.flow.sales.tb[b]) + ' 매출</div>' + bar(qs.map(function (q) { return T[q][1 + b]; }), '#a78bfa', qLab(qs), 'w');
   }
   function salesRows(name) {
     var x = FLOW.sales[name]; if (!x) return ''; var S5 = D.flow.sales, b = bandOf(nowH()), now = salesNow(name);
     var top = x.top.slice().sort(function (p, q) { return q[2 + b] - p[2 + b]; }).filter(function (t) { return t[2 + b] > 0; }).slice(0, 4);
     return row('카드 매출(추정)', '한 달 약 ' + won(x.amt) + ' · 결제 ' + man(x.cnt) + '건') + row('지금 시간대', esc(S5.tb[b]) + ' — 시간당 약 ' + won(now.perH) + ' <em>(하루 평균)</em>') +
       (top.length ? row('지금 많은 업종', top.map(function (t) { return esc(t[0]); }).join(' · ')) : '') +
-      '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24시)</div>' + bar(x.tb.map(function (v, i) { return v / TBH[i]; }), '#7c3aed', LB_TB6) +
-      '<div class="cap">요일(월~일)</div>' + bar(x.dw, '#a78bfa', LB_DW) + salesTrend(name) + '<div class="src">' + esc(S5.source) + (D.trend ? ' · 추이: ' + esc(D.trend.sales.source) : '') + '</div>';
+      '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24시 · 하루 평균)</div>' + bar(x.tb.map(function (v, i) { return v / TBH[i] / 30.4; }), '#7c3aed', LB_TB6, 'w') +
+      '<div class="cap">요일(월~일)</div>' + bar(x.dw, '#a78bfa', LB_DW, 'w') + salesTrend(name) + '<div class="src">' + esc(S5.source) + (D.trend ? ' · 추이: ' + esc(D.trend.sales.source) : '') + '</div>';
   }
   function onoffC(a, b, al) { var c = a > b * 1.25 ? '37,99,235' : b > a * 1.25 ? '234,88,12' : '13,148,136'; return 'rgba(' + c + ',' + al + ')'; }
   function bar2(on, off) { var mx = 1, hh = nowH(), sm = [], sx = 1; for (var i = 0; i < 24; i++) { mx = Math.max(mx, on[i], off[i]); sm[i] = on[i] + off[i]; sx = Math.max(sx, sm[i]); }
     var sn = Math.min.apply(null, sm), lv = sm.map(function (v) { return hourLv(v, sx, sn); });
-    return '<div class="bars h24 b2">' + on.map(function (v, i) { var op = i === hh ? 1 : lv[i] === 0 ? 0.35 : 0.7; return '<span class="hb' + (lv[i] === 2 ? ' b' : '') + (i === hh ? ' n' : '') + '"><i title="' + i + '시 승차" style="height:' + Math.round(v / mx * 100) + '%;background:#2563eb;opacity:' + op + '"></i><i title="' + i + '시 하차" style="height:' + Math.round(off[i] / mx * 100) + '%;background:#ea580c;opacity:' + op + '"></i></span>'; }).join('') + '</div>' + hourAxis(lv) +
+    return vxRow(sm, hh) + '<div class="bars h24 b2">' + on.map(function (v, i) { var op = i === hh ? 1 : lv[i] === 0 ? 0.35 : 0.7; return '<span class="hb' + (lv[i] === 2 ? ' b' : '') + (i === hh ? ' n' : '') + '"><i title="' + i + '시 승차" style="height:' + Math.round(v / mx * 100) + '%;background:#2563eb;opacity:' + op + '"></i><i title="' + i + '시 하차" style="height:' + Math.round(off[i] / mx * 100) + '%;background:#ea580c;opacity:' + op + '"></i></span>'; }).join('') + '</div>' + hourAxis(lv) +
       '<div class="hk"><i style="background:#2563eb"></i>승차 <i style="background:#ea580c"></i>하차 · <u></u>붐빔(승하차 합)' + (function () { var b = []; lv.forEach(function (l, i) { if (l === 2) b.push(i); }); var r = [], s0 = null; b.forEach(function (h, k) { if (s0 == null) s0 = h; if (b[k + 1] !== h + 1) { r.push(s0 === h ? s0 + '시' : s0 + '~' + h + '시'); s0 = null; } }); return r.length ? ' <b>' + r.join(' · ') + '</b>' : ''; })() + ' <i class="nw"></i>지금</div>'; }
   function onoffRows(f) {
     var hh = nowH(), on = f[0], off = f[1], so = on.reduce(function (a, b) { return a + b; }, 0), sf = off.reduce(function (a, b) { return a + b; }, 0);
@@ -707,7 +713,7 @@
     if (cw) h += row(cw.kind === 'now' ? '지금' : cw.kind === 'fcst' ? '예측(' + esc(cw.t.slice(11, 16)) + ')' : '받은 때', '<b style="color:' + (LVC[cw.lvl] || '#64748b') + '">' + esc(cw.lvl) + '</b> · ' + (cw.min ? man(cw.min) + '~' + man(cw.max) + '명' : '-') + (cw.kind === 'old' ? ' <em>(' + esc(cw.t) + ' 값 — 지금이 아니다)</em>' : cw.kind === 'fcst' ? ' <em>(서울시 예측)</em>' : ''));
     if (p.msg) h += '<p class="desc">' + esc(p.msg) + '</p>';
     if (p.age) h += row('남·여', Math.round(p.male) + ' : ' + Math.round(100 - p.male) + ' · 상주 ' + Math.round(p.resnt) + '%') + '<div class="cap">연령(10세 미만 … 70대 이상 · ' + esc(p.time) + ')</div>' + bar(p.age, '#0ea5e9', ageLab(p.age.length));
-    if (p.fcst && p.fcst.length) h += '<div class="cap">앞으로 12시간 예측(' + esc(p.fcst[0][0].slice(11, 16)) + '~ · 인구 상한)</div>' + bar(p.fcst.map(function (f) { return f[3] || 0; }), '#64748b');
+    if (p.fcst && p.fcst.length) h += '<div class="cap">앞으로 12시간 예측(' + esc(p.fcst[0][0].slice(11, 16)) + '~ · 인구 상한)</div>' + bar(p.fcst.map(function (f) { return f[3] || 0; }), '#64748b', p.fcst.map(function (f) { return String(f[0]).slice(11, 13) + '시'; }));
     if (c) { h += row('실시간 카드', '<b style="color:' + (LVC[c.lvl] || '#64748b') + '">' + esc(c.lvl) + '</b> · 결제 ' + c.cnt + '건 · ' + won(c.amin / 1e4) + '~' + won(c.amax / 1e4) + ' <em>(' + esc(String(c.time || '').replace(/^(\d{4})(\d\d)(\d\d) (\d\d)(\d\d)$/, '$2-$3 $4:$5')) + ' 표본)</em>');
       if (c.rsb && c.rsb.length) h += row('업종', c.rsb.map(function (x) { return esc(x[1]) + ' ' + esc(x[2]) + ' ' + (x[3] || 0) + '건'; }).join(' · '));
       if (c.age) h += '<div class="cap">결제 연령(10대 … 60대 이상)</div>' + bar(c.age, '#7c3aed', c.age.length === 6 ? LB_AGE6 : null); }
@@ -851,7 +857,7 @@
     if (ind.length) { var amt = ind.reduce(function (a, r) { return a + r[1]; }, 0), co = ind.reduce(function (a, r) { return a + r[2]; }, 0), S3 = function (k) { return ind.reduce(function (a, r) { return a + r[k]; }, 0); };
       h += row('카드 매출(추정)', '한 달 ' + won(amt) + ' · 결제 ' + man(co) + '건 <em>(' + Q.slice(0, 4) + '년 ' + Q[4] + '분기)</em>') + row('남·여', pct(S3(15), S3(15) + S3(16)) + ' : ' + pct(S3(16), S3(15) + S3(16)));
       h += row('지금 시간대', TBL[b] + '시 — 시간당 약 ' + won(S3(3 + b) / TBH[b] / 30.4) + ' · 많은 업종 ' + ind.slice().sort(function (p, q) { return q[3 + b] - p[3 + b]; }).slice(0, 3).map(function (r) { return esc(r[0]); }).join(' · '));
-      h += '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(3 + i) / TBH[i]; }), '#7c3aed', LB_TB6) + '<div class="cap">연령대 매출(10대 … 60+)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(9 + i); }), '#a78bfa', LB_AGE6) + '<div class="cap">요일(월~일)</div>' + bar([0, 1, 2, 3, 4, 5, 6].map(function (i) { return S3(17 + i); }), '#c4b5fd');
+      h += '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24 · 하루 평균)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(3 + i) / TBH[i] / 30.4; }), '#7c3aed', LB_TB6, 'w') + '<div class="cap">연령대 매출(10대 … 60+)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(9 + i); }), '#a78bfa', LB_AGE6, 'w') + '<div class="cap">요일(월~일)</div>' + bar([0, 1, 2, 3, 4, 5, 6].map(function (i) { return S3(17 + i); }), '#c4b5fd', LB_DW, 'w');
       var co2 = S3(2), wk = S3(17) + S3(18) + S3(19) + S3(20) + S3(21), we = S3(22) + S3(23), lunch = S3(5), eve = S3(7), nite = S3(8) + S3(3), pk = Math.max(lunch, eve, nite);
       h += row('객단가', (co2 ? Math.round(amt * 1e4 / co2).toLocaleString() : '-') + '원(건당 결제) · 주중 ' + pct(wk, wk + we) + '% · 주말 ' + pct(we, wk + we) + '%');
       h += row('피크', (pk === lunch ? '점심형(11~14시)' : pk === eve ? '저녁형(17~21시)' : '야간형(21~6시)') + ' — 점심 ' + pct(lunch, amt) + '% · 저녁 ' + pct(eve, amt) + '% · 밤 ' + pct(nite, amt) + '%');
@@ -861,12 +867,12 @@
       h += barRows(ind, '이 상권');
       h += '<div class="cap">업종 × 연령(그 업종 매출 안 비중 % · 매출 많은 업종 8)</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(그 업종 매출 안 비중 % · 테두리 = 지금)</div>' + indTable(ind, 'tb'); }
     else h += row('카드 매출', '이 상권은 매출 자료가 없다');
-    if (t.flp) { var f = t.flp; h += row('유동인구', '분기 ' + man(f[0]) + '명 · 하루 약 ' + man(f[0] / 91) + ' · 남 ' + pct(f[1], f[0]) + '%') + '<div class="cap">유동인구 시간대(0~6 … 21~24 · 시간당)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return f[9 + i] / TBH[i]; }), '#0284c7', LB_TB6) + '<div class="cap">유동인구 연령(10대 … 60+)</div>' + bar(f.slice(3, 9), '#38bdf8'); }
+    if (t.flp) { var f = t.flp; h += row('유동인구', '분기 ' + man(f[0]) + '명 · 하루 약 ' + man(f[0] / 91) + ' · 남 ' + pct(f[1], f[0]) + '%') + '<div class="cap">유동인구 시간대(0~6 … 21~24 · 시간당)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return f[9 + i] / TBH[i]; }), '#0284c7', LB_TB6) + '<div class="cap">유동인구 연령(10대 … 60+)</div>' + bar(f.slice(3, 9), '#38bdf8', LB_AGE6); }
     if (t.wrc) h += row('직장인구', man(t.wrc[0]) + '명 · 20·30대 ' + pct(t.wrc[4] + t.wrc[5], t.wrc[0]) + '%');
     if (t.rep) h += row('상주인구', man(t.rep[0]) + '명 · 가구 ' + man(t.rep[9]) + '(아파트 ' + man(t.rep[10]) + ')');
     if (t.stor && t.stor.length) { var st = t.stor.slice().sort(function (p, q) { return q[1] - p[1]; }), sn = st.reduce(function (a, s) { return a + s[1]; }, 0); h += row('점포', sn + '곳 · 개업 ' + st.reduce(function (a, s) { return a + s[3]; }, 0) + ' · 폐업 ' + st.reduce(function (a, s) { return a + s[4]; }, 0) + ' · 많은 업종 ' + st.slice(0, 4).map(function (s) { return esc(s[0]) + ' ' + s[1]; }).join(' · ')); }
     if (t.fac) { var FN = D.trdar.fields.fac, fs = t.fac.map(function (v, i) { return v ? FN[i] + ' ' + v : ''; }).filter(Boolean); if (fs.length) h += row('집객시설', esc(fs.join(' · '))); }
-    if (t.tr) { var qs = Object.keys(t.tr).sort(); h += '<div class="cap">분기 매출 추이(' + qs[0].slice(2, 4) + '.' + qs[0][4] + 'Q~' + qs[qs.length - 1].slice(2, 4) + '.' + qs[qs.length - 1][4] + 'Q)</div>' + bar(qs.map(function (q) { return t.tr[q][0]; }), '#6d28d9') + '<div class="cap">분기 밤(21~6시) 매출 · 주점·유흥 매출</div>' + bar(qs.map(function (q) { return t.tr[q][2]; }), '#1e3a8a') + bar(qs.map(function (q) { return t.tr[q][1]; }), '#b45309'); }
+    if (t.tr) { var qs = Object.keys(t.tr).sort(); h += '<div class="cap">분기 매출 추이(' + qs[0].slice(2, 4) + '.' + qs[0][4] + 'Q~' + qs[qs.length - 1].slice(2, 4) + '.' + qs[qs.length - 1][4] + 'Q)</div>' + bar(qs.map(function (q) { return t.tr[q][0]; }), '#6d28d9', qLab(qs), 'w') + '<div class="cap">분기 밤(21~6시) 매출 · 주점·유흥 매출</div>' + bar(qs.map(function (q) { return t.tr[q][2]; }), '#1e3a8a', qLab(qs), 'w') + bar(qs.map(function (q) { return t.tr[q][1]; }), '#b45309', qLab(qs), 'w'); }
     return h + '<p class="desc">' + esc(D.trdar.note) + '</p>' + src(D.trdar.source);
   }
   function indCompare(t) {   // 업종 | 한 달 매출 | 객단가 | 피크 | 점포(개업/폐업) — 같은 업종 경쟁

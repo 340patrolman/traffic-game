@@ -65,6 +65,11 @@
   #m2dCard .lx span, #m2dCard .vx span { flex: 1; min-width: 0; text-align: center; font-size: 10px; line-height: 13px; color: var(--ink2); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; letter-spacing: -.4px; }
   #m2dCard .vx span { color: var(--ink); font-weight: 700; font-size: 9.5px; }
   #m2dCard .lx span b { font-weight: inherit; }
+  #m2dCard .vx.many span { overflow: visible; }
+  #m2dCard .vx.many span:first-child { text-align: left; } #m2dCard .vx.many span:last-child { text-align: right; }
+  #m2dCard .vx span.mx { color: #b91c1c; }
+  #m2dCard .vx span.n { color: var(--ink); text-decoration: underline; }
+  @media (max-width: 420px) { #m2dCard .vx span { font-size: 8.5px; letter-spacing: -.6px; } }
   @media (max-width: 340px) { #m2dCard .lx span b { display: none; } }
   /* v0.10.83 24시간 막대 — 시각 숫자 · 붐빔 색 · 지금 테 */
   #m2dCard .bars.h24 i.n { outline: 2px solid var(--ink); outline-offset: 0; }
@@ -207,7 +212,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.86"></script>
+<script src="js/map2d.js?v=0.10.87"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
