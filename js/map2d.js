@@ -724,9 +724,13 @@
   }
   function paintPre() {
     var el = $('m2dPre'); if (!el) return;
-    el.innerHTML = PRESETS.map(function (x) { var act = LAYERS.every(function (l) { return KEEP.indexOf(l[0]) >= 0 || on[l[0]] === (x[2].indexOf(l[0]) >= 0); }); return '<button data-p="' + x[0] + '" class="' + (act ? 'on' : '') + '">' + x[1] + '</button>'; }).join('');
+    el.innerHTML = PRESETS.map(function (x) { var act = LAYERS.every(function (l) { return KEEP.indexOf(l[0]) >= 0 || on[l[0]] === (x[2].indexOf(l[0]) >= 0); }); return '<button data-p="' + x[0] + '" class="' + (act ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
+      '<button data-x="none" class="ctl">모두 끄기</button><button data-x="reset" class="ctl">처음대로</button>';
   }
-  if ($('m2dPre')) { $('m2dPre').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) preset(b.getAttribute('data-p')); }); }
+  // v0.10.82 모두 끄기(행정동·도로·바탕만 남김) · 처음대로(층마다 기본값) — 근무별 줄과 「☰ 모든 층」 판이 같이 쓴다
+  function layersNone() { LAYERS.forEach(function (l) { on[l[0]] = false; }); on.dong = true; on.road = true; on.base = true; saveOn(); paintLayers(); paintPre(); sel = null; show(null); draw(); summary(); }
+  function layersReset() { LAYERS.forEach(function (l) { on[l[0]] = l[2]; }); saveOn(); paintLayers(); paintPre(); draw(); summary(); }
+  if ($('m2dPre')) { $('m2dPre').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; var x = b.getAttribute('data-x'); if (x === 'none') layersNone(); else if (x === 'reset') layersReset(); else preset(b.getAttribute('data-p')); }); }
   var SUMT = [];
   function summary() {
     var el = $('m2dSum'); if (!el || !DONG.length) return; var h = nowH(), out = [], it; SUMT = [];
@@ -1047,8 +1051,8 @@
     var b = e.target.closest('button'); if (!b) return; var pn = $('m2dPanel');
     if (b.getAttribute('data-all')) { pn.classList.toggle('on'); return; }
     if (b.getAttribute('data-close')) { pn.classList.remove('on'); return; }
-    if (b.getAttribute('data-none')) { LAYERS.forEach(function (l) { on[l[0]] = false; }); on.dong = true; on.road = true; on.base = true; saveOn(); paintLayers(); draw(); return; }
-    if (b.getAttribute('data-reset')) { LAYERS.forEach(function (l) { on[l[0]] = l[2]; }); saveOn(); paintLayers(); draw(); return; }
+    if (b.getAttribute('data-none')) { layersNone(); return; }
+    if (b.getAttribute('data-reset')) { layersReset(); return; }
     var k = b.getAttribute('data-k'); if (k) toggle(k);
   }
   var pnEl = document.createElement('div'); pnEl.id = 'm2dPanel'; document.body.appendChild(pnEl);
