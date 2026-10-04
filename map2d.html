@@ -23,7 +23,8 @@
   #m2dDate { width: 138px; }
   #m2dFindMsg { font-size: 12px; color: var(--ink2); min-height: 0; }
   #m2dFindMsg:empty { display: none; }
-  #m2dLayers { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 2px; scrollbar-width: none; }
+  #m2dLayers { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: max-content; gap: 5px 6px; overflow-x: auto; padding: 6px 0 2px; scrollbar-width: none; }
+  #m2dLayers button.all { grid-row: 1 / 3; height: auto !important; }
   #m2dLayers::-webkit-scrollbar { display: none; }
   #m2dLayers button { flex: 0 0 auto; height: 34px; padding: 0 11px; border-radius: 17px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 13px; white-space: nowrap; cursor: pointer; }
   #m2dLayers button.on { background: var(--chipOn); color: var(--chipOnInk); border-color: var(--chipOn); font-weight: 700; }
@@ -175,7 +176,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.79"></script>
+<script src="js/map2d.js?v=0.10.80"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {

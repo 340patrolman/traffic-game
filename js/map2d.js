@@ -52,7 +52,9 @@
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
     osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  Promise.all(Object.keys(FILES).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); trdPrep(); safePrep(); a10Prep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary(); });
+  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
+  Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
+    Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
     if (D.bld !== undefined) return;
     D.bld = null; fetch('data/maps/seocho-full-buildings.json').then(function (r) { return r.json(); }).then(function (j) { D.bld = j; prepBld(); draw(); }).catch(function () {});
@@ -1019,7 +1021,7 @@
   var lay = $('m2dLayers');
   function paintLayers() {
     lay.innerHTML = '<button data-all="1" class="all">☰ 모든 층 <b>' + LAYERS.filter(function (l) { return on[l[0]]; }).length + '</b></button>' +
-      LAYERS.filter(function (l) { return l[4] || on[l[0]]; }).map(function (l) { return '<button data-k="' + l[0] + '" class="' + (on[l[0]] ? 'on' : '') + '">' + l[1] + '</button>'; }).join('');
+      LAYERS.slice().sort(function (a, b) { return (on[b[0]] ? 2 : b[4] ? 1 : 0) - (on[a[0]] ? 2 : a[4] ? 1 : 0); }).map(function (l) { return '<button data-k="' + l[0] + '" class="' + (on[l[0]] ? 'on' : '') + '">' + l[1] + '</button>'; }).join('');
     var pn = $('m2dPanel'); if (!pn) return;
     var G = []; LAYERS.forEach(function (l) { if (G.indexOf(l[3]) < 0) G.push(l[3]); });
     pn.innerHTML = '<div class="ph"><b>☰ 모든 층</b><button class="x" data-close="1">닫기</button></div>' + G.map(function (g) {
