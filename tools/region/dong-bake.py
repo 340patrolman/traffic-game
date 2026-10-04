@@ -41,20 +41,20 @@ def seoul_gus():
 
 # ---------- 받기 ----------
 def fetch_jumin(gus):
-    name = 'jumin_%s.json' % JUMIN_YM
+    name = 'jumin_%sg.json' % JUMIN_YM   # v0.10.100 성별 칸까지(gender=gender) — 옛 jumin_<월>.json 은 총계만
     have = jget(name) or {}
     y, m = JUMIN_YM[:4], JUMIN_YM[4:]
     for gu in sorted(gus):
         if gu in have: continue
         body = ('tableChart=T&sltOrgType=2&sltOrgLvl1=' + gu[:2] + '00000000&sltOrgLvl2=%s00000&sltUndefType=&nowYear=%s&searchYearMonth=month&searchYearStart=%s&searchMonthStart=%s'
-                '&searchYearEnd=%s&searchMonthEnd=%s&sum=sum&sltArgTypes=10&sltArgTypeA=0&sltArgTypeB=100') % (gu, y, y, m, y, m)
+                '&searchYearEnd=%s&searchMonthEnd=%s&sum=sum&gender=gender&sltArgTypes=10&sltArgTypeA=0&sltArgTypeB=100') % (gu, y, y, m, y, m)
         t = urllib.request.urlopen(urllib.request.Request('https://jumin.mois.go.kr/ageStatMonth.do', data=body.encode(), headers={'User-Agent': 'Mozilla/5.0'}), timeout=60).read().decode('utf-8', 'replace')
         rows = {}
         for r in re.findall(r'<tr[^>]*>(.*?)</tr>', t, re.S):
             c = [re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', x)).strip() for x in re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', r, re.S)]
-            if len(c) >= 15 and re.fullmatch(r'\d{10}', c[0]):
-                n = [int(x.replace(',', '') or 0) for x in c[2:15]]
-                rows[c[0]] = {'name': c[1], 'tot': n[0], 'age': n[2:12], 'a100': n[12]}
+            if len(c) >= 41 and re.fullmatch(r'\d{10}', c[0]):
+                n = [int(x.replace(',', '') or 0) for x in c[2:41]]
+                rows[c[0]] = {'name': c[1], 'tot': n[0], 'age': n[2:12], 'a100': n[12], 'm': n[13], 'mage': n[15:25], 'f': n[26], 'fage': n[28:38]}
         have[gu] = rows; jput(name, have); print('jumin', gu, gus[gu], len(rows)); time.sleep(0.5)
     return have
 
@@ -110,7 +110,7 @@ def build():
     import shapely
     from shapely.geometry import shape, mapping
     feats, gus = seoul_gus()
-    jum = jget('jumin_%s.json' % JUMIN_YM) or {}
+    jum = jget('jumin_%sg.json' % JUMIN_YM) or jget('jumin_%s.json' % JUMIN_YM) or {}
     live = (jget('live_202607.json') or {}).get('dong', {})
     qfiles = sorted(f for f in os.listdir(OUT) if f.startswith('sales_'))
     sales = [jget(f) for f in qfiles]; QS = [s['q'] for s in sales]; last = sales[-1]
@@ -139,7 +139,9 @@ def build():
                 b = pg.bounds; box = [min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3])]
             o = {'k': k, 'name': nm, 'polys': P}
             jp = J.get(p['adm_cd2']) or jn.get(nm)
-            if jp: o['pop'] = {'tot': jp['tot'], 'age': jp['age']}
+            if jp:
+                o['pop'] = {'tot': jp['tot'], 'age': jp['age']}
+                if 'mage' in jp: o['pop'].update({'m': jp['m'], 'f': jp['f'], 'mage': jp['mage'], 'fage': jp['fage']})
             else: miss['jumin'] += 1
             if k in live: o['live'] = live[k]
             else: miss['live'] += 1
@@ -167,7 +169,7 @@ def build():
         doc = {'schema': 'tg-rdong/1', 'gu': gu, 'name': gus[gu], 'baked': time.strftime('%Y-%m-%d'),
                'quarter': QS[-1], 'quarters': QS, 'tb': ['0~6시', '6~11시', '11~14시', '14~17시', '17~21시', '21~24시'],
                'source': {'경계': '통계청 SGIS 행정동 경계(vuski/admdongkor HangJeongDong_ver20260701 · 공공누리 제1유형) · 공유 변 함께 약 4m 단순화',
-                          '주민': '행정안전부 주민등록 인구통계 · 행정동별 연령별 인구(jumin.mois.go.kr) · %s년 %s월 · 10세 구간(100세 이상 제외)' % (JUMIN_YM[:4], int(JUMIN_YM[4:])),
+                          '주민': '행정안전부 주민등록 인구통계 · 행정동별 연령별 인구(jumin.mois.go.kr) · %s년 %s월 · 10세 구간(100세 이상 제외) · 남녀(m·f·mage·fage)' % (JUMIN_YM[:4], int(JUMIN_YM[4:])),
                           '생활인구': '서울시 행정동 단위 생활인구(LOCAL_PEOPLE_DONG) 2026년 7월 — 평일·주말 시간대 평균(명) · KT 통신 자료로 추정한 「그 시각 그 동에 있는 사람 수」',
                           '매출': '서울시 상권분석서비스 추정매출-행정동(VwsmAdstrdSelngW) %s년 %s분기 — 카드사 결제로 추정한 매출(만원)' % (QS[-1][:4], QS[-1][4]),
                           '업종 줄': '[이름, 매출, 건수, 시간대 금액 6, 연령 금액 6, 남, 여, 요일 금액 7, 시간대 건수 6, 연령 건수 6] — dongx.json',

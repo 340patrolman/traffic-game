@@ -39,6 +39,7 @@ SETS = [
     ['data/r/11680/safety.json', 182, 'auto', '서울 단속 카메라·어린이보호구역·생활안전 시설 — 07_API키/out/region/safe_* 를 지우고 `py -3.12 -X utf8 tools/region/safety-bake.py fetch` → `build`'],
     ['data/r/11680/taas10.json', 365, 'hand', 'TAAS 사고 서울 25개 구 — TAAS GIS 화면 안에서 모으기(CLAUDE.md v0.10.96 절차) → 07_API키/out/region/taas10_raw.json → `py -3.12 -X utf8 tools/region/taas10-bake.py` · 새 해(2026) 자료가 열리면'],
     ['data/r/11560/season.json', 182, 'auto', '서울 계절 위험(침수흔적도 봄마다 전년분 · 제설함 · 열선) — tools/season-bake.py 와 같은 원자료를 다시 받은 뒤 `py -3.12 -X utf8 tools/region/season-bake.py`(바탕 조각 data/base/t 길을 쓴다)'],
+    ['data/r/11680/fac.json', 92, 'auto', '동 현황 보강(남녀 · 어린이집·유치원 해마다 · 경로당 · 입시학원 · 상권변화지표 · 점포 추이) — 07_API키/out/region/fac 의 받은 것을 지우고 `py -3.12 -X utf8 tools/region/fac-fetch.py` → (dong-bake fetch 로 jumin_<월>g) → `tools/region/fac-bake.py` · 경로당 자리는 osmwork/addr_scan.py(OSM 도로명주소)'],
     ['data/r/index.json', 92, 'auto', '서울 25개 구 행정동(주민 연령 매월 · 상권 매출 분기 · 생활인구 월 파일) — 07_API키/out/region 의 받은 것을 지우거나 JUMIN_YM·LOCAL_PEOPLE 달을 올리고 `py -3.12 -X utf8 tools/region/dong-bake.py fetch` → `build`'],
 ]
 

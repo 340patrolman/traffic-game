@@ -31,6 +31,18 @@
   #m2dDate { width: 138px; }
   #m2dFindMsg { font-size: 12px; color: var(--ink2); min-height: 0; }
   #m2dFindMsg:empty { display: none; }
+  /* v0.10.100 동 현황 — 남녀 피라미드 · 상권변화지표 띠 · 상권 목록 */
+  .dh { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 800; font-size: 14px; }
+  .pyr { font-size: 11px; margin: 4px 0 6px; }
+  .pyr > div { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; gap: 4px; min-height: 15px; }
+  .pyr .hd { font-weight: 800; font-size: 12px; } .pyr .hd .l { color: #2563eb; } .pyr .hd .r { color: #db2777; }
+  .pyr .l, .pyr .r { display: flex; align-items: center; gap: 4px; min-width: 0; } .pyr .l { justify-content: flex-end; }
+  .pyr i { display: block; height: 10px; } .pyr .l i { background: #3b82f6; border-radius: 3px 0 0 3px; } .pyr .r i { background: #ec4899; border-radius: 0 3px 3px 0; }
+  .pyr b { text-align: center; font-weight: 600; color: var(--ink2); } .pyr small { color: var(--ink2); font-size: 10.5px; white-space: nowrap; }
+  .ixs { display: flex; gap: 1px; margin: 3px 0; } .ixs i { flex: 1; height: 14px; border-radius: 2px; }
+  .ixl { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--ink2); margin-bottom: 4px; } .ixl i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+  .lst { font-size: 12.5px; margin: 2px 0 6px; } .lst > div { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; border-bottom: 1px dashed var(--line); }
+  .lst small { color: var(--ink2); flex: 1; } .lst span { white-space: nowrap; font-weight: 700; } .lst .up { color: #16a34a; } .lst .dn { color: #dc2626; }
   /* v0.10.82 두 줄 안에 든 단추만 — 오른쪽에서 잘리지 않게(넘치는 것은 「☰ 모든 층」 판에서) */
   #m2dLayers { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px 6px; overflow: hidden; max-height: 81px; padding: 6px 0 2px; }
   #m2dLayers::-webkit-scrollbar { display: none; }
@@ -334,7 +346,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.99"></script>
+<script src="js/map2d.js?v=0.10.100"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {
