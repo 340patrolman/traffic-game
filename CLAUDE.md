@@ -4284,3 +4284,6 @@ T-Book 세션 요청(소유자 지시 「서초구 지도를 T-Book 교통관리
 * **게임 저장소에 남긴 것**: `map2d.html` = 길잡이(`location.replace('https://340patrolman.github.io/datamap/' + search + hash)`) — **T-Book 의 `traffic-game/map2d.html#lat=..&lon=..&ly=..&h=..&here=1&gps=1` 주소가 그대로 이어진다** · 첫 화면 지도 줄 「🗜 데이터 압축지도」·우리 동네 카드 링크는 새 주소로 · 게임이 같이 쓰는 자료(서초 지도·사고·신호·인구·행사·교통량·카메라·국가유산·교차로·이웃 동·보호구역)는 그대로 둠.
   `tools/data-check.py`(지식베이스 SessionStart 훅이 부름)·`tools/live-refresh.py`(작업 스케줄러가 부름)는 `../datamap/tools/` 의 진짜 도구를 부르는 길잡이 — 실시간 인파 갱신은 이제 datamap 저장소에 커밋·푸시된다.
 * 게임 저장소에서 지도 전용 파일·도구를 지웠다(1,200여 개 · git 기록에는 남는다). 서비스워커 미리 저장 목록에서도 뺐다.
+
+## v0.10.105 — 서비스워커가 같은 도메인의 다른 앱 저장소를 지우던 것
+* `sw.js` activate 가 「자기 판이 아닌 저장소를 모두」 지웠다 — 같은 도메인(340patrolman.github.io)의 **T-Book(`gtw-app-v2`) 오프라인 저장소까지 게임이 새 판을 올릴 때마다 지웠을 수 있다**(예전부터 있던 결함 · 데이터 압축지도 분리 때 발견). 이제 `tg-v` 로 시작하는 자기 판 저장소만 지운다(`tg-tiles`·`dm-v…`·`gtw-app-v2` 는 그대로). datamap 의 sw 도 `dm-v` 만.

@@ -1,6 +1,6 @@
 // SEOUL PATROL 서비스워커: 앱 파일을 미리 저장해 두고(설치형·오프라인), 새 버전이 올라오면 다음 실행 때 바꿔 끼운다.
 // 네트워크 요청은 같은 폴더의 자기 파일뿐이다. 서버·외부 통신 없음.
-var CACHE = 'tg-v0.10.104';
+var CACHE = 'tg-v0.10.105';
 var V = '?v=' + CACHE.slice(5);   // 미리 저장 목록의 판 번호는 CACHE 에서 뽑는다(전엔 0.9.7 에 멈춰 있어 옛 파일을 저장했다)
 var FILES = [
   './', './index.html', './manifest.json', './css/style.css' + V, './data/laws.json', './lib/three.min.js' + V, './lib/GLTFLoader.js' + V,
@@ -12,7 +12,8 @@ self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function (e) {
-  e.waitUntil(caches.keys().then(function (keys) { return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== TILES; }).map(function (k) { return caches.delete(k); })); }).then(function () { return self.clients.claim(); }));
+  e.waitUntil(caches.keys().then(function (keys) { return Promise.all(keys.filter(function (k) { return k.indexOf('tg-v') === 0 && k !== CACHE; })   // v0.10.104 자기 판 저장소(tg-v…)만 지운다 — 같은 도메인의 T-Book(gtw-app-v2)·데이터 압축지도(dm-v…)·바탕 조각(tg-tiles) 저장소를 지우지 않게
+    .map(function (k) { return caches.delete(k); })); }).then(function () { return self.clients.claim(); }));
 });
 // v0.10.90 데이터 압축지도 바탕 조각(data/base/t/) — 판과 상관없는 보관함 tg-tiles 에 두고 먼저 꺼낸다(주소의 ?b= 가 굽은 때라 내용이 바뀌면 주소도 바뀐다)
 var TILES = 'tg-tiles';
