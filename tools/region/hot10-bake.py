@@ -7,7 +7,7 @@
 import json, os, sys, time, math, urllib.request, collections, importlib.util
 from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-KB = os.path.join(os.path.dirname(ROOT), '07_API키'); OUT = os.path.join(KB, 'out', 'region', 'hot10b'); os.makedirs(OUT, exist_ok=True)
+KB = os.path.join(os.path.dirname(ROOT), '07_API키'); OUT = os.path.join(KB, 'out', 'region', 'hot10c'); os.makedirs(OUT, exist_ok=True)
 K = json.load(open(os.path.join(KB, 'keys.json'), encoding='utf-8-sig'))['koroad']
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 TYPES = {'pedstrians': '보행자', 'oldman': '보행노인', 'child': '보행어린이', 'bicycle': '자전거', 'motorcycle': '이륜차', 'truck': '화물차', 'lg': '지자체별', 'freezing': '결빙'}
@@ -35,7 +35,7 @@ def one(t, y, sd, gg):
     json.dump(items, open(fn, 'w', encoding='utf-8'), ensure_ascii=False); time.sleep(0.2); return len(items)
 
 def fetch():
-    jobs = [(t, y, '11', g) for t in TYPES for y in YEARS for g in SEOUL] + [(t, y, '41', g) for t in TYPES for y in YEARS for g in GG]
+    jobs = [(t, y, sd, '') for t in TYPES for y in YEARS for sd in ('11', '41')]   # guGun 을 비우면 시도 전체가 온다(6,640번 → 160번 · 서버가 요청 절반을 떨어뜨려 시군구마다는 10시간 넘게 걸렸다)
     with ThreadPoolExecutor(2) as ex:   # 8개 동시에 부르면 서버가 이 PC 를 한동안 막는다(2026-10-04 · 21초 무응답)
         res = list(ex.map(lambda a: one(*a), jobs))
     print('jobs', len(jobs), 'items', sum(r for r in res if r > 0), 'fail', sum(1 for r in res if r < 0))
