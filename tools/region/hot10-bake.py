@@ -21,21 +21,22 @@ def one(t, y, sd, gg):
     items = []; page = 1
     while True:
         u = 'https://opendata.koroad.or.kr/data/rest/frequentzone/%s?authKey=%s&searchYearCd=%d&siDo=%s&guGun=%s&type=json&numOfRows=100&pageNo=%d' % (t, K, y, sd, gg, page)
-        for i in range(4):
+        for i in range(10):   # 서버가 요청 절반가량을 그냥 떨어뜨린다(성공 0.15초 · 실패는 무응답) — 짧게 기다리고 자주 다시 묻는다
             try:
-                d = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': UA}), timeout=60).read().decode('utf-8')); break
+                d = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': UA}), timeout=6).read().decode('utf-8'))
+                break
             except Exception:
-                time.sleep(2 + 3 * i); d = None
+                time.sleep(1 + i); d = None
         if d is None: return -1
         it = (d.get('items') or {}).get('item') or []
         items += it
         if len(it) < 100: break
         page += 1
-    json.dump(items, open(fn, 'w', encoding='utf-8'), ensure_ascii=False); time.sleep(0.6); return len(items)
+    json.dump(items, open(fn, 'w', encoding='utf-8'), ensure_ascii=False); time.sleep(0.2); return len(items)
 
 def fetch():
     jobs = [(t, y, '11', g) for t in TYPES for y in YEARS for g in SEOUL] + [(t, y, '41', g) for t in TYPES for y in YEARS for g in GG]
-    with ThreadPoolExecutor(1) as ex:   # 8개 동시에 부르면 서버가 이 PC 를 한동안 막는다(2026-10-04 · 21초 무응답)
+    with ThreadPoolExecutor(2) as ex:   # 8개 동시에 부르면 서버가 이 PC 를 한동안 막는다(2026-10-04 · 21초 무응답)
         res = list(ex.map(lambda a: one(*a), jobs))
     print('jobs', len(jobs), 'items', sum(r for r in res if r > 0), 'fail', sum(1 for r in res if r < 0))
 
