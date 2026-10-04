@@ -106,6 +106,7 @@
   #m2dLeg .lg-btns { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
   #m2dLeg .lg-btns button { height: 28px; padding: 0 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 11.5px; cursor: pointer; }
   #m2dLeg .lg-btns button.on { background: var(--chipOn); color: #fff; }
+  #m2dLeg select { height: 30px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-size: 12px; }
   #m2dLoad { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9; background: var(--bg); color: var(--ink2); font-size: 15px; }
 </style>
 </head>
@@ -167,13 +168,14 @@
       <li>상권분석 — 서울시 상권분석서비스(상권 영역 OA-15560 · 업종별 추정매출(카드사 결제 자료로 추정 · 업종 × 시간대·연령·성별·요일) · 길단위 유동인구 · 직장·상주인구 · 점포 · 집객시설 · 상권변화지표 · 2026년 2분기). 업종 × 연령 × 시간대 셋을 함께 나눈 값은 공개되지 않는다</li>
       <li>치안·생활안전 — 서울시 안심귀갓길 시설(코드표 첨부 xlsx)·안심 서비스 · AED · 소방용수 · 서초구 불법주정차 단속 CCTV · 견인차량보관소 · 공중화장실 · 안심택배함 · 치매안심센터(서울 열린데이터광장)</li>
       <li>다발지 10년 — 도로교통공단 다발지역 OpenAPI(2016~2025) · 지하철 10년 — 서울시 CardSubwayTime(해마다 6월) · 카드 매출 추이 — 2021년 1분기~</li>
+      <li>사고 10년 — 도로교통공단 TAAS GIS 사고분석(서초구 2016~2025 · 22,546건 · 100m 칸 · 사망사고 122건 한 건씩 · 나이·성별·상해·사고번호·날짜의 일은 받는 자리에서 버림)</li>
       <li>이 지도는 기기 안에서만 돈다 — 통신 0 · 위치를 묻지 않는다 · 켠 층은 이 기기에만 저장</li>
     </ul>
   </details>
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.78"></script>
+<script src="js/map2d.js?v=0.10.79"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {

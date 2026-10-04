@@ -14,3 +14,4 @@ _audit*
 Claude outputs/
 # 가공 중간 파일(원본 CSV 는 올린다 — 재현을 위해)
 data/raw/_*.csv
+__pycache__/

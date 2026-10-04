@@ -14,7 +14,7 @@
   // 층 = [키, 이름, 기본 켜짐, 갈래, 위 줄 단추]. 위 줄에는 자주 쓰는 것만, 나머지는 「☰ 모든 층」 판에서(v0.10.57 · 소유자 「파출소·지구대에서 써도 좋을 만큼 — 찾을 수 있는 것 싹 다」)
   var LAYERS = [
     ['dong', '🏘 행정동', true, '기본', 1], ['road', '🛣 도로', true, '기본', 1], ['base', '🗺 바탕(물·녹지·철도)', true, '기본', 0], ['bld', '🏢 건물', true, '기본', 0], ['sub', '🚇 지하철역', true, '기본', 0], ['exit', '🚪 지하철 출입구', false, '기본', 0],
-    ['acc', '🚗 교차로 사고', true, '교통안전', 1], ['fatal', '🕯 사망사고', false, '교통안전', 0], ['hot', '⚠ 사고다발지', false, '교통안전', 0], ['drunk', '🍺 음주 사고 다발지', false, '교통안전', 1],
+    ['acc', '🚗 교차로 사고', true, '교통안전', 1], ['acc10', '🚗 사고 10년(100m 칸)', false, '교통안전', 1], ['fatal10', '🕯 사망사고 10년', false, '교통안전', 0], ['fatal', '🕯 사망사고', false, '교통안전', 0], ['hot', '⚠ 사고다발지', false, '교통안전', 0], ['drunk', '🍺 음주 사고 다발지', false, '교통안전', 1],
     ['risk', '🟥 사고위험지역', false, '교통안전', 0], ['sz', '🏫 어린이보호구역', false, '교통안전', 1], ['szh', '🧒 보호구역 어린이 사고', false, '교통안전', 0], ['cam', '📷 단속 카메라', false, '교통안전', 0], ['spd', '🚥 도로 소통(받은 때)', false, '교통안전', 0], ['sig', '🚦 신호 주기', false, '교통안전', 0], ['sigx', '🔢 신호 교차로 번호', false, '교통안전', 0],
     ['trd', '🏪 상권분석(카드·유동·점포)', false, '사람·흐름', 1], ['crowd', '📡 실시간 인파·카드', false, '사람·흐름', 1], ['live', '👥 생활인구(지금)', false, '사람·흐름', 1], ['sales', '💳 카드 매출(시간대)', false, '사람·흐름', 1], ['bus', '🚌 버스 승차·하차', false, '사람·흐름', 1], ['subr', '🚇 지하철 승차·하차', false, '사람·흐름', 0], ['vol', '🚙 교통량', false, '사람·흐름', 0], ['bike', '🚲 따릉이', false, '사람·흐름', 0],
     ['pol', '👮 경찰 관서', false, '치안·안전', 1], ['fire', '🚒 소방', false, '치안·안전', 0], ['er', '🏥 응급실', false, '치안·안전', 1], ['hosp', '🩺 병원·의원', false, '치안·안전', 0], ['phar', '💊 약국', false, '치안·안전', 1],
@@ -50,9 +50,9 @@
     cam: 'data/cameras-seocho.json', sig: 'data/signal-tod-seocho.json', evt: 'data/events-seocho.json', vol: 'data/traffic-vol-seocho.json', her: 'data/heritage-seocho.json',
     near: 'data/dong-near.json', xing: 'data/intersections-seocho.json', pub: 'data/pubdata-seocho.json', police: 'data/police-seocho.json', sz: 'data/schoolzone-seocho.json', st: 'data/stores-seocho.json',
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
-    osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json' };
+    osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  Promise.all(Object.keys(FILES).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); trdPrep(); safePrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary(); });
+  Promise.all(Object.keys(FILES).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); trdPrep(); safePrep(); a10Prep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary(); });
   function loadBld() {   // 건물 593KB — 켤 때만
     if (D.bld !== undefined) return;
     D.bld = null; fetch('data/maps/seocho-full-buildings.json').then(function (r) { return r.json(); }).then(function (j) { D.bld = j; prepBld(); draw(); }).catch(function () {});
@@ -203,7 +203,7 @@
       if (view.s > 0.1) label([q[0], q[1] + 16 / view.s], s.name, 11, dark ? '#e2e8f0' : '#334155', dark ? 'rgba(15,22,36,.7)' : 'rgba(255,255,255,.85)'); });
     if (on.her && D.her) D.her.items.forEach(function (h) { if (h.lat && h.lon) dot(P(h.lon, h.lat), 5, '#92400e', '#fde68a', { kind: 'her', h: h }); });
     if (on.vol && D.vol) D.vol.spots.forEach(function (v) { var n = v.node && nodeAt(v.node); if (n && !v.outside) { var s2 = S(n.p); ctx.fillStyle = '#0ea5e9'; ctx.fillRect(s2[0] + 8, s2[1] - 8, 16, 16); hit.push({ x: s2[0] + 16, y: s2[1], r: 12, it: { kind: 'vol', v: v, n: n } }); } });
-    drawTrd(dark); drawPub(dark); drawExtra(dark); drawFlow(dark); drawSafe(dark);
+    drawTrd(dark); drawA10(dark); drawPub(dark); drawExtra(dark); drawFlow(dark); drawSafe(dark);
     if (on.evt && D.evt) {
       (D.evt.events && D.evt.events.items || []).forEach(function (e) { if (e.lat && e.s <= ymd && e.e >= ymd) dot(P(e.lon, e.lat), 5.5, '#a855f7', '#fff', { kind: 'evt', e: e }); });
       (D.evt.rallies && D.evt.rallies.items || []).forEach(function (r) {
@@ -325,6 +325,7 @@
       h = '<h3>🚙 ' + esc(it.v.name) + '</h3>' + volRows(it.v) + src('서울시 교통량조사(VolInfo) · 평일은 2일 평균');
     } else if (it.kind === 'evt') {
       var e = it.e; h = '<h3>📅 ' + esc(e.t) + '</h3>' + row('갈래', esc(e.c)) + row('기간', esc(e.s + ' ~ ' + e.e)) + row('시간', esc(e.hour || '-')) + row('자리', esc(e.p)) + row('요금', esc(e.free || '-')) + src('서울시 문화행사 정보(공공누리 1유형)');
+    } else if (it.kind === 'a10' || it.kind === 'f10') { h = a10Card(it);
     } else if (it.kind === 'trd') { h = trdCard(it);
     } else if (it.kind === 'safe') { h = safeCard(it);
     } else if (['crowd', 'link', 'osmroad', 'hot10'].indexOf(it.kind) >= 0) {
@@ -703,6 +704,7 @@
     ['traffic', '🚦 교통근무', ['acc', 'cam', 'sig', 'spd', 'vol', 'sz', 'risk', 'bus']],
     ['night', '🌙 야간순찰', ['trd', 'bar', 'play', 'inn', 'er', 'pol', 'drunk', 'srcctv', 'srbell', 'srsvc']],
     ['shop', '🏪 상권분석', ['trd', 'bus', 'subr', 'live']],
+    ['acc10', '🚗 사고 10년', ['acc10', 'fatal10', 'hot10', 'cam', 'sz']],
     ['crowd', '🎪 행사·인파', ['evt', 'crowd', 'live', 'subr', 'bus', 'spot']],
     ['jur', '🚓 관할·관서', ['jur', 'pol', 'tgis', 'fire', 'er']],
     ['kids', '🧒 어린이', ['sz', 'szh', 'school', 'kids', 'pg']],
@@ -742,29 +744,40 @@
   // ---------- 🏪 상권분석(v0.10.78 · 소유자 「상권분석과 똑같이 · 어떤 업종에서 어떤 연령대가 카드를 어떻게 쓰는지 — 음주운전 예방 · 지역을 세세하게」) ----------
   //  서울시 상권분석서비스: 상권(골목·발달·전통시장) 74곳 영역 + 업종별 추정매출(시간대·연령·성별·요일 — 금액·건수) · 길단위 유동인구 · 직장·상주인구 · 점포 · 집객시설 · 상권변화지표.
   //  ind 칸: 0 업종 · 1 매출(만원) · 2 건수 · 3~8 시간대 매출 · 9~14 연령 매출 · 15 남 · 16 여 · 17~23 요일 · 24~29 시간대 건수 · 30~35 연령 건수
-  var TRD = [], TRDM = 'sales';
+  var TRD = [], TRDM = 'sales', TRDI = '', TRDIL = [];   // TRDI = 고른 업종('' = 전부)
   var AGEL = ['10대', '20대', '30대', '40대', '50대', '60+'], TBL = ['0~6', '6~11', '11~14', '14~17', '17~21', '21~24'];
-  var TRDMS = { sales: ['💳 그 시간대 매출', '#7c3aed'], bar: ['🍺 밤(21~6시) 주점·유흥 매출', '#b45309'], flp: ['🚶 그 시간대 유동인구', '#0284c7'], wrc: ['🏢 직장인구', '#0f766e'], stor: ['🏬 점포 수', '#475569'], cls: ['📉 폐업 점포', '#dc2626'] };
+  var TRDMS = { sales: ['💳 그 시간대 매출', '#7c3aed'], amt: ['💰 한 달 매출', '#6d28d9'], atv: ['🧾 객단가(건당)', '#9333ea'], night: ['🌙 밤(21~6시) 매출 비중', '#1e3a8a'], young: ['🧑 20·30대 매출 비중', '#db2777'], bar: ['🍺 밤 주점·유흥 매출', '#b45309'],
+    flp: ['🚶 그 시간대 유동인구', '#0284c7'], wrc: ['🏢 직장인구', '#0f766e'], job: ['🏢 직장/(직장+상주) 비율', '#0d9488'], stor: ['🏬 점포 수', '#475569'], dens: ['🏬 점포 밀도(곳/ha)', '#334155'], perstor: ['📈 점포당 매출', '#4d7c0f'], cls: ['📉 폐업 점포', '#dc2626'] };
   function isBar(n) { return /주점|유흥/.test(n); }
   function trdPrep() {
     var T = D.trdar; if (!T) return;
+    var tot = {}; T.trdar.forEach(function (t) { (t.ind || []).forEach(function (i) { tot[i[0]] = (tot[i[0]] || 0) + i[1]; }); }); TRDIL = Object.keys(tot).sort(function (a, b) { return tot[b] - tot[a]; });
     TRD = T.trdar.map(function (t) { var rings = t.rings.map(function (r) { return r.map(function (q) { return P(q[0], q[1]); }); }); var r0 = rings[0], sx = 0, sy = 0; r0.forEach(function (q) { sx += q[0]; sy += q[1]; }); return { t: t, rings: rings, c: [sx / r0.length, sy / r0.length] }; });
   }
+  function trdInd(t) { var ind = t.ind || []; return TRDI ? ind.filter(function (i) { return i[0] === TRDI; }) : ind; }
+  function sumI(ind, k) { return ind.reduce(function (a, r) { return a + r[k]; }, 0); }
   function trdVal(t, m) {
-    var b = bandOf(nowH()), ind = t.ind || [];
+    var b = bandOf(nowH()), ind = trdInd(t), stor = (t.stor || []).filter(function (s) { return !TRDI || s[0] === TRDI; });
+    if (m === 'amt') return sumI(ind, 1);
+    if (m === 'atv') { var co = sumI(ind, 2); return co ? sumI(ind, 1) * 1e4 / co : 0; }
+    if (m === 'night') { var a0 = sumI(ind, 1); return a0 ? (sumI(ind, 3) + sumI(ind, 8)) / a0 * 100 : 0; }
+    if (m === 'young') { var ag = sumI(ind, 9) + sumI(ind, 10) + sumI(ind, 11) + sumI(ind, 12) + sumI(ind, 13) + sumI(ind, 14); return ag ? (sumI(ind, 10) + sumI(ind, 11)) / ag * 100 : 0; }
+    if (m === 'job') return t.wrc && t.rep && (t.wrc[0] + t.rep[0]) ? t.wrc[0] / (t.wrc[0] + t.rep[0]) * 100 : 0;
+    if (m === 'dens') return t.area ? stor.reduce(function (a, s) { return a + s[1]; }, 0) / (t.area / 1e4) : 0;
+    if (m === 'perstor') { var n = stor.reduce(function (a, s) { return a + s[1]; }, 0); return n ? sumI(ind, 1) / n : 0; }
+    if (m === 'stor') return stor.reduce(function (a, s) { return a + s[1]; }, 0);
+    if (m === 'cls') return stor.reduce(function (a, s) { return a + s[4]; }, 0);
     if (m === 'sales') return ind.reduce(function (a, i) { return a + i[3 + b]; }, 0) / TBH[b] / 30.4;
     if (m === 'bar') return ind.filter(function (i) { return isBar(i[0]); }).reduce(function (a, i) { return a + i[3] + i[8]; }, 0);
     if (m === 'flp') return t.flp ? t.flp[9 + b] / TBH[b] / 91 : 0;
     if (m === 'wrc') return t.wrc ? t.wrc[0] : 0;
-    if (m === 'stor') return (t.stor || []).reduce(function (a, s) { return a + s[1]; }, 0);
-    if (m === 'cls') return (t.stor || []).reduce(function (a, s) { return a + s[4]; }, 0);
     return 0;
   }
-  function trdFmt(v, m) { return m === 'sales' ? '시간당 ' + won(v) : m === 'bar' ? '한 달 ' + won(v) : m === 'flp' ? '시간당 약 ' + man(v) + '명' : m === 'wrc' ? man(v) + '명' : v + '곳'; }
+  function trdFmt(v, m) { return m === 'sales' ? '시간당 ' + won(v) : m === 'bar' || m === 'amt' ? '한 달 ' + won(v) : m === 'perstor' ? '점포당 ' + won(v) : m === 'atv' ? Math.round(v).toLocaleString() + '원' : m === 'night' || m === 'young' || m === 'job' ? Math.round(v) + '%' : m === 'dens' ? v.toFixed(1) + '곳/ha' : m === 'flp' ? '시간당 약 ' + man(v) + '명' : m === 'wrc' ? man(v) + '명' : Math.round(v) + '곳'; }
   function trdMetricName() { return TRDMS[TRDM][0]; }
   function trdLegend() {
     if (!on.trd || !TRD.length) return null; var vs = TRD.map(function (x) { return trdVal(x.t, TRDM); }), mx = Math.max.apply(null, vs), mn = Math.min.apply(null, vs);
-    return ['🏪 상권분석 — ' + TRDMS[TRDM][0], '<div class="lg-btns">' + Object.keys(TRDMS).map(function (k) { return '<button data-trdm="' + k + '" class="' + (k === TRDM ? 'on' : '') + '">' + TRDMS[k][0] + '</button>'; }).join('') + '</div>' +
+    return ['🏪 상권분석 — ' + (TRDI ? TRDI + ' · ' : '') + TRDMS[TRDM][0], '<div class="lg-btns"><select data-trdi aria-label="업종"><option value="">업종 전부</option>' + TRDIL.map(function (n) { return '<option' + (n === TRDI ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div><div class="lg-btns">' + Object.keys(TRDMS).map(function (k) { return '<button data-trdm="' + k + '" class="' + (k === TRDM ? 'on' : '') + '">' + TRDMS[k][0] + '</button>'; }).join('') + '</div>' +
       grad('rgba(255,255,255,.4)', TRDMS[TRDM][1], trdFmt(mn, TRDM), trdFmt(mx, TRDM)) + li('#64748b', '굵은 테 = 발달상권 · 가는 테 = 골목상권 · 점선 = 전통시장', 'line') + '<small class="lg-n">상권을 누르면 업종 × 연령 · 업종 × 시간대 표</small>'];
   }
   function hexA(c, a) { var n = parseInt(c.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
@@ -802,6 +815,12 @@
       h += row('카드 매출(추정)', '한 달 ' + won(amt) + ' · 결제 ' + man(co) + '건 <em>(' + Q.slice(0, 4) + '년 ' + Q[4] + '분기)</em>') + row('남·여', pct(S3(15), S3(15) + S3(16)) + ' : ' + pct(S3(16), S3(15) + S3(16)));
       h += row('지금 시간대', TBL[b] + '시 — 시간당 약 ' + won(S3(3 + b) / TBH[b] / 30.4) + ' · 많은 업종 ' + ind.slice().sort(function (p, q) { return q[3 + b] - p[3 + b]; }).slice(0, 3).map(function (r) { return esc(r[0]); }).join(' · '));
       h += '<div class="cap">시간당 매출(0~6 · 6~11 · 11~14 · 14~17 · 17~21 · 21~24)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(3 + i) / TBH[i]; }), '#7c3aed') + '<div class="cap">연령대 매출(10대 … 60+)</div>' + bar([0, 1, 2, 3, 4, 5].map(function (i) { return S3(9 + i); }), '#a78bfa') + '<div class="cap">요일(월~일)</div>' + bar([0, 1, 2, 3, 4, 5, 6].map(function (i) { return S3(17 + i); }), '#c4b5fd');
+      var co2 = S3(2), wk = S3(17) + S3(18) + S3(19) + S3(20) + S3(21), we = S3(22) + S3(23), lunch = S3(5), eve = S3(7), nite = S3(8) + S3(3), pk = Math.max(lunch, eve, nite);
+      h += row('객단가', (co2 ? Math.round(amt * 1e4 / co2).toLocaleString() : '-') + '원(건당 결제) · 주중 ' + pct(wk, wk + we) + '% · 주말 ' + pct(we, wk + we) + '%');
+      h += row('피크', (pk === lunch ? '점심형(11~14시)' : pk === eve ? '저녁형(17~21시)' : '야간형(21~6시)') + ' — 점심 ' + pct(lunch, amt) + '% · 저녁 ' + pct(eve, amt) + '% · 밤 ' + pct(nite, amt) + '%');
+      var nst = (t.stor || []).reduce(function (a, s) { return a + s[1]; }, 0); if (nst) h += row('경쟁·밀집', '점포 ' + nst + '곳 · ' + (nst / (t.area / 1e4)).toFixed(1) + '곳/ha · 점포당 한 달 ' + won(amt / nst));
+      if (t.wrc && t.rep) { var jr = pct(t.wrc[0], t.wrc[0] + t.rep[0]); h += row('배후 수요', (jr >= 70 ? '직장 중심' : jr <= 30 ? '주거 배후' : '직장·주거 혼합') + ' — 직장 ' + man(t.wrc[0]) + ' · 상주 ' + man(t.rep[0]) + (t.flp ? ' · 하루 유동 ' + man(t.flp[0] / 91) : '')); }
+      h += '<div class="cap">업종별 객단가 · 피크 · 점포(매출 많은 업종 8)</div>' + indCompare(t);
       h += barRows(ind, '이 상권');
       h += '<div class="cap">업종 × 연령(그 업종 매출 안 비중 % · 매출 많은 업종 8)</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(그 업종 매출 안 비중 % · 테두리 = 지금)</div>' + indTable(ind, 'tb'); }
     else h += row('카드 매출', '이 상권은 매출 자료가 없다');
@@ -813,9 +832,48 @@
     if (t.tr) { var qs = Object.keys(t.tr).sort(); h += '<div class="cap">분기 매출 추이(' + qs[0].slice(2, 4) + '.' + qs[0][4] + 'Q~' + qs[qs.length - 1].slice(2, 4) + '.' + qs[qs.length - 1][4] + 'Q)</div>' + bar(qs.map(function (q) { return t.tr[q][0]; }), '#6d28d9') + '<div class="cap">분기 밤(21~6시) 매출 · 주점·유흥 매출</div>' + bar(qs.map(function (q) { return t.tr[q][2]; }), '#1e3a8a') + bar(qs.map(function (q) { return t.tr[q][1]; }), '#b45309'); }
     return h + '<p class="desc">' + esc(D.trdar.note) + '</p>' + src(D.trdar.source);
   }
+  function indCompare(t) {   // 업종 | 한 달 매출 | 객단가 | 피크 | 점포(개업/폐업) — 같은 업종 경쟁
+    var st = {}; (t.stor || []).forEach(function (s) { st[s[0]] = s; });
+    return '<table class="it"><tr><th>업종</th><th>한 달</th><th>객단가</th><th>피크</th><th>점포</th></tr>' + (t.ind || []).slice().sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8).map(function (r) {
+      var pkI = 0; for (var i = 1; i < 6; i++) if (r[3 + i] > r[3 + pkI]) pkI = i; var s2 = st[r[0]];
+      return '<tr' + (isBar(r[0]) ? ' class="bar"' : '') + '><td>' + esc(r[0]) + '</td><td>' + won(r[1]) + '</td><td>' + (r[2] ? Math.round(r[1] * 1e4 / r[2]).toLocaleString() : '-') + '</td><td>' + TBL[pkI] + '</td><td>' + (s2 ? s2[1] + (s2[3] || s2[4] ? ' <small>+' + s2[3] + '/−' + s2[4] + '</small>' : '') : '-') + '</td></tr>'; }).join('') + '</table>';
+  }
   function dongIndRows(name) {   // 행정동 — 업종 × 연령 · 업종 × 시간대 · 주점·유흥
     var ind = D.trdar && D.trdar.dong && D.trdar.dong[name]; if (!ind) return '';
     return barRows(ind, '이 동') + '<div class="cap">업종 × 연령(%) — 이 동 매출 많은 업종 8</div>' + indTable(ind, 'age') + '<div class="cap">업종 × 시간대(%)</div>' + indTable(ind, 'tb');
+  }
+  // ---------- 🚗 교통사고 10년(v0.10.79 · TAAS 2016~2025 서초 22,546건 · 100m 칸 + 사망사고 한 건씩) ----------
+  var A10 = [], F10 = [], A10M = 'all', A10Y = null;   // A10Y = 그 해만(null = 10년 전부)
+  var A10MS = { all: ['전체 사고', '#ea580c'], sev: ['사망·중상자', '#b91c1c'], ped: ['보행자 피해', '#2563eb'], two: ['자전거·PM·이륜', '#16a34a'], night: ['밤(20~6시)', '#1e3a8a'] };
+  function a10Prep() { var T = D.taas10; if (!T) return; A10 = T.cells.map(function (c) { return { c: c, p: P(c[1], c[0]) }; }); F10 = T.fatal.map(function (f) { return { f: f, p: P(f[17], f[16]) }; }); }
+  function a10Val(c) {
+    if (A10M === 'all') return A10Y ? c[2 + A10Y - 2016] : c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0);
+    var share = A10Y ? c[2 + A10Y - 2016] / Math.max(1, c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0)) : 1;
+    return (A10M === 'sev' ? c[12] + c[13] : A10M === 'ped' ? c[14] : A10M === 'two' ? c[15] + c[16] + c[17] : c[18]) * share;
+  }
+  function drawA10(dark) {
+    if (on.acc10 && A10.length) { var vs = A10.map(function (x) { return a10Val(x.c); }), mx = Math.max.apply(null, vs) || 1, col = A10MS[A10M][1], h = 50;
+      A10.forEach(function (x, k) { var v = vs[k]; if (!v) return; var t = Math.sqrt(v / mx), a = S([x.p[0] - h, x.p[1] - h]), b = S([x.p[0] + h, x.p[1] + h]);
+        ctx.fillStyle = hexA(col, 0.12 + 0.7 * t); ctx.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
+        if (view.s > 0.35) { ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = t > 0.5 ? '#fff' : '#111827'; ctx.fillText(String(Math.round(v)), (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+        hit.push({ x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, r: Math.max(6, (b[0] - a[0]) / 2), it: { kind: 'a10', x: x } }); }); }
+    if (on.fatal10 && F10.length) F10.forEach(function (x) { if (A10Y && x.f[0] !== A10Y) return; dot(x.p, 5.5, '#111827', '#fca5a5', { kind: 'f10', x: x }); });
+  }
+  function dic(k, v) { var D2 = D.taas10.dic[k] || {}; return D2[v] || v || '-'; }
+  function a10Card(it) {
+    var T = D.taas10;
+    if (it.kind === 'f10') { var f = it.x.f; return '<h3>🕯 사망사고 — ' + f[0] + '년 ' + f[1] + '월</h3>' + row('때', T.dow[f[2]] + '요일 ' + f[3] + '시') + row('유형', esc(dic('t', f[5]))) + row('법규위반', esc(dic('v', f[6]))) + row('도로', esc(dic('r', f[7]))) +
+      row('날씨·노면', esc(dic('w', f[8]) + ' · ' + dic('s', f[9]))) + row('가해 / 피해', esc(dic('k', f[10]) + ' / ' + dic('k', f[11]))) + row('사상', '사망 ' + f[12] + ' · 중상 ' + f[13] + ' · 경상 ' + f[14] + (f[15] ? ' · 부상신고 ' + f[15] : '')) + '<p class="desc">' + esc(T.note) + '</p>' + src(T.source); }
+    var c = it.x.c, tot = c.slice(2, 12).reduce(function (a, b) { return a + b; }, 0), ys = []; for (var y = 2016; y <= 2025; y++) ys.push(y);
+    return '<h3>🚗 사고 10년 — 이 100m 칸</h3>' + row('2016~2025', tot + '건 · 사망 ' + c[12] + ' · 중상 ' + c[13]) + row('누가', '보행자 피해 ' + c[14] + ' · 자전거 ' + c[15] + ' · PM ' + c[16] + ' · 이륜·원동기 가해 ' + c[17]) +
+      row('주 법규위반', esc(dic('v', c[23])) + ' ' + c[24] + '건') + row('주 유형', esc(dic('t', c[25]))) + row('밤(20~6시)', c[18] + '건 (' + pct(c[18], tot) + '%)') +
+      '<div class="cap">해마다 건수(2016~2025)</div>' + bar(c.slice(2, 12), '#ea580c') + '<div class="cap">시간대(0~6 · 6~12 · 12~18 · 18~24시)</div>' + bar(c.slice(19, 23), '#1e3a8a') + '<p class="desc">' + esc(T.note) + '</p>' + src(T.source);
+  }
+  function a10Legend() {
+    if (!on.acc10 && !on.fatal10) return null; var ys = ['']; for (var y = 2016; y <= 2025; y++) ys.push(y);
+    return ['🚗 사고 10년(TAAS)', '<div class="lg-btns">' + Object.keys(A10MS).map(function (k) { return '<button data-a10m="' + k + '" class="' + (k === A10M ? 'on' : '') + '">' + A10MS[k][0] + '</button>'; }).join('') + '</div>' +
+      '<div class="lg-btns"><select data-a10y aria-label="해">' + ys.map(function (y) { return '<option value="' + y + '"' + ((A10Y || '') == y ? ' selected' : '') + '>' + (y ? y + '년만' : '10년 전부') + '</option>'; }).join('') + '</select></div>' +
+      li(hexA(A10MS[A10M][1], 0.8), '100m 칸 · 진할수록 많음(√) · 확대하면 숫자', 'box') + (on.fatal10 ? li('#111827', '사망사고(한 건씩)') : '') + '<small class="lg-n">' + (D.taas10 ? D.taas10.count.toLocaleString() + '건 · 개인정보 없음' : '') + '</small>'];
   }
   // ---------- 🛡 치안·생활안전 시설(v0.10.78 · 서울 열린데이터 — 서초구) ----------
   var SAFE = [];   // [층 키, 이름, 색, 점들[{p, it}]]
@@ -867,6 +925,7 @@
     if (on.live) { var mx = 0, mn = 1e9; DONG.forEach(function (d) { var lv = liveNow(d.name); if (lv) { mx = Math.max(mx, lv.n); mn = Math.min(mn, lv.n); } }); if (mx) G('👥 생활인구 ' + hh + '시', grad('rgb(255,230,150)', 'rgb(215,60,40)', man(mn) + '명', man(mx) + '명') + '<small class="lg-n">동 안의 숫자 = 그 시각 평균 체류 인구</small>'); }
     if (on.sales) { var a = 1e18, b = 0; DONG.forEach(function (d) { var sn = salesNow(d.name); if (sn) { a = Math.min(a, sn.perH); b = Math.max(b, sn.perH); } }); if (b) G('💳 카드 매출 ' + esc(D.flow.sales.tb[bandOf(hh)]), grad('rgb(237,233,254)', 'rgb(117,53,214)', won(a), won(b)) + '<small class="lg-n">시간당 추정 매출(하루 평균) · 동을 누르면 업종·연령</small>'); }
     if (typeof trdLegend === 'function') { var tl = trdLegend(); if (tl) G(tl[0], tl[1]); }
+    if (typeof a10Legend === 'function') { var al = a10Legend(); if (al) G(al[0], al[1]); }
     if (on.bus || on.subr) G('🚌🚇 ' + hh + '시 승하차', li('rgba(37,99,235,.8)', '타는 사람 많음(떠나는 곳)') + li('rgba(234,88,12,.8)', '내리는 사람 많음(모여드는 곳)') + li('rgba(13,148,136,.8)', '비슷') + '<small class="lg-n">원 크기 = 그 시각 승차+하차(하루 평균) · 지하철 옆 숫자 = 그 시각 승하차</small>');
     if (on.crowd) G('📡 실시간 인파', li(LVC['여유'], '여유') + li(LVC['보통'], '보통') + li(LVC['약간 붐빔'], '약간 붐빔') + li(LVC['붐빔'], '붐빔') + li('#64748b', '실선 지금 · 긴 점선 예측 · 회색 점선 받은 때', 'dash') + '<small class="lg-n">받은 시각 ' + esc(String((D.livep || {}).baked || '')) + '</small>');
     if (on.spd) G('🚥 도로 소통(받은 때)', li(IDXC['원활'], '원활', 'line') + li(IDXC['서행'], '서행', 'line') + li(IDXC['정체'], '정체', 'line'));
@@ -890,7 +949,8 @@
     el.innerHTML = '<div class="lgh"><b>🗂 범례</b><button id="m2dLegX" aria-label="범례 닫기">닫기</button></div>' + (g.join('') || '<small>켠 층이 없다</small>');
     $('m2dLegX').onclick = function () { legOpen(false); };
   }
-  if ($('m2dLeg')) $('m2dLeg').addEventListener('click', function (e) { var b = e.target.closest('[data-trdm]'); if (!b) return; TRDM = b.getAttribute('data-trdm'); draw(); });
+  if ($('m2dLeg')) { $('m2dLeg').addEventListener('click', function (e) { var b = e.target.closest('[data-trdm]'); if (b) { TRDM = b.getAttribute('data-trdm'); draw(); return; } b = e.target.closest('[data-a10m]'); if (b) { A10M = b.getAttribute('data-a10m'); draw(); } });
+    $('m2dLeg').addEventListener('change', function (e) { var t = e.target; if (t.hasAttribute('data-trdi')) { TRDI = t.value; draw(); } else if (t.hasAttribute('data-a10y')) { A10Y = t.value ? +t.value : null; draw(); } }); }
   function legOpen(v) { document.body.classList.toggle('legon', v); try { localStorage.setItem('tg_map2d_leg', v ? '1' : '0'); } catch (e) {} if (v) legend(); }
   if ($('m2dLegB')) $('m2dLegB').onclick = function () { legOpen(!document.body.classList.contains('legon')); };
   setTimeout(function () { try { var lv0 = localStorage.getItem('tg_map2d_leg'); legOpen(lv0 == null ? window.innerWidth >= 760 : lv0 === '1'); } catch (e) {} }, 0);
@@ -991,6 +1051,7 @@
     TG.forEach(function (t) { if (t.name.indexOf(q) >= 0 || String(t.c) === q) c.push({ p: t.p, it: { kind: 'tgis', t: t }, k: 'tgis' }); });
     SPOTS.forEach(function (s2) { if (s2.name.indexOf(q) >= 0) { var rk = spotRank().indexOf(s2) + 1; c.push({ p: s2.p, it: { kind: 'spot', q: s2, rank: rk }, k: 'spot' }); } });
     TRD.forEach(function (x) { if (x.t.name.indexOf(q) >= 0) c.push({ p: x.c, it: { kind: 'trd', x: x }, k: 'trd' }); });
+    if (!c.length && TRDIL.indexOf(q) >= 0) { TRDI = q; if (!on.trd) { on.trd = true; saveOn(); paintLayers(); } $('m2dFindMsg').textContent = '업종 「' + q + '」 — 상권을 그 업종 매출로 칠했다(범례에서 바꿈)'; draw(); return; }
     SAFE.forEach(function (L) { L[3].forEach(function (z) { var nm = L[0] === 'aed' ? z.r[2] : L[0] === 'wc2' || L[0] === 'srsvc' || L[0] === 'dem' || L[0] === 'tow' ? (L[0] === 'srsvc' ? z.r[3] : z.r[2]) : ''; if (nm && nm.indexOf(q) >= 0) c.push({ p: z.p, it: { kind: 'safe', L: L, q: z }, k: L[0] }); }); });
     LIVEP.forEach(function (L) { if (L.o.name.indexOf(q) >= 0) c.push({ p: L.c, it: { kind: 'crowd', L: L }, k: 'crowd' }); });
     OSMN.filter(function (r) { return r.name.indexOf(q) >= 0; }).sort(function (a, b) { return (a.name === q ? 0 : 1) - (b.name === q ? 0 : 1) || a.name.length - b.name.length; }).forEach(function (r) { if (r.name.indexOf(q) >= 0 && !c.some(function (x) { return x.rn === r.name; })) c.push({ p: r.p, it: { kind: 'osmroad', r: r }, rn: r.name }); });
