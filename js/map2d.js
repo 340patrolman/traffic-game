@@ -70,7 +70,19 @@
   var RDONG = [], RGUN = {}, RLOAD = {}, RX = {}, LMX = {}, SMX = {}, RWANT = null, RLOADT = {}, TWANT = null;
   function rIdx() { return D.ridx && D.ridx.gus || []; }
   function viewLL() { var a = M(0, 0), b = M(cv.clientWidth, cv.clientHeight); return [a[0] / KX + LON0, LAT0 - b[1] / KY, b[0] / KX + LON0, LAT0 - a[1] / KY]; }
+  var RLOADX = {};
+  function xLoad(gu) {   // v0.10.94 버스·지하철 승하차(구마다) — 서초 정류장·역이 이미 있으면 건너뛴다
+    if (RLOADX[gu]) return RLOADX[gu];
+    RLOADX[gu] = fetch('data/r/' + gu + '/transit.json').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
+      if (!PUB) return; var hb = {}, hs = {}; PUB.bus.forEach(function (q) { hb[q.o.id] = 1; }); PUB.subr.forEach(function (q) { hs[q.name] = 1; });
+      j.bus.forEach(function (b) { if (hb[b[0]]) return; var on2 = b[4], off2 = b[5], day = on2.concat(off2).reduce(function (a, c) { return a + c; }, 0), tot = on2.map(function (v, i) { return v + off2[i]; });
+        FLOW.bus[b[0]] = [on2, off2]; PUB.bus.push({ name: b[1], p: P(b[2], b[3]), o: { id: b[0], name: b[1], lon: b[2], lat: b[3], day: day, h: tot, peak: tot.indexOf(Math.max.apply(null, tot)), rg: j } }); });
+      j.sub.forEach(function (b) { if (hs[b[0]]) return; FLOW.sub[b[0]] = [b[4], b[5], b[1]]; PUB.subr.push({ name: b[0], p: P(b[2], b[3]), o: { name: b[0], lines: b[1], lon: b[2], lat: b[3], rg: j } }); });
+      draw();
+    }).catch(function () {}); return RLOADX[gu];
+  }
   function needRegions() {
+    if ((on.bus && view.s > 0.07) || (on.subr && view.s >= 0.02)) { var vx = viewLL(); rIdx().forEach(function (g) { if (RLOADX[g.gu] || !(g.bytes || {}).transit) return; var x = g.box; if (x[2] < vx[0] || x[0] > vx[2] || x[3] < vx[1] || x[1] > vx[3]) return; xLoad(g.gu); }); }
     if (on.trd && view.s >= 0.02) { var vt = viewLL(); rIdx().forEach(function (g) { if (RLOADT[g.gu] || !(g.bytes || {}).trdar) return; var x = g.box; if (x[2] < vt[0] || x[0] > vt[2] || x[3] < vt[1] || x[1] > vt[3]) return; tLoad(g.gu); }); }
     if (!(on.dong || on.live || on.sales) || view.s < 0.012) return; var v = viewLL();
     rIdx().forEach(function (g) { if (g.gu === '11650' || RLOAD[g.gu]) return; var x = g.box; if (x[2] < v[0] || x[0] > v[2] || x[3] < v[1] || x[1] > v[3]) return;
@@ -555,8 +567,8 @@
     if (k === 'risk') { h += row('사고', o.acc + '건 · 사망 ' + o.dead + ' · 중상 ' + o.ser + ' · 경상 ' + o.sli) + row('주된 원인', esc([].concat(o.cause || []).join(' · ') || '-')) + '<p class="desc">' + esc(q.name) + '</p>'; s = p.risk && p.risk.source; }
     else if (k === 'drunk') { h += row('사고', o.acc + '건 · 사상 ' + o.caslt + '(사망 ' + o.dead + ' · 중상 ' + o.ser + ' · 경상 ' + o.sli + ')') + (o.year ? row('자료 해', o.year + '년 공표') : '') + '<p class="desc">음주 단속·순찰 동선을 잡을 때 참고 — 이 구역 둘레(다각형)에서 음주 사고가 몰렸다.</p>'; s = p.drunk && p.drunk.source; }
     else if (k === 'sigx') { h += row('신호 교차로 번호', esc(o.no)) + (/연등/.test(q.name) ? row('종류', '연동 보조 신호') : ''); s = p.sigx && p.sigx.source; }
-    else if (k === 'bus') { var fb = FLOW.bus[o.id]; if (fb) { h += onoffRows(fb); s = D.flow.bus.source; } else { h += row('하루 승하차', o.day.toLocaleString() + '명') + row('가장 붐비는 때', o.peak + '시') + '<div class="cap">시간대별 승차+하차 인원(명/시 · 0~23시 · 하루 평균)</div>' + bar(o.h, '#16a34a'); s = p.bus && p.bus.source; } }
-    else if (k === 'subr') { var fs = FLOW.sub[q.name]; h += row('노선', esc((fs ? fs[2] : o.lines || []).join(' · '))); if (fs) { h += onoffRows(fs) + subTrend(q.name); s = D.flow.subway.source + (D.trend ? ' · 여러 해: ' + D.trend.subway.source : ''); } else { h += row('하루 승차', o.on.toLocaleString() + '명') + row('하루 하차', o.off.toLocaleString() + '명'); s = p.subway && p.subway.source; } }
+    else if (k === 'bus') { var fb = FLOW.bus[o.id]; if (fb) { h += onoffRows(fb); s = o.rg ? o.rg.source.bus : D.flow.bus.source; } else { h += row('하루 승하차', o.day.toLocaleString() + '명') + row('가장 붐비는 때', o.peak + '시') + '<div class="cap">시간대별 승차+하차 인원(명/시 · 0~23시 · 하루 평균)</div>' + bar(o.h, '#16a34a'); s = p.bus && p.bus.source; } }
+    else if (k === 'subr') { var fs = FLOW.sub[q.name]; h += row('노선', esc((fs ? fs[2] : o.lines || []).join(' · '))); if (fs) { h += onoffRows(fs) + subTrend(q.name); s = o.rg ? o.rg.source.sub : D.flow.subway.source + (D.trend ? ' · 여러 해: ' + D.trend.subway.source : ''); } else { h += row('하루 승차', o.on.toLocaleString() + '명') + row('하루 하차', o.off.toLocaleString() + '명'); s = p.subway && p.subway.source; } }
     else if (k === 'bike') { h += row('대여소 번호', esc(o.no)) + row('거치대', o.n + '대'); s = p.seoul && p.seoul.source; }
     else if (k === 'hosp' || k === 'er') { var op = openNow(o.h); h += row('종류', esc((o.div || '') + (o.er ? ' · 응급실 운영' : ''))) + (o.emcls && !/이외/.test(o.emcls) ? row('응급 등급', esc(o.emcls)) : '') + row('전화', esc(o.tel || '-')) + (o.ertel ? row('응급실 전화', esc(o.ertel)) : '') +
         row('지금', o.er ? '응급실 24시간(등록값)' : (op === null ? '시간 정보 없음' : op ? '<b style="color:#16a34a">진료 중</b>' : '진료 시간 아님')) + row('주소', esc(o.addr || '-')) + '<div class="cap">' + esc(hoursTxt(o.h)) + '</div>'; s = p.seoul && p.seoul.source; }
@@ -1547,7 +1559,7 @@
     var gus = rIdx().filter(function (g) { var b = g.box; return !(b[2] < bx[0] || b[0] > bx[2] || b[3] < bx[1] || b[1] > bx[3]); });
     var jobs = [sLoadIdx(), rentLoad()];
     if (!STNS) jobs.push(fetch('data/r/stations.json').then(function (x) { return x.json(); }).then(function (j) { STNS = j.items.map(function (s2) { return { n: s2[0], l: s2[1], p: P(s2[2], s2[3]) }; }); }).catch(function () { STNS = []; }));
-    gus.forEach(function (g) { jobs.push(sLoad(g.gu)); jobs.push(new Promise(function (res) { tLoad(g.gu, res); setTimeout(res, 20000); })); jobs.push(rLoadGu(g.gu)); });
+    gus.forEach(function (g) { jobs.push(sLoad(g.gu)); jobs.push(new Promise(function (res) { tLoad(g.gu, res); setTimeout(res, 20000); })); jobs.push(rLoadGu(g.gu)); if ((g.bytes || {}).transit) jobs.push(xLoad(g.gu)); });
     Promise.all(jobs).then(function () { RAD.gus = gus; RAD.res = radCalc(gus); RAD.busy = false; radPaint(); draw(); });
   }
   function radCalc(gus) {
@@ -1573,6 +1585,9 @@
     o.stn = (STNS || []).map(function (s2) { return { s: s2, d: Math.hypot(s2.p[0] - c[0], s2.p[1] - c[1]) }; }).filter(function (q) { return q.d <= r; }).sort(function (a, b) { return a.d - b.d; });
     var seenN = {}; o.stn = o.stn.filter(function (q) { var k = seenN[q.s.n]; if (k) { if (k.ls.indexOf(q.s.l) < 0) k.ls.push(q.s.l); return false; } seenN[q.s.n] = { ls: [q.s.l] }; q.ls = seenN[q.s.n].ls; return true; });
     o.rent = rentNear(c, 1500);
+    o.bus = { n: 0, on: [], off: [] }; o.sub = { n: 0, on: [], off: [], names: [] }; for (var hh2 = 0; hh2 < 24; hh2++) { o.bus.on.push(0); o.bus.off.push(0); o.sub.on.push(0); o.sub.off.push(0); }
+    if (PUB) { PUB.bus.forEach(function (q) { var f = FLOW.bus[q.o.id]; if (!f || Math.hypot(q.p[0] - c[0], q.p[1] - c[1]) > r) return; o.bus.n++; for (var k = 0; k < 24; k++) { o.bus.on[k] += f[0][k]; o.bus.off[k] += f[1][k]; } });
+      PUB.subr.forEach(function (q) { var f = FLOW.sub[q.name]; if (!f || Math.hypot(q.p[0] - c[0], q.p[1] - c[1]) > r) return; o.sub.n++; o.sub.names.push(q.name); for (var k = 0; k < 24; k++) { o.sub.on[k] += f[0][k]; o.sub.off[k] += f[1][k]; } }); }
     return o;
   }
   function radText() {   // 📋 복사 — 보고서 글
@@ -1583,6 +1598,7 @@
       '추정 카드 매출 한 달 약 ' + won(o.amt) + '(걸친 상권 ' + o.trd.length + '곳을 겹친 넓이 비율로)',
       '생활인구 ' + nowH() + '시 약 ' + Math.round(o.live[nowH()]).toLocaleString() + '명 · 주민 약 ' + Math.round(o.pop).toLocaleString() + '명 · 하루 유동 약 ' + Math.round(o.flp).toLocaleString() + ' · 직장 약 ' + Math.round(o.wrc).toLocaleString(),
       o.stn.length ? '지하철역 ' + o.stn.map(function (q) { return q.s.n + ' ' + Math.round(q.d) + 'm'; }).join(' · ') : '반경 안 지하철역 없음',
+      o.bus.n ? '버스 정류장 ' + o.bus.n + '곳 하루 승차 ' + o.bus.on.reduce(function (a, b) { return a + b; }, 0).toLocaleString() + ' · 하차 ' + o.bus.off.reduce(function (a, b) { return a + b; }, 0).toLocaleString() : '',
       o.rent ? '임대료(부동산원 표본 ' + o.rent.it.name + ' ' + o.rent.d + 'm) 소규모 ' + lastV(o.rent.it.s) + ' · 중대형 ' + lastV(o.rent.it.m) + '천원/㎡' : '',
       '출처: 소상공인 상가정보(' + o.ym + ') · 서울시 상권분석서비스 · 서울 생활인구 · 행안부 주민등록 · 한국부동산원 임대동향 — 추정·근사 포함'];
     return L.filter(Boolean).join('\n');
@@ -1612,6 +1628,9 @@
       h += row('주민', '약 ' + Math.round(o.pop).toLocaleString() + '명 · 19세 이하 ' + pct(o.age[0] + o.age[1], o.pop) + '% · 20·30대 ' + pct(o.age[2] + o.age[3], o.pop) + '% · 60세 이상 ' + pct(o.age[6] + o.age[7] + o.age[8] + o.age[9], o.pop) + '%');
       h += '<div class="cap">주민 연령대별 인구(명 · 반경 안 추정 · 0~9세 … 90~99세)</div>' + bar(o.age.map(Math.round), '#8b5cf6', ageLab(10));
       h += row('유동·직장', '하루 유동 약 ' + man(o.flp) + '명 · 직장인구 약 ' + man(o.wrc) + '명 <em>(걸친 상권 기준)</em>');
+      var sumA = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
+      if (o.bus.n) h += row('버스 승하차', '정류장 ' + o.bus.n + '곳 · 하루 승차 ' + man(sumA(o.bus.on)) + ' · 하차 ' + man(sumA(o.bus.off)) + ' <em>(2026년 6월 하루 평균)</em>') + '<div class="cap">시간대별 버스 승차(파랑) · 하차(주황) 인원(명/시 · 반경 안 정류장 합 · 하루 평균)</div>' + bar2(o.bus.on, o.bus.off);
+      if (o.sub.n) h += row('지하철 승하차', esc(o.sub.names.join('·')) + ' · 하루 승차 ' + man(sumA(o.sub.on)) + ' · 하차 ' + man(sumA(o.sub.off))) + '<div class="cap">시간대별 지하철 승차(파랑) · 하차(주황) 인원(명/시 · 반경 안 역 합 · 하루 평균)</div>' + bar2(o.sub.on, o.sub.off);
       h += row('지하철역', o.stn.length ? o.stn.map(function (q) { return esc(q.s.n) + ' <small>' + esc(q.ls.join('·')) + ' · ' + Math.round(q.d) + 'm</small>'; }).join(' · ') : '반경 안에 없음');
       h += rentRows(RAD.c, '임대료(가까운 표본)');
       h += row('걸친 동', o.dongs.slice(0, 6).map(function (d) { return esc(d[0]) + ' ' + d[1] + '%'; }).join(' · ') + ' <em>(동 넓이 중 반경 안 비율)</em>');
