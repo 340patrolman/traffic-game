@@ -24,7 +24,10 @@
     ['fuel', '⛽ 주유소', false, '생활', 0], ['ev', '🔌 전기차 충전', false, '생활', 0], ['pk', '🅿 주차장', false, '생활', 0],
     ['jur', '🚓 경찰서 관할(서초·방배)', false, '치안·안전', 0], ['srcctv', '📹 CCTV(안심귀갓길)', false, '치안·안전', 0], ['srbell', '🔔 안심벨', false, '치안·안전', 0], ['srlamp', '💡 보안등(안심귀갓길)', false, '치안·안전', 0], ['sr112', '🆘 112 위치 신고 안내', false, '치안·안전', 0], ['srsvc', '🏪 안심 서비스·지킴이집', false, '치안·안전', 0],
     ['aed', '❤️ AED', false, '치안·안전', 0], ['fw', '🧯 소방용수(서울시)', false, '치안·안전', 0], ['pkcctv', '📸 불법주정차 단속 CCTV', false, '교통안전', 0], ['tow', '🛻 견인차량보관소', false, '교통안전', 0], ['wc2', '🚻 공중화장실(서울시)', false, '생활', 0], ['box', '📦 안심택배함', false, '생활', 0], ['dem', '🧠 치매안심센터', false, '치안·안전', 0], ['tgis', '🚥 T-GIS 신호 교차로', false, '교통안전', 0], ['spot', '🎯 길목 — 이 시각 하차', false, '사람·흐름', 0], ['spota', '🗂 길목 다발지(참고)', false, '교통안전', 0], ['hot10', '🗂 다발지 10년(2016~2025)', false, '교통안전', 1],
-    ['evt', '📅 행사·집회', true, '행사·역사', 1], ['her', '🏛 국가유산', false, '행사·역사', 0]
+    ['evt', '📅 행사·집회', true, '행사·역사', 1], ['her', '🏛 국가유산', false, '행사·역사', 0],
+    ['flt', '🌊 침수 흔적(2010~2025)', false, '계절 위험', 0], ['flr', '🌧 침수 이력 도로', false, '계절 위험', 0], ['und', '🚇 지하차도(침수 이력)', false, '계절 위험', 0],
+    ['ice', '🧊 제설함(결빙 우려 자리)', false, '계절 위험', 0], ['hcab', '🔥 도로 열선 길', false, '계절 위험', 0], ['advb', '❄ 제설 전진기지', false, '계절 위험', 0],
+    ['pbtn', '🚸 보행자작동신호기', false, '교통안전', 0]
   ];
   // OSM 시설 갈래 → 층 키
   var FAC_K = { '경찰': 'pol', '소방': 'fire', '소화전': 'hyd', '화장실': 'wc', '학교': 'school', '유치원·어린이집': 'kids', '놀이터': 'pg', '공원': 'park', '복지시설': 'welf', '관공서·주민센터': 'gov', '도서관': 'lib',
@@ -45,16 +48,16 @@
   hashLayers();
 
   // ---------- 자료 읽기 ----------
-  var FILES = { enf: 'data/enforce-seocho.json', dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
+  var FILES = { season: 'data/season-seocho.json', pbtn: 'data/pedbtn-seocho.json', enf: 'data/enforce-seocho.json', dong: 'data/dong-seocho.json', pop: 'data/pop-seocho.json', roads: 'data/maps/seocho-full-roads.json', full: 'data/maps/seocho-full.json',
     base: 'data/maps/seocho.json', gu: 'data/maps/seoul-districts.json', acc: 'data/taas-nodes-seocho.json', fatal: 'data/taas-fatal-seocho.json', hot: 'data/taas.json',
     cam: 'data/cameras-seocho.json', sig: 'data/signal-tod-seocho.json', evt: 'data/events-seocho.json', vol: 'data/traffic-vol-seocho.json', her: 'data/heritage-seocho.json',
     near: 'data/dong-near.json', xing: 'data/intersections-seocho.json', pub: 'data/pubdata-seocho.json', police: 'data/police-seocho.json', sz: 'data/schoolzone-seocho.json', st: 'data/stores-seocho.json',
     jur: 'data/jur-seocho.json', tgis: 'data/tgis-seocho.json', spot: 'data/spot-seocho.json',
     osm: 'data/base-seocho.json', flow: 'data/flow-seocho.json', livep: 'data/live-seocho.json', trend: 'data/trend-seocho.json', hot10: 'data/hot10-seocho.json', trdar: 'data/trdar-seocho.json', safety: 'data/safety-seocho.json', taas10: 'data/taas10-seocho.json' };
   function get(k) { return fetch(FILES[k]).then(function (r) { return r.json(); }).then(function (j) { D[k] = j; }).catch(function () { D[k] = null; }); }
-  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
+  var LATE = ['trend', 'hot10', 'trdar', 'safety', 'taas10', 'enf', 'season', 'pbtn'];   // v0.10.80 무거운 자료(상권·안전시설·사고 10년·추이)는 첫 그림 뒤에 읽는다 — 지도가 먼저 뜬다
   Promise.all(Object.keys(FILES).filter(function (k) { return LATE.indexOf(k) < 0; }).map(get)).then(function () { setTimeout(gpsHere, 0); prep(); pubPrep(); extraPrep(); basePrep(); flowPrep(); fit(); if (on.bld && view.s > 0.12) loadBld(); draw(); applyHash(); $('m2dLoad').style.display = 'none'; paintTime(); summary();
-    Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
+    Promise.all(LATE.map(get)).then(function () { trdPrep(); safePrep(); a10Prep(); seasonPrep(); paintPre(); summary(); draw(); if (sel && $('m2dCard').classList.contains('on')) show(sel.it); }); });
   function loadBld() {   // 건물 593KB — 켤 때만
     if (D.bld !== undefined) return;
     D.bld = null; fetch('data/maps/seocho-full-buildings.json').then(function (r) { return r.json(); }).then(function (j) { D.bld = j; prepBld(); draw(); }).catch(function () {});
@@ -207,7 +210,7 @@
       if (view.s > 0.1) label([q[0], q[1] + 16 / view.s], s.name, 11, dark ? '#e2e8f0' : '#334155', dark ? 'rgba(15,22,36,.7)' : 'rgba(255,255,255,.85)'); });
     if (on.her && D.her) D.her.items.forEach(function (h) { if (h.lat && h.lon) dot(P(h.lon, h.lat), 5, '#92400e', '#fde68a', { kind: 'her', h: h }); });
     if (on.vol && D.vol) D.vol.spots.forEach(function (v) { var n = v.node && nodeAt(v.node); if (n && !v.outside) { var s2 = S(n.p); ctx.fillStyle = '#0ea5e9'; ctx.fillRect(s2[0] + 8, s2[1] - 8, 16, 16); hit.push({ x: s2[0] + 16, y: s2[1], r: 12, it: { kind: 'vol', v: v, n: n } }); } });
-    drawTrd(dark); drawA10(dark); drawPub(dark); drawExtra(dark); drawFlow(dark); drawSafe(dark);
+    drawTrd(dark); drawA10(dark); drawPub(dark); drawExtra(dark); drawFlow(dark); drawSafe(dark); drawSeason(dark);
     if (on.evt && D.evt) {
       (D.evt.events && D.evt.events.items || []).forEach(function (e) { if (e.lat && e.s <= ymd && e.e >= ymd) dot(P(e.lon, e.lat), 5.5, '#a855f7', '#fff', { kind: 'evt', e: e }); });
       (D.evt.rallies && D.evt.rallies.items || []).forEach(function (r) {
@@ -343,6 +346,7 @@
       var e = it.e; h = '<h3>📅 ' + esc(e.t) + '</h3>' + row('갈래', esc(e.c)) + row('기간', esc(e.s + ' ~ ' + e.e)) + row('시간', esc(e.hour || '-')) + row('자리', esc(e.p)) + row('요금', esc(e.free || '-')) + src('서울시 문화행사 정보(공공누리 1유형)');
     } else if (it.kind === 'a10' || it.kind === 'f10') { h = a10Card(it);
     } else if (it.kind === 'trd') { h = trdCard(it);
+    } else if (it.kind === 'season') { h = seasonCard(it);
     } else if (it.kind === 'safe') { h = safeCard(it);
     } else if (['crowd', 'link', 'osmroad', 'hot10'].indexOf(it.kind) >= 0) {
       h = flowCard(it);
@@ -735,7 +739,7 @@
     P3[2].forEach(function (k) { if (k in on) on[k] = true; }); saveOn(); paintLayers(); paintPre(); sel = null; show(null); draw(); summary();
   }
   function paintPre() {
-    var el = $('m2dPre'); if (!el) return;
+    var el = $('m2dPre'); if (!el) return; var si = seasonInfo(); PRESETS = PRESETS.filter(function (x) { return x[0] !== 'season'; }); PRESETS.unshift(['season', si.icon + ' 지금 계절 · ' + si.short, si.keys]);
     el.innerHTML = PRESETS.map(function (x) { var act = LAYERS.every(function (l) { return KEEP.indexOf(l[0]) >= 0 || on[l[0]] === (x[2].indexOf(l[0]) >= 0); }); return '<button data-p="' + x[0] + '" class="' + (act ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
       '<button data-x="none" class="ctl">모두 끄기</button><button data-x="reset" class="ctl">처음대로</button>';
   }
@@ -757,9 +761,10 @@
     if (sm) out.push('💳 매출 ' + go(sm.d.name, sm.d.c, { kind: 'dong', d: sm.d }));
     if (LIVEP.length) { var cnt = { '붐빔': 0, '약간 붐빔': 0 }, kind = null, hot = null; LIVEP.forEach(function (L) { var cw = crowdAt(L); if (!cw) return; kind = kind || cw.kind; if (cnt[cw.lvl] != null) { cnt[cw.lvl]++; if (!hot || cw.lvl === '붐빔') hot = L; } });
       out.push('📡 ' + (kind === 'old' ? '실시간 인파(' + esc(String((D.livep || {}).baked || '').slice(5)) + ' 받음)' : '인파 ' + (kind === 'fcst' ? '예측' : '지금')) + ' 붐빔 ' + cnt['붐빔'] + ' · 약간 ' + cnt['약간 붐빔'] + (hot ? ' ' + go(hot.o.name, hot.c, { kind: 'crowd', L: hot }) : '')); }
+    var si = seasonInfo(), sn = seasonCount(si); if (sn) out.unshift('<button data-sp="1">' + si.icon + ' ' + esc(si.name) + ' — ' + esc(sn) + '</button>');
     el.innerHTML = '<b>' + h + '시</b> ' + out.join(' · ');
   }
-  if ($('m2dSum')) $('m2dSum').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; var t = SUMT[+b.getAttribute('data-s')]; if (!t) return;
+  if ($('m2dSum')) $('m2dSum').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; if (b.getAttribute('data-sp')) { preset('season'); return; } var t = SUMT[+b.getAttribute('data-s')]; if (!t) return;
     var k = t.it.kind === 'pub' ? t.it.layer : t.it.kind === 'crowd' ? 'crowd' : null; if (k && !on[k]) { on[k] = true; saveOn(); paintLayers(); paintPre(); }
     view.cx = t.p[0]; view.cy = t.p[1]; view.s = Math.max(view.s, 0.3); draw(); var s = S(t.p); sel = { x: s[0], y: s[1], r: 8, it: t.it }; show(t.it); draw(); });
   paintPre();
@@ -955,6 +960,63 @@
     add('box', '📦 안심택배함', '#a16207', I.box);
     add('dem', '🧠 치매안심센터', '#9333ea', I.dem);
   }
+  // ---------- 🗓 계절 취약지(v0.10.85 · 소유자 「겨울에는 결빙 여름에는 폭우 등 위험한 지역을 자동으로 데이터에 맞게」) ----------
+  // 고른 날짜의 달로 계절을 정한다 — 6~9월 폭우(침수흔적·침수 이력 도로·지하차도) · 11~3월 결빙(제설함·열선 길·전진기지·결빙 다발지) · 그 밖은 둘 다
+  var SEA = null;
+  function dec2(a, k) { var out = [], x = a[k], z = a[k + 1]; out.push([x, z]); for (var i = k + 2; i < a.length; i += 2) { x += a[i]; z += a[i + 1]; out.push([x, z]); } return out; }
+  function seasonPrep() { var Sd = D.season; if (!Sd) return;
+    SEA = { tr: Sd.traces.map(function (t) { return { p: [t[0], t[1]], t: t }; }), fr: Sd.floodRoads.map(function (r) { return { r: r, pts: dec2(r, 6) }; }),
+      un: Sd.under.map(function (u) { return { p: [u[2], u[3]], u: u }; }), ib: Sd.sbox.map(function (b) { return { p: [b[0], b[1]], b: b }; }), ad: Sd.adv.map(function (a) { return { p: [a[0], a[1]], a: a }; }),
+      ht: Sd.heat.map(function (h) { return { h: h, segs: h[5].map(function (a) { return dec2(a, 0); }) }; }), pb: D.pbtn ? D.pbtn.items.map(function (b) { return { p: [b[0], b[1]], b: b }; }) : [] }; }
+  function seasonInfo() { var m = +String(pickDate()).slice(5, 7) || (new Date().getMonth() + 1), hh = nowH();
+    if (m >= 6 && m <= 9) return { k: 'rain', icon: '🌧', short: '폭우', name: m + '월 장마·집중호우 철', keys: ['flt', 'flr', 'und', 'hot10'] };
+    if (m >= 11 || m <= 3) return { k: 'ice', icon: '🧊', short: '결빙', name: m + '월 결빙 철' + (hh >= 0 && hh < 10 ? ' · 새벽·아침' : ''), keys: ['ice', 'hcab', 'advb', 'hot10'] };
+    return { k: 'both', icon: '🗓', short: '침수·결빙', name: m + '월 환절기', keys: ['flr', 'und', 'ice', 'hcab'] }; }
+  function seasonCount(si) { if (!SEA) return ''; var Sd = D.season;
+    var nm = {}; SEA.fr.forEach(function (r) { if (r.r[2] >= 2 && r.r[0]) nm[r.r[0]] = 1; }); var fr = Object.keys(nm).length, un = SEA.un.filter(function (u) { return u.u[5]; }).length;
+    if (si.k === 'rain') return '두 해 넘게 침수 흔적이 닿은 길 ' + fr + '곳 · 침수 흔적 가까운 지하차도 ' + un + '곳';
+    if (si.k === 'ice') return '제설함 ' + SEA.ib.length + '곳 · 열선 길 ' + SEA.ht.length + '곳';
+    return '두 해 넘게 침수 흔적이 닿은 길 ' + fr + '곳 · 제설함 ' + SEA.ib.length + '곳'; }
+  function polyl(pts, col, w, dark, it) { if (pts.length < 2) return; ctx.beginPath(); pts.forEach(function (q, i) { var a = S(q); if (i) ctx.lineTo(a[0], a[1]); else ctx.moveTo(a[0], a[1]); });
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    if (it) { var m = S(pts[Math.floor(pts.length / 2)]); hit.push({ x: m[0], y: m[1], r: 10, it: it }); } }
+  var FR_C = ['#7dd3fc', '#38bdf8', '#0284c7', '#1e3a8a'];
+  function drawSeason(dark) { if (!SEA) return; var Sd = D.season, z = view.s;
+    if (on.flr) SEA.fr.forEach(function (r) { var n = Math.min(3, r.r[2]); polyl(r.pts, FR_C[n], Math.max(3, (n + 2) * Math.min(1.6, z * 6)), dark, { kind: 'season', k: 'flr', r: r }); });
+    if (on.hcab) SEA.ht.forEach(function (h) { h.segs.forEach(function (pts, i) { polyl(pts, '#f97316', Math.max(3, Math.min(7, z * 18)), dark, i === 0 ? { kind: 'season', k: 'hcab', h: h } : null); }); });
+    if (on.flt) SEA.tr.forEach(function (t) { var d = t.t[4], c = d >= 1 ? '#1e3a8a' : d >= 0.5 ? '#2563eb' : '#60a5fa'; dot(t.p, z < 0.12 ? 2.2 : 3 + Math.min(4, Math.sqrt(t.t[3])), hexA(c, 0.75), z < 0.12 ? null : '#fff', z < 0.12 ? null : { kind: 'season', k: 'flt', t: t }); });
+    if (on.und) SEA.un.forEach(function (u) { var a = S(u.p), wet = u.u[5] > 0, r = 7; ctx.fillStyle = wet ? '#b91c1c' : '#475569'; ctx.fillRect(a[0] - r, a[1] - r, r * 2, r * 2); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(a[0] - r, a[1] - r, r * 2, r * 2);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('U', a[0], a[1] + 0.5); hit.push({ x: a[0], y: a[1], r: 11, it: { kind: 'season', k: 'und', u: u } });
+      if (z > 0.18 && u.u[0]) label([u.p[0], u.p[1] + 16 / z], u.u[0] + (wet ? ' · 침수 ' + u.u[5] + '해' : ''), 10.5, wet ? '#7f1d1d' : '#334155', 'rgba(255,255,255,.85)'); });
+    if (on.ice) SEA.ib.forEach(function (b) { dot(b.p, z < 0.12 ? 2 : 3.6, '#06b6d4', z < 0.12 ? null : '#fff', z < 0.12 ? null : { kind: 'season', k: 'ice', b: b }); });
+    if (on.advb) SEA.ad.forEach(function (a) { dot(a.p, 7, '#0e7490', '#fff', { kind: 'season', k: 'advb', a: a }); });
+    if (on.pbtn) SEA.pb.forEach(function (b) { dot(b.p, 5.5, '#16a34a', '#fff', { kind: 'season', k: 'pbtn', b: b }); if (z > 0.3) label([b.p[0], b.p[1] + 14 / z], '보행자 작동', 10, '#14532d', 'rgba(255,255,255,.85)'); });
+  }
+  function seasonCard(it) { var Sd = D.season, h = '', k = it.k, src2 = '';
+    if (k === 'flt') { var t = it.t.t, near = SEA.tr.filter(function (o) { return Math.hypot(o.p[0] - it.t.p[0], o.p[1] - it.t.p[1]) < 40; }), ys = {}; near.forEach(function (o) { ys[o.t[2]] = 1; });
+      h = '<h3>🌊 침수 흔적 — ' + t[2] + '년</h3>' + row('흔적', t[3] + '곳(20m 칸에 묶음)') + row('최대 침수심', t[4] ? t[4] + 'm' : '기록 없음') + row('원인', esc(Sd.causes[t[5]] || '-')) + row('동', esc(Sd.zones[t[6]] || '-')) +
+        row('이 자리 40m 안 침수 해', Object.keys(ys).sort().join(' · ')) + '<p class="desc">건물·필지가 물에 잠긴 범위의 가운데 점이다(도로 침수 기록이 아니다). 2015·2021년은 서울시 자료가 없다.</p>'; src2 = Sd.source.flood; }
+    else if (k === 'flr') { var r = it.r.r; h = '<h3>🌧 침수 이력 도로 — ' + esc(r[0] || '이름 없는 길') + '</h3>' + row('침수 흔적 해 수', r[2] + '해 · 마지막 ' + r[3] + '년') + row('둘레 흔적', r[5] + '곳 · 최대 침수심 ' + (r[4] || '-') + 'm') +
+        '<p class="desc">이 도로 조각 30m 안에 침수 흔적이 있다는 뜻 — 이 앱이 계산한 근사이고 도로가 잠겼다는 공식 기록은 아니다. 큰비 예보 때 먼저 볼 자리로 쓴다.</p>'; src2 = Sd.source.floodRoads; }
+    else if (k === 'und') { var u = it.u.u; h = '<h3>🚇 지하차도 — ' + esc(u[0] || '이름 없음') + '</h3>' + row('길이', u[4] + 'm(OSM)') + row('150m 안 침수 흔적', u[5] ? u[5] + '해 · 마지막 ' + u[6] + '년' : '없음') +
+        '<p class="desc">서울시는 침수 우려 지하차도에 진입차단시설·침수감지장치를 두고 통제 정보를 실시간으로 보낸다(행안부 재난안전데이터 공유플랫폼 → 내비). 차단시설 자리·실시간 통제는 공개 파일이 없어 이 지도(통신 0)에는 없다 — 큰비 때 통제 여부는 상황실·내비로 확인.</p>'; src2 = Sd.source.under; }
+    else if (k === 'ice') { var b = it.b.b; h = '<h3>🧊 제설함 ' + esc(b[2]) + '</h3>' + row('자리', esc(b[3])) + '<p class="desc">제설함은 눈·결빙이 잦은 경사로·교량·그늘진 길에 둔다 — 겨울 새벽 결빙 우려 자리로 본다(추정).</p>'; src2 = Sd.source.sbox; }
+    else if (k === 'hcab') { var hh = it.h.h; h = '<h3>🔥 도로 열선 — ' + esc(hh[4]) + '</h3>' + row('설치 위치(원문)', esc(hh[2])) + row('설치', esc(hh[1]) + ' · ' + esc(hh[3]) + 'm · ' + esc(hh[0])) +
+        '<p class="desc">열선은 결빙이 잦은 경사로에 깐다. 선은 같은 이름 길 전체를 그린 근사 — 실제 깔린 구간은 원문 위치.</p>'; src2 = Sd.source.heat; }
+    else if (k === 'advb') { var a = it.a.a; h = '<h3>❄ 제설 ' + esc(a[3]) + '기지 ' + esc(a[2]) + '</h3>' + row('자리', esc(a[4])) + row('관리', esc(a[5])); src2 = Sd.source.adv; }
+    else if (k === 'pbtn') { var pb = it.b.b; h = '<h3>🚸 보행자작동신호기</h3>' + row('버튼', pb[2] + '개(30m 안 묶음)') + row('관리번호', esc(pb[3] || '-')) + (pb[4] ? row('설치일', esc(pb[4])) : '') +
+        '<p class="desc">보행자가 버튼을 눌러야 보행 신호가 켜지는 곳 — 누르지 않으면 차량 신호가 이어진다(무단횡단 유혹 · 어르신·어린이 안내 자리).</p>'; src2 = D.pbtn.source; }
+    return h + src(src2); }
+  function seasonLegend(G) { if (!SEA) return; var Sd = D.season, b = '';
+    if (on.flt) b += li('#1e3a8a', '침수 흔적 — 깊이 1m 넘음', 'box') + li('#2563eb', '0.5~1m') + li('#60a5fa', '얕음·기록 없음');
+    if (on.flr) b += li(FR_C[1], '침수 이력 도로(30m 안 흔적) 1해', 'line') + li(FR_C[2], '2해', 'line') + li(FR_C[3], '3해 넘음', 'line');
+    if (on.und) b += li('#b91c1c', '지하차도 — 150m 안 침수 흔적 있음', 'box') + li('#475569', '지하차도', 'box');
+    if (on.ice) b += li('#06b6d4', '제설함(결빙 우려 자리)');
+    if (on.hcab) b += li('#f97316', '도로 열선 길', 'line');
+    if (on.advb) b += li('#0e7490', '제설 전진기지');
+    if (on.pbtn) b += li('#16a34a', '보행자작동신호기');
+    if (!b) return; var si = seasonInfo();
+    G(si.icon + ' 계절 위험 · ' + esc(si.name), b + '<small class="lg-n">침수흔적 2010~2025(' + Sd.years.join('·') + ') · 자연재해위험개선지구: ' + Sd.danger.map(function (d) { return esc(d.DSTRCT_NM + '(' + d.PSTN + ')'); }).join(', ') + '</small>'); }
   function drawSafe(dark) {
     SAFE.forEach(function (L) { if (!on[L[0]]) return; var dense = L[3].length > 300, small = dense && view.s < 0.25; if (L[0] === 'fw' && view.s < 0.18) return;
       L[3].forEach(function (q) { var c = L[0].indexOf('sr') === 0 && L[0] !== 'srsvc' ? (SRC_C[q.r[2]] || L[2]) : L[2]; dot(q.p, small ? 2.4 : 4.2, c, small ? null : '#fff', small ? null : { kind: 'safe', L: L, q: q }); }); });
@@ -1003,6 +1065,7 @@
     if (on.er || on.hosp) G('🏥 의료', (on.er ? li('#dc2626', '응급실') : '') + (on.hosp ? li('#0891b2', '병원·의원') : ''));
     if (on.bar || on.play || on.inn) G('🌙 밤 순찰', (on.bar ? li('#b45309', '주점') : '') + (on.play ? li('#db2777', '노래방·PC방') : '') + (on.inn ? li('#7c3aed', '숙박') : ''));
     if (on.evt) G('📅 행사·집회', li('#a855f7', '문화행사') + li('#ef4444', '집회(선 = 행진)'));
+    seasonLegend(G);
     if (on.cam || on.sig) G('📷🚦', (on.cam ? li('#2563eb', '무인 단속 카메라') + (A10.length ? li('#16a34a', '설치 뒤 둘레 사고가 서초 전체보다 더 줄었다') + li('#dc2626', '덜 줄었거나 늘었다') : '') + camSum() : '') + (on.sig ? li('#16a34a', '신호 주기(경찰청)') : ''));
     if (on.spot) G('🎯 길목', li('rgba(234,88,12,.5)', '버스 정류장') + li('rgba(14,165,233,.5)', '지하철역') + '<small class="lg-n">숫자 = 그 시각 하차 순위</small>');
     POLL.forEach(function (L) { if (on[L[0]]) G(L[1], li(L[2], L[3])); });
@@ -1130,7 +1193,8 @@
   clock(); setInterval(function () { clock(); if (HOUR == null) { summary(); } }, 30000);
   function ymdOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function pickDate() { var v = $('m2dDate') && $('m2dDate').value; return v || ymdOf(new Date()); }
-  if ($('m2dDate')) { $('m2dDate').value = ymdOf(new Date()); $('m2dDate').addEventListener('change', function () { sel = null; show(null); draw(); paintTime(); summary(); }); }
+  if ($('m2dDate')) { $('m2dDate').value = ymdOf(new Date()); $('m2dDate').addEventListener('change', function () { var wasSea = $('m2dPre') && $('m2dPre').querySelector('[data-p="season"].on'); sel = null; show(null); paintPre(); if (wasSea) preset('season'); draw(); paintTime(); summary(); }); }
+  // v0.10.85 날짜를 바꾸면 계절 단추도 따라 바뀌고, 계절 단추가 켜져 있었으면 새 계절 층으로
   try { var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)'); if (mq && mq.matches) document.documentElement.classList.add('dark'); } catch (e) {}
   window.TGMap2D = { osm: function () { return OSM; }, flow: function () { return FLOW; }, livep: function () { return LIVEP; }, setHour: setHour, preset: preset, PRESETS: PRESETS, summary: summary, salesNow: salesNow, crowdAt: crowdAt, nowH: function () { return nowH(); }, hashLayers: hashLayers, hour: spotHour, jur: function () { return JUR; }, tgis: function () { return TG; }, spots: function () { return SPOTS; }, saving: function () { return !HASHLY; }, report: function () { return REP; }, applyHash: applyHash, hits: function () { return hit; }, pub: function () { return PUB; }, openNow: openNow, liveNow: liveNow, layers: LAYERS, view: view, nodes: function () { return NODES; }, dongs: function () { return DONG; }, draw: draw, tap: tap, on: on, S: S, P: P };   // 검사·다른 페이지가 읽는 창구
 })();
