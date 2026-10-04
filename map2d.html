@@ -58,6 +58,22 @@
   #m2dCard .desc { font-size: 13px; margin: 6px 0 0; }
   #m2dCard .bars { display: flex; align-items: flex-end; gap: 2px; height: 46px; margin-top: 3px; }
   #m2dCard .bars i { flex: 1; min-height: 1px; border-radius: 2px 2px 0 0; }
+  /* v0.10.83 24시간 막대 — 시각 숫자 · 붐빔 색 · 지금 테 */
+  #m2dCard .bars.h24 i.n { outline: 2px solid var(--ink); outline-offset: 0; }
+  #m2dCard .bars.b2 .hb { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 100%; border-bottom: 3px solid transparent; }
+  #m2dCard .bars.b2 .hb.b { border-bottom-color: #dc2626; }
+  #m2dCard .bars.b2 .hb.n { outline: 2px solid var(--ink); }
+  #m2dCard .hx { display: flex; gap: 2px; margin-top: 2px; }
+  #m2dCard .hx span { flex: 1; text-align: center; font-size: 10px; line-height: 14px; color: var(--ink2); font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+  #m2dCard .hx span.b { color: #dc2626; font-weight: 800; }
+  #m2dCard .hx span.n { background: var(--ink); color: var(--bg); border-radius: 3px; font-weight: 800; }
+  #m2dCard .hk { font-size: 11.5px; color: var(--ink2); margin-top: 3px; line-height: 1.5; }
+  #m2dCard .hk i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 3px 0 6px; vertical-align: -1px; }
+  #m2dCard .hk i:first-child { margin-left: 0; }
+  #m2dCard .hk i.nw { background: transparent; outline: 2px solid var(--ink); outline-offset: -2px; }
+  #m2dCard .hk u { display: inline-block; width: 12px; height: 3px; background: #dc2626; margin: 0 3px 0 4px; vertical-align: 2px; }
+  #m2dCard .hk b { color: #dc2626; }
+  @media (max-width: 420px) { #m2dCard .hx span:nth-child(even):not(.b):not(.n) { visibility: hidden; } }
   #m2dCard .ln { display: inline-block; min-width: 22px; padding: 0 5px; border-radius: 11px; color: #fff; font-style: normal; text-align: center; font-weight: 700; font-size: 12px; }
   #m2dFoot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; padding: 4px 10px calc(4px + env(safe-area-inset-bottom)); font-size: 11px; color: var(--ink2); background: linear-gradient(transparent, var(--bg) 40%); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #m2dFoot details { pointer-events: auto; display: inline; }
@@ -180,7 +196,7 @@
   · 통계청 · 행안부 · OSM(ODbL) · TAAS·도로교통공단 · 경찰청 · 서울시 · 국가유산청
 </div>
 <div id="m2dLoad">지도 자료를 읽는 중…</div>
-<script src="js/map2d.js?v=0.10.82"></script>
+<script src="js/map2d.js?v=0.10.83"></script>
 <script>
   // 캔버스 자리 = 위 막대 아래부터 화면 끝까지(막대 높이가 기기·글자 크기마다 다르다)
   (function () {

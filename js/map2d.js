@@ -258,7 +258,17 @@
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function row(k, v) { return '<div class="r"><b>' + esc(k) + '</b><span>' + v + '</span></div>'; }
   function src(t) { return '<div class="src">' + esc(t) + '</div>'; }
-  function bar(arr, color) { var mx = Math.max.apply(null, arr) || 1; return '<div class="bars">' + arr.map(function (v, i) { return '<i title="' + i + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (color || '#3b82f6') + '"></i>'; }).join('') + '</div>'; }
+  // v0.10.83 24시간 막대 = 아래에 시각 숫자 · 붐빔(그 막대의 가장 작은 값~가장 큰 값 사이 위쪽 25%)/보통/한산(아래쪽 30%) 색 · 지금 시각 테 — 소유자 「시간을 숫자로 · 붐비는 시간대를 색을 달리」
+  var BUSY = 0.75, QUIET = 0.30, C_BUSY = '#dc2626', C_QUIET = '#cbd5e1';
+  function hourLv(v, mx, mn) { var t = (v - (mn || 0)) / Math.max(1e-9, mx - (mn || 0)); return t >= BUSY ? 2 : t < QUIET ? 0 : 1; }
+  function hourAxis(lv) { var hh = nowH(); return '<div class="hx">' + lv.map(function (l, i) { return '<span class="' + (l === 2 ? 'b' : '') + (i === hh ? ' n' : '') + '">' + i + '</span>'; }).join('') + '</div>'; }
+  function hourKey(lv, color) { var b = []; lv.forEach(function (l, i) { if (l === 2) b.push(i); }); var r = [], s0 = null;
+    b.forEach(function (h, k) { if (s0 == null) s0 = h; if (b[k + 1] !== h + 1) { r.push(s0 === h ? s0 + '시' : s0 + '~' + h + '시'); s0 = null; } });
+    return '<div class="hk"><i style="background:' + C_BUSY + '"></i>붐빔' + (r.length ? ' <b>' + r.join(' · ') + '</b>' : '') + ' <i style="background:' + (color || '#3b82f6') + '"></i>보통 <i style="background:' + C_QUIET + '"></i>한산 <i class="nw"></i>지금</div>'; }
+  function bar(arr, color) { var mx = Math.max.apply(null, arr) || 1;
+    if (arr.length === 24) { var mn = Math.min.apply(null, arr), lv = arr.map(function (v) { return hourLv(v, mx, mn); }), hh = nowH();
+      return '<div class="bars h24">' + arr.map(function (v, i) { return '<i title="' + i + '시 ' + Math.round(v).toLocaleString() + '" class="' + (i === hh ? 'n' : '') + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (lv[i] === 2 ? C_BUSY : lv[i] === 0 ? C_QUIET : (color || '#3b82f6')) + '"></i>'; }).join('') + '</div>' + hourAxis(lv) + hourKey(lv, color); }
+    return '<div class="bars">' + arr.map(function (v, i) { return '<i title="' + i + '" style="height:' + Math.round(v / mx * 100) + '%;background:' + (color || '#3b82f6') + '"></i>'; }).join('') + '</div>'; }
   function show(it) {
     var card = $('m2dCard'), h = '';
     if (!it) { card.classList.remove('on'); return; }
@@ -646,14 +656,16 @@
       '<div class="cap">요일(월~일)</div>' + bar(x.dw, '#a78bfa') + salesTrend(name) + '<div class="src">' + esc(S5.source) + (D.trend ? ' · 추이: ' + esc(D.trend.sales.source) : '') + '</div>';
   }
   function onoffC(a, b, al) { var c = a > b * 1.25 ? '37,99,235' : b > a * 1.25 ? '234,88,12' : '13,148,136'; return 'rgba(' + c + ',' + al + ')'; }
-  function bar2(on, off) { var mx = 1, hh = nowH(); for (var i = 0; i < 24; i++) mx = Math.max(mx, on[i], off[i]);
-    return '<div class="bars">' + on.map(function (v, i) { var op = i === hh ? 1 : 0.55; return '<i title="' + i + '시 승차" style="height:' + Math.round(v / mx * 100) + '%;background:#2563eb;opacity:' + op + '"></i><i title="' + i + '시 하차" style="height:' + Math.round(off[i] / mx * 100) + '%;background:#ea580c;opacity:' + op + ';margin-right:2px"></i>'; }).join('') + '</div>'; }
+  function bar2(on, off) { var mx = 1, hh = nowH(), sm = [], sx = 1; for (var i = 0; i < 24; i++) { mx = Math.max(mx, on[i], off[i]); sm[i] = on[i] + off[i]; sx = Math.max(sx, sm[i]); }
+    var sn = Math.min.apply(null, sm), lv = sm.map(function (v) { return hourLv(v, sx, sn); });
+    return '<div class="bars h24 b2">' + on.map(function (v, i) { var op = i === hh ? 1 : lv[i] === 0 ? 0.35 : 0.7; return '<span class="hb' + (lv[i] === 2 ? ' b' : '') + (i === hh ? ' n' : '') + '"><i title="' + i + '시 승차" style="height:' + Math.round(v / mx * 100) + '%;background:#2563eb;opacity:' + op + '"></i><i title="' + i + '시 하차" style="height:' + Math.round(off[i] / mx * 100) + '%;background:#ea580c;opacity:' + op + '"></i></span>'; }).join('') + '</div>' + hourAxis(lv) +
+      '<div class="hk"><i style="background:#2563eb"></i>승차 <i style="background:#ea580c"></i>하차 · <u></u>붐빔(승하차 합)' + (function () { var b = []; lv.forEach(function (l, i) { if (l === 2) b.push(i); }); var r = [], s0 = null; b.forEach(function (h, k) { if (s0 == null) s0 = h; if (b[k + 1] !== h + 1) { r.push(s0 === h ? s0 + '시' : s0 + '~' + h + '시'); s0 = null; } }); return r.length ? ' <b>' + r.join(' · ') + '</b>' : ''; })() + ' <i class="nw"></i>지금</div>'; }
   function onoffRows(f) {
     var hh = nowH(), on = f[0], off = f[1], so = on.reduce(function (a, b) { return a + b; }, 0), sf = off.reduce(function (a, b) { return a + b; }, 0);
     var pOn = on.indexOf(Math.max.apply(null, on)), pOff = off.indexOf(Math.max.apply(null, off)), a = on[hh], b = off[hh];
     return row(hh + '시', '승차 ' + a.toLocaleString() + ' · 하차 ' + b.toLocaleString() + '명 <em>(' + (a > b * 1.25 ? '떠나는 사람이 많다' : b > a * 1.25 ? '모여드는 사람이 많다' : '오가는 수가 비슷') + ')</em>') +
       row('하루', '승차 ' + so.toLocaleString() + ' · 하차 ' + sf.toLocaleString() + '명') + row('가장 붐빌 때', '타는 때 ' + pOn + '시 · 내리는 때 ' + pOff + '시') +
-      '<div class="cap">시간대 승차(파랑) · 하차(주황) — 하루 평균 · 진한 것이 고른 시각</div>' + bar2(on, off);
+      '<div class="cap">시간대 승차(파랑) · 하차(주황) — 하루 평균 · 아래 숫자 = 시각 · 빨간 밑줄 = 붐빔 · 검은 테 = 고른 시각</div>' + bar2(on, off);
   }
   function drawFlow(dark) {
     if (on.hot10 && D.hot10) D.hot10.spots.forEach(function (g) { var cnt = {}; g.rec.forEach(function (r) { cnt[r[0]] = (cnt[r[0]] || 0) + 1; }); var k = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0], q = P(g.lo, g.la);
