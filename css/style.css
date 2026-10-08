@@ -1600,3 +1600,13 @@ button.hcell{font:inherit;color:inherit;cursor:pointer;appearance:none}
 .hbtns button:not(.primary),.hbtns .hlink{background:rgba(20,30,52,.85);border:1.5px solid rgba(160,190,255,.45);color:#dfe8ff}
 .hdongs{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0 10px;font-size:11.5px}
 .hdongs span{padding:2px 7px;border-radius:8px;border:1.5px solid var(--hc)}
+/* v0.10.109 📡 동시 신고 — 두 건 중 어디부터(8초) */
+#dpPick{position:fixed;left:50%;top:calc(58px + env(safe-area-inset-top));transform:translateX(-50%);z-index:45;width:min(440px,calc(100vw - 20px));display:none;pointer-events:auto;background:rgba(10,16,30,.92);border:2px solid #f59e0b;border-radius:14px;padding:8px 10px 10px;box-shadow:0 8px 28px rgba(0,0,0,.45);color:#fff}
+#dpPick.on{display:block}
+#dpPick .dp-h{font-size:14px;font-weight:800;text-align:center;margin-bottom:6px;color:#fde68a}
+#dpPick .dp-b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#dpPick .dp-o{display:flex;flex-direction:column;gap:2px;padding:10px 8px;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;text-align:left;cursor:pointer;touch-action:manipulation;min-height:64px}
+#dpPick .dp-o b{font-size:15px}#dpPick .dp-o span{font-size:13px;color:#dbeafe}#dpPick .dp-o small{font-size:11px;color:#cbd5e1;line-height:1.3}
+#dpPick .dp-o.c0{border-color:#ef4444}#dpPick .dp-o.c1{border-color:#f59e0b}#dpPick .dp-o.c2{border-color:#60a5fa}
+#dpPick .dp-o:active{background:rgba(255,255,255,.2)}
+#dpPick .dp-bar{height:4px;margin-top:8px;border-radius:2px;background:rgba(255,255,255,.15);overflow:hidden}#dpPick .dp-bar i{display:block;height:100%;background:#f59e0b}

@@ -31,6 +31,49 @@ TG.Dispatch = function (game) {
     }
     return list.length ? list[Math.floor(Math.random() * list.length)] : null;
   }
+  // ---------- 🚨 동시 신고(v0.10.109 · 소유자 「재미가 없어」 → 외부 의견 중 실제로 빠진 것 하나 「우선순위 판단」) ----------
+  //  두 번째 신고부터 60% 로 두 건이 함께 들어온다. 8초 안에 어디로 갈지 고른다 — 정답 = 코드 숫자가 작은 쪽(112 신고처리 규칙 §6 코드 구분 · laws.json emergency.codes),
+  //  같은 코드면 가까운 쪽. 맞히면 칭찬·경험치, 틀려도 **벌하지 않는다**(콤보만 끊기고 왜 그런지 한 줄). 안 고르면 상황실이 급한 쪽을 지정한다(보상 없음).
+  //  고르지 않은 신고는 「인접 순찰차가 맡는다」 — 근무에 남지 않는다. 시간은 게임 시계(dt)라 검사 step 으로도 돈다.
+  this.pair = null;
+  var PICK_SEC = 8, pickEl = null;
+  function pickBox() {
+    if (pickEl) return pickEl;
+    pickEl = document.createElement('div'); pickEl.id = 'dpPick'; pickEl.innerHTML = '<div class="dp-h">📡 112 신고 두 건 — 어디부터?</div><div class="dp-b"></div><div class="dp-bar"><i></i></div>';
+    document.body.appendChild(pickEl);
+    pickEl.addEventListener('pointerdown', function (e) { var b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); self.choose(+b.getAttribute('data-i')); });
+    pickEl.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
+    window.addEventListener('keydown', function (e) { if (!self.pair) return; if (e.code === 'Digit1' || e.key === '1') self.choose(0); else if (e.code === 'Digit2' || e.key === '2') self.choose(1); });
+    return pickEl;
+  }
+  function bestOf(P) { var a = P.opts[0], b = P.opts[1]; return a.code !== b.code ? (a.code < b.code ? 0 : 1) : (a.dist <= b.dist ? 0 : 1); }
+  this.offer = function () {
+    if (self.active || self.pair) return null;
+    var n1 = pickDest(), n2 = null, k = 0; while (k++ < 12) { n2 = pickDest(); if (n2 && n2 !== n1) break; }
+    if (!n1 || !n2 || n1 === n2) return self.call();
+    var c1 = Math.random() < 0.5 ? 0 : 1, c2 = Math.random() < 0.3 ? c1 : Math.min(2, c1 + 1 + (Math.random() < 0.4 ? 1 : 0));
+    if (Math.random() < 0.5) { var t = c1; c1 = c2; c2 = t; }
+    var pl = game.player, mk = function (node, code) { return { node: node, code: code, dist: Math.round(Math.hypot(node.x - pl.pos.x, node.z - pl.pos.z)), name: city.nodeName ? city.nodeName(node) : '교차로' }; };
+    self.pair = { t: 0, opts: [mk(n1, c1), mk(n2, c2)] };
+    var el = pickBox(), bx = el.querySelector('.dp-b');
+    bx.innerHTML = self.pair.opts.map(function (o, i) { var ct = codeText(o.code); return '<button data-i="' + i + '" class="dp-o c' + o.code + '"><b>' + (i + 1) + ' · ' + ct.name + '</b><span>' + o.name + ' · ' + o.dist + 'm</span><small>' + (ct.what || '') + '</small></button>'; }).join('');
+    el.classList.add('on'); el.querySelector('.dp-bar i').style.width = '100%';
+    if (TG.audio.squelch) TG.audio.squelch();
+    TG.audio.say('상황실에서 알립니다. 신고 두 건, 어디부터 가겠습니까', { kind: 'narrator', queue: true });
+    if (game.metrics) game.metrics.ev('dispatch');
+    return self.pair;
+  };
+  this.choose = function (i, auto) {
+    var P = self.pair; if (!P) return null; self.pair = null; if (pickEl) pickEl.classList.remove('on');
+    var best = bestOf(P), o = P.opts[auto ? best : i], other = P.opts[auto ? 1 - best : 1 - i], bo = P.opts[best], ok = !auto && i === best;
+    var got = self.call(o.code, o.node); if (!got) return null;
+    var why = P.opts[0].code !== P.opts[1].code ? codeText(bo.code).name + '이 더 급하다 — 코드 숫자가 작을수록 먼저' : '같은 코드면 가까운 곳부터';
+    game.stats.triage = (game.stats.triage || 0) + 1; if (ok) game.stats.triageOk = (game.stats.triageOk || 0) + 1;
+    if (auto) game.hud.notice('📡 상황실 지정 — ' + codeText(o.code).name + ' ' + o.name + ' · 다른 신고는 인접 순찰차가 맡는다', 'info', 3600);
+    else if (ok) { if (game.praise) game.praise.cheer('triage', 15, { feed: '출동 판단 — ' + codeText(o.code).name + ' 먼저', voice: true }); game.hud.notice('👍 ' + why + ' · ' + other.name + ' 신고는 인접 순찰차가 맡는다', 'info', 3600); }
+    else { if (game.praise) game.praise.miss(true); game.hud.notice('💭 ' + why + ' · ' + other.name + ' 신고는 인접 순찰차가 맡는다', 'info', 4200); }
+    return { ok: ok, auto: !!auto, chosen: o, other: other };
+  };
   // 신고를 받는다. code 0·1 = 긴급 출동, 2 = 일반 출동. node 를 주면 그 교차로(검증·체험).
   this.call = function (code, node) {
     if (self.active) return null;
@@ -69,13 +112,14 @@ TG.Dispatch = function (game) {
   };
   this.update = function (dt) {
     var pl = game.player; if (!pl || !pl.pos) return;
+    if (self.pair) { self.pair.t += dt; if (pickEl) pickEl.querySelector('.dp-bar i').style.width = Math.max(0, 100 - self.pair.t / PICK_SEC * 100).toFixed(1) + '%'; if (self.pair.t >= PICK_SEC || game.state !== 'play') self.choose(0, true); return; }
     if (!self.active) {
       if (!(game.mode === 'patrol' || game.mode === 'open') || game.state !== 'play' || game.afoot) return;
       self.nextT -= dt;
       if (self.nextT <= 0) {
         var ev = cfg.DISPATCH_EVERY || [90, 150];
         self.nextT = ev[0] + Math.random() * (ev[1] - ev[0]);
-        if (!(game.enforcement && game.enforcement.state !== 'idle') && !(game.chase && game.chase.car)) self.call();
+        if (!(game.enforcement && game.enforcement.state !== 'idle') && !(game.chase && game.chase.car)) { if ((game.stats.dispatches || 0) >= 1 && Math.random() < 0.6) self.offer(); else self.call(); }
       }
       return;
     }
