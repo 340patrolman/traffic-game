@@ -545,6 +545,11 @@
     }
     // 🗺 첫 화면 지도 고르기(v0.10.40 · 소유자 「처음부터 선택하기가 가능한지」) — 전에는 교통시설 › 지도 안에 숨어 있었다.
     //  지도는 부팅 때 읽으므로 다른 지도를 누르면 판을 새로 연다. 운전 중에는 순환도로 밖 🛰 관문으로도 건너간다.
+    (function titleMore() {   // v0.10.106 「더보기」 상자 — 연 채로 두었으면 다음에도 열어 둔다(교실을 자주 여는 선생님용)
+      var d = $('titleMore'); if (!d) return;
+      if (TG.save.get('title_more', false)) d.open = true;
+      d.addEventListener('toggle', function () { TG.save.set('title_more', d.open); });
+    })();
     (function mapChips() {
       var el = $('mapChips'), idx = TG.MAPS; if (!el) return;
       if (!idx || !idx.maps || idx.maps.length < 2) { el.style.display = 'none'; return; }
