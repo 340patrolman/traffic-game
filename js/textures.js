@@ -406,6 +406,9 @@ TG.tex = (function () {
     g.restore();
   }
   function drawEmblem(g, cx, cy, r) { drawShield(g, cx, cy, r); }
+  // v0.10.110 호차 번호(소유자 현장 지식 2026-10-08) — 경찰서 교통순찰차는 서마다 01부터(많은 곳 06까지) · 「고속309」 같은 번호는 고속도로순찰대(3지구대 9호)라 시내 차에 쓰지 않는다.
+  //  이 게임 지도는 서초구 → 「서초 0N」. N 은 기기마다 1~6 중 하나로 정해 두고 바꾸지 않는다(tg_unitno).
+  TG.unitNo = function () { var n = TG.save ? TG.save.get('unitno', 0) : 0; if (!(n >= 1 && n <= 6)) { n = 1 + Math.floor(Math.random() * 6); if (TG.save) TG.save.set('unitno', n); } return '서초 0' + n; };
   function liverySide(flip) {
     var key = 'lvs:' + (flip ? 1 : 0);
     if (cache[key]) return cache[key];
@@ -425,6 +428,7 @@ TG.tex = (function () {
     drawEmblem(g, X(0.70), 0.30 * H, 44);
     g.fillStyle = '#1f4fa8'; g.font = 'bold 54px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('경찰', X(0.27), 0.30 * H); g.fillText('POLICE', X(0.47), 0.30 * H);
+    g.fillStyle = '#ffffff'; g.font = 'bold 40px ' + FONT; g.fillText(TG.unitNo(), X(0.13), 0.80 * H);   // 호차 번호 — 뒤 청색 띠 위 흰 글씨
     return (cache[key] = toTexture(c));
   }
   // 순찰차 뒷면(소유자: 「뒷모습 매우 중요해」): 후부 반사판 — 형광 연두·적색 사선 + 청색 「POLICE」.

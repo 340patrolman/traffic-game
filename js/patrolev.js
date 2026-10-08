@@ -50,6 +50,7 @@ TG.PatrolEV = (function () {
       g.fillStyle = '#1f3f8f'; g.font = 'bold 64px ' + FONT; g.fillText('경찰', X(0.22), Y(0.62));
       g.fillStyle = '#1f4fb8'; g.font = '900 92px Arial, ' + FONT; g.fillText('POLICE', X(-0.78), Y(0.62));
       g.fillStyle = '#1f4fb8'; g.font = 'bold 34px Arial'; g.fillText('POLICE', X(-2.12), Y(0.78));
+      g.fillStyle = '#ffffff'; g.font = 'bold 38px ' + FONT; g.fillText(TG.unitNo ? TG.unitNo() : '', X(-1.22), Y(0.92));   // v0.10.110 호차 번호 「서초 0N」 — 뒷문 청색 띠 위(사진의 「고속 309」 자리)
     });
   }
   function rearTex() {
