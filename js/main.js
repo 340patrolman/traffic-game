@@ -1202,6 +1202,9 @@
     if (!player.siren && G.emergOn) { G.emergOn = false; var eb0 = document.getElementById('btnEmerg'); if (eb0) eb0.classList.remove('on'); if (G.emergHaz && G.setHazard) { G.setHazard(false); G.emergHaz = false; } }   // 경광등을 끄면 긴급 운행도 끝
   }
 
+  // v0.10.107 첫 1분 계측(소유자 「재미가 없어」 · 2026-10-08): 출근하면 순찰차가 교차로 50m 앞에 서는데 그 신호가 황색 끝(1.5초 남음)이었다 —
+  //  가속만 눌러도 3초 만에 정지선을 넘을 때 적색이 되어 **피할 수 없는 신호위반 −10** 이 첫 피드백이 됐다. 출근하는 순간 앞 교차로(그 하나)를 녹색 처음으로 맞춘다.
+  function startGreen() { try { if (!player || !city.nodeAhead) return; var d = TG.headingToDir(player.heading), N = city.nodeAhead(player.pos.x, player.pos.z, d, 0); if (!N) return; var ax = d % 2 === 0 ? 'v' : 'h', st = signals.state(N, ax); if (st && st.s === 'green' && st.remain >= 12) return; signals.set(N, ax, 'green'); } catch (e) {} }
   function start(carId, modeOverride) {
     TG.audio.resume(); if (TG.study) TG.study.close();
     document.body.classList.add('ingame');   // 근무 중에만 조작 단추를 보인다(타이틀·부팅에서는 숨김 · v0.10.58)
@@ -1339,6 +1342,7 @@
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty' || G.mode === 'open' || G.mode === 'crazy');
     footBtnLabel(false);
     // 서킷은 출발 신호등이 화면 가운데를 쓰니 알림은 **출발 뒤에** 넣는다(startLightUpdate)
+    if (G.mode === 'patrol' || G.mode === 'open') startGreen();
     if (G.mode !== 'circuit') hud.notice(G.mode === 'bike' ? '🚲 청소년 교실 — 페달(위) · 🛑 브레이크 · 👀 살피기 · 🚶 내리기. 네 장면을 차례로 해요' : G.mode === 'tot' ? ('👶 영아 교통안전교실 — 큰 단추로 진행하고, 🚶 꾹 누르면 아이가 직접 걸어요. 고르는 칸은 손가락으로 눌러요' + (input.isTouch ? '' : ' (⌨ ↑ 걷기 · Space 단추 · ← → 고르기 · N 다음)')) : G.mode === 'chase' ? '추격전 — 경광등을 켜고 10~40m 안전거리로 따라갑니다. 📡 무전으로 공조를 부르면 앞을 막아 12초에 끝나고, 안 부르면 단독으로 20초. 어린이보호구역으로 도주하면 추격을 끊는 것이 정답' : G.mode === 'duty' ? '교차로 근무 — 서울성모병원 사거리. 제어함을 열어 자동→수동으로 바꾸고, 막힌 방향에 녹색을 더 줍니다. 안 되면 바깥 차로 차단·꼬리 끊기' : G.mode === 'kid' ? '어린이 보행 교실 — 🛑 서다(한 발 뒤로) · 👀 보다(3초 좌우) · ✋ 손 들기 · 🚶 걷다(뛰지 않기). 초록불이어도 차가 완전히 멈췄는지 보고, 노란 빛기둥까지 가요!' : onFoot() ? '🚶 도보 근무 — 보행 신호(녹색 걷는 사람)에 횡단보도로 건너 목적지(노란 빛기둥)까지. 차에 닿으면 실패. 위반 차량을 터치하면 수신호 단속' : G.mode === 'free' ? '자유 주행 — 시간 제한·감점 없음. IC 로 나가 경부고속도로·올림픽대로를 마음껏 달리세요(랩 타임 기록)' : G.mode === 'circuit' ? '연습 서킷 — 슬로우 인·패스트 아웃. 코너 앞 안내를 따라 달려 보세요(랩 타임 기록)' : '순찰 시작 — 안전 운전이 먼저입니다', 'info', 4000);
     // 지금 시각에 **실제로** 이 구에서 나는 사고를 한 줄 알린다(TAAS byHour — 앱이 만든 숫자가 아니다)
     // 🧭 v0.10.27 — 자료가 들어와 있는 갈래만 「지금 잦은 신고」를 알린다(비어 있으면 조용하다)
