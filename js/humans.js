@@ -15,16 +15,19 @@ TG.Humans = (function () {
   //  (v0.10.56 · 소유자 「초등 보행에 다리가 안 보여 · 자전거 타는 동작이 자연스럽지 않아」) 원래 모델은 머리가 큰 캐릭터형이라 골반이 키의 31~38% 였다 →
   //  경찰 머리 0.66·다리 1.45(골반 46% · 머리 19%) · 어린이 머리 0.82·다리 1.40(골반 약 43% · 머리 23% — 어른보다 머리가 크고 다리가 짧다).
   var KIND = {
-    officer: { skin: 'police_m', height: 1.76, head: 0.66, leg: 1.45, hat: 'police', baton: true },
+    // v0.10.111 소유자 콘셉트 3면도(2026-10-08 · 정면·옆·뒤·걷기·신호봉 · 큰 머리·둥근 눈·큰 흰 장갑)에 맞춘 **임시 비율** — 머리 0.66→0.86(키의 약 19%→26%) · 다리 1.45→1.32 · 손 1.22.
+    //  전용 모델은 그 3면도로 3D 생성(파이프라인 ②, 소유자 실행)한 뒤 이 표만 바꾼다.
+    officer: { skin: 'police_m', height: 1.76, head: 0.86, leg: 1.32, hand: 1.22, hat: 'police', baton: true },
     // 어린이 = prototype-v3(파이프라인 7절): 바가지 머리·삐친 머리 · 노란 목 스카프 · 파란 반팔·검정 반바지·흰 양말·빨간 운동화(스킨)
-    kid:     { skin: 'kid',      height: 1.28, head: 0.82, leg: 1.40, chest: 1.00, hips: 1.00, arm: 1.00, acc: ['bowl', 'scarf'] }
+    // v0.10.111 경찰관 머리를 키운 만큼 아이도 키워 「아이가 머리 비율이 더 크다」를 지킨다(다리 길이는 그대로 — v0.10.56 「다리가 안 보여」)
+    kid:     { skin: 'kid',      height: 1.28, head: 0.98, leg: 1.40, chest: 1.00, hips: 1.00, arm: 1.00, acc: ['bowl', 'scarf'] }
   };
   // 👮 내 경찰관 변형(소유자: 「내가 준비한 것에 바리에이션만」) — 같은 모델·같은 스킨에 **체형과 선글라스만** 바꾼다.
   //  이름: officer_<체형>[_sh]. 새 그림·새 모델은 들여오지 않는다(파이프라인 1절 결정 전).
   var BUILDS = {
     std:    { name: '보통',   over: {} },
-    tall:   { name: '큰 키',   over: { height: 1.86, leg: 1.52, chest: 1.04 } },
-    short:  { name: '작은 키', over: { height: 1.68, head: 0.70, leg: 1.38 } },
+    tall:   { name: '큰 키',   over: { height: 1.86, leg: 1.40, chest: 1.04 } },
+    short:  { name: '작은 키', over: { height: 1.68, head: 0.92, leg: 1.26 } },
     sturdy: { name: '다부진',  over: { height: 1.78, chest: 1.16, hips: 1.10, arm: 1.05 } }
   };
   Object.keys(BUILDS).forEach(function (b) {
@@ -108,6 +111,7 @@ TG.Humans = (function () {
     if (P.chest && bones.Chest) { bones.Chest.scale.x *= P.chest; bones.Chest.scale.z *= P.chest; }
     if (P.hips && bones.Hips) { bones.Hips.scale.x *= P.hips; bones.Hips.scale.z *= P.hips; }
     if (P.arm) ['LeftArm', 'RightArm'].forEach(function (n) { if (bones[n]) bones[n].scale.multiplyScalar(P.arm); });
+    if (P.hand) ['LeftHand', 'RightHand'].forEach(function (n) { if (bones[n]) bones[n].scale.multiplyScalar(P.hand); });   // 큰 흰 장갑(콘셉트 3면도)
   }
   // 단색 부품 재질 — **sRGB → 선형 변환 필수**(안 하면 검정 머리가 회색으로 뜬다 · 파이프라인 7절)
   var lams = {};
