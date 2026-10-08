@@ -4,7 +4,7 @@
 TG.Dispatch = function (game) {
   var self = this, cfg = TG.CONFIG, city = game.city;
   var scene = game.scene || (game.player && game.player.mesh && game.player.mesh.parent) || null;
-  this.active = null; this.dest = null; this.nextT = 40 + Math.random() * 40;
+  this.active = null; this.dest = null; this.nextT = 30 + Math.random() * 15;   // v0.10.108 첫 신고 30~45초(종전 40~80 — 첫 1분 계측에서 첫 112 가 75~79초에 와 첫 위반 포착(20초 무렵) 뒤 40초 넘게 빈 근무가 됐다) · 그다음은 DISPATCH_EVERY
   function law() { return (game.laws && game.laws.emergency) || null; }
   function codeText(code) { var L = law(), c = L && L.codes && L.codes['' + code]; return c || { name: '코드' + code, what: '' }; }
   this.msg = function (k) { var L = law(); return (L && L.msgs && L.msgs[k]) || null; };
