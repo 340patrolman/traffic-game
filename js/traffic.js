@@ -53,7 +53,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   var markerMat = new THREE.SpriteMaterial({ map: TG.tex.marker(), depthTest: false });
 
   // ---------- 격자 경로 ----------
-  function gridLane(car, node, d) { var rd = city.roadOf(node, d); return city.laneOff(rd.axis, rd.idx, car.laneIdx); }
+  // 🏍 이륜차·자전거·PM 은 맨 오른쪽(하위) 차로 안에서도 오른쪽 가장자리 쪽으로 붙는다(v0.10.114 · 소유자 「이륜차가 1·2차로로 너무 다닌다 — 원칙은 좌회전·유턴 때만 1차로 · 늘 하위 차로」 · 시행규칙 별표9 · 차로 가운데에서 0.9m — 차로 안)
+  function gridLane(car, node, d) { var rd = city.roadOf(node, d), la = city.laneOff(rd.axis, rd.idx, car.laneIdx); if (car.rightLane && !car.edgeRider && car.laneIdx >= city.lanesOf(rd.axis, rd.idx) - 1) la += 0.9; return la; }
   function approachPoint(car, node, d) {
     var f = TG.DIR_VEC[d], r = [-f[1], f[0]], sd = city.stopDist(node, d), la = gridLane(car, node, d);
     return { x: node.x - f[0] * sd + r[0] * la, z: node.z - f[1] * sd + r[1] * la, y: 0, node: node, d: d, stop: true, lane: la };

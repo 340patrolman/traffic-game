@@ -45,6 +45,7 @@ TG.KidCourse = function (game) {
     for (var i = 0; i < STAGES.length; i++) if (STAGES[i].id === id) st = STAGES[i];
     if (!st) return false;
     S.done[id] = true; S.order.push(id);
+    if (game.classLv) game.classLv.award('kid', id, id === 'cross' ? (game.kidCrossQ || 2) : 3);   // 🏫 레벨업
     if (id === 'jungle') { var cc = TG.save.get('course', {}) || {}; cc.kid = true; TG.save.set('course', cc); }   // 성장 코스: 어린이 교실을 마쳤다 → 청소년 교실(자전거)로
     game.addScore(15, null);
     game.hud.notice(st.icon + ' ' + st.name + ' 배웠어요 (+15) — ' + st.why, 'good', 5200);

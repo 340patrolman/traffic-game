@@ -103,6 +103,8 @@
     if (TG.Career) G.career = new TG.Career(G);
     // 🎖 칭찬·콤보·등업도 **처음부터** — 타이틀에 계급이 뜨고, 근무를 넘겨도 경험치는 이어진다
     if (TG.Praise) G.praise = new TG.Praise(G);
+    // 🏫 교통안전 교실 레벨업 — 세 교실의 미션을 제대로 마치면 오른다(classlv.js · 검사 모드는 창 없이 기록만)
+    if (TG.ClassLv) { G.classLv = new TG.ClassLv(G); G.clvQuiet = isTest; }
     G.hotOff = isTest; G.dailyOff = isTest; if (TG.Daily) G.daily = new TG.Daily(G);   // 📅 오늘의 임무 — 매일 바뀌는 작은 목표 셋(검사 모드는 쌓지 않는다)
     // 👁 두 시점 되돌려 보기 — 「하지 말라는 걸 하면 무슨 일이 벌어지는가」(아이 눈 · 운전자 눈)
     if (TG.Replay) G.replay = new TG.Replay(G);
@@ -362,13 +364,17 @@
   G.endShift = function (why) { endShift(why); };
   // ---------- 시작 화면(부트 게이트) ----------
   // 한 번의 터치로 ① 오디오를 열고 ② 진동을 깨우고 ③ 인트로를 처음부터 소리와 함께 시작한다.
+  // 🏫 교실 바로 열기 주소 — ?class=bike|kid|tot (설정 「교실 바로 열기」의 QR·주소가 이것을 쓴다)
+  var CLASS_URL = 'https://340patrolman.github.io/traffic-game/', CLASS_KO = { bike: '🚲 청소년 교실(중·고등 · 자전거)', kid: '🧒 어린이 교실(초등 · 보행)', tot: '👶 영아 교실(4세 · 얼음땡)' };
+  function classParam() { var m = /[?&]class=(bike|kid|tot)/.exec(location.search); return m ? m[1] : null; }
+  G.classUrl = function (k) { return CLASS_URL + '?class=' + k; };
   function bootGate() {
     var EL = function (id) { return document.getElementById(id); };   // $ 는 init 안 지역 도우미라 여기서는 못 쓴다
     var box = EL('boot'); if (!box) { startIntro(); return; }
     var em = EL('bootEmblem');
     if (em && !em.src && TG.tex && TG.tex.emblemPNG) { em.src = TG.tex.emblemPNG(function (u) { em.src = u; }); }
-    var vr = EL('bootVer');
-    if (vr) vr.textContent = 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
+    var vr = EL('bootVer'), cl0 = classParam();
+    if (vr) vr.textContent = (cl0 ? CLASS_KO[cl0] + ' 바로 열기 · ' : '') + 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
     box.style.display = 'flex';
     function go(sound) {
       box.style.display = 'none';
@@ -378,6 +384,7 @@
         TG.audio.resume();                                   // 이 호출은 **사용자 제스처 안**이라야 먹는다
         buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
       } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
+      var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }   // 🏫 ?class= 로 열면 인트로 없이 그 교실(설정의 교실 QR·주소)
       startIntro();
     }
     input.bindTap(EL('btnBoot'), function () { go(true); });
@@ -438,7 +445,7 @@
       }
     }
   }
-  function showTitle() { titleSeed(); document.body.classList.remove('ingame'); document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
+  function showTitle() { titleSeed(); document.body.classList.remove('ingame'); document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.classLv) { G.classLv.hideChip(); G.classLv.paintMenu(); } if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -513,6 +520,18 @@
     document.addEventListener('pointerdown', function () { TG.audio.resume(); }, true);
     window.addEventListener('keydown', function () { TG.audio.resume(); }, true);
     window.addEventListener('resize', function () { resize(); });
+    G.startClassMode = function (m) { applyMode(m); start(settings.car); };
+    // 🏫 설정 「교실 바로 열기」 — 교실마다 QR · 주소 · 복사(소유자 2026-10-24 「교통안전교실을 QR 과 주소를 설정에서 따로 볼 수 있도록」)
+    document.querySelectorAll('.clspick').forEach(function (b) { input.bindTap(b, function () {
+      var k = b.getAttribute('data-cls'), u = G.classUrl(k);
+      document.querySelectorAll('.clspick').forEach(function (b2) { b2.classList.toggle('sel', b2 === b); });
+      $('clsBox').hidden = false; $('clsName').textContent = CLASS_KO[k]; $('clsUrl').textContent = u;
+      if (TG.qr) TG.qr.draw($('clsQR'), u, 220);
+    }); });
+    if ($('clsCopy')) input.bindTap($('clsCopy'), function () { var u = $('clsUrl').textContent; if (!u) return;
+      var ok = function () { $('clsCopy').textContent = '✅ 복사됨'; setTimeout(function () { $('clsCopy').textContent = '📋 주소 복사'; }, 1600); };
+      try { navigator.clipboard.writeText(u).then(ok, function () { window.prompt('주소', u); }); } catch (e) { window.prompt('주소', u); } });
+    if ($('btnClassHub')) input.bindTap($('btnClassHub'), function () { if (G.classLv) G.classLv.hub(); });   // 🎖 교실 성장판(세 교실 레벨 · 남은 미션)
     input.bindTap($('btnStart'), function () { var simOn = !!(TG.mode && TG.mode.sim); applyMode(G.campaign && !simOn ? G.campaign.mode() : 'patrol'); G.chapterNext = !!G.campaign && !simOn; start(settings.car); });   // 출근하기 = 캠페인 지금 장(대개 순찰 근무)   // 🚓 출근하기 = 늘 순찰 근무(다른 근무는 훈련소 서랍에서 한 번에 시작)
     // 타이틀: 인트로 다시 보기(홍보용으로 인트로만 보여 줄 때 쓴다)
     var lnkI = $('lnkIntroAgain');
@@ -1336,7 +1355,7 @@
     if (tlEl) tlEl.textContent = G.mode === 'circuit' ? '랩 타임' : (G.mode === 'free' ? '주행' : G.mode === 'bike' ? '교실' : '남은 시간');   // 서킷·자유 주행은 남은 시간이 없다
     if (onFoot()) { document.getElementById('stopbarWrap').style.display = 'none'; hud.setTimer(G.timeLeft); walkGuide(); }
     else { document.getElementById('stopbarWrap').style.display = settings.stopbar ? '' : 'none'; document.getElementById('section').className = 'section'; }
-    document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('bikemode', G.mode === 'bike'); document.body.classList.toggle('dutymode', G.mode === 'duty');
+    document.body.classList.toggle('onfoot', onFoot()); document.body.classList.toggle('kidmode', G.mode === 'kid'); document.body.classList.toggle('bikemode', G.mode === 'bike'); document.body.classList.toggle('dutymode', G.mode === 'duty'); if (G.classLv) G.classLv.paint();
     // 하차 버튼. **교차로 근무(하차 근무)도 포함한다** — v0.9.33 부터 차로 도착해 내려야 근무가 시작되는데
     // 버튼이 안 보여 내릴 수가 없었다(소유자: 「차를 탔으면 하차를 해야 하는데 하차 버튼이 없다」).
     document.body.classList.toggle('can-foot', G.mode === 'patrol' || G.mode === 'free' || G.mode === 'chase' || G.mode === 'duty' || G.mode === 'open' || G.mode === 'crazy');
@@ -2029,7 +2048,9 @@
             var st = TG.clamp(1 + (walk.cross.stopped ? 1 : 0) + (walk.cross.ran ? 0 : 1) + (walk.cross.carOk === false ? -1 : 0) - (walk.cross.blink ? 1 : 0), 1, 3);
             walk.stars += st; walk.crossings++; addScore(st * 10, null);
             if (walk.cross.hand) { walk.handCross = (walk.handCross || 0) + 1; addScore(5, null); }
+            G.kidCrossQ = st;
             if (G.kidCourse) G.kidCourse.note('crossed');   // 어린이 교실 ②「건널 자리」
+            if (G.classLv) G.classLv.award('kid', 'cross', st);   // 🏫 더 잘 건너면 기록이 오른다(⭐3 은 리더 단계 조건)
             // 🎖 칭찬·콤보·등업 — 잘 건널 때마다 재치 있는 한마디와 경험치가 붙는다(소유자: 「게임의 재미」)
             if (G.praise) G.praise.cheer(walk.cross.carOk === false ? 'cross' : 'carstop', 18 + st * 8, { feed: '안전 횡단 ⭐' + st });
             // 👁 차가 아직 오는데 들어섰다면 — **두 시점으로 되돌려 본다**(소유자 2026-09-16 「아이 시점과 운전자 시점으로」).

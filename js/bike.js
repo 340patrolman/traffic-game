@@ -128,6 +128,7 @@ TG.BikeClass = function (game) {
   }
   function pass(msg) {
     var S = SCENES[st.i]; st.done[S.id] = true;
+    var tr9 = st.tries[S.id] || 0; if (G.classLv) G.classLv.award('bike', S.id, tr9 === 0 ? 3 : tr9 <= 2 ? 2 : 1);   // 🏫 레벨업
     if (TG.audio.jingle) TG.audio.jingle(3);
     if (G.hud && G.hud.burst) G.hud.burst('⭐', 6);
     notice('✅ ' + S.name + ' — ' + msg, 'good', 4600);

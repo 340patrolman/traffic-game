@@ -1610,3 +1610,51 @@ button.hcell{font:inherit;color:inherit;cursor:pointer;appearance:none}
 #dpPick .dp-o.c0{border-color:#ef4444}#dpPick .dp-o.c1{border-color:#f59e0b}#dpPick .dp-o.c2{border-color:#60a5fa}
 #dpPick .dp-o:active{background:rgba(255,255,255,.2)}
 #dpPick .dp-bar{height:4px;margin-top:8px;border-radius:2px;background:rgba(255,255,255,.15);overflow:hidden}#dpPick .dp-bar i{display:block;height:100%;background:#f59e0b}
+
+/* v0.10.115 🏫 교통안전 교실 레벨업(classlv.js) — 성장판 단추 · 교실 단추 레벨 · 교실 안 칩 · 레벨업 창 */
+.mgroup.edu .mpick .clv{display:block;font-style:normal;font-size:11px;font-weight:700;color:#fde68a;margin-top:2px}
+.clvhub{pointer-events:auto;display:block;width:100%;margin-top:8px;padding:9px 12px;min-height:44px;border-radius:14px;border:1px solid rgba(253,224,71,.55);background:rgba(253,224,71,.10);color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:center;line-height:1.3}
+.clvhub small{display:block;font-size:11px;font-weight:600;color:#fde68a;margin-top:2px}
+#clvChip{display:none;position:fixed;z-index:31;left:8px;top:calc(env(safe-area-inset-top,0px) + 60px);pointer-events:auto;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:50%;background:rgba(10,18,36,.82);border:1px solid rgba(253,224,71,.6);cursor:pointer}
+#clvChip.on{display:flex}
+#clvChip img{width:36px;height:36px}
+#clvChip span{display:none}
+body.totmode #clvChip{display:none!important}
+#clvUp{display:none;position:fixed;inset:0;z-index:95;align-items:center;justify-content:center;background:rgba(2,6,23,.62);pointer-events:auto;padding:16px}
+#clvUp.on{display:flex}
+#clvUp .cu-box{width:min(420px,100%);max-height:calc(100vh - 32px);overflow:auto;background:linear-gradient(180deg,#14223f,#0b1428);border:2px solid rgba(253,224,71,.6);border-radius:22px;padding:18px 18px 14px;color:#fff;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:cuIn .45s cubic-bezier(.2,1.4,.4,1)}
+#clvUp .cu-box.gold{border-color:#facc15;background:linear-gradient(180deg,#3b2a05,#140e02)}
+#clvUp .cu-box.hub{text-align:left;width:min(520px,100%)}
+@keyframes cuIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+#clvUp .cu-kick{font-size:22px;font-weight:900;color:#fde68a;letter-spacing:.02em}
+#clvUp .cu-badge{width:132px;height:132px;margin:6px auto 0;display:block;animation:cuSpin .9s ease-out}
+@keyframes cuSpin{from{transform:rotateY(180deg) scale(.4)}to{transform:none}}
+#clvUp .cu-name{font-size:20px;font-weight:900;margin-top:4px}
+#clvUp .cu-trk{font-size:12px;color:#cbd5e1;margin-top:2px;line-height:1.4}
+#clvUp .cu-learn{margin:12px 0 0;padding:9px 11px;border-radius:12px;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.45);font-size:14px;line-height:1.45;text-align:left}
+#clvUp .cu-next{margin-top:10px;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;line-height:1.55;text-align:left;color:#e2e8f0}
+#clvUp .cu-btns{margin-top:12px;display:flex;justify-content:center}
+#clvUp .cu-btns button{min-height:48px;min-width:160px;border-radius:14px;border:0;background:#facc15;color:#1c1300;font:inherit;font-size:16px;font-weight:900;cursor:pointer}
+#clvUp .cu-tr{margin-top:12px;padding:10px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+#clvUp .cu-trh{display:flex;align-items:center;gap:10px}
+#clvUp .cu-trh img{width:52px;height:52px}
+#clvUp .cu-trh div{flex:1;display:flex;flex-direction:column;line-height:1.3}
+#clvUp .cu-trh small{font-size:11px;color:#94a3b8}#clvUp .cu-trh em{font-style:normal;font-size:12px;color:#fde68a;font-weight:700}
+#clvUp .cu-trh button{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid #facc15;background:transparent;color:#fde68a;font:inherit;font-weight:800;cursor:pointer}
+#clvUp .cu-lv{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+#clvUp .cu-lv li{padding:5px 2px;border-top:1px dashed rgba(255,255,255,.1)}
+#clvUp .cu-lv li.lock{color:#64748b}#clvUp .cu-lv li.cur{color:#fff;font-weight:800}#clvUp .cu-lv li.ok{color:#86efac}
+#clvUp .cu-ms{display:flex;flex-direction:column;gap:2px;margin:4px 0 0 18px;font-weight:500}
+#clvUp .cu-ms i{font-style:normal;font-size:12px;color:#cbd5e1}#clvUp .cu-ms i.d{color:#86efac}#clvUp .cu-ms u{text-decoration:none;color:#fbbf24}
+@media (prefers-reduced-motion:reduce){#clvUp .cu-box,#clvUp .cu-badge{animation:none}}
+
+/* v0.10.115 설정 「교실 바로 열기」 QR · 주소 */
+.clspick{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:16px;color:var(--fg);padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit;min-height:40px}
+.clspick.sel{border-color:#facc15;background:rgba(250,204,21,.16);color:#fff}
+.clsbox{display:flex;gap:12px;align-items:flex-start;width:100%;margin-top:8px;flex-wrap:wrap}
+.clsbox[hidden]{display:none}
+.clsbox canvas{width:150px;height:150px;border-radius:8px;background:#fff;image-rendering:pixelated;flex:0 0 150px}
+.clsinfo{flex:1 1 180px;display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left}
+.clsinfo b{font-size:14px}.clsinfo code{font-size:12px;word-break:break-all;background:rgba(0,0,0,.3);padding:5px 7px;border-radius:8px;user-select:all}
+.clsinfo .cpbtn{align-self:flex-start;min-height:40px}
+.clsinfo .avnote{font-size:12px;line-height:1.45;text-align:left}

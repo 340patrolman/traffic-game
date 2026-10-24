@@ -148,6 +148,7 @@ TG.Tot = function (game) {
   }
   function heart(n) {
     if (!st) return;
+    st.hearted = true;   // 🏫 이 마당을 제대로 마쳤다(레벨업 판정 — classlv.js)
     var was = st.hearts;
     st.hearts = Math.max(st.hearts, n); hearts(st.hearts);
     // 🎖 하트가 하나 늘 때마다 칭찬 한마디 + 경험치(영아 교실에도 **등업**은 있다 — 점수·감점은 여전히 없다)
@@ -290,6 +291,8 @@ TG.Tot = function (game) {
   }
   function next() {
     if (!st) return;
+    if (st.i >= 0 && st.i < STAGES.length && st.hearted && G.classLv) G.classLv.award('tot', STAGES[st.i].id, st.oops ? 2 : 3);
+    st.hearted = false;
     // 마당을 넘길 때 아이가 **차도 위**이면 선생님이 손을 잡고 인도로 데려온다 — 길 가운데 남겨 두고 화면을 바꾸지 않는다
     var W0 = G.walker, pg0 = crossProgress();
     if (W0 && st.stand && pg0 > 0.8 && pg0 < (st.crossLen || 32) - 0.8) { W0.teleport(st.stand.x, st.stand.z, st.heading0); W0.v = 0; }
