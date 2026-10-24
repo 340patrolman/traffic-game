@@ -89,7 +89,8 @@
     traffic.vfx = vfx;   // 도주 차량의 먼지(급가속·급감속) — 먼지만 따라가도 쫓을 수 있다
     G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
-    facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
+    facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;
+    if (TG.WhatIf) G.whatIf = new TG.WhatIf(G);   // 🧪 만약에(v0.10.121) — 같은 판 두 번 · 조건 하나   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
     traffic.onFlag = function (car, type, node) { if (facil && facil.onFlag) facil.onFlag(type, node); };   // 📈 효과 기록(v0.10.62)
     // 🚌 G.brt = 중앙버스전용차로·중앙 정류장(v0.10.68 · 서초구 1:1 · js/brt.js)
     layers = new TG.Layers(G, city, C, scene); G.layers = layers; if (TG.Brt) G.brt = new TG.Brt(G, city, C, scene); if (TG.Hood) G.hood = new TG.Hood(G); if (TG.Dex) G.dex = new TG.Dex(G); if (TG.ShareCard) G.share = new TG.ShareCard(G);   // 🗺 동네 안전 지수(#6) · 📚 도감(#8)
@@ -386,6 +387,7 @@
         buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
       } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
       var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }
+      var wi9 = G.whatIf && G.whatIf.param(); if (wi9) { hud.showTouch(true); showTitle(); var at8 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at8) TG.PlaceKey.load(function () { var h8 = TG.PlaceKey.find(at8); G.whatIf.open(h8 && h8.n ? h8.n.i : null, h8 && h8.n ? h8.n.j : null, wi9.v); }); else G.whatIf.open(null, null, wi9.v); return; }   // 🧪 ?whatif=조건(&at=) — 데이터 압축지도 가설에서
       var at9 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at9) { hud.showTouch(true); showTitle(); TG.PlaceKey.load(function () { G.startAt(at9); }); return; }   // 🔗 ?at= 로 열면 인트로 없이 그 교차로에서 순찰   // 🏫 ?class= 로 열면 인트로 없이 그 교실(설정의 교실 QR·주소)
       startIntro();
     }
@@ -643,6 +645,17 @@
     // 🗺 우리 동네 카드의 「🚓 여기서 출근」(v0.10.62) — 출발 지역을 그 교차로로 두고 순찰 근무를 연다
     // 🔗 같은 자리 열쇠(v0.10.119) — 데이터 압축지도 카드의 「🚓 여기서 근무해 보기」(?at=INT-코드 | 위도,경도 · &nm=이름)
     if (TG.NowRisk) TG.NowRisk.load();   // 📊 지금 이 시각 실제 사고(v0.10.120) — 작은 파일 하나
+    // 🧪 만약에 실행기(v0.10.121) — whatif.js 가 이 창구로만 세상을 돌린다(그리지 않고 빠르게)
+    G.simCore = {
+      start: function (mode) { start(settings.car, mode); if (hud.clearHint) hud.clearHint(); },
+      step: function (n, dt) { for (var q = 0; q < n; q++) { if (G.state !== 'play') return false; if (G.paused) { if (G.pauseReasons && G.pauseReasons.ticket) enforcement.tickTicket(dt); continue; } TG.perf.sample(1000 * dt); TG.perf.update(dt); update(dt); } return true; },
+      park: function (i, j) {   // 순찰차는 그 교차로 북쪽(맨 위 줄이면 남쪽) 보도 바깥에 세워 둔다 — 차로를 막지 않게 · 스폰은 이 둘레에서
+        var N = city.nodes[i][j], gap = j > 0 ? N.z - city.nodes[i][j - 1].z : city.nodes[i][j + 1].z - N.z, dz = Math.min(45, gap * 0.4) * (j > 0 ? -1 : 1);
+        player.teleport(N.x + city.sideOff('v', i) + 3, N.z + dz, 0); player.vx = 0; player.vz = 0; player.resync(); if (player.siren) toggleSiren(); },
+      ctx: function () { return { city: city, traffic: traffic, peds: peds, signals: signals, C: C, player: player }; },
+      title: function () { showTitle(); }
+    };
+    document.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-wi-open]') : null; if (!b || !G.whatIf) return; var p = b.getAttribute('data-wi-open').split(','); G.whatIf.open(+p[0], +p[1]); });
     G.startAt = function (k) {
       var P = TG.PlaceKey, grid = city.nodes && city.nodes.length === 5 && city.nodes[0].length === 5, hit = P && P.find(k);
       if (!grid) { hud.notice('🔗 이 지도에는 서초 간선 교차로 25곳이 없습니다 — 🛰 서초구 1:1 지도에서 엽니다', 'warn', 4200); return false; }

@@ -257,6 +257,7 @@ TG.Facil = function (game, city, signals, cfg, scene) {
     h += '</div><div class="pl-body">';
     h += '<h3>' + esc(city.nodeName(sel)) + '</h3>';
     h += diagHtml(sel);
+    if (game.whatIf) h += '<button class="pl-wi" data-wi-open="' + sel.i + ',' + sel.j + '">🧪 만약에 — 이 교차로에서 조건 하나 바꿔 같은 판 두 번</button>';   // v0.10.121
     h += '<div class="pl-sub">한 주기 <b>' + gi.cycle + '초</b> (황색 ' + cfg.SIG_YELLOW + ' + 전적색 ' + cfg.SIG_ALLRED + '초 포함) · 최소 녹색 ' + gi.minGreen + '초</div>';
     var ci = signals.cycleInfo ? signals.cycleInfo(sel) : null;
     if (ci && ci.target) {
