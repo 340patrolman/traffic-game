@@ -387,7 +387,10 @@
         buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
       } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
       var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }
-      var wi9 = G.whatIf && G.whatIf.param(); if (wi9) { hud.showTouch(true); showTitle(); var at8 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at8) TG.PlaceKey.load(function () { var h8 = TG.PlaceKey.find(at8); G.whatIf.open(h8 && h8.n ? h8.n.i : null, h8 && h8.n ? h8.n.j : null, wi9.v); }); else G.whatIf.open(null, null, wi9.v); return; }   // 🧪 ?whatif=조건(&at=) — 데이터 압축지도 가설에서
+      var wi9 = G.whatIf && G.whatIf.param(); if (wi9) { hud.showTouch(true); showTitle(); var at8 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at8) TG.PlaceKey.load(function () { var h8 = TG.PlaceKey.find(at8), from8 = at8.nm || (at8.tgis ? 'INT-' + at8.tgis : '고른 자리'), nt8 = '';
+        if (h8 && h8.n) { var to8 = city.nodeName(city.nodes[h8.n.i][h8.n.j]); if (to8 !== from8) nt8 = from8 + '에서 넘어옴 → 게임 교차로 ' + to8 + (h8.by === 'tgis' ? '(같은 T-GIS 교차로코드 ' + h8.n.tgis + ')' : '(' + Math.round(h8.m) + 'm)') + '로 돌림'; }
+        else nt8 = from8 + '에서 넘어옴 — 게임의 서초 간선 교차로 25곳 밖' + (h8 && h8.near ? '(가장 가까운 ' + h8.near.name + ' ' + Math.round(h8.m) + 'm)' : '') + ' · 교차로를 골라 주세요';
+        G.whatIf.open(h8 && h8.n ? h8.n.i : null, h8 && h8.n ? h8.n.j : null, wi9.v, nt8); }); else G.whatIf.open(null, null, wi9.v); return; }   // 🧪 ?whatif=조건(&at=) — 데이터 압축지도 가설에서
       var at9 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at9) { hud.showTouch(true); showTitle(); TG.PlaceKey.load(function () { G.startAt(at9); }); return; }   // 🔗 ?at= 로 열면 인트로 없이 그 교차로에서 순찰   // 🏫 ?class= 로 열면 인트로 없이 그 교실(설정의 교실 QR·주소)
       startIntro();
     }

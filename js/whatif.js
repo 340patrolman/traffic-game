@@ -140,7 +140,7 @@ TG.WhatIf = function (G) {
   function fmt(x, dec) { return dec ? x.toFixed(1) : (Math.round(x * 10) / 10).toString(); }
   function paint(res) {
     var b = ensure().querySelector('.wi-b'), city = G.simCore && G.simCore.ctx().city; if (!city) return;
-    var h = '';
+    var h = NOTE ? '<div class="wi-note">📍 ' + esc(NOTE) + '</div>' : '';
     if (res && res !== 'fail') {
       h += '<div class="wi-res"><b>' + esc(res.name) + ' · ' + esc(res.v.label) + '</b><table><tr><th></th><th>그대로</th><th>바꾼 것</th><th>차이</th></tr>' +
         res.rows.map(function (r) { var d = r.b - r.a, pc = r.a > 0 ? Math.round(d / r.a * 100) : null; return '<tr><td>' + esc(r.k) + '</td><td>' + fmt(r.a, r.dec) + '</td><td>' + fmt(r.b, r.dec) + '</td><td class="' + (r.noise ? 'nz' : d > 0 ? 'up' : d < 0 ? 'dn' : '') + '" title="씨앗끼리 흔들림 ' + fmt(r.sp, r.dec) + '">' + (d > 0 ? '+' : '') + fmt(d, r.dec) + (pc != null && Math.abs(d) >= 0.5 ? ' (' + (pc > 0 ? '+' : '') + pc + '%)' : '') + (r.noise && d !== 0 ? '<i>우연 범위</i>' : '') + '</td></tr>'; }).join('') +
@@ -153,8 +153,9 @@ TG.WhatIf = function (G) {
     h += '<button class="wi-go" data-wi="go"' + (sel && vsel ? '' : ' disabled') + '>▶ 돌려 보기(1~2분)</button>';
     b.innerHTML = h;
   }
-  self.open = function (i, j, vid) {
-    ensure().style.display = 'flex';
+  var NOTE = '';   // 다른 앱에서 넘어온 자리 → 게임 교차로로 돌린 까닭(창 위 한 줄)
+  self.open = function (i, j, vid, note) {
+    ensure().style.display = 'flex'; if (note != null) NOTE = note;
     if (i != null) sel = [i, j]; if (vid) vsel = vid;
     paint(last && sel && last.i === sel[0] && last.j === sel[1] ? last : null);
   };
