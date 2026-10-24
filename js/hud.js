@@ -97,6 +97,8 @@ TG.hud = (function () {
     // 📖 캠페인 장 결과(출근하기로 연 판)
     var chh = stats.chapter ? '<div class="chapres ' + (stats.chapter.ok ? 'ok' : 'no') + '"><b>📖 ' + stats.chapter.month + ' 「' + stats.chapter.title + '」 ' + (stats.chapter.ok ? '완료!' : '— 아직') + '</b>' +
       stats.chapter.goals.map(function (g) { return '<span>' + (g.ok ? '✔ ' : '— ') + g.t + '</span>'; }).join('') + '</div>' : '';
+    // 📊 지금 이 시각 실제 사고(v0.10.120) — 이 근무를 시작한 자리(장 결과 바로 아래)
+    if (stats.nowRisk) chh += '<div class="nowrisk">📊 근무 자리 · ' + stats.nowRisk + (stats.nowRiskFatal ? '<br>' + stats.nowRiskFatal : '') + '<small>TAAS 교통사고분석시스템 · 교차로 둘레 150m 근사 · 공식 위험도 아님</small></div>';
     if (stats.goals) {
       sh = ''; stats.goals.forEach(function (g) { sh += '<span class="' + (g.ok ? 'on' : 'off') + '">★</span>'; });
       gh = '<div class="goals">' + stats.goals.map(function (g) {

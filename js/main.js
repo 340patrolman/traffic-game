@@ -642,6 +642,7 @@
     })();
     // 🗺 우리 동네 카드의 「🚓 여기서 출근」(v0.10.62) — 출발 지역을 그 교차로로 두고 순찰 근무를 연다
     // 🔗 같은 자리 열쇠(v0.10.119) — 데이터 압축지도 카드의 「🚓 여기서 근무해 보기」(?at=INT-코드 | 위도,경도 · &nm=이름)
+    if (TG.NowRisk) TG.NowRisk.load();   // 📊 지금 이 시각 실제 사고(v0.10.120) — 작은 파일 하나
     G.startAt = function (k) {
       var P = TG.PlaceKey, grid = city.nodes && city.nodes.length === 5 && city.nodes[0].length === 5, hit = P && P.find(k);
       if (!grid) { hud.notice('🔗 이 지도에는 서초 간선 교차로 25곳이 없습니다 — 🛰 서초구 1:1 지도에서 엽니다', 'warn', 4200); return false; }
@@ -1339,12 +1340,20 @@
       player.teleport(gp.x - gfz * C.LANE_OFF, gp.z + gfx * C.LANE_OFF, gp.hd); player.resync();
       hud.notice('🛰 ' + city.mapName + ' 에 들어왔습니다 — 순환도로 쪽으로 나가면 도시입니다', 'info', 4200);
     }
+    G.nowRiskPick = null;
     // 📍 고른 출발 지역(v0.10.44) — 순찰·오픈 순찰·자유 주행에서만(교실·추격·교차로 근무는 제 무대가 있다)
     if (!isTest && !onFoot() && (G.mode === 'patrol' || G.mode === 'open' || G.mode === 'free') && G.areaPos && G.areaPicker) {
       var sa = TG.save.get(G.areaPicker.key, null);
       if (sa) { var sij = sa.split(','), si0 = +sij[0], sj0 = +sij[1];
         if (city.nodes[si0] && city.nodes[si0][sj0]) { var ap = G.areaPos(si0, sj0); player.teleport(ap.x, ap.z, ap.h); player.resync();
           hud.notice('📍 ' + city.nodeName(city.nodes[si0][sj0]) + ' 에서 출발 — 📍 이 자리(I)로 동네 자료를 봅니다', 'info', 3600); } }
+      // 📊 고른 출발 지역이 없으면 — 지금 시각(6시간 띠)에 실제 사고가 많았던 교차로 상위 셋 중 하나로(v0.10.120 · 서초 간선 25곳 격자 지도만)
+      else if ((G.mode === 'patrol' || G.mode === 'open') && TG.NowRisk && TG.NowRisk.ready() && settings.nowRisk !== false && city.nodes.length === 5 && city.nodes[0].length === 5 && /^seocho(-twin|-full)?$/.test(city.mapId || 'seocho')) {
+        var nr = TG.NowRisk.pick();
+        if (nr && city.nodes[nr.i] && city.nodes[nr.i][nr.j]) { var np0 = G.areaPos(nr.i, nr.j); player.teleport(np0.x, np0.z, np0.h); player.resync(); G.nowRiskPick = nr;
+          hud.notice('📊 지금(' + nr.band + ') 실제 사고가 많았던 곳 — ' + city.nodeName(city.nodes[nr.i][nr.j]) + ' · ' + nr.cnt + '건(' + nr.years + ')', 'info', 4200);
+          setTimeout(function () { if (G.state === 'play' && G.nowRiskPick === nr) { var vv = nr.viol.slice(0, 2).map(function (x) { return x[0]; }).join('·'); hud.hint('💭 ' + (vv ? '이 자리에서 많았던 법규위반은 ' + vv + ' — 그 장면부터 본다' : '이 시간대 사고가 몰리는 교차로 — 천천히 둘러본다') + ' (TAAS 2016~2025 · 둘레 150m 근사)'); } }, 4800); }
+      }
     }
     if (G.mode === 'circuit') { G.timeLeft = 1e9; C.TRAFFIC_MAX = 0; C.PED_MAX = 0; lap.link = terrain.circuit; var cp0 = terrain.circuit.P(3); player.teleport(cp0.x + cp0.rx * 0.5, cp0.z + cp0.rz * 0.5, Math.atan2(cp0.tx, cp0.tz));
       player.vx = 0; player.vz = 0; player.vF = 0; player.vL = 0; player.resync();   // 그리드 스타트 — 출발선에 **서서** 시작한다(앞 근무의 속도를 끌고 들어오지 않게)
@@ -2824,7 +2833,8 @@
     }
     // 🔗 사건 사슬 · 👤 아는 얼굴 — 오늘의 작전과, 내가 바꾼 얼굴
     if (G.story && G.story.summary) { st.story = G.story.summary(); G.story.stop(); }
-    if (G.daily) st.daily = G.daily.finish();   // 📅 오늘의 임무 — 결과 카드에 진행 막대
+    if (G.daily) st.daily = G.daily.finish();
+    if (G.nowRiskPick && TG.NowRisk) { st.nowRisk = TG.NowRisk.line(G.nowRiskPick); st.nowRiskFatal = TG.NowRisk.fatalLine(G.nowRiskPick); }   // 📊 이 근무 자리의 실제 사고   // 📅 오늘의 임무 — 결과 카드에 진행 막대
     if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
     endMapLink();
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
