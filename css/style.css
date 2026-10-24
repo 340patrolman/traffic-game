@@ -1674,3 +1674,22 @@ body.totmode #clvChip{display:none!important}
 #clvCert .ce-btns button{min-height:48px;min-width:96px;border-radius:12px;border:0;background:#facc15;color:#1c1300;font:inherit;font-size:15px;font-weight:900;cursor:pointer}
 #clvCert .ce-btns button[data-ce="x"]{background:transparent;border:1px solid #64748b;color:#e2e8f0}
 #clvCert .ce-note{margin-top:8px;font-size:12px;color:#94a3b8}
+
+/* 👥 반 기록(v0.10.117) */
+#clvUp .cu-rs{margin-top:12px;padding:10px;border-radius:14px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.35)}
+#clvUp .cu-rsh{display:flex;flex-direction:column;line-height:1.35}#clvUp .cu-rsh small{font-size:11.5px;color:#94a3b8}
+#clvUp .cu-rch{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#clvUp .cu-rch button{min-height:40px;padding:0 12px;border-radius:999px;border:1px solid #64748b;background:transparent;color:#e2e8f0;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#clvUp .cu-rch button.on{background:#0284c7;border-color:#38bdf8;color:#fff}
+#clvUp .cu-radd{display:flex;gap:6px;margin-top:8px}
+#clvUp .cu-radd input{flex:1;min-width:0;min-height:44px;border-radius:10px;border:1px solid #475569;background:#0b1428;color:#fff;font:inherit;font-size:16px;padding:0 10px}
+#clvUp .cu-radd button{min-height:44px;padding:0 12px;border-radius:10px;border:1px solid #38bdf8;background:transparent;color:#7dd3fc;font:inherit;font-weight:800;cursor:pointer}
+#clvUp .cu-rt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+#clvUp .cu-rt th,#clvUp .cu-rt td{padding:4px 3px;border-top:1px dashed rgba(255,255,255,.12);text-align:center}
+#clvUp .cu-rt td:first-child{text-align:left;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#clvUp .cu-rt tr.on td:first-child{color:#7dd3fc;font-weight:800}
+#clvUp .cu-rt button{min-height:32px;padding:0 6px;border-radius:8px;border:1px solid rgba(250,204,21,.6);background:transparent;color:#fde68a;font:inherit;font-size:12px;cursor:pointer}
+#clvUp .cu-rt button.cu-rdel{border-color:#64748b;color:#94a3b8}
+#clvUp .cu-rclr{margin-top:8px;text-align:right}#clvUp .cu-rclr button{min-height:36px;padding:0 10px;border-radius:10px;border:1px solid #64748b;background:transparent;color:#94a3b8;font:inherit;font-size:12px;cursor:pointer}
+#clvUp .cu-rnote{margin:8px 0 0;font-size:11.5px;color:#94a3b8;line-height:1.45}
+#clvUp .cu-rnow{margin-top:8px;font-size:13px;color:#7dd3fc}

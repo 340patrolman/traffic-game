@@ -46,11 +46,33 @@ TG.ClassLv = function (game) {
   var D = TG.save.get('classlv', null);
   if (!D || typeof D !== 'object') D = {};
   Object.keys(TR).forEach(function (k) { if (!D[k] || typeof D[k] !== 'object') D[k] = { best: {}, lv: 0, n: 0 }; if (!D[k].best) D[k].best = {}; });
-  function save() { TG.save.set('classlv', D); }
+  function save() { if (D === BASE) TG.save.set('classlv', BASE); else rsSave(); }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function needOf(t, L) { if (L.need !== 'all3') return L.need; var o = {}; Object.keys(t.m).forEach(function (id) { o[id] = 3; }); return o; }
-  function met(k, L) { var t = TR[k], n = needOf(t, L), b = D[k].best; return Object.keys(n).every(function (id) { return (b[id] || 0) >= n[id]; }); }
-  function lvOf(k) { var t = TR[k], l = 0; for (var i = 0; i < t.L.length; i++) { if (met(k, t.L[i])) l = i + 1; else break; } return l; }
+  function met(k, L, DD) { var t = TR[k], n = needOf(t, L), b = (DD || D)[k].best; return Object.keys(n).every(function (id) { return (b[id] || 0) >= n[id]; }); }
+  function lvOf(k, DD) { var t = TR[k], l = 0; for (var i = 0; i < t.L.length; i++) { if (met(k, t.L[i], DD)) l = i + 1; else break; } return l; }
+
+  // ---- 👥 반 기록(v0.10.117) — 학교·어린이집에서 한 기기로 여럿이 번갈아 할 때 번호마다 기록을 따로 쌓는다 ----
+  //  저장 tg_classroster {cur: 번호|null, list:[{id 번호, nm 이름(골라 넣기 · 8자), d 교실 기록}]} · 이 기기에만 · 서버 0 · 최대 40명
+  //  cur 가 있으면 레벨·스티커는 그 사람 기록(D)에 쌓이고, 없으면 이 기기 기록(BASE)에.
+  var BASE = D, RS = TG.save.get('classroster', null);
+  if (!RS || typeof RS !== 'object' || !Array.isArray(RS.list)) RS = { cur: null, list: [] };
+  function mInit(d) { d = d && typeof d === 'object' ? d : {}; Object.keys(TR).forEach(function (k) { if (!d[k] || typeof d[k] !== 'object') d[k] = { best: {}, lv: 0, n: 0 }; if (!d[k].best) d[k].best = {}; }); return d; }
+  RS.list.forEach(function (m) { m.d = mInit(m.d); });
+  function mOf(id) { for (var i = 0; i < RS.list.length; i++) if (RS.list[i].id === id) return RS.list[i]; return null; }
+  function mLabel(m) { return m ? m.id + '번' + (m.nm ? ' ' + m.nm : '') : '이 기기'; }
+  function rsSave() { TG.save.set('classroster', { cur: RS.cur, list: RS.list }); }
+  function rsUse(id) { var m = id != null ? mOf(id) : null; RS.cur = m ? m.id : null; D = m ? m.d : BASE; rsSave(); }
+  rsUse(RS.cur);
+  self.roster = {
+    list: function () { return RS.list.map(function (m) { return { id: m.id, nm: m.nm, lv: { tot: lvOf('tot', m.d), kid: lvOf('kid', m.d), bike: lvOf('bike', m.d) } }; }); },
+    cur: function () { return RS.cur; },
+    add: function (nm) { if (RS.list.length >= 40) return null; var id = 1; RS.list.forEach(function (m) { if (m.id >= id) id = m.id + 1; }); var m = { id: id, nm: String(nm || '').trim().slice(0, 8), d: mInit(null) }; RS.list.push(m); rsUse(id); self.paintMenu(); paintChip(); return id; },
+    use: function (id) { rsUse(id); self.paintMenu(); paintChip(); },
+    del: function (id) { RS.list = RS.list.filter(function (m) { return m.id !== id; }); if (RS.cur === id) rsUse(null); else rsSave(); self.paintMenu(); paintChip(); },
+    clear: function () { RS.list = []; rsUse(null); self.paintMenu(); paintChip(); },
+    label: function () { return mLabel(RS.cur != null ? mOf(RS.cur) : null); }
+  };
   self.level = function (k) { return lvOf(k); };
   // 다음 레벨까지 남은 것 — [미션 id, 이름, 지금 ⭐, 필요 ⭐]
   self.todo = function (k) { var t = TR[k], l = lvOf(k); if (l >= t.L.length) return []; var n = needOf(t, t.L[l]), b = D[k].best;
@@ -107,7 +129,7 @@ TG.ClassLv = function (game) {
     b = document.createElement('div'); b.id = 'clvUp'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-modal', 'true');
     document.body.appendChild(b);
     b.addEventListener('click', function (e) { var a = e.target.closest('[data-clv]'); if (!a) return; var v = a.getAttribute('data-clv');
-      if (v === 'ok') { closeUp(); nextUp(); } else if (v === 'close') { closeUp(); } else if (/^cert:/.test(v)) { self.cert(v.slice(5)); } else if (/^go:/.test(v)) { closeUp(); var mb = document.querySelector('.mpick[data-mode="' + v.slice(3) + '"]'); if (mb) mb.click(); } });
+      if (v === 'ok') { closeUp(); nextUp(); } else if (v === 'close') { closeUp(); } else if (/^cert:/.test(v)) { self.cert(v.slice(5)); } else if (/^rs:/.test(v)) { self.roster.use(v.slice(3) ? +v.slice(3) : null); self.hub(); } else if (v === 'radd') { var ni = el('cuRnm'); self.roster.add(ni ? ni.value : ''); self.hub(); } else if (/^rdel:/.test(v)) { if (a.getAttribute('data-arm')) { self.roster.del(+v.slice(5)); self.hub(); } else { a.setAttribute('data-arm', '1'); a.textContent = '한 번 더 누르면 지움'; } } else if (v === 'rclr') { if (a.getAttribute('data-arm')) { self.roster.clear(); self.hub(); } else { a.setAttribute('data-arm', '1'); a.textContent = '한 번 더 누르면 반 기록을 모두 지움'; } } else if (/^rc:/.test(v)) { var pp = v.split(':'); self.cert(pp[2], +pp[1]); } else if (/^go:/.test(v)) { closeUp(); var mb = document.querySelector('.mpick[data-mode="' + v.slice(3) + '"]'); if (mb) mb.click(); } });
     return b;
   }
   function closeUp() { var b = el('clvUp'); if (b) b.className = ''; upOn = false; if (G.setPaused) G.setPaused(false, 'clvUp'); }
@@ -135,7 +157,7 @@ TG.ClassLv = function (game) {
     if (!k) { if (c) c.className = ''; return; }
     if (!c) { c = document.createElement('div'); c.id = 'clvChip'; document.body.appendChild(c); c.addEventListener('click', function () { self.hub(k); }); }
     var t = TR[k], l = lvOf(k), todo = self.todo(k), have = t.nums ? '' : ' · 스티커 ' + Object.keys(D[k].best).length;
-    c.innerHTML = '<img alt="" src="' + badge(k, l) + '"><span><b>' + esc(lvLabel(k, l)) + '</b><i>' + (l >= t.L.length ? '수료 🎓' + have : '다음 ' + esc(t.L[l].name) + ' · 남은 미션 ' + todo.length + have) + '</i></span>';
+    c.innerHTML = '<img alt="" src="' + badge(k, l) + '"><span><b>' + (RS.cur != null ? '👤' + esc(mLabel(mOf(RS.cur))) + ' · ' : '') + esc(lvLabel(k, l)) + '</b><i>' + (l >= t.L.length ? '수료 🎓' + have : '다음 ' + esc(t.L[l].name) + ' · 남은 미션 ' + todo.length + have) + '</i></span>';
     c.title = '🏫 ' + c.textContent + ' — 누르면 성장판'; c.setAttribute('aria-label', c.title);
     c.className = 'on';
     placeChip(); setTimeout(placeChip, 350);
@@ -151,6 +173,7 @@ TG.ClassLv = function (game) {
   self.hub = function (only) {
     var b = box(), ks = only ? [only] : ['bike', 'kid', 'tot'];
     var h = '<div class="cu-box hub"><div class="cu-kick">🏫 교통안전 교실 — 성장판</div><div class="cu-trk">미션을 <b>제대로</b> 마치면 레벨이 올라요 · 가장 잘한 기록만 남아요 · 이 기기에만 저장</div>';
+    if (!only) h += rosterHtml(); else if (RS.cur != null) h += '<div class="cu-rnow">👤 지금 하는 사람 — <b>' + esc(mLabel(mOf(RS.cur))) + '</b></div>';
     ks.forEach(function (k) {
       var t = TR[k], l = lvOf(k), b2 = D[k].best;
       h += '<section class="cu-tr"><div class="cu-trh"><img alt="" src="' + badge(k, l) + '"><div><b>' + esc(t.icon + ' ' + t.name) + '</b><small>' + esc(t.who) + '</small><em>' + esc(lvLabel(k, l)) + ' / ' + t.L.length + '단계</em></div>' +
@@ -164,6 +187,14 @@ TG.ClassLv = function (game) {
     b.innerHTML = h; b.className = 'on hub'; upOn = true;
     if (G.state === 'play' && G.setPaused) G.setPaused(true, 'clvUp');
   };
+  // 반 기록 칸 — 지금 하는 사람 고르기 · 한 명 더 · 반 표(번호 × 세 교실 레벨 · 📜) · 지우기
+  function rosterHtml() {
+    var h = '<section class="cu-rs"><div class="cu-rsh"><b>👥 반 기록</b><small>한 기기로 여럿이 번갈아 할 때 — 번호마다 따로 쌓여요</small></div><div class="cu-rch">' +
+      '<button data-clv="rs:" class="' + (RS.cur == null ? 'on' : '') + '">이 기기</button>' + RS.list.map(function (m) { return '<button data-clv="rs:' + m.id + '" class="' + (RS.cur === m.id ? 'on' : '') + '">' + esc(mLabel(m)) + '</button>'; }).join('') + '</div>' +
+      (RS.list.length < 40 ? '<div class="cu-radd"><input id="cuRnm" maxlength="8" autocomplete="off" placeholder="이름(안 적어도 돼요)"><button data-clv="radd">＋ 한 명 더</button></div>' : '');
+    if (RS.list.length) { h += '<table class="cu-rt"><tr><th>번호</th><th>👶</th><th>🧒</th><th>🚲</th><th></th></tr>' + RS.list.map(function (m) { return '<tr' + (RS.cur === m.id ? ' class="on"' : '') + '><td>' + esc(mLabel(m)) + '</td>' + ['tot', 'kid', 'bike'].map(function (k) { var l = lvOf(k, m.d); return '<td>' + (l ? '<button data-clv="rc:' + m.id + ':' + k + '" title="증서">' + (TR[k].nums ? 'Lv.' + l : TR[k].L[l - 1].icon) + ' 📜</button>' : '·') + '</td>'; }).join('') + '<td><button class="cu-rdel" data-clv="rdel:' + m.id + '">지움</button></td></tr>'; }).join('') + '</table>' +
+      '<div class="cu-rclr"><button data-clv="rclr">반 기록 모두 지우기</button></div>'; }
+    return h + '<p class="cu-rnote">이름은 이 기기에만 남고 어디로도 보내지 않아요 · 번호만 써도 돼요 · 고른 사람의 기록에 레벨·스티커가 쌓여요</p></section>'; }
   self.hideChip = function () { var c = el('clvChip'); if (c) c.className = ''; };
   self.isOpen = function () { var b = el('clvUp'); return !!(b && /\bon\b/.test(b.className)); };
   self.close = function () { closeUp(); UPQ.length = 0; };
@@ -181,7 +212,7 @@ TG.ClassLv = function (game) {
   //  교실 하나의 지금 레벨까지 배운 것을 1080x1350 그림으로. 저장·공유는 기기 안에서만(서버 0).
   //  이름은 고르면 그림에만 들어가고 어디에도 저장하지 않는다. 기관 직인·관인은 그리지 않는다(공문서 흉내 금지).
   var CERT_URL = 'https://340patrolman.github.io/traffic-game/?class=';
-  var certEl = null, certCv = null, certK = null;
+  var certEl = null, certCv = null, certK = null, certMid = null;
   function cfont(px, w) { return (w || 800) + ' ' + px + 'px "Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif'; }
   function wrap(g, txt, maxW) {
     var out = [], line = '';
@@ -189,7 +220,7 @@ TG.ClassLv = function (game) {
     if (line) out.push(line); return out;
   }
   self.certCanvas = function (k, name, cb) {
-    var t = TR[k], l = lvOf(k); if (!t || !l) { cb(null); return; }
+    var cm = certMid != null ? mOf(certMid) : null, t = TR[k], l = lvOf(k, cm ? cm.d : null); if (!t || !l) { cb(null); return; }
     var last = l === t.L.length, W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var g = cv.getContext('2d');
     g.fillStyle = '#fffaf0'; g.fillRect(0, 0, W, H);
@@ -231,9 +262,10 @@ TG.ClassLv = function (game) {
     self.certCanvas(certK, nm ? nm.value : '', function (cv) { if (!cv) return; box.textContent = ''; var im = new Image(); im.alt = '교실 증서'; im.src = cv.toDataURL('image/png'); box.appendChild(im); });
   }
   function certBlob(cb) { if (certCv && certCv.toBlob) certCv.toBlob(cb, 'image/png'); else cb(null); }
-  self.cert = function (k) {
-    if (!TR[k] || !lvOf(k)) return false;
-    certK = k;
+  self.cert = function (k, mid) {
+    var cm = mid != null ? mOf(mid) : null;
+    if (!TR[k] || !lvOf(k, cm ? cm.d : null)) return false;
+    certK = k; certMid = cm ? cm.id : null;
     if (!certEl) {
       certEl = document.createElement('div'); certEl.id = 'clvCert'; certEl.setAttribute('role', 'dialog');
       certEl.innerHTML = '<div class="ce-box"><div class="ce-img">그리는 중…</div>' +
@@ -261,7 +293,7 @@ TG.ClassLv = function (game) {
       nmIn.addEventListener('input', function () { clearTimeout(tm); tm = setTimeout(certPaint, 250); });
       nmIn.addEventListener('keydown', function (e) { e.stopPropagation(); });
     }
-    certEl.querySelector('#ceName').value = '';
+    certEl.querySelector('#ceName').value = cm && cm.nm ? cm.nm : '';
     var sh = certEl.querySelector('[data-ce="share"]'); sh.style.display = (navigator.share && navigator.canShare) ? '' : 'none';
     certEl.className = 'on'; certPaint();
     return true;
