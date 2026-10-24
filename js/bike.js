@@ -201,6 +201,7 @@ TG.BikeClass = function (game) {
       // 🛑 가장자리 차로. 한 번은 보통 자전거, 한 번은 **브레이크 없는 픽시** — 멈추는 거리를 몸으로 비교한다.
       var zL = nA.z + 40, xE = nA.x - (g.half - 1.3);
       st.brake = st.brake && !first ? st.brake : { sub: 0, d: [] };
+      if (st.chal) st.brake.sub = 0;
       st.brake.zL = zL; st.brake.maxV = 0; st.brake.bz = null; st.brake.bv = 0; st.brake.scare = false;
       W.setBike('ride'); W.teleport(xE, nA.z + 22, 0);
       W.ride.dec = st.brake.sub === 1 ? 1.0 : 3.5;
@@ -367,6 +368,7 @@ TG.BikeClass = function (game) {
     var stopped = b.maxV > 2.5 && W.v < 0.15;
     if (!stopped) { if (W.v < 0.2 && b.maxV < 2.5 && st.sceneT > 6 && st.sceneT - st.hintT > 5) { st.hintT = st.sceneT; hint('🚲 힘껏 달려 봐요 — 🛑 선 앞에서 브레이크'); } return; }
     var d = Math.max(0, W.pos.z - (b.bz === null ? b.zL : b.bz)), over = W.pos.z - b.zL;
+    if (st.chal) { chalStop(W, b, d, over); return; }
     if (b.sub === 0) {
       if (b.maxV < 3.3) { hint('🚲 조금 더 빠르게 달린 다음에 멈춰 봐요'); retry(); return; }
       if (over > 1.5) { addRisk(RISK.overshoot, '선을 넘어 멈췄어요'); notice('↩️ 선을 넘었어요 — 조금 더 일찍 브레이크를 잡아요', 'warn', 3400); retry(); return; }
@@ -676,6 +678,7 @@ TG.BikeClass = function (game) {
     var t = '';
     if (S.id === 'lane' && st.grade === 'teen' && st.lane) t = '가장자리 ' + Math.min(LANE_SEC, st.lane.edgeT).toFixed(1) + ' / ' + LANE_SEC + '초';
     else if (S.id === 'gap') t = (st.stoppedOnce ? '🛑 멈춤 ✓' : '🛑 멈춤') + ' · ' + (st.t - st.lookT < 4.5 ? '👀 살핌 ✓' : '👀 살핌');
+    else if (S.id === 'brake' && st.brake && st.chal) t = '⛔ 챌린지 ' + Math.min(CHAL_N, st.chal.n + 1) + '/' + CHAL_N + ' · 시속 ' + Math.round(G.walker.v * 3.6) + 'km' + (st.chal.best != null ? ' · 최고 ' + st.chal.best.toFixed(2) + 'm' : '');
     else if (S.id === 'brake' && st.brake) t = (st.brake.sub === 0 ? '보통 자전거' : '픽시(브레이크 없음)') + ' · 시속 ' + Math.round(G.walker.v * 3.6) + 'km';
     else if (S.id === 'cross' && st.cross) t = G.walker.riding ? '🚲 타는 중 — 내려서 끌어요' : '🚶 끌고 가는 중';
     if (live._t !== t) { live._t = t; live.textContent = t; }
@@ -708,7 +711,7 @@ TG.BikeClass = function (game) {
     e.innerHTML = '<div class="bk-box"><h3>' + (ok ? '🎉 자전거 교실 통과!' : '🔁 다시 도전해요') + '</h3>' +
       '<div class="bk-rbar"><div class="bk-fill ' + (st.risk >= RISK_PASS ? 'bad' : st.risk >= 30 ? 'warn' : 'ok') + '" style="width:' + st.risk + '%"></div><span>위험 ' + Math.round(st.risk) + '</span></div>' +
       '<ul class="bk-rows">' + rows + '</ul><div class="bk-next">' + esc(next) + '</div><div class="bk-cards">' + cards + '</div>' +
-      '<div class="bk-acts"><button data-act="again">🔁 다시 하기</button><button data-act="quit">🏠 끝내기</button></div>' +
+      '<div class="bk-acts">' + (st.done.brake ? '<button data-act="chal">⛔ 브레이크 챌린지</button>' : '') + '<button data-act="again">🔁 다시 하기</button><button data-act="quit">🏠 끝내기</button></div>' +
       '<div class="bk-src">위험 게이지는 게임 설계값입니다(과실비율·통계 수치가 아닙니다). 법령 카드는 T-Book·국가법령정보센터 원문에서 옮겼습니다.</div></div>';
     e.style.display = 'flex';
     if (!e._bound) {
@@ -717,10 +720,53 @@ TG.BikeClass = function (game) {
         var b = ev.target && ev.target.closest ? ev.target.closest('[data-act]') : null;
         if (!b || !G.bike) return;
         ev.preventDefault(); ev.stopPropagation();
-        if (b.getAttribute('data-act') === 'again') G.bike.restart();
+        var act = b.getAttribute('data-act');
+        if (act === 'chal') G.bike.challenge();
+        else if (act === 'chalback') G.bike.chalBack();
+        else if (act === 'again') G.bike.restart();
         else if (G.endShift) G.endShift('🚲 자전거 교실 — ' + (G.bike.state && G.bike.state.passed ? '통과' : '다시 도전'));
       });
     }
+  }
+  /* ⛔ 브레이크 챌린지(v0.10.118 · LEARNING_IN_FUN L1) — 「하지 마」가 아니라 「실력으로 증명해 봐」.
+     보통 자전거로 시속 15km 넘게 달리다가 붉은 선 **앞에 최대한 가깝게** 멈춘다(선을 넘으면 기록 없음).
+     기록 = 선까지 남은 거리(m · 짧을수록 1등) · 이 기기 순위 10(tg_brakechal) · 반 기록을 쓰면 그 번호 이름으로.
+     속도 문턱 15km/h 와 다섯 번 한 판은 게임 설계값이다. 브레이크를 잡은 뒤 미끄러지는 거리는 물리라 실력은 「언제 잡느냐」다. */
+  var CHAL_V = 4.17, CHAL_N = 5;
+  function chalBoard() { var r = TG.save.get('brakechal', []); return Array.isArray(r) ? r : []; }
+  function chalWho() { return G.classLv && G.classLv.roster && G.classLv.roster.cur() != null ? G.classLv.roster.label() : '나'; }
+  function chalStop(W, b, d, over) {
+    var c = st.chal; c.n++;
+    var kmh = Math.round((b.bv || b.maxV) * 3.6);
+    if ((b.bv || b.maxV) < CHAL_V) { c.n--; hint('⛔ 시속 15km 넘게 달린 다음에 멈춰야 기록이 남아요(지금 ' + kmh + 'km)'); st.retryT = 1.6; if (G.walker) G.walker.v = 0; return; }
+    if (over > 0) {
+      c.last = null;
+      notice('⛔ 선을 ' + over.toFixed(1) + 'm 넘었어요 — 기록 없음. 조금 더 일찍 잡아요', 'warn', 2600);
+      if (TG.audio.bad) TG.audio.bad();
+    } else {
+      var gap = Math.round(-over * 100) / 100, rec = { g: gap, v: kmh, nm: chalWho(), d: new Date().toISOString().slice(0, 10) };
+      var R = chalBoard(); R.push(rec); R.sort(function (x, y) { return x.g - y.g; }); R = R.slice(0, 10); TG.save.set('brakechal', R);
+      var rank = R.indexOf(rec) + 1; c.last = rec; if (c.best == null || gap < c.best) c.best = gap;
+      notice('⛔ 선 앞 ' + gap.toFixed(2) + 'm · 시속 ' + kmh + 'km · 미끄러진 거리 ' + d.toFixed(1) + 'm' + (rank ? ' — 순위 ' + rank + '등' : ''), rank === 1 ? 'good' : 'info', 2600);
+      if (rank === 1 && TG.audio.jingle) TG.audio.jingle(3);
+      if (rank === 1 && G.hud && G.hud.burst) G.hud.burst('🏆', 5);
+      if (gap <= 0.5 && G.praise) G.praise.cheer('stop', 10, { feed: '⛔ 선 앞 ' + gap.toFixed(2) + 'm' });
+    }
+    if (G.walker) G.walker.v = 0;
+    if (c.n >= CHAL_N) { st.passT = 0; clearScene(); st.finished = true; chalResult(); return; }
+    st.retryT = 2.0;                                                    /* 3초 안에 다시(L1 완료 기준) */
+  }
+  function chalResult() {
+    var e = el('bikeResult'); if (!e) return;
+    var R = chalBoard(), c = st.chal;
+    var rows = R.map(function (r, k) { var me = c.last && r === c.last; return '<li class="' + (me ? 'ok' : '') + '">' + (k + 1) + '등 · <b>' + r.g.toFixed(2) + 'm</b> · 시속 ' + r.v + 'km · ' + esc(r.nm) + ' <i>' + esc(r.d) + '</i></li>'; }).join('');
+    e.innerHTML = '<div class="bk-box"><h3>⛔ 브레이크 챌린지</h3>' +
+      '<div class="bk-next">이번 다섯 번 중 가장 가깝게: ' + (c.best == null ? '기록 없음(선을 넘었어요)' : c.best.toFixed(2) + 'm') + '</div>' +
+      '<ul class="bk-rows">' + (rows || '<li class="no">아직 기록이 없어요</li>') + '</ul>' +
+      '<div class="bk-next">🧠 브레이크를 잡은 뒤 미끄러지는 거리는 속도가 정해요 — 실력은 「언제 잡느냐」예요. 픽시(브레이크 없음)는 이 게임에서 같은 속도에 몇 배를 더 갔어요.</div>' +
+      '<div class="bk-acts"><button data-act="chal">⛔ 다섯 번 더</button><button data-act="chalback">↩ 교실 결과</button><button data-act="quit">🏠 끝내기</button></div>' +
+      '<div class="bk-src">순위는 이 기기에만 남습니다(어디로도 보내지 않음). 시속 15km 문턱·다섯 번 한 판은 게임 설계값입니다.</div></div>';
+    e.style.display = 'flex';
   }
   function finish() {
     clearScene();
@@ -805,9 +851,24 @@ TG.BikeClass = function (game) {
     var grade = st.grade;
     var r = el('bikeResult'); if (r) r.style.display = 'none';
     clearScene();
-    st.i = -1; st.risk = 0; st.riskLog = []; st.misses = 0; st.done = {}; st.tries = {}; st.finished = false; st.passed = false; st.brake = null;
+    st.i = -1; st.risk = 0; st.riskLog = []; st.misses = 0; st.done = {}; st.tries = {}; st.finished = false; st.passed = false; st.brake = null; st.chal = null;
     st.grade = grade; nextScene();
   };
+  self.challenge = function () {
+    if (!st) return;
+    var bi = -1; SCENES.forEach(function (S, k) { if (S.id === 'brake') bi = k; });
+    var r = el('bikeResult'); if (r) r.style.display = 'none';
+    clearScene();
+    st.chal = { n: 0, best: null, last: null }; st.finished = false; st.brake = null; st.passT = 0;
+    st.i = bi; setupScene('brake', true);
+    notice('⛔ 브레이크 챌린지 — 시속 15km 넘게 달리다가 붉은 선 앞에 최대한 가깝게 멈춰요(넘으면 기록 없음) · 다섯 번', 'info', 4200);
+    say('브레이크 챌린지. 선 앞에 딱 맞춰 멈춰 봐요', true); paint();
+  };
+  self.chalBack = function () {
+    if (!st) return;
+    st.chal = null; st.finished = true; showResult(st.passed);
+  };
+  self.chalBoard = chalBoard;
   self.badges = function () {
     if (!st) return [];
     var out = SCENES.filter(function (S) { return st.done[S.id]; }).map(function (S) { return { text: S.icon + ' ' + S.name }; });
