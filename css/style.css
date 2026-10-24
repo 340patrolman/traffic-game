@@ -1335,6 +1335,7 @@ body.onfoot .tbtn.sportbtn,body.afoot .tbtn.sportbtn,body.kidmode .tbtn.sportbtn
 #endStats .rk-ic img{height:30px;width:auto;display:block;border-radius:5px}
 
 /* ▶ 다시(A-P1 · F6) — 결과 카드 아래에 붙어 있다(카드가 스크롤돼도 보인다) */
+#end .endmap{display:block;margin:0 0 10px;padding:11px 12px;border-radius:12px;border:1px solid rgba(120,200,255,.45);background:rgba(40,90,140,.25);color:#cfe8ff;font-weight:800;font-size:14px;text-align:center;text-decoration:none;min-height:44px;box-sizing:border-box}
 #end .endbtns{position:sticky;bottom:-22px;margin:10px -20px -22px;padding:10px 20px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;background:linear-gradient(180deg,rgba(14,18,28,0),rgba(14,18,28,.96) 30%)}
 #end .endbtns #btnRetry{flex:2;margin:0;min-height:52px;font-size:20px}
 #end .endbtns #btnAgain,#end .endbtns #btnShare{flex:1;margin:0;min-height:52px;font-size:14px;min-width:0;white-space:nowrap;padding-left:6px;padding-right:6px}

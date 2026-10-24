@@ -373,8 +373,9 @@
     var box = EL('boot'); if (!box) { startIntro(); return; }
     var em = EL('bootEmblem');
     if (em && !em.src && TG.tex && TG.tex.emblemPNG) { em.src = TG.tex.emblemPNG(function (u) { em.src = u; }); }
-    var vr = EL('bootVer'), cl0 = classParam();
-    if (vr) vr.textContent = (cl0 ? CLASS_KO[cl0] + ' 바로 열기 · ' : '') + 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
+    var vr = EL('bootVer'), cl0 = classParam(), at0 = TG.PlaceKey ? TG.PlaceKey.param() : null;
+    if (at0) TG.PlaceKey.load();
+    if (vr) vr.textContent = (cl0 ? CLASS_KO[cl0] + ' 바로 열기 · ' : '') + (at0 && !cl0 ? '🚓 ' + (at0.nm || '고른 자리') + '에서 근무 · ' : '') + 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
     box.style.display = 'flex';
     function go(sound) {
       box.style.display = 'none';
@@ -384,7 +385,8 @@
         TG.audio.resume();                                   // 이 호출은 **사용자 제스처 안**이라야 먹는다
         buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
       } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
-      var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }   // 🏫 ?class= 로 열면 인트로 없이 그 교실(설정의 교실 QR·주소)
+      var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }
+      var at9 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at9) { hud.showTouch(true); showTitle(); TG.PlaceKey.load(function () { G.startAt(at9); }); return; }   // 🔗 ?at= 로 열면 인트로 없이 그 교차로에서 순찰   // 🏫 ?class= 로 열면 인트로 없이 그 교실(설정의 교실 QR·주소)
       startIntro();
     }
     input.bindTap(EL('btnBoot'), function () { go(true); });
@@ -639,6 +641,16 @@
       G.areaPicker = { open: openList, detail: detail, key: KEY, label: label, set: function (i, j) { TG.save.set(KEY, i + ',' + j); paint(); } };
     })();
     // 🗺 우리 동네 카드의 「🚓 여기서 출근」(v0.10.62) — 출발 지역을 그 교차로로 두고 순찰 근무를 연다
+    // 🔗 같은 자리 열쇠(v0.10.119) — 데이터 압축지도 카드의 「🚓 여기서 근무해 보기」(?at=INT-코드 | 위도,경도 · &nm=이름)
+    G.startAt = function (k) {
+      var P = TG.PlaceKey, grid = city.nodes && city.nodes.length === 5 && city.nodes[0].length === 5, hit = P && P.find(k);
+      if (!grid) { hud.notice('🔗 이 지도에는 서초 간선 교차로 25곳이 없습니다 — 🛰 서초구 1:1 지도에서 엽니다', 'warn', 4200); return false; }
+      if (!hit || !hit.n) { hud.notice('🔗 ' + (k.nm || '고른 자리') + ' — 게임의 서초 간선 교차로 25곳 밖입니다' + (hit && hit.near ? '(가장 가까운 ' + hit.near.name + ' ' + Math.round(hit.m) + 'm)' : ''), 'warn', 4600); return false; }
+      G.startPatrolAt(hit.n.i, hit.n.j);
+      var how = hit.by === 'tgis' ? 'T-GIS 교차로코드 ' + hit.n.tgis : '가장 가까운 게임 교차로 · ' + Math.round(hit.m) + 'm';
+      setTimeout(function () { if (G.state === 'play') hud.notice('📍 ' + city.nodeName(city.nodes[hit.n.i][hit.n.j]) + '에서 근무 시작 — ' + how, 'info', 3600); }, 900);
+      return true;
+    };
     G.startPatrolAt = function (i, j) { if (G.areaPicker && G.areaPicker.set) G.areaPicker.set(i, j); applyMode('patrol'); G.chapterNext = false; start(settings.car); };
     document.querySelectorAll('.mpick[data-mode]').forEach(function (b) { input.bindTap(b, function () { var m = b.getAttribute('data-mode'); if (lockedTap(b, m)) return; applyMode(m); if (MODES[m] && G.state === 'title') start(settings.car); }); });   // 서랍 안 근무·교실은 누르면 바로 시작한다(고르고 또 누르지 않게)
     applyMode(settings.mode || 'patrol');
@@ -2814,6 +2826,7 @@
     if (G.story && G.story.summary) { st.story = G.story.summary(); G.story.stop(); }
     if (G.daily) st.daily = G.daily.finish();   // 📅 오늘의 임무 — 결과 카드에 진행 막대
     if (st.stars >= 4) TG.audio.jingle(st.stars); hud.showEnd(G.stats); hud.setTarget(null);
+    endMapLink();
     log('근무 종료: ' + G.score + '점, 단속 ' + G.stats.stops + '건' + (reason ? ' (' + reason + ')' : ''));
   }
   G.endShift = endShift;
@@ -3587,12 +3600,22 @@
 
   // 지도 선택: ?map=<id> · 저장된 설정 · 목록의 기본값 순. data/maps/<id>.json 을 **init 전에** 읽어 TG.MAP 에 담는다.
   // 파일을 못 읽으면(file:// 등) 코드 안 기본값 = 첫 지도 「서울 서초구(베타)」 로 그대로 시작한다.
+  // 🔗 결과 카드 「🗜 이 자리 실제 자료」 — 근무를 끝낸 자리에서 가장 가까운 교차로를 데이터 압축지도로(같은 자리 열쇠 · 서초 간선 25곳 지도만)
+  function endMapLink() {
+    var a = document.getElementById('endMap'); if (!a) return; a.style.display = 'none';
+    var P = TG.PlaceKey, grid = city.nodes && city.nodes.length === 5 && city.nodes[0].length === 5 && /^seocho(-twin|-full)?$/.test(city.mapId || 'seocho');
+    if (!P || !grid) return;
+    var me = onFoot() && G.walker ? G.walker.pos : player.pos, n = city.nearestNode(me.x, me.z); if (!n) return;
+    P.load(function () { var u = P.mapUrl(n.i, n.j); if (!u) return; a.href = u; a.textContent = '🗜 ' + city.nodeName(n) + ' — 실제 자료(데이터 압축지도)'; a.style.display = 'block'; });
+  }
+  G.endMapLink = endMapLink;
   function bootMap(done) {
     if (location.protocol.indexOf('http') !== 0) { log('file:// — 지도 파일을 읽지 않고 기본 지도(서초구)로 시작합니다'); done(); return; }
     var qs = new URLSearchParams(location.search), want = qs.get('map') || (isTest ? 'seocho' : TG.save.get('map', null));   // 검사는 지도를 안 적으면 늘 기본 지도(검사 좌표가 그 지도 기준이다)
     // (v0.10.64 · 소유자 「1:1 지도가 메인이지만 선택할 수 있게」) 예전 판에서 기본 지도가 저장된 기기는 **한 번만** 메인(1:1)으로 옮긴다 — 그 뒤 고른 것은 그대로 기억한다
     if (!isTest && !qs.get('map') && want === 'seocho' && !TG.save.get('mapMain', null)) { want = null; TG.save.set('map', null); }
     if (!isTest) TG.save.set('mapMain', 1);
+    if (!isTest && !qs.get('map') && TG.PlaceKey && TG.PlaceKey.param()) want = 'seocho-full';   // 🔗 ?at= (지도 「여기서 근무해 보기」) — 지도를 안 적었으면 메인 지도에서
     if (qs.get('enter') === 'gate') G.enterGate = true;   // 관문으로 건너온 판 — 시작 자리를 관문 앞으로
     fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
       TG.MAPS = idx;
