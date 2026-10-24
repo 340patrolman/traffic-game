@@ -107,7 +107,7 @@ TG.ClassLv = function (game) {
     b = document.createElement('div'); b.id = 'clvUp'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-modal', 'true');
     document.body.appendChild(b);
     b.addEventListener('click', function (e) { var a = e.target.closest('[data-clv]'); if (!a) return; var v = a.getAttribute('data-clv');
-      if (v === 'ok') { closeUp(); nextUp(); } else if (v === 'close') { closeUp(); } else if (/^go:/.test(v)) { closeUp(); var mb = document.querySelector('.mpick[data-mode="' + v.slice(3) + '"]'); if (mb) mb.click(); } });
+      if (v === 'ok') { closeUp(); nextUp(); } else if (v === 'close') { closeUp(); } else if (/^cert:/.test(v)) { self.cert(v.slice(5)); } else if (/^go:/.test(v)) { closeUp(); var mb = document.querySelector('.mpick[data-mode="' + v.slice(3) + '"]'); if (mb) mb.click(); } });
     return b;
   }
   function closeUp() { var b = el('clvUp'); if (b) b.className = ''; upOn = false; if (G.setPaused) G.setPaused(false, 'clvUp'); }
@@ -121,7 +121,7 @@ TG.ClassLv = function (game) {
       '<div class="cu-name">' + esc(lvLabel(k, l)) + '</div><div class="cu-trk">' + esc(t.icon + ' ' + t.name + ' · ' + t.who) + '</div>' +
       '<div class="cu-learn">✅ ' + esc(L.learn) + '</div>' +
       (nx ? '<div class="cu-next"><b>다음 · ' + esc(lvLabel(k, l + 1)) + '</b><br>' + nxNeed + '</div>' : '<div class="cu-next"><b>' + esc(t.name) + ' 다섯 단계를 모두 마쳤어요</b>' + (k === 'kid' ? '<br>🚲 청소년(자전거) 교실이 기다려요' : k === 'tot' ? '<br>🧒 어린이 교실로 자라요' : '<br>🪪 만 16세가 되면 원동기 면허 — 그전엔 전동킥보드를 타지 않아요') + '</div>') +
-      '<div class="cu-btns"><button data-clv="ok">' + (UPQ.length ? '다음 배지 보기 ›' : '계속하기') + '</button></div></div>';
+      '<div class="cu-btns"><button class="cu-cert" data-clv="cert:' + k + '">📜 ' + (last ? '수료증' : '확인증') + '</button><button data-clv="ok">' + (UPQ.length ? '다음 배지 보기 ›' : '계속하기') + '</button></div></div>';
     b.className = 'on' + (last ? ' gold' : '');
     if (G.setPaused) G.setPaused(true, 'clvUp');
     if (TG.audio.totFanfare) TG.audio.totFanfare(); else if (TG.audio.jingle) TG.audio.jingle(4);
@@ -154,7 +154,7 @@ TG.ClassLv = function (game) {
     ks.forEach(function (k) {
       var t = TR[k], l = lvOf(k), b2 = D[k].best;
       h += '<section class="cu-tr"><div class="cu-trh"><img alt="" src="' + badge(k, l) + '"><div><b>' + esc(t.icon + ' ' + t.name) + '</b><small>' + esc(t.who) + '</small><em>' + esc(lvLabel(k, l)) + ' / ' + t.L.length + '단계</em></div>' +
-        (only ? '' : '<button data-clv="go:' + t.mode + '">시작 ›</button>') + '</div><ol class="cu-lv">';
+        (l ? '<button class="cu-cert" data-clv="cert:' + k + '" title="확인증·수료증 그림">📜</button>' : '') + (only ? '' : '<button data-clv="go:' + t.mode + '">시작 ›</button>') + '</div><ol class="cu-lv">';
       t.L.forEach(function (L, i) { var ok = i < l, cur = i === l, n = needOf(t, L);
         h += '<li class="' + (ok ? 'ok' : cur ? 'cur' : 'lock') + '"><span>' + (ok ? '✅' : cur ? '▶' : '🔒') + ' ' + L.icon + ' ' + esc((t.nums ? 'Lv.' + (i + 1) + ' ' : '') + L.name) + '</span>' +
           (cur ? '<div class="cu-ms">' + Object.keys(n).map(function (id) { var q = b2[id] || 0, done = q >= n[id]; return '<i class="' + (done ? 'd' : '') + '">' + (done ? '✔ ' : '· ') + esc(t.m[id] || id) + (t.nums ? ' ' + stars(q) + (n[id] > q ? ' <u>(' + stars(n[id]) + ' 필요)</u>' : '') : '') + '</i>'; }).join('') + '</div>' : '') + '</li>'; });
@@ -176,6 +176,98 @@ TG.ClassLv = function (game) {
     });
     var hb = el('btnClassHub'); if (hb) { var sm = hb.querySelector('small'); if (sm) sm.textContent = ['bike', 'kid', 'tot'].map(function (k) { return TR[k].icon + ' ' + lvLabel(k, lvOf(k)); }).join(' · '); }
   };
+
+  // ---- 📜 확인증 · 수료증(그림 한 장) ----
+  //  교실 하나의 지금 레벨까지 배운 것을 1080x1350 그림으로. 저장·공유는 기기 안에서만(서버 0).
+  //  이름은 고르면 그림에만 들어가고 어디에도 저장하지 않는다. 기관 직인·관인은 그리지 않는다(공문서 흉내 금지).
+  var CERT_URL = 'https://340patrolman.github.io/traffic-game/?class=';
+  var certEl = null, certCv = null, certK = null;
+  function cfont(px, w) { return (w || 800) + ' ' + px + 'px "Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif'; }
+  function wrap(g, txt, maxW) {
+    var out = [], line = '';
+    String(txt).split('').forEach(function (ch) { var t = line + ch; if (g.measureText(t).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ''; } else line = t; });
+    if (line) out.push(line); return out;
+  }
+  self.certCanvas = function (k, name, cb) {
+    var t = TR[k], l = lvOf(k); if (!t || !l) { cb(null); return; }
+    var last = l === t.L.length, W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+    g.fillStyle = '#fffaf0'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = last ? '#b8860b' : t.col; g.lineWidth = 14; g.strokeRect(34, 34, W - 68, H - 68);
+    g.lineWidth = 3; g.strokeRect(58, 58, W - 116, H - 116);
+    g.textAlign = 'center'; g.fillStyle = '#334155'; g.font = cfont(34, 700);
+    g.fillText('SEOUL PATROL · 교통안전 교실', W / 2, 140);
+    g.fillStyle = last ? '#92400e' : '#0f172a'; g.font = cfont(96, 900);
+    g.fillText(last ? '수 료 증' : '확 인 증', W / 2, 260);
+    g.fillStyle = '#475569'; g.font = cfont(34, 700); g.fillText(t.icon + ' ' + t.name + ' · ' + t.who, W / 2, 318);
+    var nm = String(name || '').trim().slice(0, 12);
+    g.fillStyle = '#0f172a'; g.font = cfont(54, 900); g.fillText(nm ? nm : '　', W / 2, 566);
+    g.strokeStyle = '#94a3b8'; g.lineWidth = 2; g.beginPath(); g.moveTo(300, 584); g.lineTo(W - 300, 584); g.stroke();
+    g.fillStyle = '#1e293b'; g.font = cfont(40, 800); g.fillText(lvLabel(k, l), W / 2, 640);
+    g.fillStyle = '#334155'; g.font = cfont(30, 600);
+    var who9 = k === 'bike' ? '위 학생은 ' : '위 어린이는 ', say = last ? who9 + '' + t.name + ' 다섯 단계의 미션을 모두 제대로 마쳤기에 이 증서를 드립니다.'
+                   : who9 + t.name + '에서 「' + t.L[l - 1].name + '」 단계까지 미션을 제대로 마쳤음을 확인합니다.';
+    var y = 690; wrap(g, say, W - 220).forEach(function (s) { g.fillText(s, W / 2, y); y += 44; });
+    g.textAlign = 'left'; g.font = cfont(26, 600); y += 14;
+    for (var i = 0; i < l; i++) {
+      var ls = wrap(g, '✔ ' + t.L[i].icon + ' ' + t.L[i].learn, y > 960 ? W - 460 : W - 260);
+      ls.forEach(function (s, q) { g.fillStyle = q ? '#475569' : '#15803d'; g.fillText((q ? '    ' : '') + s, 130, y); y += 35; });
+      y += 4;
+    }
+    var d = new Date(), ds = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+    g.textAlign = 'left'; g.fillStyle = '#334155'; g.font = cfont(30, 700); g.fillText(ds, 110, H - 150);
+    g.fillStyle = '#64748b'; g.font = cfont(22, 500); g.fillText('게임 안 기록 · 공식 자격증이 아닙니다 · 이 기기에만 저장', 110, H - 108);
+    var qc = document.createElement('canvas'); if (TG.qr && TG.qr.draw) TG.qr.draw(qc, CERT_URL + k, 170);
+    g.fillStyle = '#fff'; g.fillRect(W - 300, H - 330, 200, 200);
+    if (qc.width) g.drawImage(qc, W - 285, H - 315, 170, 170);
+    g.textAlign = 'center'; g.fillStyle = '#475569'; g.font = cfont(20, 700); g.fillText('나도 해 보기', W - 200, H - 104);
+    var img = new Image(), done = function () { certCv = cv; cb(cv); };
+    img.onload = function () { g.drawImage(img, W / 2 - 90, 330, 180, 180); done(); };
+    img.onerror = done; img.src = badge(k, l);
+  };
+  function certPaint() {
+    if (!certEl || !certK) return;
+    var box = certEl.querySelector('.ce-img'), nm = certEl.querySelector('#ceName');
+    self.certCanvas(certK, nm ? nm.value : '', function (cv) { if (!cv) return; box.textContent = ''; var im = new Image(); im.alt = '교실 증서'; im.src = cv.toDataURL('image/png'); box.appendChild(im); });
+  }
+  function certBlob(cb) { if (certCv && certCv.toBlob) certCv.toBlob(cb, 'image/png'); else cb(null); }
+  self.cert = function (k) {
+    if (!TR[k] || !lvOf(k)) return false;
+    certK = k;
+    if (!certEl) {
+      certEl = document.createElement('div'); certEl.id = 'clvCert'; certEl.setAttribute('role', 'dialog');
+      certEl.innerHTML = '<div class="ce-box"><div class="ce-img">그리는 중…</div>' +
+        '<label class="ce-nm">이름(골라 넣기) <input id="ceName" maxlength="12" autocomplete="off" placeholder="비워 두어도 돼요"></label>' +
+        '<div class="ce-btns"><button data-ce="save">💾 저장</button><button data-ce="share">📤 공유</button><button data-ce="x">닫기</button></div>' +
+        '<div class="ce-note">이름은 그림에만 들어가고 어디에도 저장하지 않아요.</div></div>';
+      document.body.appendChild(certEl);
+      certEl.addEventListener('click', function (e) {
+        if (e.target === certEl) { self.certClose(); return; }
+        var b = e.target.closest('[data-ce]'); if (!b) return; var v = b.getAttribute('data-ce');
+        if (v === 'x') self.certClose();
+        else if (v === 'save') certBlob(function (bl) {
+          if (!certCv) return; var a = document.createElement('a');
+          a.download = 'traffic-class-' + certK + '-' + new Date().toISOString().slice(0, 10) + '.png';
+          a.href = bl ? URL.createObjectURL(bl) : certCv.toDataURL('image/png');
+          document.body.appendChild(a); a.click(); a.remove(); if (bl) setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        });
+        else if (v === 'share') certBlob(function (bl) {
+          if (!bl || !navigator.share || !navigator.canShare) return;
+          var f = new File([bl], 'traffic-class.png', { type: 'image/png' });
+          if (navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: '교통안전 교실 ' + (lvOf(certK) === TR[certK].L.length ? '수료증' : '확인증') }).catch(function () {});
+        });
+      });
+      var nmIn = certEl.querySelector('#ceName'), tm = 0;
+      nmIn.addEventListener('input', function () { clearTimeout(tm); tm = setTimeout(certPaint, 250); });
+      nmIn.addEventListener('keydown', function (e) { e.stopPropagation(); });
+    }
+    certEl.querySelector('#ceName').value = '';
+    var sh = certEl.querySelector('[data-ce="share"]'); sh.style.display = (navigator.share && navigator.canShare) ? '' : 'none';
+    certEl.className = 'on'; certPaint();
+    return true;
+  };
+  self.certClose = function () { if (certEl) certEl.className = ''; };
+  self.certOpen = function () { return !!(certEl && certEl.className === 'on'); };
   // 검사 창구 — 기록을 지운다(검사·「처음부터」)
   self.resetAll = function () { Object.keys(TR).forEach(function (k) { D[k] = { best: {}, lv: 0, n: 0 }; }); save(); self.paintMenu(); paintChip(); };
   self.data = function () { return D; };

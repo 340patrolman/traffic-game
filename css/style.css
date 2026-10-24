@@ -1658,3 +1658,19 @@ body.totmode #clvChip{display:none!important}
 .clsinfo b{font-size:14px}.clsinfo code{font-size:12px;word-break:break-all;background:rgba(0,0,0,.3);padding:5px 7px;border-radius:8px;user-select:all}
 .clsinfo .cpbtn{align-self:flex-start;min-height:40px}
 .clsinfo .avnote{font-size:12px;line-height:1.45;text-align:left}
+
+/* 📜 교실 확인증·수료증(v0.10.116) */
+#clvUp .cu-btns{gap:10px;flex-wrap:wrap}
+#clvUp .cu-btns button.cu-cert{min-width:0;padding:0 16px;background:transparent;border:2px solid #facc15;color:#fde68a}
+#clvUp .cu-trh button.cu-cert{padding:0 10px;font-size:18px}
+#clvCert{display:none;position:fixed;inset:0;z-index:97;align-items:center;justify-content:center;background:rgba(2,6,23,.72);pointer-events:auto;padding:12px}
+#clvCert.on{display:flex}
+#clvCert .ce-box{width:min(440px,100%);max-height:calc(100vh - 24px);overflow:auto;background:#0f1a30;border:2px solid rgba(253,224,71,.6);border-radius:18px;padding:12px;color:#fff;text-align:center}
+#clvCert .ce-img{min-height:120px;color:#cbd5e1;font-size:14px}
+#clvCert .ce-img img{width:100%;height:auto;border-radius:10px;display:block}
+#clvCert .ce-nm{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:#e2e8f0;text-align:left}
+#clvCert .ce-nm input{flex:1;min-width:0;min-height:44px;border-radius:10px;border:1px solid #475569;background:#0b1428;color:#fff;font:inherit;font-size:16px;padding:0 10px}
+#clvCert .ce-btns{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+#clvCert .ce-btns button{min-height:48px;min-width:96px;border-radius:12px;border:0;background:#facc15;color:#1c1300;font:inherit;font-size:15px;font-weight:900;cursor:pointer}
+#clvCert .ce-btns button[data-ce="x"]{background:transparent;border:1px solid #64748b;color:#e2e8f0}
+#clvCert .ce-note{margin-top:8px;font-size:12px;color:#94a3b8}
