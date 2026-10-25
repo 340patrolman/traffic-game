@@ -23,6 +23,12 @@ TG.WhatIf = function (G) {
       apply: function (c) { c.prevJ = c.peds.noJaywalk; c.peds.noJaywalk = true; if (c.peds.clearJaywalkers) c.peds.clearJaywalkers(); }, undo: function (c) { c.peds.noJaywalk = !!c.prevJ; } }
   ];
   self.VARS = VARS;
+  // 🏙 교차로 활동량(v0.10.125 · T3 첫 판) — data/node-activity-seocho.json(버스·지하철 승하차 · 교통량 조사 · tools/maps/node-activity.py).
+  // 시뮬은 그 교차로의 행인 상한 × pedK · 차량 상한 × vehK 로 돈다(서초 25곳 가운데값 대비 · 제곱근 · 게임 설계값). 사고 자료는 쓰지 않는다(E5 의 답).
+  var ACT = null; (function () { try { fetch('data/node-activity-seocho.json').then(function (r) { return r.json(); }).then(function (j) { ACT = j; }).catch(function () { ACT = false; }); } catch (e) { ACT = false; } })();
+  function actOf(i, j) { var a = null; ((ACT && ACT.nodes) || []).forEach(function (n) { if (n.i === i && n.j === j) a = n; }); return a; }
+  self.actOf = actOf;
+  self.realDensity = true;
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function vname(t) { var L = (G.laws && G.laws.violations) || [], v = null; (Array.isArray(L) ? L : []).forEach(function (x) { if (x && x.id === t) v = x; }); return v && v.name ? v.name : t; }
@@ -40,6 +46,8 @@ TG.WhatIf = function (G) {
     core.start('free');
     var c = core.ctx(); c.N = c.city.nodes[i][j];
     core.park(i, j);
+    var act = self.realDensity ? actOf(i, j) : null, d0 = { t: c.C.TRAFFIC_MAX, p: c.C.PED_MAX };
+    if (act) { c.C.TRAFFIC_MAX = Math.round(c.C.TRAFFIC_MAX * act.vehK); c.C.PED_MAX = Math.round(c.C.PED_MAX * act.pedK); }   // 🏙 이 교차로 실제 활동량
     if (V.prep) V.prep(c);
     if (on) V.apply(c);
     var R = radiusOf(c.city, i, j), R2 = R * R, N = c.N, RT2 = Math.pow(Math.max(10, R * 0.3), 2);   // 지나간 차 = 교차로 가운데 R×0.3 안을 지난 차
@@ -66,6 +74,7 @@ TG.WhatIf = function (G) {
     function finish(ok) {
       c.traffic.onFlag = prevFlag;
       if (on) V.undo(c);
+      c.C.TRAFFIC_MAX = d0.t; c.C.PED_MAX = d0.p;
       if (V.prep && c.signals.restoreReal) c.signals.restoreReal(N);
       TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
       done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru } : null);
@@ -107,7 +116,8 @@ TG.WhatIf = function (G) {
         var real = L.map(function (x) { return x.real; });
         var res = { at: new Date().toISOString().slice(0, 16).replace('T', ' '), n: L.length, sec: CAL_MEAS, list: L,
           rho: spearman(L.map(function (x) { return x.score; }), real), rhoFlag: spearman(L.map(function (x) { return x.flagN; }), real),
-          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real) };
+          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), dens: self.realDensity,
+          rhoPeople: spearman(L.map(function (x) { var a = actOf(x.i, x.j); return a ? a.bus + a.sub : 0; }), real) };
         TG.save.set('simcal', res); cb(res); return;
       }
       var x = L[k];
@@ -123,7 +133,7 @@ TG.WhatIf = function (G) {
     var L = c.list.slice().sort(function (a, b) { return b.real - a.real; }), sr = ranks(c.list.map(function (x) { return -x.score; })), rk = {};
     c.list.forEach(function (x, i) { rk[x.i + ',' + x.j] = sr[i]; });
     return '<div class="wi-res"><b>📏 게임 ↔ 실제 사고 순위 — ' + c.n + '곳 · ' + esc(c.at) + '</b>' +
-      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + '</small></div>' +
+      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + (c.rhoPeople != null ? '<br>참고: 게임을 돌리지 않고 실제 승하차 인원만으로 ρ ' + c.rhoPeople.toFixed(2) + ' — 사람이 많은 곳에서 사고가 난다' : '') + '<br>밀도: ' + (c.dens ? '🏙 교차로마다 실제 활동량(승하차·교통량)' : '모든 교차로 같은 밀도') + '</small></div>' +
       '<table><tr><th>교차로</th><th>실제 10년</th><th>게임 지수</th><th>게임 순위</th></tr>' +
       L.map(function (x, i) { var g = rk[x.i + ',' + x.j]; return '<tr><td>' + (i + 1) + '. ' + esc(x.name) + '</td><td>' + x.real + '</td><td>' + x.score + '</td><td class="' + (Math.abs(g - (i + 1)) <= 3 ? 'dn' : Math.abs(g - (i + 1)) >= 8 ? 'up' : '') + '">' + (Math.round(g * 10) / 10) + '</td></tr>'; }).join('') +
       '</table><small>실제 = TAAS 2016~2025 교차로 둘레 150m(서초구 쪽 칸만 · 근사). 게임 지수 = 보행자 근접×3 + 위반 기록×2 + 무단횡단(게임 설계값) · 씨앗 하나 · 앞 40초 버리고 ' + c.sec + '초. ρ 가 낮으면 게임 모형이 교차로마다의 차이(교통량·보행량·도로 모양)를 아직 못 담는다는 뜻 — 다음에 고칠 곳을 알려 주는 검사입니다. 초록 = 순위 차 3 안 · 빨강 = 8 이상.</small></div>';
@@ -162,7 +172,7 @@ TG.WhatIf = function (G) {
     ];
     Object.keys(types).forEach(function (t) { rows.push(row('　└ ' + vname(t), B, A, function (r) { return r.flags[t] || 0; })); });
     var city = G.simCore.ctx().city;
-    return { i: i, j: j, name: city.nodeName(city.nodes[i][j]), v: V, rows: rows, seeds: SEEDS.length, sec: MEAS };
+    return { i: i, j: j, name: city.nodeName(city.nodes[i][j]), v: V, rows: rows, seeds: SEEDS.length, sec: MEAS, act: self.realDensity ? actOf(i, j) : null };
   }
 
   // ---------- 화면 ----------
@@ -195,7 +205,7 @@ TG.WhatIf = function (G) {
     else if (res && res !== 'fail') {
       h += '<div class="wi-res"><b>' + esc(res.name) + ' · ' + esc(res.v.label) + '</b><table><tr><th></th><th>그대로</th><th>바꾼 것</th><th>차이</th></tr>' +
         res.rows.map(function (r) { var d = r.b - r.a, pc = r.a > 0 ? Math.round(d / r.a * 100) : null; return '<tr><td>' + esc(r.k) + '</td><td>' + fmt(r.a, r.dec) + '</td><td>' + fmt(r.b, r.dec) + '</td><td class="' + (r.noise ? 'nz' : d > 0 ? 'up' : d < 0 ? 'dn' : '') + '" title="씨앗끼리 흔들림 ' + fmt(r.sp, r.dec) + '">' + (d > 0 ? '+' : '') + fmt(d, r.dec) + (pc != null && Math.abs(d) >= 0.5 ? ' (' + (pc > 0 ? '+' : '') + pc + '%)' : '') + (r.noise && d !== 0 ? '<i>우연 범위</i>' : '') + '</td></tr>'; }).join('') +
-        '</table><small>씨앗 ' + res.seeds + '개 평균 · 앞 40초 버리고 ' + res.sec + '초 · 그 교차로 둘레. 조건 하나를 바꿔도 그 뒤 판은 조금씩 갈라진다 — 차이가 씨앗끼리 흔들림의 절반 안이면 회색 「우연 범위」(이 앱의 기준). 🧪 게임 설계값 위의 비교 — 실제 효과 증명이 아닙니다.</small></div>';
+        '</table>' + (res.act ? '<small>🏙 이 교차로 밀도 — 행인 ×' + res.act.pedK + '(버스 ' + res.act.bus.toLocaleString() + ' · 지하철 ' + res.act.sub.toLocaleString() + '명/일) · 차량 ×' + res.act.vehK + '(실제 승하차·교통량 조사 · 서초 25곳 가운데값 대비)</small>' : '') + '<small>씨앗 ' + res.seeds + '개 평균 · 앞 40초 버리고 ' + res.sec + '초 · 그 교차로 둘레. 조건 하나를 바꿔도 그 뒤 판은 조금씩 갈라진다 — 차이가 씨앗끼리 흔들림의 절반 안이면 회색 「우연 범위」(이 앱의 기준). 🧪 게임 설계값 위의 비교 — 실제 효과 증명이 아닙니다.</small></div>';
     } else if (res === 'fail') h += '<div class="wi-res">돌리는 중 근무가 끝났습니다 — 다시 해 보세요.</div>';
     var nodes = [];
     for (var i = 0; i < city.nodes.length; i++) for (var j = 0; j < city.nodes[i].length; j++) if (!/실제로 안 만남/.test(city.nodeName(city.nodes[i][j]))) nodes.push([i, j]);
