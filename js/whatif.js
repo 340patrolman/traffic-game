@@ -1,4 +1,4 @@
-// 🧪 만약에(v0.10.121 · ROADMAP E2~E4 · 소유자 「유기적인 연결 — 권고대로」 3단계)
+// 🧪 시뮬 — 한 교차로(v0.10.121 「만약에」 → v0.10.123 소유자 결정으로 이름을 「시뮬」로 · T-Book 「시뮬레이션」과 한 이름 · ROADMAP E2~E4 · 소유자 「유기적인 연결 — 권고대로」 3단계)
 // 한 교차로에서 **조건 하나만 바꿔** 같은 씨앗의 판을 두 번 돌리고 차이를 표로 돌려준다(🧪 시뮬레이션 모드 그대로 — 운전 보조·칭찬·무전 끔 · Math.random 고정).
 // 같은 씨앗 세 개(340·341·342)로 「그대로」·「바꾼 것」을 각각 돌려 평균한다(한 씨앗만 보면 우연이 섞인다). 앞 40초는 버리고(도시가 차는 시간) 뒤 240초를 잰다.
 // 재는 것(그 교차로 둘레 R — 이웃 교차로 간격의 0.45배 · 최대 150 단위): 교통 AI 가 그 교차로에 남긴 위반 기록(종류별) · 보행자 근접(건너는 사람 2.5 단위 안을 달리는 차) ·
@@ -121,7 +121,7 @@ TG.WhatIf = function (G) {
   function ensure() {
     if (box) return box;
     box = document.createElement('div'); box.id = 'whatIf';
-    box.innerHTML = '<div class="wi-card"><div class="wi-h">🧪 만약에 <button class="wi-x" data-wi="x">닫기</button></div><div class="wi-b"></div></div>';
+    box.innerHTML = '<div class="wi-card"><div class="wi-h"><span>🧪 시뮬 — 한 교차로<small>만약 조건 하나를 바꾸면? 같은 판을 두 번 돌려 견줍니다</small></span> <button class="wi-x" data-wi="x">닫기</button></div><div class="wi-b"></div></div>';
     document.body.appendChild(box);
     box.addEventListener('click', function (e) {
       var b = e.target.closest('[data-wi]'); if (!b) return; var a = b.getAttribute('data-wi');

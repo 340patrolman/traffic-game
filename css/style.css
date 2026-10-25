@@ -1338,6 +1338,7 @@ body.onfoot .tbtn.sportbtn,body.afoot .tbtn.sportbtn,body.kidmode .tbtn.sportbtn
 #whatIf{display:none;position:fixed;inset:0;z-index:96;align-items:center;justify-content:center;background:rgba(6,10,18,.62);pointer-events:auto;padding:12px}
 #whatIf .wi-card{background:#101826;border:2px solid rgba(140,200,255,.45);border-radius:16px;width:min(96vw,560px);max-height:90vh;display:flex;flex-direction:column;color:#eaf2ff;box-shadow:0 12px 40px rgba(0,0,0,.6)}
 #whatIf .wi-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:18px;font-weight:900;border-bottom:1px solid rgba(255,255,255,.1)}
+#whatIf .wi-h small{display:block;font-size:12px;font-weight:600;opacity:.72;margin-top:2px}
 #whatIf .wi-x{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#eaf2ff;font-weight:800}
 #whatIf .wi-b{overflow:auto;padding:10px 14px 14px}
 #whatIf .wi-note{margin:0 0 8px;padding:8px 10px;border-radius:10px;background:rgba(255,200,90,.12);border:1px solid rgba(255,200,90,.35);color:#ffe6b0;font-size:13px;font-weight:700;word-break:keep-all}
