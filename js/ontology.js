@@ -82,7 +82,7 @@ TG.Ontology = function (G) {
     'cs.samhoHalfHour':    { node: 'ix.samhoGarden',   dirs: [1, 1, 0], pulse: true, n: 2, type: 'bus' }   // 10분 단위 시각마다 고속버스
   };
   var st = {};
-  self.reset = function () { st = {}; self.sent = 0; self.told = {}; };
+  self.reset = function () { st = {}; self.sent = 0; self.told = {}; if (self.resetQueue) self.resetQueue(); };
   self.reset();
   self.flowOf = function (id) { return FLOW[id] || null; };
   function spawnTo(node, d, type) {
@@ -127,6 +127,7 @@ TG.Ontology = function (G) {
   //   · 들어오는 양 = 서울시 교통량 조사 그 시각 값(실측 · 방향 구분 미확인이라 두 방향 평균) + 지금 작동 중인 원인 시설 수요(설계값)
   //   · 대기 길이 = 대수 ÷ 차로 수 × 한 대 길이(설계값). 구간 길이를 넘으면 spillsBackTo 관계의 상류 구간으로 넘친다.
   var Q = {}, QM = null, qMat = 0;
+  self.resetQueue = function () { Q = {}; qMat = 0; };   // v0.10.126 — 근무마다 구간 대기열도 처음부터(🧪 시뮬 「같은 판」 · 남은 대기·30초 시계가 판을 넘어 이어졌다)
   function nodeOf(ij) { return ij && G.city.nodes[ij[0]] && G.city.nodes[ij[0]][ij[1]]; }
   function dirOf(a, b) { var dx = b.x - a.x, dz = b.z - a.z; return Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 1 : 3) : (dz > 0 ? 0 : 2); }
   function sigOf(node, d) { var s = G.signals && G.signals.moveState ? G.signals.moveState(node, d, 'S') : null; return typeof s === 'string' ? s : s && s.s; }

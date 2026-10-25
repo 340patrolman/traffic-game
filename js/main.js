@@ -235,7 +235,7 @@
     if ((city.roadNameV && city.roadNameV(2)) !== '반포대로' || city.xs.length !== 5) { G.realPhases = 0; return; }   // 교차로 번호(i,j)로 찾는 자료다 — 서초 5×5 격자가 아니면 엉뚱한 교차로에 붙는다(서초역·양재역 1:1)
     fetch('data/local/phases-seocho.json', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (d) { G.realPhases = signals.applyReal(d, new Date()); log('실측 현시(로컬): ' + G.realPhases + '곳 적용'); if (facil && facil.refreshPanel) facil.refreshPanel(); })
+      .then(function (d) { G.realPhaseData = d; G.realPhases = signals.applyReal(d, new Date()); log('실측 현시(로컬): ' + G.realPhases + '곳 적용'); if (facil && facil.refreshPanel) facil.refreshPanel(); })
       .catch(function () { G.realPhases = 0; log('실측 현시(로컬) 없음 — 일반형 현시로 돈다'); });
   }
   function loadSignalTod() {
@@ -655,7 +655,9 @@
       park: function (i, j) {   // 순찰차는 그 교차로 북쪽(맨 위 줄이면 남쪽) 보도 바깥에 세워 둔다 — 차로를 막지 않게 · 스폰은 이 둘레에서
         var N = city.nodes[i][j], gap = j > 0 ? N.z - city.nodes[i][j - 1].z : city.nodes[i][j + 1].z - N.z, dz = Math.min(45, gap * 0.4) * (j > 0 ? -1 : 1);
         player.teleport(N.x + city.sideOff('v', i) + 3, N.z + dz, 0); player.vx = 0; player.vz = 0; player.resync(); if (player.siren) toggleSiren(); },
-      ctx: function () { return { city: city, traffic: traffic, peds: peds, signals: signals, C: C, player: player }; },
+      ctx: function () { return { city: city, traffic: traffic, peds: peds, signals: signals, C: C, player: player, weather: weather }; },
+      // 기준 시각으로 신호 계획을 맞춘다(경찰청 시간대 계획 · 로컬 실측 현시) — 없으면 지금 시각
+      clock: function (date) { var d = date || new Date(); if (G.signalTod && signals.applyTod) signals.applyTod(G.signalTod, d); if (G.realPhaseData && signals.applyReal) signals.applyReal(G.realPhaseData, d); },
       title: function () { showTitle(); }
     };
     document.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-wi-open]') : null; if (!b || !G.whatIf) return; var p = b.getAttribute('data-wi-open').split(','); G.whatIf.open(+p[0], +p[1]); });
@@ -3470,6 +3472,7 @@
   function loop(now) {
     requestAnimationFrame(loop);
     if (G.testFreeze) { lastT = now; return; }   // 검증용 정지(스크린샷을 한 프레임에 고정한다)
+    if (G.simBusy) { lastT = now; return; }   // 🧪 시뮬이 화면 밖에서 세상을 돌리는 동안 평소 루프는 손대지 않는다(끼어들면 같은 씨앗도 판마다 달라졌다 · v0.10.126)
     var raw = now - lastT; lastT = now;
     var dt = Math.min(0.05, raw / 1000);
     if (G.hitstop > 0) { G.hitstop -= dt; dt *= 0.03; }   // 히트스톱 — 세운 순간 세상이 멈칫

@@ -7,6 +7,10 @@
 TG.WhatIf = function (G) {
   var self = {}, box = null, busy = false, last = null, sel = null, vsel = null;
   var WARM = 40, MEAS = 240, DT = 1 / 30, SEEDS = [340, 341, 342];
+  // ⏰ 기준 시각(v0.10.126) — 신호 주기(경찰청 시간대 계획)·날씨가 기기 시계를 따라, 07시에 돌린 판과 09시에 돌린 판이 다른 세상이었다(교정 ρ 가 +0.34 → +0.08 로 흔들림).
+  //  시뮬 동안은 **평일(수) 오후 3시 · 맑음**으로 고정한다(게임 설계값 · 실측 사고가 몰리는 12~18시 띠). 끝나면 지금 시각으로 되돌린다.
+  var REF = function () { return new Date(2026, 9, 21, 15, 0, 0); };
+  self.REF_LABEL = '평일(수) 15:00 · 맑음';
   // 바꿀 조건 — apply/undo 는 근무가 시작된 뒤 부른다(시작이 C·신호를 다시 정하기 때문)
   var VARS = [
     { id: 'green', label: '🚦 이 교차로 남북 녹색 +10초', why: '신호 시간을 늘리면 대기·신호위반이 어떻게 바뀌나',
@@ -29,6 +33,10 @@ TG.WhatIf = function (G) {
   function actOf(i, j) { var a = null; ((ACT && ACT.nodes) || []).forEach(function (n) { if (n.i === i && n.j === j) a = n; }); return a; }
   self.actOf = actOf;
   self.realDensity = true;
+  // 🔁 결과에서 데이터 압축지도 「🧩 엮임 보기」로(같은 자리 열쇠 · T-GIS 코드가 있으면 그 교차로 · 없으면 그 자리 카드) — 소유자 「다 하나로 · 유기적으로」
+  function lnkUrl(i, j) { var P = TG.PlaceKey; if (!P) return null; var n = P.byIJ(i, j); if (!n || n.met === false) return null;
+    return 'https://340patrolman.github.io/datamap/' + (n.tgis ? '#lnk=1&id=INT-' + n.tgis + '&tbk=796815f0c98a' : '#lat=' + n.lat.toFixed(5) + '&lon=' + n.lon.toFixed(5)); }
+  if (TG.PlaceKey) TG.PlaceKey.load();
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function vname(t) { var L = (G.laws && G.laws.violations) || [], v = null; (Array.isArray(L) ? L : []).forEach(function (x) { if (x && x.id === t) v = x; }); return v && v.name ? v.name : t; }
@@ -42,16 +50,19 @@ TG.WhatIf = function (G) {
   // ---------- 한 판 돌리기 ----------
   function runOne(i, j, V, on, seed, prog, done) {
     var core = G.simCore, prevSim = TG.mode.sim, prevSeed = TG.mode.seed, prevDem = G.demandOff;
+    G.simBusy = true;
     TG.mode.sim = true; TG.mode.seed = seed; G.demandOff = true;
     core.start('free');
     var c = core.ctx(); c.N = c.city.nodes[i][j];
     core.park(i, j);
+    if (core.clock) core.clock(REF()); if (c.weather) c.weather.set('clear');
+    var prevOnto = G.ontoDate, prevBrt = G.brtHour; G.ontoDate = REF(); G.brtHour = REF().getHours();   // 정체 원인 시계(온톨로지)·버스 승강장 흐름도 실제 시각으로 차·사람을 더 만든다 — 같은 기준 시각으로
     var act = self.realDensity ? actOf(i, j) : null, d0 = { t: c.C.TRAFFIC_MAX, p: c.C.PED_MAX };
     if (act) { c.C.TRAFFIC_MAX = Math.round(c.C.TRAFFIC_MAX * act.vehK); c.C.PED_MAX = Math.round(c.C.PED_MAX * act.pedK); }   // 🏙 이 교차로 실제 활동량
     if (V.prep) V.prep(c);
     if (on) V.apply(c);
     var R = radiusOf(c.city, i, j), R2 = R * R, N = c.N, RT2 = Math.pow(Math.max(10, R * 0.3), 2);   // 지나간 차 = 교차로 가운데 R×0.3 안을 지난 차
-    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0 }, seenJ = {}, seenT = {}, nearCd = {};
+    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0, ttc: 0 }, seenJ = {}, seenT = {}, nearCd = {}, ttcCd = {};
     var prevFlag = c.traffic.onFlag;
     c.traffic.onFlag = function (car, type, node) { if (prevFlag) prevFlag(car, type, node); if (t < WARM || !node || node !== N) return; M.flags[type] = (M.flags[type] || 0) + 1; M.flagN++; };
     var t = 0, k = 0, total = WARM + (V.meas || MEAS), steps = Math.round(total / DT);
@@ -63,6 +74,20 @@ TG.WhatIf = function (G) {
         if (d2 < RT2 && !seenT[cr.id]) { seenT[cr.id] = 1; M.thru++; }
       });
       M.queue += q; M.qs++;
+      // ⏱ TTC(충돌까지 남은 시간 · ROADMAP E2) — 둘레의 달리는 차마다 같은 방향·같은 차로(옆 1.8 단위 안) 바로 앞차를 찾아
+      //  간격 ÷ 다가가는 속도가 1.5초 아래면 한 번(차마다 3초 쉼). 1.5초는 교통안전 연구에서 흔히 쓰는 「위험한 근접」 문턱 — 이 앱은 게임 설계값으로 쓴다.
+      cars.forEach(function (cr) {
+        if (cr.v < 2 || ttcCd[cr.id] > t) return;
+        var dx0 = cr.pos.x - N.x, dz0 = cr.pos.z - N.z; if (dx0 * dx0 + dz0 * dz0 > R2) return;
+        var fx = Math.sin(cr.heading), fz = Math.cos(cr.heading), best = null, bg = 40;
+        for (var a = 0; a < cars.length; a++) { var o = cars[a]; if (o === cr) continue;
+          var ox = o.pos.x - cr.pos.x, oz = o.pos.z - cr.pos.z, al = ox * fx + oz * fz; if (al <= 0 || al > bg) continue;
+          if (Math.abs(ox * -fz + oz * fx) > 1.8) continue; if (Math.cos(o.heading - cr.heading) < 0.7) continue;
+          var gap = al - (cr.len + o.len) / 2; if (gap < bg) { bg = gap; best = o; } }
+        if (!best) return;
+        var cl = cr.v - best.v * Math.cos(best.heading - cr.heading);
+        if (cl > 0.5 && Math.max(0, bg) / cl < 1.5) { M.ttc++; ttcCd[cr.id] = t + 3; }
+      });
       peds.forEach(function (p) {
         var dx = p.pos.x - N.x, dz = p.pos.z - N.z; if (dx * dx + dz * dz > R2) return;
         if (p.state === 'jaywalk' && !seenJ[p.id]) { seenJ[p.id] = 1; M.jay++; }
@@ -74,14 +99,15 @@ TG.WhatIf = function (G) {
     function finish(ok) {
       c.traffic.onFlag = prevFlag;
       if (on) V.undo(c);
-      c.C.TRAFFIC_MAX = d0.t; c.C.PED_MAX = d0.p;
+      c.C.TRAFFIC_MAX = d0.t; c.C.PED_MAX = d0.p; if (core.clock) core.clock(); G.ontoDate = prevOnto; G.brtHour = prevBrt;
       if (V.prep && c.signals.restoreReal) c.signals.restoreReal(N);
-      TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
-      done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru } : null);
+      G.simBusy = false; TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
+      done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru, ttc: M.ttc } : null);
     }
     (function chunk() {
       var n = 0;
-      while (k < steps && n < 150) {
+      // 한 판은 쉬지 않고 한 번에 돈다(v0.10.126) — 중간에 쉬면 근무 시작 때 걸어 둔 게임 예약 동작(몇 초 뒤 안내·사건)이 끼어들어 같은 씨앗도 판마다 달라졌다. 판과 판 사이에서만 쉰다.
+      while (k < steps) {
         if (!core.step(1, DT)) { finish(false); return; }
         k++; n++; t = k * DT;
         if (t >= WARM && k % 15 === 0) sample();
@@ -112,18 +138,18 @@ TG.WhatIf = function (G) {
     (function next() {
       if (k >= L.length) {
         busy = false; G.simCore.title();
-        L.forEach(function (x) { x.score = x.near * 3 + x.flagN * 2 + x.jay; });
+        L.forEach(function (x) { x.score = x.near * 3 + x.flagN * 2 + x.jay + x.ttc; });
         var real = L.map(function (x) { return x.real; });
         var res = { at: new Date().toISOString().slice(0, 16).replace('T', ' '), n: L.length, sec: CAL_MEAS, list: L,
           rho: spearman(L.map(function (x) { return x.score; }), real), rhoFlag: spearman(L.map(function (x) { return x.flagN; }), real),
-          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), dens: self.realDensity,
+          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), rhoTtc: spearman(L.map(function (x) { return x.ttc; }), real), dens: self.realDensity,
           rhoPeople: spearman(L.map(function (x) { var a = actOf(x.i, x.j); return a ? a.bus + a.sub : 0; }), real) };
         TG.save.set('simcal', res); cb(res); return;
       }
       var x = L[k];
       runOne(x.i, x.j, V0, false, CAL_SEED, function (p) { prog((k + p) / L.length, x.name); }, function (r) {
         if (!r) { busy = false; G.simCore.title(); cb(null); return; }
-        x.flagN = r.flagN; x.near = r.near; x.jay = r.jay; x.queue = r.queue; x.thru = r.thru; k++; setTimeout(next, 0);
+        x.flagN = r.flagN; x.near = r.near; x.jay = r.jay; x.queue = r.queue; x.thru = r.thru; x.ttc = r.ttc || 0; k++; setTimeout(next, 0);
       });
     })();
     return true;
@@ -133,10 +159,10 @@ TG.WhatIf = function (G) {
     var L = c.list.slice().sort(function (a, b) { return b.real - a.real; }), sr = ranks(c.list.map(function (x) { return -x.score; })), rk = {};
     c.list.forEach(function (x, i) { rk[x.i + ',' + x.j] = sr[i]; });
     return '<div class="wi-res"><b>📏 게임 ↔ 실제 사고 순위 — ' + c.n + '곳 · ' + esc(c.at) + '</b>' +
-      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + (c.rhoPeople != null ? '<br>참고: 게임을 돌리지 않고 실제 승하차 인원만으로 ρ ' + c.rhoPeople.toFixed(2) + ' — 사람이 많은 곳에서 사고가 난다' : '') + '<br>밀도: ' + (c.dens ? '🏙 교차로마다 실제 활동량(승하차·교통량)' : '모든 교차로 같은 밀도') + '</small></div>' +
+      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + (c.rhoTtc != null ? ' · TTC 근접만 ' + c.rhoTtc.toFixed(2) : '') + (c.rhoPeople != null ? '<br>참고: 게임을 돌리지 않고 실제 승하차 인원만으로 ρ ' + c.rhoPeople.toFixed(2) + ' — 사람이 많은 곳에서 사고가 난다' : '') + '<br>밀도: ' + (c.dens ? '🏙 교차로마다 실제 활동량(승하차·교통량)' : '모든 교차로 같은 밀도') + '</small></div>' +
       '<table><tr><th>교차로</th><th>실제 10년</th><th>게임 지수</th><th>게임 순위</th></tr>' +
       L.map(function (x, i) { var g = rk[x.i + ',' + x.j]; return '<tr><td>' + (i + 1) + '. ' + esc(x.name) + '</td><td>' + x.real + '</td><td>' + x.score + '</td><td class="' + (Math.abs(g - (i + 1)) <= 3 ? 'dn' : Math.abs(g - (i + 1)) >= 8 ? 'up' : '') + '">' + (Math.round(g * 10) / 10) + '</td></tr>'; }).join('') +
-      '</table><small>실제 = TAAS 2016~2025 교차로 둘레 150m(서초구 쪽 칸만 · 근사). 게임 지수 = 보행자 근접×3 + 위반 기록×2 + 무단횡단(게임 설계값) · 씨앗 하나 · 앞 40초 버리고 ' + c.sec + '초. ρ 가 낮으면 게임 모형이 교차로마다의 차이(교통량·보행량·도로 모양)를 아직 못 담는다는 뜻 — 다음에 고칠 곳을 알려 주는 검사입니다. 초록 = 순위 차 3 안 · 빨강 = 8 이상.</small></div>';
+      '</table><small>실제 = TAAS 2016~2025 교차로 둘레 150m(서초구 쪽 칸만 · 근사). 게임 지수 = 보행자 근접×3 + 위반 기록×2 + 무단횡단 + TTC 1.5초 아래 근접(게임 설계값) · 씨앗 하나 · ⏰ 기준 시각 ' + self.REF_LABEL + ' · 앞 40초 버리고 ' + c.sec + '초. ρ 가 낮으면 게임 모형이 교차로마다의 차이(교통량·보행량·도로 모양)를 아직 못 담는다는 뜻 — 다음에 고칠 곳을 알려 주는 검사입니다. 초록 = 순위 차 3 안 · 빨강 = 8 이상.</small></div>';
   }
   self.lastCal = function () { return TG.save.get('simcal', null); };
 
@@ -167,6 +193,7 @@ TG.WhatIf = function (G) {
       row('위반 기록(모든 종류)', B, A, function (r) { return r.flagN; }),
       row('보행자 근접(2.5 단위 안)', B, A, function (r) { return r.near; }),
       row('무단횡단 시작', B, A, function (r) { return r.jay; }),
+      row('⏱ 위험한 근접(TTC 1.5초 아래)', B, A, function (r) { return r.ttc || 0; }),
       row('평균 대기 대수', B, A, function (r) { return r.queue; }, 1),
       row('지나간 차', B, A, function (r) { return r.thru; })
     ];
@@ -205,7 +232,7 @@ TG.WhatIf = function (G) {
     else if (res && res !== 'fail') {
       h += '<div class="wi-res"><b>' + esc(res.name) + ' · ' + esc(res.v.label) + '</b><table><tr><th></th><th>그대로</th><th>바꾼 것</th><th>차이</th></tr>' +
         res.rows.map(function (r) { var d = r.b - r.a, pc = r.a > 0 ? Math.round(d / r.a * 100) : null; return '<tr><td>' + esc(r.k) + '</td><td>' + fmt(r.a, r.dec) + '</td><td>' + fmt(r.b, r.dec) + '</td><td class="' + (r.noise ? 'nz' : d > 0 ? 'up' : d < 0 ? 'dn' : '') + '" title="씨앗끼리 흔들림 ' + fmt(r.sp, r.dec) + '">' + (d > 0 ? '+' : '') + fmt(d, r.dec) + (pc != null && Math.abs(d) >= 0.5 ? ' (' + (pc > 0 ? '+' : '') + pc + '%)' : '') + (r.noise && d !== 0 ? '<i>우연 범위</i>' : '') + '</td></tr>'; }).join('') +
-        '</table>' + (res.act ? '<small>🏙 이 교차로 밀도 — 행인 ×' + res.act.pedK + '(버스 ' + res.act.bus.toLocaleString() + ' · 지하철 ' + res.act.sub.toLocaleString() + '명/일) · 차량 ×' + res.act.vehK + '(실제 승하차·교통량 조사 · 서초 25곳 가운데값 대비)</small>' : '') + '<small>씨앗 ' + res.seeds + '개 평균 · 앞 40초 버리고 ' + res.sec + '초 · 그 교차로 둘레. 조건 하나를 바꿔도 그 뒤 판은 조금씩 갈라진다 — 차이가 씨앗끼리 흔들림의 절반 안이면 회색 「우연 범위」(이 앱의 기준). 🧪 게임 설계값 위의 비교 — 실제 효과 증명이 아닙니다.</small></div>';
+        '</table>' + (res.act ? '<small>🏙 이 교차로 밀도 — 행인 ×' + res.act.pedK + '(버스 ' + res.act.bus.toLocaleString() + ' · 지하철 ' + res.act.sub.toLocaleString() + '명/일) · 차량 ×' + res.act.vehK + '(실제 승하차·교통량 조사 · 서초 25곳 가운데값 대비)</small>' : '') + (lnkUrl(res.i, res.j) ? '<a class="wi-lnk" target="_blank" rel="noopener" href="' + lnkUrl(res.i, res.j) + '">🧩 이 교차로 — 지도 엮임 보기에서 근거·가설 보기</a>' : '') + '<small>⏰ 기준 시각 ' + self.REF_LABEL + '(언제 돌려도 같은 판) · 씨앗 ' + res.seeds + '개 평균 · 앞 40초 버리고 ' + res.sec + '초 · 그 교차로 둘레. 조건 하나를 바꿔도 그 뒤 판은 조금씩 갈라진다 — 차이가 씨앗끼리 흔들림의 절반 안이면 회색 「우연 범위」(이 앱의 기준). 🧪 게임 설계값 위의 비교 — 실제 효과 증명이 아닙니다.</small></div>';
     } else if (res === 'fail') h += '<div class="wi-res">돌리는 중 근무가 끝났습니다 — 다시 해 보세요.</div>';
     var nodes = [];
     for (var i = 0; i < city.nodes.length; i++) for (var j = 0; j < city.nodes[i].length; j++) if (!/실제로 안 만남/.test(city.nodeName(city.nodes[i][j]))) nodes.push([i, j]);
