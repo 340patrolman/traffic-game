@@ -650,7 +650,8 @@
     if (TG.NowRisk) TG.NowRisk.load();   // 📊 지금 이 시각 실제 사고(v0.10.120) — 작은 파일 하나
     // 🧪 만약에 실행기(v0.10.121) — whatif.js 가 이 창구로만 세상을 돌린다(그리지 않고 빠르게)
     G.simCore = {
-      start: function (mode) { start(settings.car, mode); if (hud.clearHint) hud.clearHint(); },
+      start: function (mode) { start(G.simBusy ? 'sedan' : settings.car, mode);   // 🧪 시뮬은 늘 쏘나타 순찰차(v0.10.130 — 설정 「무작위」가 씨앗 전 난수로 차종을 골라 길이·폭이 판마다 달랐다)
+        if (hud.clearHint) hud.clearHint(); },
       step: function (n, dt) { for (var q = 0; q < n; q++) { if (G.state !== 'play') return false; if (G.paused) { if (G.pauseReasons && G.pauseReasons.ticket) enforcement.tickTicket(dt); continue; } if (!G.simBusy) { TG.perf.sample(1000 * dt); TG.perf.update(dt); } update(dt); } return true; },   // 🧪 시뮬 걸음(1/30초)을 「느린 화면」으로 읽어 스폰 배율이 0.3 까지 깎였다(v0.10.127 실측 — 10초 안에 차·사람 30%) — 시뮬 동안 성능 조절은 손대지 않는다
       park: function (i, j) {   // 순찰차는 그 교차로 북쪽(맨 위 줄이면 남쪽) 보도 바깥에 세워 둔다 — 차로를 막지 않게 · 스폰은 이 둘레에서
         var N = city.nodes[i][j], gap = j > 0 ? N.z - city.nodes[i][j - 1].z : city.nodes[i][j + 1].z - N.z, dz = Math.min(45, gap * 0.4) * (j > 0 ? -1 : 1);
@@ -1284,6 +1285,7 @@
       TG.mode.seedRandom(TG.mode.seed); G.reseedWorld(TG.mode.seed + 1);
       if (signals.resetClock) signals.resetClock();
       if (traffic.resetSpawn) traffic.resetSpawn(); if (peds.resetSpawn) peds.resetSpawn();
+      G.popT = 0; peds.ageMix = null;   // 👥 동네 연령 구성 2초 시계도 처음부터(v0.10.130 — 근무를 넘어 이어져 같은 씨앗의 행인 나이·걸음이 판마다 달랐다)
       if (rail) { rail.phase = 12; rail.update(0); }   // 철길건널목 주기도 처음부터(트윈 지도에서 건널목 앞 차가 판마다 달랐다)
     }
     enforcement = new TG.Enforcement(G); G.enforcement = enforcement;

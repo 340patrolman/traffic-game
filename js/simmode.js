@@ -10,6 +10,9 @@ TG.mode = (function () {
   try { saved = !!((TG.save && TG.save.get('settings', {})) || {}).sim; } catch (e) {}
   var sim = /[?&]sim=1/.test(q) || (!test && !/[?&]sim=0/.test(q) && saved);
   var nativeRandom = Math.random;
+  // three.js 고유번호(UUID)는 늘 기기 난수로(v0.10.130) — lib/three.min.js 의 ct() 한 곳만 self.__tgNR 을 보게 고쳤다.
+  //  씨앗 난수를 쓰면 처음 만드는 물체(차·사람 모양·재질)가 많은 앞쪽 판만 난수 흐름이 밀려 같은 씨앗의 판이 갈라졌다(실측: 392번째 난수에서 갈림).
+  self.__tgNR = nativeRandom;
   function seedRandom(seed) {
     var s = (seed >>> 0) || 1;
     Math.random = function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -19,6 +22,7 @@ TG.mode = (function () {
     seed: (TG.CONFIG && TG.CONFIG.SEED) || 340,
     seedRandom: seedRandom,
     unseed: function () { Math.random = nativeRandom; },
+    nativeRandom: function () { return nativeRandom(); },   // 소리·화면 꾸밈처럼 시뮬 결과와 무관한 난수(v0.10.130 — 씨앗 난수 흐름을 밀지 않게)
     // 설정에 저장하고 다시 불러온다
     set: function (on) {
       try { var st = TG.save.get('settings', {}) || {}; st.sim = !!on; TG.save.set('settings', st); } catch (e) {}

@@ -35,7 +35,7 @@ TG.WhatIf = function (G) {
   // ⏳ 자료가 다 와야 시작한다(v0.10.127) — 게임을 막 연 직후 돌리면 교차로 활동량·신호 시간대 계획이 아직 안 와서
   //  첫 판만 다른 밀도·다른 주기로 돌았다(실측: 같은 시뮬 세 번 중 첫 판만 「그대로」 대기 4.01 vs 4.90). 8초 안에 안 오면 있는 것으로 돈다.
   function whenReady(fn) { var t0 = Date.now();
-    (function w() { if ((ACT !== null && (!G.signalTod || G.signalTod.ready)) || Date.now() - t0 > 8000) fn(); else setTimeout(w, 200); })(); }
+    (function w() { if ((ACT !== null && (!G.signalTod || G.signalTod.ready) && (!G.pop || !G.pop.ready || G.pop.ready())) || Date.now() - t0 > 8000) fn(); else setTimeout(w, 200); })(); }
   self.realDensity = true;
   // 🔁 결과에서 데이터 압축지도 「🧩 엮임 보기」로(같은 자리 열쇠 · T-GIS 코드가 있으면 그 교차로 · 없으면 그 자리 카드) — 소유자 「다 하나로 · 유기적으로」
   function lnkUrl(i, j) { var P = TG.PlaceKey; if (!P) return null; var n = P.byIJ(i, j); if (!n || n.met === false) return null;

@@ -74,7 +74,7 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
   }
   // 입자(비·눈): 카메라 주변 상자 안에서 떨어지고 바닥에 닿으면 위로 되돌린다
   var N = 1600, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 3), spd = new Float32Array(N), sway = new Float32Array(N);
-  for (var i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 70; pos[i * 3 + 1] = Math.random() * 40; pos[i * 3 + 2] = (Math.random() - 0.5) * 70; spd[i] = 0.7 + Math.random() * 0.6; sway[i] = Math.random() * Math.PI * 2; }
+  for (var i = 0; i < N; i++) { pos[i * 3] = ((TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) - 0.5) * 70; pos[i * 3 + 1] = (TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) * 40; pos[i * 3 + 2] = ((TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) - 0.5) * 70; spd[i] = 0.7 + (TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) * 0.6; sway[i] = (TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) * Math.PI * 2; }
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   function dotTex(kind) {
     var c = document.createElement('canvas'); c.width = 32; c.height = 32; var g = c.getContext('2d'); g.clearRect(0, 0, 32, 32);
@@ -127,7 +127,7 @@ TG.Weather = function (scene, world, terrain, city, renderer) {
     var fall = kind === 'rain' ? 26 : kind === 'dust' ? 0.6 : 2.2, drift = kind === 'rain' ? 4 : kind === 'dust' ? 14 * (0.5 + self.gust) : 1.2, t = performance.now() / 1000;
     for (var i = 0; i < N; i++) {
       var ix = i * 3, y = pos[ix + 1] - fall * spd[i] * dt;
-      if (y < center.y - 6) { y += 40; pos[ix] = center.x + (Math.random() - 0.5) * 70; pos[ix + 2] = center.z + (Math.random() - 0.5) * 70; }
+      if (y < center.y - 6) { y += 40; pos[ix] = center.x + ((TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) - 0.5) * 70; pos[ix + 2] = center.z + ((TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) - 0.5) * 70; }
       pos[ix + 1] = y;
       if (kind === 'snow') pos[ix] += Math.sin(t * 1.3 + sway[i]) * drift * dt;
       else if (kind === 'dust') { pos[ix] += self.windDir[0] * drift * dt; pos[ix + 2] += self.windDir[1] * drift * dt; }

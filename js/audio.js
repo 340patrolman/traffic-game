@@ -129,7 +129,7 @@ TG.audio = (function () {
       // 긴 문장은 쉼표에서 끊어 **여러 발화**로 보낸다 — 한 번에 던지면 엔진이 한 호흡으로 밀어 기계처럼 들린다.
       var parts = body.match(/[^,.!?…]+[,.!?…]*\s*/g) || [body];   // 뒤보기 정규식은 쓰지 않는다(옛 사파리는 그 한 줄로 파일 전체가 깨진다)
       if (parts.length > 3) parts = [parts.slice(0, 2).join(' '), parts.slice(2).join(' ')];
-      var jitter = (Math.random() - 0.5) * 0.04;        // 문장마다 살짝 다른 톤 — 같은 소리의 반복이 기계음의 정체다
+      var jitter = ((TG.mode && TG.mode.nativeRandom ? TG.mode.nativeRandom() : Math.random()) - 0.5) * 0.04;        // 문장마다 살짝 다른 톤 — 같은 소리의 반복이 기계음의 정체다
       var first = true;
       for (var i = 0; i < parts.length; i++) {
         if (!parts[i]) continue;
@@ -176,7 +176,9 @@ TG.audio = (function () {
 
   function noiseBuffer(sec) {
     var len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
-    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    // 잡음은 따로 쓰는 난수로(v0.10.130) — 🧪 시뮬 동안 Math.random 은 씨앗 고정이라, 소리를 처음 만들 때 수만 개를 꺼내 쓰면 그 판(대개 페이지를 연 뒤 앞쪽 몇 판)만 난수 흐름이 밀려 결과가 갈라졌다
+    var nr = TG.makeRNG ? TG.makeRNG(len + 7) : Math.random;
+    for (var i = 0; i < len; i++) d[i] = nr() * 2 - 1;
     return b;
   }
 
