@@ -1362,6 +1362,9 @@ body.onfoot .tbtn.sportbtn,body.afoot .tbtn.sportbtn,body.kidmode .tbtn.sportbtn
 #whatIf .wi-res .dn{color:#7fe0a6}
 #whatIf .wi-lnk{display:block;margin:8px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(160,140,255,.5);background:rgba(120,100,255,.16);color:#e0dbff;font-weight:800;font-size:14px;text-decoration:none;text-align:center}
 #whatIf .wi-lnk.wi-tb{border-color:rgba(120,180,255,.55);background:rgba(60,120,220,.16);color:#d6e8ff}
+#whatIf .wi-exp{margin:6px 0 2px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px;line-height:1.45}
+#whatIf .wi-expd{margin:8px 0;font-size:13px}#whatIf .wi-expd summary{cursor:pointer;padding:6px 0;font-weight:800}
+#whatIf .wi-eb{display:grid;grid-template-columns:7.5em 1fr 3.4em;align-items:center;gap:6px;margin:3px 0}#whatIf .wi-eb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#whatIf .wi-eb i{display:block;height:10px;border-radius:5px}#whatIf .wi-eb b{text-align:right}
 #whatIf .wi-cal{display:block;width:100%;margin-top:6px;min-height:44px;border-radius:12px;border:1px solid rgba(255,210,120,.5);background:rgba(255,190,80,.14);color:#ffe6b8;font-size:14px;font-weight:800}
 #whatIf .wi-cal.ghost{background:transparent;font-weight:700;font-size:13px}
 #whatIf .wi-rho{margin:8px 0;font-size:15px}

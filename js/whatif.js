@@ -30,6 +30,18 @@ TG.WhatIf = function (G) {
   // 🏙 교차로 활동량(v0.10.125 · T3 첫 판) — data/node-activity-seocho.json(버스·지하철 승하차 · 교통량 조사 · tools/maps/node-activity.py).
   // 시뮬은 그 교차로의 행인 상한 × pedK · 차량 상한 × vehK 로 돈다(서초 25곳 가운데값 대비 · 제곱근 · 게임 설계값). 사고 자료는 쓰지 않는다(E5 의 답).
   var ACT = null; (function () { try { fetch('data/node-activity-seocho.json').then(function (r) { return r.json(); }).then(function (j) { ACT = j; }).catch(function () { ACT = false; }); } catch (e) { ACT = false; } })();
+  // 📊 노출 대비 실제 사고(v0.10.131 · ROADMAP ③ 지표 첫 판) — data/exposure-risk-seocho.json(tools/maps/exposure-risk.py). 화면 참고용 · 시뮬 입력에는 쓰지 않는다(사고 = 교정의 답).
+  var EXP = null; (function () { try { fetch('data/exposure-risk-seocho.json').then(function (r) { return r.json(); }).then(function (j) { EXP = j; }).catch(function () { EXP = false; }); } catch (e) { EXP = false; } })();
+  function expOf(i, j) { var a = null; ((EXP && EXP.nodes) || []).forEach(function (n) { if (n.i === i && n.j === j) a = n; }); return a; }
+  self.exposure = function () { return EXP || null; };
+  function expCol(x) { return x >= 1.3 ? '#ff7a6b' : x <= 0.77 ? '#7fd38a' : '#c9d3e6'; }
+  function expLine(i, j) { var e = expOf(i, j); if (!e) return EXP && EXP.skip ? '' : '';
+    return '<div class="wi-exp">📊 노출 대비 실제 사고 <b style="color:' + expCol(e.x) + '">×' + e.x.toFixed(2) + '</b> — 실제 ' + e.acc.toLocaleString() + '건 · 사람·차 많기로 본 예상 ' + e.expect.toLocaleString() + '건' + (e.x >= 1.3 ? ' · 사람·차가 많다는 것만으로는 설명이 안 되는 몫이 있다(도로 모양·신호·회전 동선 등을 볼 후보)' : e.x <= 0.77 ? ' · 노출에 견주면 적은 편' : ' · 노출만큼') + '</div>'; }
+  function expBars() { if (!EXP || !EXP.nodes) return ''; var city = G.simCore.ctx().city;
+    var mx = 0; EXP.nodes.forEach(function (n) { mx = Math.max(mx, n.x); });
+    return '<details class="wi-expd"><summary>📊 노출 대비 실제 사고 — ' + EXP.n + '곳(교통량 조사가 있는 곳)</summary>' + EXP.nodes.map(function (n) {
+      return '<div class="wi-eb"><span>' + esc(city.nodeName(city.nodes[n.i][n.j])) + '</span><i style="width:' + Math.round(100 * n.x / mx) + '%;background:' + expCol(n.x) + '"></i><b>×' + n.x.toFixed(2) + '</b></div>'; }).join('') +
+      '<small>배수 = 실제 사고(TAAS ' + esc(EXP.source.years) + ' · 둘레 150m) ÷ 하루 교통량·승하차로 본 예상(로그 회귀 · 설명력 R² ' + EXP.r2 + ') · 1 보다 크면 노출만으로 설명이 안 되는 몫. ⚠ ' + EXP.n + '곳 작은 표본 · 교통량은 가까운 조사 지점 값을 나눠 쓴 근사 · 인과가 아니라 「어디를 먼저 볼까」의 순서 · 이 계산은 시뮬 입력에 쓰지 않는다.' + (EXP.skip && EXP.skip.length ? ' 교통량 조사가 없어 뺀 곳: ' + esc(EXP.skip.join(' · ')) : '') + '</small></details>'; }
   function actOf(i, j) { var a = null; ((ACT && ACT.nodes) || []).forEach(function (n) { if (n.i === i && n.j === j) a = n; }); return a; }
   self.actOf = actOf;
   // ⏳ 자료가 다 와야 시작한다(v0.10.127) — 게임을 막 연 직후 돌리면 교차로 활동량·신호 시간대 계획이 아직 안 와서
@@ -245,10 +257,11 @@ TG.WhatIf = function (G) {
     var nodes = [];
     for (var i = 0; i < city.nodes.length; i++) for (var j = 0; j < city.nodes[i].length; j++) if (!/실제로 안 만남/.test(city.nodeName(city.nodes[i][j]))) nodes.push([i, j]);
     h += '<div class="wi-l">어느 교차로</div><div class="wi-chips">' + nodes.map(function (q) { var on = sel && sel[0] === q[0] && sel[1] === q[1]; return '<button data-wi="n:' + q[0] + ',' + q[1] + '" class="' + (on ? 'on' : '') + '">' + esc(city.nodeName(city.nodes[q[0]][q[1]])) + '</button>'; }).join('') + '</div>';
+    if (sel) h += expLine(sel[0], sel[1]);
     h += '<div class="wi-l">무엇을 바꿀까</div><div class="wi-vars">' + VARS.map(function (v) { return '<button data-wi="v:' + v.id + '" class="' + (vsel === v.id ? 'on' : '') + '">' + esc(v.label) + '<small>' + esc(v.why) + '</small></button>'; }).join('') + '</div>';
     h += '<button class="wi-go" data-wi="go"' + (sel && vsel ? '' : ' disabled') + '>▶ 돌려 보기(1~2분)</button>';
     var lc9 = self.lastCal();
-    h += '<div class="wi-l">📏 이 게임이 실제를 얼마나 닮았나</div><button class="wi-cal" data-wi="cal">📏 교차로 전체를 돌려 실제 사고 순위와 맞춰 보기(22곳 · 4~6분)</button>' + (lc9 ? '<button class="wi-cal ghost" data-wi="calshow">지난 결과 보기 — ρ ' + (lc9.rho == null ? '—' : lc9.rho.toFixed(2)) + ' · ' + esc(lc9.at) + '</button>' : '');
+    h += '<div class="wi-l">📏 이 게임이 실제를 얼마나 닮았나</div><button class="wi-cal" data-wi="cal">📏 교차로 전체를 돌려 실제 사고 순위와 맞춰 보기(22곳 · 4~6분)</button>' + (lc9 ? '<button class="wi-cal ghost" data-wi="calshow">지난 결과 보기 — ρ ' + (lc9.rho == null ? '—' : lc9.rho.toFixed(2)) + ' · ' + esc(lc9.at) + '</button>' : '') + expBars();
     b.innerHTML = h;
   }
   var NOTE = '';   // 다른 앱에서 넘어온 자리 → 게임 교차로로 돌린 까닭(창 위 한 줄)
