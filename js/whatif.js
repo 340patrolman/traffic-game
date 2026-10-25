@@ -66,7 +66,7 @@ TG.WhatIf = function (G) {
     if (V.prep) V.prep(c);
     if (on) V.apply(c);
     var R = radiusOf(c.city, i, j), R2 = R * R, N = c.N, RT2 = Math.pow(Math.max(10, R * 0.3), 2);   // 지나간 차 = 교차로 가운데 R×0.3 안을 지난 차
-    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0, ttc: 0 }, seenJ = {}, seenT = {}, nearCd = {}, ttcCd = {};
+    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0, ttc: 0 }, seenJ = {}, seenT = {}, nearCd = {}, ttcCd = {}, pidN = 0;
     var prevFlag = c.traffic.onFlag;
     c.traffic.onFlag = function (car, type, node) { if (prevFlag) prevFlag(car, type, node); if (t < WARM || !node || node !== N) return; M.flags[type] = (M.flags[type] || 0) + 1; M.flagN++; };
     var t = 0, k = 0, total = WARM + (V.meas || MEAS), steps = Math.round(total / DT);
@@ -93,10 +93,11 @@ TG.WhatIf = function (G) {
         if (cl > 0.5 && Math.max(0, bg) / cl < 1.5) { M.ttc++; ttcCd[cr.id] = t + 3; }
       });
       peds.forEach(function (p) {
+        if (p._wid == null) p._wid = ++pidN;   // 행인에는 id 가 없다 — 시뮬 안에서만 쓰는 번호(v0.10.128 · 종전엔 모두 undefined 한 사람으로 세어 무단횡단이 늘 1, 근접 쉼도 한데 묶였다)
         var dx = p.pos.x - N.x, dz = p.pos.z - N.z; if (dx * dx + dz * dz > R2) return;
-        if (p.state === 'jaywalk' && !seenJ[p.id]) { seenJ[p.id] = 1; M.jay++; }
-        if ((p.state === 'cross' || p.state === 'jaywalk') && !(nearCd[p.id] > t)) {
-          for (var a = 0; a < cars.length; a++) { var cr = cars[a]; if (cr.v > 3 && Math.hypot(cr.pos.x - p.pos.x, cr.pos.z - p.pos.z) < 2.5) { M.near++; nearCd[p.id] = t + 5; break; } }
+        if (p.state === 'jaywalk' && !seenJ[p._wid]) { seenJ[p._wid] = 1; M.jay++; }
+        if ((p.state === 'cross' || p.state === 'jaywalk') && !(nearCd[p._wid] > t)) {
+          for (var a = 0; a < cars.length; a++) { var cr = cars[a]; if (cr.v > 3 && Math.hypot(cr.pos.x - p.pos.x, cr.pos.z - p.pos.z) < 2.5) { M.near++; nearCd[p._wid] = t + 5; break; } }
         }
       });
     }
