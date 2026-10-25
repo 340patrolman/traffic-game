@@ -32,6 +32,10 @@ TG.WhatIf = function (G) {
   var ACT = null; (function () { try { fetch('data/node-activity-seocho.json').then(function (r) { return r.json(); }).then(function (j) { ACT = j; }).catch(function () { ACT = false; }); } catch (e) { ACT = false; } })();
   function actOf(i, j) { var a = null; ((ACT && ACT.nodes) || []).forEach(function (n) { if (n.i === i && n.j === j) a = n; }); return a; }
   self.actOf = actOf;
+  // ⏳ 자료가 다 와야 시작한다(v0.10.127) — 게임을 막 연 직후 돌리면 교차로 활동량·신호 시간대 계획이 아직 안 와서
+  //  첫 판만 다른 밀도·다른 주기로 돌았다(실측: 같은 시뮬 세 번 중 첫 판만 「그대로」 대기 4.01 vs 4.90). 8초 안에 안 오면 있는 것으로 돈다.
+  function whenReady(fn) { var t0 = Date.now();
+    (function w() { if ((ACT !== null && (!G.signalTod || G.signalTod.ready)) || Date.now() - t0 > 8000) fn(); else setTimeout(w, 200); })(); }
   self.realDensity = true;
   // 🔁 결과에서 데이터 압축지도 「🧩 엮임 보기」로(같은 자리 열쇠 · T-GIS 코드가 있으면 그 교차로 · 없으면 그 자리 카드) — 소유자 「다 하나로 · 유기적으로」
   function lnkUrl(i, j) { var P = TG.PlaceKey; if (!P) return null; var n = P.byIJ(i, j); if (!n || n.met === false) return null;
@@ -50,7 +54,7 @@ TG.WhatIf = function (G) {
   // ---------- 한 판 돌리기 ----------
   function runOne(i, j, V, on, seed, prog, done) {
     var core = G.simCore, prevSim = TG.mode.sim, prevSeed = TG.mode.seed, prevDem = G.demandOff;
-    G.simBusy = true;
+    G.simBusy = true; if (TG.perf && TG.perf.reset) TG.perf.reset();   // 스폰 배율 1 — 기기 성능(화면 프레임)이 시뮬 밀도를 바꾸지 않게(v0.10.127)
     TG.mode.sim = true; TG.mode.seed = seed; G.demandOff = true;
     core.start('free');
     var c = core.ctx(); c.N = c.city.nodes[i][j];
@@ -101,7 +105,7 @@ TG.WhatIf = function (G) {
       if (on) V.undo(c);
       c.C.TRAFFIC_MAX = d0.t; c.C.PED_MAX = d0.p; if (core.clock) core.clock(); G.ontoDate = prevOnto; G.brtHour = prevBrt;
       if (V.prep && c.signals.restoreReal) c.signals.restoreReal(N);
-      G.simBusy = false; TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
+      if (!G.simHold) G.simBusy = false; TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
       done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru, ttc: M.ttc } : null);
     }
     (function chunk() {
@@ -130,17 +134,18 @@ TG.WhatIf = function (G) {
     for (i = 0; i < n; i++) { sab += (ra[i] - ma) * (rb[i] - mb); sa += (ra[i] - ma) * (ra[i] - ma); sb += (rb[i] - mb) * (rb[i] - mb); }
     return sa && sb ? sab / Math.sqrt(sa * sb) : null; }
   self.spearman = spearman;
-  self.calibrate = function (prog, cb) {
+  self.calibrate = function (prog, cb, sec) {   // sec — 판마다 잴 시간(기본 CAL_MEAS · 표본을 키워 보는 시험용)
+    var MS = sec || CAL_MEAS;
     var ND = TG.NowRisk && TG.NowRisk.data(); if (busy || !G.simCore || !ND) return false;
     var city = G.simCore.ctx().city, L = [];
     (ND.nodes || []).forEach(function (n) { if (city.nodes[n.i] && city.nodes[n.i][n.j]) L.push({ i: n.i, j: n.j, name: city.nodeName(city.nodes[n.i][n.j]), real: n.tot, dead: n.dead || 0 }); });
-    busy = true; var k = 0, V0 = { meas: CAL_MEAS, apply: function () {}, undo: function () {} };
-    (function next() {
+    busy = true; G.simHold = true; var k = 0, V0 = { meas: MS, apply: function () {}, undo: function () {} };
+    function next() {
       if (k >= L.length) {
-        busy = false; G.simCore.title();
+        busy = false; G.simHold = false; G.simBusy = false; G.simCore.title();
         L.forEach(function (x) { x.score = x.near * 3 + x.flagN * 2 + x.jay + x.ttc; });
         var real = L.map(function (x) { return x.real; });
-        var res = { at: new Date().toISOString().slice(0, 16).replace('T', ' '), n: L.length, sec: CAL_MEAS, list: L,
+        var res = { at: new Date().toISOString().slice(0, 16).replace('T', ' '), n: L.length, sec: MS, list: L,
           rho: spearman(L.map(function (x) { return x.score; }), real), rhoFlag: spearman(L.map(function (x) { return x.flagN; }), real),
           rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), rhoTtc: spearman(L.map(function (x) { return x.ttc; }), real), dens: self.realDensity,
           rhoPeople: spearman(L.map(function (x) { var a = actOf(x.i, x.j); return a ? a.bus + a.sub : 0; }), real) };
@@ -148,10 +153,11 @@ TG.WhatIf = function (G) {
       }
       var x = L[k];
       runOne(x.i, x.j, V0, false, CAL_SEED, function (p) { prog((k + p) / L.length, x.name); }, function (r) {
-        if (!r) { busy = false; G.simCore.title(); cb(null); return; }
+        if (!r) { busy = false; G.simHold = false; G.simBusy = false; G.simCore.title(); cb(null); return; }
         x.flagN = r.flagN; x.near = r.near; x.jay = r.jay; x.queue = r.queue; x.thru = r.thru; x.ttc = r.ttc || 0; k++; setTimeout(next, 0);
       });
-    })();
+    }
+    whenReady(next);
     return true;
   };
   function rhoWord(r) { if (r == null) return '잴 수 없음'; var a = Math.abs(r); return (a >= 0.7 ? '강하게' : a >= 0.4 ? '어느 정도' : a >= 0.2 ? '약하게' : '거의 안') + (r >= 0 ? ' 같은 쪽' : ' 반대쪽'); }
@@ -170,18 +176,19 @@ TG.WhatIf = function (G) {
   self.run = function (i, j, vid, cb) {
     var V = null; VARS.forEach(function (v) { if (v.id === vid) V = v; });
     if (!V || busy || !G.simCore) return false;
-    busy = true;
+    busy = true; G.simHold = true;   // 묶음이 끝날 때까지 평소 루프를 멈춰 둔다(판 사이 틈에 평소 게임이 한두 프레임 돌면 판이 갈라졌다 · v0.10.127)
     var jobs = [], out = { base: [], alt: [] };
     SEEDS.forEach(function (s) { jobs.push({ on: false, seed: s }); jobs.push({ on: true, seed: s }); });
     var n = 0;
-    (function next() {
-      if (n >= jobs.length) { busy = false; var r = summarize(out, V, i, j); last = r; G.simCore.title(); cb(r); return; }
+    function next() {
+      if (n >= jobs.length) { busy = false; G.simHold = false; G.simBusy = false; var r = summarize(out, V, i, j); last = r; G.simCore.title(); cb(r); return; }
       var jb = jobs[n];
       runOne(i, j, V, jb.on, jb.seed, function (p) { paintProg((n + p) / jobs.length, jb.on ? '바꾼 것' : '그대로', jb.seed); }, function (res) {
-        if (!res) { busy = false; G.simCore.title(); cb(null); return; }
+        if (!res) { busy = false; G.simHold = false; G.simBusy = false; G.simCore.title(); cb(null); return; }
         (jb.on ? out.alt : out.base).push(res); n++; setTimeout(next, 0);
       });
-    })();
+    }
+    whenReady(next);
     return true;
   };
   function avg(L, f) { var s = 0; L.forEach(function (x) { s += f(x); }); return L.length ? s / L.length : 0; }

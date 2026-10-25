@@ -377,7 +377,8 @@ TG.Brt = function (G, city, cfg, scene) {
   var crowdT = 0, later = [];
   self.later = function (sec, fn) { later.push({ t: sec, fn: fn }); };   // 체험 장면이 몇 초 뒤 일을 건다(게임 시간)
   self.clearLater = function () { later.length = 0; };
-  self.reset = function () { later.length = 0; re = null; G.brtHour = null; crowdT = 0; acc = {}; self.stations.forEach(function (S) { S.filled = false; S.accB = 0; }); for (var k in self.stats) self.stats[k] = 0; };
+  // 🧪 시뮬이면 이 모듈의 난수도 처음부터(v0.10.127) — 근무마다 이어져 같은 씨앗의 판에서도 버스가 다른 자리에 나와 판이 갈라졌다(실측: 24초째 버스 x 2084.7 / 2050.0).
+  self.reset = function () { if (TG.mode && TG.mode.sim) rng = TG.makeRNG(4077); later.length = 0; re = null; G.brtHour = null; crowdT = 0; acc = {}; self.stations.forEach(function (S) { S.filled = false; S.accB = 0; }); for (var k in self.stats) self.stats[k] = 0; };
   self.update = function (dt, pl) {
     reTick(dt);
     for (var li = later.length - 1; li >= 0; li--) { later[li].t -= dt; if (later[li].t <= 0) { var fnL = later[li].fn; later.splice(li, 1); try { fnL(); } catch (e) {} } }

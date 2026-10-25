@@ -651,7 +651,7 @@
     // 🧪 만약에 실행기(v0.10.121) — whatif.js 가 이 창구로만 세상을 돌린다(그리지 않고 빠르게)
     G.simCore = {
       start: function (mode) { start(settings.car, mode); if (hud.clearHint) hud.clearHint(); },
-      step: function (n, dt) { for (var q = 0; q < n; q++) { if (G.state !== 'play') return false; if (G.paused) { if (G.pauseReasons && G.pauseReasons.ticket) enforcement.tickTicket(dt); continue; } TG.perf.sample(1000 * dt); TG.perf.update(dt); update(dt); } return true; },
+      step: function (n, dt) { for (var q = 0; q < n; q++) { if (G.state !== 'play') return false; if (G.paused) { if (G.pauseReasons && G.pauseReasons.ticket) enforcement.tickTicket(dt); continue; } if (!G.simBusy) { TG.perf.sample(1000 * dt); TG.perf.update(dt); } update(dt); } return true; },   // 🧪 시뮬 걸음(1/30초)을 「느린 화면」으로 읽어 스폰 배율이 0.3 까지 깎였다(v0.10.127 실측 — 10초 안에 차·사람 30%) — 시뮬 동안 성능 조절은 손대지 않는다
       park: function (i, j) {   // 순찰차는 그 교차로 북쪽(맨 위 줄이면 남쪽) 보도 바깥에 세워 둔다 — 차로를 막지 않게 · 스폰은 이 둘레에서
         var N = city.nodes[i][j], gap = j > 0 ? N.z - city.nodes[i][j - 1].z : city.nodes[i][j + 1].z - N.z, dz = Math.min(45, gap * 0.4) * (j > 0 ? -1 : 1);
         player.teleport(N.x + city.sideOff('v', i) + 3, N.z + dz, 0); player.vx = 0; player.vz = 0; player.resync(); if (player.siren) toggleSiren(); },
