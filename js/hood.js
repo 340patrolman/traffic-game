@@ -78,6 +78,17 @@ TG.Hood = function (game) {
   //  그리고 🚓 여기서 출근 · 🏗 교통시설에서 보기 · 🗜 데이터 압축지도. 위에는 「지금 가장 지켜야 할 곳」, 아래에는 동별 평균.
   var selK = null, XI = null;
   // 📊 동네별 사고율(v0.10.132) — 생활인구 1만 명당 한 해 사고(TAAS 2016~2025). 지수(게임)와 다른 실제 자료라 따로 보인다.
+  // 🛣 도로 구간별 실제 사고(v0.10.133) — 교차로 사이 단일로 1km 당 한 해 사고(TAAS 2016~2025 · 교차로 둘레 80m 뺌).
+  function segH() {
+    var R = game.segRisk; if (!R || !R.ready()) return '';
+    var L = R.list().slice(0, 12), mx = L.length ? L[0].perKm : 0;
+    if (!L.length || !mx) return '';
+    var dd = R.data();
+    return '<details class="hrisk"><summary>🛣 도로 구간별 실제 사고 — 단일로 1km 당 한 해(TAAS ' + esc(dd.years) + ')</summary>' + L.map(function (s) {
+      var c = s.perKm >= mx * 0.66 ? '#d9534f' : s.perKm >= mx * 0.4 ? '#e0a93a' : '#3fbf6f';
+      return '<div class="hrb"><span>' + esc(s.road) + '</span><i style="width:' + Math.round(100 * s.perKm / mx) + '%;background:' + c + '"></i><b>' + s.perKm + '</b><em>' + esc(s.from) + ' ↔ ' + esc(s.to) + ' · 한 해 ' + s.perYr + '건' + (s.mvk != null ? ' · 100만 대·km 당 ' + s.mvk : '') + (s.approx ? ' · 끝 근사' : '') + '</em></div>';
+    }).join('') + '<small>교차로 사이 단일로(교차로 둘레 80m 뺌)에 든 사고 100m 칸(서초·강남·동작·관악 TAAS)을 그 간선에 붙여 한 해 평균 ÷ 단일로 길이. 교통량 조사가 있는 곳만 100만 대·km 당 값. ⚠ 칸 가운데 기준 근사 — 나란한 이면도로 사고가 섞일 수 있다 · 단일로 300m 미만 구간은 뺐다 · 공식 위험도 아님.</small></details>';
+  }
   function riskH() {
     var R = game.dongRisk; if (!R || !R.ready()) return '';
     var L = R.list(), mx = 0; L.forEach(function (d) { mx = Math.max(mx, d.perLive || 0); });
@@ -156,7 +167,7 @@ TG.Hood = function (game) {
       '<div class="hgrid" style="grid-template-columns:repeat(' + c.xs.length + ',1fr)">' + cells + '</div>' +
       '<div class="hlegend"><span style="--hc:#d9534f">0~33</span><span style="--hc:#e0a93a">34~66</span><span style="--hc:#3fbf6f">67~100</span><span class="dim">위가 북쪽</span></div>' +
       (selK ? detailHtml(selK, rm) : '<div class="hrow dim">▲ 칸을 누르면 그 교차로의 동 · 실제 사고 · 신호 · 효과 기록이 나옵니다</div>') +
-      dongH + riskH() +
+      dongH + riskH() + segH() +
       '<button class="primary" id="hoodX">닫기</button></div>';
     el.style.display = 'flex';
     document.getElementById('hoodX').addEventListener('click', self.close);

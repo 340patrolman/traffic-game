@@ -84,6 +84,8 @@ TG.Here = function (game) {
       var why = (st.byViolation || st.violations || null);
       if (why && why.length) rows.push({ k: '주된 경위', v: why.slice(0, 2).map(function (w) { return (w.name || w[0]) + ' ' + (w.n || w[1]); }).join(' · ') });
     }
+    var SR = G.segRisk && G.segRisk.at(C, p.x, p.z);
+    if (SR) rows.push({ k: '🛣 이 구간(단일로) 사고', v: G.segRisk.line(SR) + ' · TAAS 2016~2025 · 공식 위험도 아님' });
     var hits = L.allAt ? L.allAt(p.x, p.z, 70) : [];
     var shown = 0;
     hits.forEach(function (h) {

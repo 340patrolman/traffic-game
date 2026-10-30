@@ -115,6 +115,7 @@
     if (TG.SchoolTime) { G.school = new TG.SchoolTime(G); G.school.load('data/schooltime.json'); }
     if (TG.Pop) { G.pop = new TG.Pop(G); G.pop.load('data/pop-seocho.json'); if (G.pop.loadDong) G.pop.loadDong('data/dong-seocho.json'); }
     if (TG.DongRisk && !G.dongRisk) G.dongRisk = new TG.DongRisk();
+    if (TG.SegRisk && !G.segRisk) G.segRisk = new TG.SegRisk();
     // 👥 동별 인구·연령(행안부) · 📊 동네별 사고율(v0.10.132 — 화면 참고용 · 시뮬 입력 아님)
     if (TG.Risk) { G.risk = new TG.Risk(G); G.risk.load('data/incidents-seocho.json'); }
     // 🏛 국가유산(역사·흥미) · 📍 이 자리(종합 조회) — v0.10.32
