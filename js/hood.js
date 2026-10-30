@@ -77,6 +77,17 @@ TG.Hood = function (game) {
   // (v0.10.62 · 소유자 「교통시설도 고도화 시키자 우리동네와 그 밑부분들」) 칸을 누르면 그 교차로 카드 — 동 · 실제 사고와 경위 · 신호 · 내 장비 · 효과 기록 · 내 지수,
   //  그리고 🚓 여기서 출근 · 🏗 교통시설에서 보기 · 🗜 데이터 압축지도. 위에는 「지금 가장 지켜야 할 곳」, 아래에는 동별 평균.
   var selK = null, XI = null;
+  // 📊 동네별 사고율(v0.10.132) — 생활인구 1만 명당 한 해 사고(TAAS 2016~2025). 지수(게임)와 다른 실제 자료라 따로 보인다.
+  function riskH() {
+    var R = game.dongRisk; if (!R || !R.ready()) return '';
+    var L = R.list(), mx = 0; L.forEach(function (d) { mx = Math.max(mx, d.perLive || 0); });
+    if (!L.length || !mx) return '';
+    var dd = R.data();
+    return '<details class="hrisk"><summary>📊 동별 실제 사고율 — 생활인구 1만 명당 한 해(TAAS ' + esc(dd.years) + ')</summary>' + L.map(function (d) {
+      var c = d.perLive >= mx * 0.66 ? '#d9534f' : d.perLive >= mx * 0.4 ? '#e0a93a' : '#3fbf6f';
+      return '<div class="hrb"><span>' + esc(d.name) + '</span><i style="width:' + Math.round(100 * d.perLive / mx) + '%;background:' + c + '"></i><b>' + d.perLive + '</b><em>보행자 ' + d.pedPerLive + ' · 주민 1만 명당 ' + d.perRes + '</em></div>';
+    }).join('') + '<small>한 해 평균 사고(10년 ÷ 10) ÷ 생활인구 하루 평균(서울시 생활인구 · 평일 5 + 주말 2) × 1만. 주민 기준은 행안부 주민등록. ⚠ 생활인구는 그 동에 머문 사람(통신 추정)이지 길을 지난 사람이 아니다 · 경계 간선의 사고는 칸 가운데가 든 동 하나에만 · 고속도로·IC 둘레 사고가 든 동(양재2동 등)은 높게 나온다 · 공식 위험도 아님.</small></details>';
+  }
   function loadXI() {   // 교차로 실제 위경도(데이터 압축지도로 잇는다) — 한 번만 읽는다
     if (XI !== null) return; XI = false;
     try { fetch('data/intersections-seocho.json').then(function (r) { return r.json(); }).then(function (j) { XI = {}; (j.nodes || []).forEach(function (n) { XI[n.i + ',' + n.j] = n; }); if (self.isOpen()) self.open(); }).catch(function () {}); } catch (e) { }
@@ -145,7 +156,7 @@ TG.Hood = function (game) {
       '<div class="hgrid" style="grid-template-columns:repeat(' + c.xs.length + ',1fr)">' + cells + '</div>' +
       '<div class="hlegend"><span style="--hc:#d9534f">0~33</span><span style="--hc:#e0a93a">34~66</span><span style="--hc:#3fbf6f">67~100</span><span class="dim">위가 북쪽</span></div>' +
       (selK ? detailHtml(selK, rm) : '<div class="hrow dim">▲ 칸을 누르면 그 교차로의 동 · 실제 사고 · 신호 · 효과 기록이 나옵니다</div>') +
-      dongH +
+      dongH + riskH() +
       '<button class="primary" id="hoodX">닫기</button></div>';
     el.style.display = 'flex';
     document.getElementById('hoodX').addEventListener('click', self.close);

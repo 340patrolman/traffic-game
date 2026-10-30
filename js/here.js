@@ -119,6 +119,8 @@ TG.Here = function (game) {
     var rows = [{ k: dong.name + ' 인구', v: num(dong.tot) + '명' }];
     if (mix.kidShare != null) rows.push({ k: '19세 이하', v: Math.round(mix.kidShare * 100) + '%' });
     if (mix.seniorShare != null) rows.push({ k: '70세 이상', v: Math.round(mix.seniorShare * 100) + '%' });
+    var DR = G.dongRisk && G.dongRisk.get(dong.name), drk = DR && G.dongRisk.rank(dong.name);
+    if (DR && DR.perLive != null) rows.push({ k: '📊 실제 사고율', v: '생활인구 1만 명당 한 해 ' + DR.perLive + '건(보행자 ' + DR.pedPerLive + ') · 서초 ' + drk.of + '개 동 중 ' + drk.at + '위 · 주민 1만 명당 ' + DR.perRes + '건 · TAAS 2016~2025 · 공식 위험도 아님' });
     rows.push({ k: '쓰임', v: '이 동네의 나이 구성이 그대로 게임 행인에 들어간다 · 동 경계는 교차로 이름으로 붙인 근사다' });
     return { title: '👥 사람 · 인구', rows: rows, src: P.src() || '행정안전부 주민등록 인구통계' };
   }
