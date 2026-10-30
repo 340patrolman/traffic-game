@@ -23,13 +23,33 @@ TG.Dispatch = function (game) {
     beam.visible = ring.visible = !!on;
     if (on) { var y = (game.terrain && game.terrain.heightAt) ? game.terrain.heightAt(x, z) : 0; beam.position.set(x, y + 23, z); ring.position.set(x, y + 0.15, z); }
   }
+  // 📊 v0.10.134 지금 시각의 실제 사고(TAAS 2016~2025 · 교차로 둘레 150m · 6시간 띠)로 신고 자리를 기울인다 — 그 띠 사고가 서초 25곳 평균인 곳 = 2배 몫(게임 설계값).
+  //  서초 간선 25곳 격자 지도에서만 · 🧪 시뮬 모드는 고르게(사고 자료는 시뮬 입력이 아니다) · 신고가 「사고 자료대로」 뜬다는 뜻이지 실제 신고 통계가 아니다.
+  function realW(n) {
+    var NR = TG.NowRisk; if (!NR || !NR.ready() || (TG.mode && TG.mode.sim) || game.dispatchUniform) return null;
+    if (city.nodes.length !== 5 || city.nodes[0].length !== 5 || !/^seocho(-twin|-full)?$/.test(city.mapId || 'seocho')) return null;
+    var D = NR.data(), h = new Date().getHours(), b = Math.max(0, Math.min(3, Math.floor(h / 6))), sum = 0, me = null;
+    D.nodes.forEach(function (q) { sum += q.band[b] || 0; if (q.i === n.i && q.j === n.j) me = q; });
+    if (!me || !sum) return null;
+    var avg = sum / D.nodes.length, c = me.band[b] || 0;
+    return { w: 1 + c / avg, cnt: c, band: D.bands[b] };
+  }
   function pickDest() {
-    var pl = game.player, list = [];
+    var pl = game.player, list = [], ws = [], tot = 0;
     for (var i = 0; i < city.xs.length; i++) for (var j = 0; j < city.zs.length; j++) {
       var n = city.nodes[i][j], d = Math.hypot(n.x - pl.pos.x, n.z - pl.pos.z);
-      if (d > 200 && d < 520) list.push(n);
+      if (d > 200 && d < 520) { var r = realW(n), w = r ? r.w : 1; list.push(n); ws.push(w); tot += w; }
     }
-    return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+    if (!list.length) {
+      // 1:1 지도는 블록 한 변이 0.4~1.5km 라 200~520m 안에 교차로가 없을 때가 많다(서초구 1:1 에서 신고가 아예 안 떴다) — 150m 넘는 가장 가까운 교차로 넷에서 고른다
+      var far = [];
+      for (var i2 = 0; i2 < city.xs.length; i2++) for (var j2 = 0; j2 < city.zs.length; j2++) { var n2 = city.nodes[i2][j2], d2 = Math.hypot(n2.x - pl.pos.x, n2.z - pl.pos.z); if (d2 > 150) far.push([d2, n2]); }
+      far.sort(function (a, b) { return a[0] - b[0]; });
+      far.slice(0, 4).forEach(function (q) { var r2 = realW(q[1]), w2 = r2 ? r2.w : 1; list.push(q[1]); ws.push(w2); tot += w2; });
+      if (!list.length) return null;
+    }
+    var x = Math.random() * tot, k = 0; while (k < list.length - 1 && x > ws[k]) { x -= ws[k]; k++; }
+    return list[k];
   }
   // ---------- 🚨 동시 신고(v0.10.109 · 소유자 「재미가 없어」 → 외부 의견 중 실제로 빠진 것 하나 「우선순위 판단」) ----------
   //  두 번째 신고부터 60% 로 두 건이 함께 들어온다. 8초 안에 어디로 갈지 고른다 — 정답 = 코드 숫자가 작은 쪽(112 신고처리 규칙 §6 코드 구분 · laws.json emergency.codes),
@@ -87,7 +107,8 @@ TG.Dispatch = function (game) {
     var ct = codeText(code);
     if (game.cinema && code <= 1) game.cinema.stamp(ct.name, self.active.name + ' 부근', 'urgent');   // 🎬 v0.10.16 — 코드0·1 은 「출동」의 순간이다
     game.hud.notice('📡 112 ' + ct.name + ' — ' + self.active.name + ' 부근', 'alert', 3200);   // 📏 v0.10.15 — 자리·남은 시간은 목표 줄에 계속 떠 있다
-    game.hud.hint(code <= 1 ? '긴급 출동 — 경광등·사이렌, 교차로는 서행' : '일반 출동 — 신호·속도를 지킨다');
+    var rw = realW(node); self.active.real = rw && rw.cnt ? rw : null;
+    game.hud.hint((code <= 1 ? '긴급 출동 — 경광등·사이렌, 교차로는 서행' : '일반 출동 — 신호·속도를 지킨다') + (self.active.real ? ' · 이 교차로 둘레 ' + rw.band + ' 실제 사고 ' + rw.cnt + '건(TAAS 2016~2025)' : ''));
     if (TG.audio.squelch) TG.audio.squelch();
     if (game.crew) game.crew.say('dispatch', 6, 90);
     if (game.metrics) game.metrics.ev('dispatch');

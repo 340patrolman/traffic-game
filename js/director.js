@@ -22,12 +22,18 @@ TG.Director = function (game) {
     var P = game.player, city = game.city, L = game.layers;
     if (!P || !city || !L || !L.nodeViolations || !city.nearestNode) return null;
     var nd = city.nearestNode(P.pos.x, P.pos.z), info = nd ? L.nodeViolations(nd.i, nd.j) : null;
+    // 🛣 v0.10.134 교차로 사이 단일로 위면 그 구간의 실제 사고 경위(seg-risk · 칸마다 주 위반 건수 합 · 근사)를 먼저 쓴다
+    var SG = game.segRisk && game.segRisk.at ? game.segRisk.at(city, P.pos.x, P.pos.z) : null;
+    if (SG && SG.viol && SG.viol.length) {
+      var cs = SG.viol.filter(function (v) { return LAW_TRAIT[v[0]]; });
+      if (cs.length) info = { name: SG.road + ' ' + SG.from + '↔' + SG.to + ' 구간', years: '2016~2025', violations: cs, key: 'seg:' + SG.id };
+    }
     if (!info || !info.violations.length) return null;
     var cand = info.violations.filter(function (v) { return LAW_TRAIT[v[0]]; });
     if (!cand.length) return null;
     var tot = cand.reduce(function (s, v) { return s + v[1]; }, 0), r = Math.random() * tot, pick = cand[0];
     for (var i = 0; i < cand.length; i++) { r -= cand[i][1]; if (r <= 0) { pick = cand[i]; break; } }
-    var key = nd.i + ',' + nd.j;
+    var key = info.key || (nd.i + ',' + nd.j);
     if (!told[key] && game.hud && game.hud.hint) {
       told[key] = true;
       game.hud.hint('📊 ' + info.name + ' — 실제 사고 경위(' + info.years + ') ' + cand.slice(0, 2).map(function (v) { return v[0] + ' ' + v[1] + '건'; }).join(' · ') + ' — 그 위반부터 본다');
