@@ -1641,6 +1641,8 @@ button.hcell{font:inherit;color:inherit;cursor:pointer;appearance:none}
 .hrisk{margin:4px 0 10px;font-size:12px}.hrisk summary{cursor:pointer;font-weight:800;padding:4px 0}
 .hrb{display:grid;grid-template-columns:5.2em 1fr 2.6em;align-items:center;gap:6px;margin:3px 0}.hrb span{white-space:nowrap}.hrb i{display:block;height:9px;border-radius:5px}.hrb b{text-align:right}.hrb em{grid-column:2/4;font-style:normal;opacity:.7;font-size:10.5px;margin-top:-2px}
 .hrisk small{display:block;opacity:.75;margin-top:6px;line-height:1.4}
+.hbands{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.hband{min-height:36px;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:transparent;color:inherit;font-size:12px}.hband.on{background:#3a6ee8;border-color:#3a6ee8;color:#fff;font-weight:800}
+.htb{display:inline-flex;gap:8px;align-items:flex-end;margin-left:6px;vertical-align:bottom}.htb>span{display:flex;flex-direction:column;align-items:center;font-size:10px;line-height:1.1}.htb i{display:block;width:16px;background:#e0a93a;border-radius:3px 3px 0 0}.htb .now i{background:#d9534f}.htb em{font-style:normal;opacity:.7}.htb b{font-size:10.5px}
 .hdongs{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0 10px;font-size:11.5px}
 .hdongs span{padding:2px 7px;border-radius:8px;border:1.5px solid var(--hc)}
 /* v0.10.109 📡 동시 신고 — 두 건 중 어디부터(8초) */

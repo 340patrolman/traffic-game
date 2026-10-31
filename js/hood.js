@@ -79,6 +79,24 @@ TG.Hood = function (game) {
   var selK = null, XI = null;
   // 📊 동네별 사고율(v0.10.132) — 생활인구 1만 명당 한 해 사고(TAAS 2016~2025). 지수(게임)와 다른 실제 자료라 따로 보인다.
   // 🛣 도로 구간별 실제 사고(v0.10.133) — 교차로 사이 단일로 1km 당 한 해 사고(TAAS 2016~2025 · 교차로 둘레 80m 뺌).
+  // ⏰ 시간대별 실제 사고(v0.10.135 · ROADMAP 층 순서 4 「지표 + 시간축」) — 교차로 둘레 150m · 6시간 띠(data/taas-time-seocho.json · TG.NowRisk).
+  //  서초 간선 25곳 격자 지도에서만 · 기본 = 지금 시간대 · 칸 이름을 누르면 그 교차로 카드.
+  var BAND = null, BAND_OPEN = false;
+  function nrOk(c) { return TG.NowRisk && TG.NowRisk.ready() && c.nodes.length === 5 && c.nodes[0].length === 5 && /^seocho(-twin|-full)?$/.test(c.mapId || 'seocho'); }
+  function nrNode(i, j) { var D = TG.NowRisk.data(); return (D.nodes || []).filter(function (q) { return +q.i === i && +q.j === j; })[0] || null; }
+  function bandNow() { return Math.max(0, Math.min(3, Math.floor(new Date().getHours() / 6))); }
+  function bandH(c) {
+    if (!nrOk(c)) return '';
+    var D = TG.NowRisk.data(), b = BAND == null ? bandNow() : BAND, now = bandNow();
+    var L = (D.nodes || []).map(function (q) { return { q: q, n: (q.band || [])[b] || 0 }; }).filter(function (x) { return x.n > 0; }).sort(function (x, y) { return y.n - x.n; }).slice(0, 10);
+    var mx = L.length ? L[0].n : 0, tot = 0; (D.nodes || []).forEach(function (q) { tot += (q.band || [])[b] || 0; });
+    var btns = D.bands.map(function (nm, k) { return '<button class="hband' + (k === b ? ' on' : '') + '" data-hband="' + k + '">' + esc(nm) + (k === now ? ' · 지금' : '') + '</button>'; }).join('');
+    return '<details class="hrisk htime"' + (BAND_OPEN ? ' open' : '') + '><summary>⏰ 시간대별 실제 사고 — 교차로 둘레(TAAS ' + esc(D.years) + ')</summary><div class="hbands">' + btns + '</div>' +
+      L.map(function (x) {
+        var c2 = x.n >= mx * 0.66 ? '#d9534f' : x.n >= mx * 0.4 ? '#e0a93a' : '#3fbf6f', sh = x.q.tot ? Math.round(x.n / x.q.tot * 100) : 0;
+        return '<div class="hrb" data-hk="' + (+x.q.i) + ',' + (+x.q.j) + '" style="cursor:pointer"><span>' + esc(String(x.q.name).replace(/ ?(사거리|교차로|삼거리)$/, '')) + '</span><i style="width:' + Math.round(100 * x.n / mx) + '%;background:' + c2 + '"></i><b>' + x.n + '</b><em>이 교차로 10년 사고의 ' + sh + '% · 사망 ' + (x.q.dead || 0) + '</em></div>';
+      }).join('') + '<small>교차로 가운데 둘레 150m 안 100m 칸(서초구 쪽만)의 2016~2025 사고를 6시간 띠로 나눈 수. 25곳 이 띠 합 ' + tot + '건. ⚠ 칸 가운데 기준 근사 · 공식 위험도 아님 · 시뮬 입력에 쓰지 않는다.</small></details>';
+  }
   function segH() {
     var R = game.segRisk; if (!R || !R.ready()) return '';
     var L = R.list().slice(0, 12), mx = L.length ? L[0].perKm : 0;
@@ -122,6 +140,11 @@ TG.Hood = function (game) {
       h += '<div class="hrow">🚗 실제 사고 <b>' + r.total + '건</b>' + (r.death ? ' · 사망 ' + r.death : '') + ' <i>(TAAS ' + esc(L && L.realYears ? L.realYears() : '') + ')</i></div>';
       if (cv && cv.violations && cv.violations.length) h += '<div class="hrow">🔎 주된 경위 — ' + cv.violations.slice(0, 3).map(function (v) { return esc(v[0]) + ' ' + v[1]; }).join(' · ') + '</div>';
     } else h += '<div class="hrow dim">🚗 이 지도에는 이 교차로의 사고 자료가 없습니다</div>';
+    var nq = nrOk(c) ? nrNode(i, j) : null;
+    if (nq && nq.band) {
+      var bm = Math.max.apply(null, nq.band) || 1, D2 = TG.NowRisk.data(), bn = bandNow();
+      h += '<div class="hrow">⏰ 시간대별 <span class="htb">' + nq.band.map(function (v, k) { return '<span' + (k === bn ? ' class="now"' : '') + ' title="' + esc(D2.bands[k]) + '"><i style="height:' + Math.max(2, Math.round(22 * v / bm)) + 'px"></i><em>' + esc(D2.bands[k].replace('시', '')) + '</em><b>' + v + '</b></span>'; }).join('') + '</span></div>';
+    }
     var ci = game.signals && game.signals.cycleInfo ? game.signals.cycleInfo(nd) : null;
     if (ci && ci.target) h += '<div class="hrow">🚦 신호 주기 ' + ci.target + '초 ' + (ci.real ? '(경찰청 실측)' : '(추정)') + '</div>';
     var F = game.facil;
@@ -167,11 +190,13 @@ TG.Hood = function (game) {
       '<div class="hgrid" style="grid-template-columns:repeat(' + c.xs.length + ',1fr)">' + cells + '</div>' +
       '<div class="hlegend"><span style="--hc:#d9534f">0~33</span><span style="--hc:#e0a93a">34~66</span><span style="--hc:#3fbf6f">67~100</span><span class="dim">위가 북쪽</span></div>' +
       (selK ? detailHtml(selK, rm) : '<div class="hrow dim">▲ 칸을 누르면 그 교차로의 동 · 실제 사고 · 신호 · 효과 기록이 나옵니다</div>') +
-      dongH + riskH() + segH() +
+      dongH + bandH(c) + riskH() + segH() +
       '<button class="primary" id="hoodX">닫기</button></div>';
     el.style.display = 'flex';
     document.getElementById('hoodX').addEventListener('click', self.close);
     Array.prototype.forEach.call(el.querySelectorAll('[data-hk]'), function (b) { b.addEventListener('click', function () { selK = b.getAttribute('data-hk'); self.open(); var d = el.querySelector('.hdet'); if (d && d.scrollIntoView) d.scrollIntoView({ block: 'nearest' }); }); });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-hband]'), function (b) { b.addEventListener('click', function (e) { e.preventDefault(); BAND = +b.getAttribute('data-hband'); BAND_OPEN = true; self.open(); var t = el.querySelector('.htime'); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest' }); }); });
+    var htm = el.querySelector('.htime'); if (htm) htm.addEventListener('toggle', function () { BAND_OPEN = htm.open; });
     var go = el.querySelector('[data-hgo]'); if (go) go.addEventListener('click', function () { var p = go.getAttribute('data-hgo').split(','); self.close(); if (game.startPatrolAt) game.startPatrolAt(+p[0], +p[1]); });
     var pl = el.querySelector('[data-hplan]'); if (pl) pl.addEventListener('click', function () { var p = pl.getAttribute('data-hplan').split(','); self.close(); if (game.openPlan) game.openPlan(c.nodes[+p[0]][+p[1]]); });
     if (game.setPaused) game.setPaused(true, 'hood');
