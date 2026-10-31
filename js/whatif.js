@@ -78,7 +78,8 @@ TG.WhatIf = function (G) {
     if (V.prep) V.prep(c);
     if (on) V.apply(c);
     var R = radiusOf(c.city, i, j), R2 = R * R, N = c.N, RT2 = Math.pow(Math.max(10, R * 0.3), 2);   // 지나간 차 = 교차로 가운데 R×0.3 안을 지난 차
-    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0, ttc: 0 }, seenJ = {}, seenT = {}, nearCd = {}, ttcCd = {}, pidN = 0;
+    var M = { flags: {}, flagN: 0, near: 0, jay: 0, queue: 0, qs: 0, thru: 0, ttc: 0, box: 0, boxS: 0 }, seenJ = {}, seenT = {}, seenB = {}, nearCd = {}, ttcCd = {}, pidN = 0;
+    var BXH = (c.city.halfV ? c.city.halfV[N.i] : 10) + 1, BZH = (c.city.halfH ? c.city.halfH[N.j] : 10) + 1;   // 🚧 꼬리물기 상자 = 교차로 안(정지선 너머 · junction.gridlockOf 와 같은 범위)
     var prevFlag = c.traffic.onFlag;
     c.traffic.onFlag = function (car, type, node) { if (prevFlag) prevFlag(car, type, node); if (t < WARM || !node || node !== N) return; M.flags[type] = (M.flags[type] || 0) + 1; M.flagN++; };
     var t = 0, k = 0, total = WARM + (V.meas || MEAS), steps = Math.round(total / DT);
@@ -88,6 +89,8 @@ TG.WhatIf = function (G) {
         var dx = cr.pos.x - N.x, dz = cr.pos.z - N.z, d2 = dx * dx + dz * dz; if (d2 > R2) return;
         if (cr.v < 1 && cr.mode !== 'parked' && cr.mode !== 'incident') q++;
         if (d2 < RT2 && !seenT[cr.id]) { seenT[cr.id] = 1; M.thru++; }
+        // 🚧 꼬리물기(v0.10.136 · ROADMAP 지표) — 교차로 상자 안에 선(1m/s 미만) 차. 정지선은 상자 밖이라 신호 대기는 들지 않는다 — 앞이 막혀 안에 갇힌 차다(§25⑤의 「교차로에 정지하게 되어」)
+        if (cr.v < 1 && cr.mode !== 'parked' && cr.mode !== 'incident' && Math.abs(dx) <= BXH && Math.abs(dz) <= BZH) { M.boxS++; if (!seenB[cr.id]) { seenB[cr.id] = 1; M.box++; } }
       });
       M.queue += q; M.qs++;
       // ⏱ TTC(충돌까지 남은 시간 · ROADMAP E2) — 둘레의 달리는 차마다 같은 방향·같은 차로(옆 1.8 단위 안) 바로 앞차를 찾아
@@ -119,7 +122,7 @@ TG.WhatIf = function (G) {
       c.C.TRAFFIC_MAX = d0.t; c.C.PED_MAX = d0.p; if (core.clock) core.clock(); G.ontoDate = prevOnto; G.brtHour = prevBrt;
       if (V.prep && c.signals.restoreReal) c.signals.restoreReal(N);
       if (!G.simHold) G.simBusy = false; TG.mode.sim = prevSim; TG.mode.seed = prevSeed; G.demandOff = prevDem; if (TG.mode.unseed && !prevSim) TG.mode.unseed();
-      done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru, ttc: M.ttc } : null);
+      done(ok ? { flags: M.flags, flagN: M.flagN, near: M.near, jay: M.jay, queue: M.qs ? M.queue / M.qs : 0, thru: M.thru, ttc: M.ttc, box: M.box, boxSec: M.boxS * 15 * DT } : null);
     }
     (function chunk() {
       var n = 0;
@@ -160,14 +163,14 @@ TG.WhatIf = function (G) {
         var real = L.map(function (x) { return x.real; });
         var res = { at: new Date().toISOString().slice(0, 16).replace('T', ' '), n: L.length, sec: MS, list: L,
           rho: spearman(L.map(function (x) { return x.score; }), real), rhoFlag: spearman(L.map(function (x) { return x.flagN; }), real),
-          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), rhoTtc: spearman(L.map(function (x) { return x.ttc; }), real), dens: self.realDensity,
+          rhoNear: spearman(L.map(function (x) { return x.near; }), real), rhoThru: spearman(L.map(function (x) { return x.thru; }), real), rhoTtc: spearman(L.map(function (x) { return x.ttc; }), real), rhoBox: spearman(L.map(function (x) { return x.boxSec || 0; }), real), dens: self.realDensity,
           rhoPeople: spearman(L.map(function (x) { var a = actOf(x.i, x.j); return a ? a.bus + a.sub : 0; }), real) };
         TG.save.set('simcal', res); cb(res); return;
       }
       var x = L[k];
       runOne(x.i, x.j, V0, false, CAL_SEED, function (p) { prog((k + p) / L.length, x.name); }, function (r) {
         if (!r) { busy = false; G.simHold = false; G.simBusy = false; G.simCore.title(); cb(null); return; }
-        x.flagN = r.flagN; x.near = r.near; x.jay = r.jay; x.queue = r.queue; x.thru = r.thru; x.ttc = r.ttc || 0; k++; setTimeout(next, 0);
+        x.flagN = r.flagN; x.near = r.near; x.jay = r.jay; x.queue = r.queue; x.thru = r.thru; x.ttc = r.ttc || 0; x.box = r.box || 0; x.boxSec = r.boxSec || 0; k++; setTimeout(next, 0);
       });
     }
     whenReady(next);
@@ -178,7 +181,7 @@ TG.WhatIf = function (G) {
     var L = c.list.slice().sort(function (a, b) { return b.real - a.real; }), sr = ranks(c.list.map(function (x) { return -x.score; })), rk = {};
     c.list.forEach(function (x, i) { rk[x.i + ',' + x.j] = sr[i]; });
     return '<div class="wi-res"><b>📏 게임 ↔ 실제 사고 순위 — ' + c.n + '곳 · ' + esc(c.at) + '</b>' +
-      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + (c.rhoTtc != null ? ' · TTC 근접만 ' + c.rhoTtc.toFixed(2) : '') + (c.rhoPeople != null ? '<br>참고: 게임을 돌리지 않고 실제 승하차 인원만으로 ρ ' + c.rhoPeople.toFixed(2) + ' — 사람이 많은 곳에서 사고가 난다' : '') + '<br>밀도: ' + (c.dens ? '🏙 교차로마다 실제 활동량(승하차·교통량)' : '모든 교차로 같은 밀도') + '</small></div>' +
+      '<div class="wi-rho">순위상관 ρ = <b>' + (c.rho == null ? '—' : c.rho.toFixed(2)) + '</b> · ' + rhoWord(c.rho) + '<small>위반 기록만 ' + (c.rhoFlag == null ? '—' : c.rhoFlag.toFixed(2)) + ' · 보행자 근접만 ' + (c.rhoNear == null ? '—' : c.rhoNear.toFixed(2)) + ' · 지나간 차(교통량 대신) ' + (c.rhoThru == null ? '—' : c.rhoThru.toFixed(2)) + (c.rhoTtc != null ? ' · TTC 근접만 ' + c.rhoTtc.toFixed(2) : '') + (c.rhoBox != null ? ' · 꼬리물기(갇힌 시간)만 ' + c.rhoBox.toFixed(2) : '') + (c.rhoPeople != null ? '<br>참고: 게임을 돌리지 않고 실제 승하차 인원만으로 ρ ' + c.rhoPeople.toFixed(2) + ' — 사람이 많은 곳에서 사고가 난다' : '') + '<br>밀도: ' + (c.dens ? '🏙 교차로마다 실제 활동량(승하차·교통량)' : '모든 교차로 같은 밀도') + '</small></div>' +
       '<table><tr><th>교차로</th><th>실제 10년</th><th>게임 지수</th><th>게임 순위</th></tr>' +
       L.map(function (x, i) { var g = rk[x.i + ',' + x.j]; return '<tr><td>' + (i + 1) + '. ' + esc(x.name) + '</td><td>' + x.real + '</td><td>' + x.score + '</td><td class="' + (Math.abs(g - (i + 1)) <= 3 ? 'dn' : Math.abs(g - (i + 1)) >= 8 ? 'up' : '') + '">' + (Math.round(g * 10) / 10) + '</td></tr>'; }).join('') +
       '</table><small>실제 = TAAS 2016~2025 교차로 둘레 150m(서초구 쪽 칸만 · 근사). 게임 지수 = 보행자 근접×3 + 위반 기록×2 + 무단횡단 + TTC 1.5초 아래 근접(게임 설계값) · 씨앗 하나 · ⏰ 기준 시각 ' + self.REF_LABEL + ' · 앞 40초 버리고 ' + c.sec + '초. ρ 가 낮으면 게임 모형이 교차로마다의 차이(교통량·보행량·도로 모양)를 아직 못 담는다는 뜻 — 다음에 고칠 곳을 알려 주는 검사입니다. 초록 = 순위 차 3 안 · 빨강 = 8 이상.</small></div>';
@@ -214,6 +217,8 @@ TG.WhatIf = function (G) {
       row('보행자 근접(2.5 단위 안)', B, A, function (r) { return r.near; }),
       row('무단횡단 시작', B, A, function (r) { return r.jay; }),
       row('⏱ 위험한 근접(TTC 1.5초 아래)', B, A, function (r) { return r.ttc || 0; }),
+      row('🚧 꼬리물기 — 교차로 안에 선 차(대)', B, A, function (r) { return r.box || 0; }),
+      row('　└ 갇힌 시간(대·초)', B, A, function (r) { return r.boxSec || 0; }),
       row('평균 대기 대수', B, A, function (r) { return r.queue; }, 1),
       row('지나간 차', B, A, function (r) { return r.thru; })
     ];
