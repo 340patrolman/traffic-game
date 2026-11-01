@@ -38,6 +38,14 @@ TG.NowRisk = (function () {
     var v = p.viol.slice(0, 2).map(function (x) { return x[0]; }).join('·');
     return p.name + ' — ' + p.years + ' 이 시간대(' + p.band + ') 실제 사고 ' + p.cnt + '건' + (p.tot ? '(이 교차로 10년 ' + p.tot + '건의 ' + Math.round(p.cnt / p.tot * 100) + '%)' : '') + (v ? ' · 많은 법규위반 ' + v : '');
   };
+  // 한 교차로의 10년 실제 사고 한 줄(v0.10.137 · 결과 카드 「이 자리 실제 자료」 단추 안) — 자료가 없거나 그 교차로가 없으면 ''
+  self.nodeLine = function (i, j) {
+    if (!self.ready()) return '';
+    var n = null; D.nodes.forEach(function (x) { if (x.i === i && x.j === j) n = x; });
+    if (!n || !n.tot) return '';
+    var fat = (n.fatal || []).length, v = (n.viol || []).filter(function (x) { return x[0] !== '기타'; }).slice(0, 2).map(function (x) { return x[0]; }).join('·');
+    return '이 교차로 둘레 ' + D.years + ' 실제 사고 ' + n.tot + '건' + (fat ? ' · 사망사고 ' + fat + '건' : '') + (v ? ' · 많은 법규위반 ' + v : '');
+  };
   self.fatalLine = function (p) {
     if (!p || !p.fat || !p.fat.length) return '';
     var dow = (D && D.dow) || [];

@@ -3640,7 +3640,11 @@
     var P = TG.PlaceKey, grid = city.nodes && city.nodes.length === 5 && city.nodes[0].length === 5 && /^seocho(-twin|-full)?$/.test(city.mapId || 'seocho');
     if (!P || !grid) return;
     var me = onFoot() && G.walker ? G.walker.pos : player.pos, n = city.nearestNode(me.x, me.z); if (!n) return;
-    P.load(function () { var u = P.mapUrl(n.i, n.j); if (!u) return; a.href = u; a.textContent = '🗜 ' + city.nodeName(n) + ' — 실제 자료(데이터 압축지도)'; a.style.display = 'block'; });
+    P.load(function () { var u = P.mapUrl(n.i, n.j); if (!u) return; a.href = u; a.textContent = '🗜 ' + city.nodeName(n) + ' — 실제 자료(데이터 압축지도)';
+      var ln = TG.NowRisk ? TG.NowRisk.nodeLine(n.i, n.j) : '';
+      if (ln) { var sm = document.createElement('small'); sm.textContent = ln + ' (TAAS · 둘레 150m 근사 · 공식 위험도 아님)'; a.appendChild(sm); }
+      a.style.display = 'block'; });
+    // ↑ 지도로 넘기기 전에 그 자리 실제 사고를 한 줄로 먼저(v0.10.137 · 외부 검토 제안 「갑자기 전문가용 지도가 열린다」)
   }
   G.endMapLink = endMapLink;
   function bootMap(done) {
