@@ -216,6 +216,10 @@ TG.Signals = function (city, world, cfg) {
     if (axis === 'v') c.gv = v; else c.gh = v;
     return { sec: v, min: lo, max: hi, clamped: v !== Math.round(sec) };
   }
+  // 🧪 만약에(v0.10.138) — 저장된 녹색 값을 **반올림 없이** 읽고 되돌린다. setGreen 은 초 단위로 반올림해서,
+  // 하한이 30.5초 같은 교차로에서 「+10초」가 +10.5 가 되고 되돌린 값이 처음과 달라져 다음 판(그대로)에 0.5초가 새어 들어갔다.
+  function greenRaw(node, axis) { var c = ctrl[keyOf(node)]; return axis === 'v' ? c.gv : c.gh; }
+  function setGreenRaw(node, axis, sec) { var c = ctrl[keyOf(node)]; if (!isFinite(sec)) return; if (axis === 'v') c.gv = Math.min(150, sec); else c.gh = Math.min(150, sec); }
   function greenInfo(node) {
     var c = ctrl[keyOf(node)];
     return { gv: gvOf(node), gh: ghOf(node), minV: greenMin(node, 'v'), minH: greenMin(node, 'h'), cycle: cycleOf(node),
@@ -435,7 +439,7 @@ TG.Signals = function (city, world, cfg) {
   return { state: state, pedWalk: pedWalk, pedRemain: pedRemain, pedTime: pedTime, pedFlash: pedFlash, flashTime: flashTime, update: update, resetClock: resetClock, force: force, set: set, CYCLE: CYCLE, phase: ph,
            holdPed: holdPed, extendInfo: extendInfo,
            setManual: setManual, isManual: isManual, request: request, waitFor: waitFor, manualInfo: manualInfo, minGreenOf: function (node) { return ctrl[keyOf(node)].minGreen; },
-           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod,
+           greenFor: greenFor, greenMin: greenMin, setGreen: setGreen, greenRaw: greenRaw, setGreenRaw: setGreenRaw, greenInfo: greenInfo, cycleOf: cycleOf, cycleInfo: cycleInfo, applyTod: applyTod,
            leftState: leftState, hasLeft: hasLeft, leftExtra: leftExtra,
            moveState: moveState, hasLeftFor: hasLeftFor, applyReal: applyReal, restoreReal: restoreReal, setRealOff: setRealOff, realInfo: realInfo };
 };

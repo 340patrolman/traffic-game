@@ -15,8 +15,13 @@ TG.WhatIf = function (G) {
   var VARS = [
     { id: 'green', label: '🚦 이 교차로 남북 녹색 +10초', why: '신호 시간을 늘리면 대기·신호위반이 어떻게 바뀌나',
       prep: function (c) { if (c.signals.setRealOff) c.signals.setRealOff(c.N, true); },          // 두 판 모두 일반형 신호로(실측 현시가 있는 곳도 같은 조건)
-      apply: function (c) { c.prevG = c.signals.greenFor(c.N, 'v'); c.signals.setGreen(c.N, 'v', c.prevG + 10); },
-      undo: function (c) { if (c.prevG != null) c.signals.setGreen(c.N, 'v', c.prevG); } },
+      apply: function (c) { c.prevG = c.signals.greenRaw(c.N, 'v'); c.signals.setGreenRaw(c.N, 'v', c.signals.greenFor(c.N, 'v') + 10); },   // 반올림 없이 정확히 +10초(v0.10.138)
+      undo: function (c) { if (c.prevG != null) c.signals.setGreenRaw(c.N, 'v', c.prevG); } },
+    // 동서 녹색(v0.10.138) — 데이터 압축지도 「지금 동쪽·서쪽에서 오는 길이 막혔다」 가설이 이 조건으로 열린다(전에는 남북뿐이라 동서 막힘에는 단추가 없었다)
+    { id: 'greenh', label: '🚦 이 교차로 동서 녹색 +10초', why: '동서로 들어오는 길에 녹색을 더 주면 대기·신호위반이 어떻게 바뀌나',
+      prep: function (c) { if (c.signals.setRealOff) c.signals.setRealOff(c.N, true); },
+      apply: function (c) { c.prevGh = c.signals.greenRaw(c.N, 'h'); c.signals.setGreenRaw(c.N, 'h', c.signals.greenFor(c.N, 'h') + 10); },
+      undo: function (c) { if (c.prevGh != null) c.signals.setGreenRaw(c.N, 'h', c.prevGh); } },
     { id: 'ped2', label: '🚶 보행자 2배', why: '사람이 많아지면 보행자 근접·무단횡단이 얼마나 느나',
       apply: function (c) { c.prevP = c.C.PED_MAX; c.C.PED_MAX = Math.round(c.C.PED_MAX * 2); }, undo: function (c) { if (c.prevP != null) c.C.PED_MAX = c.prevP; } },
     { id: 'car15', label: '🚗 차량 1.5배', why: '교통량이 늘면 대기·위반이 어떻게 바뀌나',
