@@ -90,6 +90,7 @@
     G.scene = scene; G.camera = camera;
     G.city = city; G.traffic = traffic; G.peds = peds; G.signals = signals; G.hud = hud; G.world = world; G.terrain = terrain;
     facil = new TG.Facil(G, city, signals, C, scene); G.facil = facil;
+    if (TG.Ghost) G.ghost = new TG.Ghost(scene);   // 👻 서킷 고스트(v0.10.139) — 최고 랩을 반투명 순찰차로
     if (TG.WhatIf) G.whatIf = new TG.WhatIf(G);   // 🧪 만약에(v0.10.121) — 같은 판 두 번 · 조건 하나   // 교통시설 관리(신호 녹색 시간 · 무인 단속 장비)
     traffic.onFlag = function (car, type, node) { if (facil && facil.onFlag) facil.onFlag(type, node); };   // 📈 효과 기록(v0.10.62)
     // 🚌 G.brt = 중앙버스전용차로·중앙 정류장(v0.10.68 · 서초구 1:1 · js/brt.js)
@@ -1327,6 +1328,7 @@
     lap = { on: false, t: 0, prevI: null, last: null, best: TG.save.get('bestlap_' + G.mode, null), link: null, name: G.mode,
             sec: [null, null, null], secCls: ['', '', ''], scT: 0, sc: 0, trace: [], bestTrace: null,
             bestSec: TG.save.get('bestsec_' + G.mode, [null, null, null]), hold: 0, lights: -1, goT: 0 };
+    if (G.ghost) G.ghost.load((G.mode === 'circuit' || G.mode === 'free') && !(TG.mode && TG.mode.sim) ? G.mode : null);   // 👻 기록을 재는 두 모드에서만 · 🧪 시뮬에서는 안 쓴다
     document.body.classList.toggle('laptime', G.mode === 'circuit' || G.mode === 'free'); hudHeightVar();   // 🏁 랩·섹터 패널은 기록을 재는 두 모드에서만
     coach = { cd: 0, lastCorner: -1, apexDone: -1, cin: false, cmin: 0, ckap: 0, coff: false, stars: 0, corners: 0 }; G.coach = coach;   // 🏁 코너 별점(검증과 근무 결과가 본다)
     if (G.tbLink) { weather.set(G.tbLink.preset); hud.hint('티북 연동 · ' + weather.presets[G.tbLink.preset].label + (G.tbLink.temp !== null ? ' · ' + G.tbLink.temp + '°C' : '') + (weather.grip < 1 ? ' — 노면이 미끄럽습니다' : '')); }   // 📏 v0.10.15 — 날씨는 화면에 보인다. 근무 시작 줄과 겹쳐 뜨던 것을 💭 로
@@ -2421,8 +2423,8 @@
   function lapUpdate(dt) {
     var L = lap.link; if (!L) return;
     var q = terrain.nearest(player.pos.x, player.pos.z, false);
-    if (!q || q.link !== L) { if (lap.on) hud.setTimerText('—'); lap.on = false; lap.prevI = null; lapPaint(null); return; }
-    if (lap.on) lap.t += dt;
+    if (!q || q.link !== L) { if (lap.on) hud.setTimerText('—'); lap.on = false; lap.prevI = null; lapPaint(null); if (G.ghost) G.ghost.play(null); return; }
+    if (lap.on) { lap.t += dt; if (G.ghost) G.ghost.rec(lap.t, player); }
     var i = q.i, N = L.N;
     if (lap.on && lap.trace && lap.trace[i] === undefined) lap.trace[i] = lap.t;    // 이번 랩의 자리별 시각
     var dv = (lap.on && lap.bestTrace && lap.bestTrace[i] !== undefined) ? lap.t - lap.bestTrace[i] : null;
@@ -2434,13 +2436,16 @@
         sectorClose(2);
         lap.last = lap.t; var isBest = !lap.best || lap.t < lap.best;
         if (isBest) { lap.best = lap.t; TG.save.set('bestlap_' + lap.name, lap.best); lap.bestTrace = lap.trace; }
+        if (G.ghost && G.ghost.finish(lap.t, isBest)) hud.hint('💭 👻 이번 랩이 고스트가 됐다 — 다음 랩부터 반투명 순찰차가 이 길을 달린다');
         hud.notice('🏁 랩 ' + fmtLap(lap.t) + (isBest ? ' — 최고 기록!' : ' · 최고 ' + fmtLap(lap.best) + ' (' + fmtDelta(lap.t - lap.best) + ')'), 'good', 4000);
         TG.audio.good(); if (isBest) { hud.pop('🏆 최고 기록', 'good'); TG.audio.jingle(4); G.punch = 0.7; }
       } else if (!lap.on) hud.notice('랩 타임 시작 — 섹터 셋과 최고 기록 델타가 왼쪽에 나옵니다', 'info', 2600);
       lap.t = 0; lap.on = true; lap.scT = 0; lap.sc = 0; lap.trace = []; lap.sec = [null, null, null]; lap.secCls = ['', '', ''];
+      if (G.ghost) G.ghost.begin();
       dv = null;
     }
     lap.prevI = i;
+    if (G.ghost) G.ghost.play(lap.on ? lap.t : null);
     hud.setTimerText(lap.on ? fmtLap(lap.t) : '—');   // 자세한 것은 랩 패널이 보인다 — 시간 칸은 값만(칸 이름이 이미 「랩 타임」이다)
     lapPaint(dv);
   }
