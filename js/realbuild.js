@@ -5,7 +5,7 @@
 //  없으면 **바닥 넓이로 어림한다**(그것은 설계값이라고 화면에 적는다).
 TG.RealBuild = function () {
   var self = this, group = null, info = { count: 0, withLevels: 0, source: '' };
-  var named = [];   // 이름이 있는 건물(OSM name 태그) — 「이 자리」 조회가 쓴다
+  var named = [], polys = [];   // polys: 세운 건물 윤곽(검사용 · self.polys())   // 이름이 있는 건물(OSM name 태그) — 「이 자리」 조회가 쓴다
 
   function area2(p) {   // 다각형 넓이(신발끈) — 방향(시계/반시계)도 여기서 나온다
     var s = 0;
@@ -104,12 +104,13 @@ TG.RealBuild = function () {
     return [dx, dz];
   }
 
+  this.polys = function () { return polys; };
   this.build = function (scene, data, terrain, city) {
     self.clear(scene);
     if (!data || !data.buildings || !window.THREE || !TG.GeoBuilder) return info;
-    named = [];
+    named = []; polys = [];
     var walls = { apt: new TG.GeoBuilder(), office: new TG.GeoBuilder(), shop: new TG.GeoBuilder(), tower: new TG.GeoBuilder(), conc: new TG.GeoBuilder() };
-    var gb = null, roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0;
+    var gb = null, roof = new TG.GeoBuilder(), n = 0, lv = 0, moved = 0, dropped = 0, maxMove = 0, wet = 0, steep = 0, crossed = 0;
     var warpOn = !!(TG.warp && TG.warp.ok && data.map && TG.MAP && data.map === TG.MAP.id);
     var tiny = 0;   // 너무 작아(20㎡ 미만 · 꼭짓점 셋 미만) 그리지 않은 동 — 합계를 맞추려고 센다
     data.buildings.forEach(function (b, bi) {
@@ -136,11 +137,16 @@ TG.RealBuild = function () {
       if (city && city.onRoadAny) {
         for (var pi = 0; pi < p.length; pi++) {
           if (city.onRoadAny(p[pi][0], p[pi][1])) { dropped++; if (od > 0.01) moved--; return; }
+          // (v0.10.141) 꼭짓점만 보면 **변이 도로를 가로지르는 건물**(꼭짓점은 길 양쪽)을 놓쳤다 — 소유자 「건물이 경부고속도로를 막고 있었어」.
+          //  변을 따라 3m 마다 찍어 본다(가장 좁은 도로 폭보다 촘촘하다 · 도로가 건물을 지나가면 경계를 두 번 건넌다).
+          var e0 = p[pi], e1 = p[(pi + 1) % p.length], eL = Math.hypot(e1[0] - e0[0], e1[1] - e0[1]), en = Math.floor(eL / 3);
+          for (var ek = 1; ek <= en; ek++) { var et = ek / (en + 1); if (city.onRoadAny(e0[0] + (e1[0] - e0[0]) * et, e0[1] + (e1[1] - e0[1]) * et)) { crossed++; dropped++; if (od > 0.01) moved--; return; } }
         }
       }
       var h = (b.lv > 0) ? b.lv * 3.2 : guessH(ar);
       if (b.lv > 0) lv++;
       var c = centroid(p);
+      polys.push(p);   // 세운 윤곽(검사 · 「도로 위 건물 0」을 잰다)
       // 바닥 높이는 **네 모퉁이 중 가장 낮은 곳**이다 — 가운데로 잡으면 비탈에서 한쪽이 공중에 뜬다.
       //  물 위(−1m 아래)이거나 4m 넘게 기울어진 자리는 그리지 않는다 — 이 지도의 지형(한강·우면산·고속도로 둑)은
       //  축약 지도에 맞춘 절대 좌표라 1:1 지도에서는 실제 건물 자리와 겹친다(실측 30동). **물 위에 건물을 세우지 않는다.**
@@ -188,7 +194,7 @@ TG.RealBuild = function () {
     var mr = new THREE.Mesh(roof.build(), matR); mr.name = 'realRoof'; mr.receiveShadow = true;
     mr.matrixAutoUpdate = false;
     group.add(mr); scene.add(group);
-    info = { count: n, withLevels: lv, moved: moved, dropped: dropped, wet: wet, steep: steep, maxMove: +maxMove.toFixed(1), source: data.source || '', warped: warpOn, total: data.buildings.length, tiny: tiny };
+    info = { count: n, withLevels: lv, moved: moved, dropped: dropped, wet: wet, steep: steep, crossed: crossed, maxMove: +maxMove.toFixed(1), source: data.source || '', warped: warpOn, total: data.buildings.length, tiny: tiny };
     return info;
   };
   this.clear = function (scene) { if (group && scene) scene.remove(group); group = null; };
