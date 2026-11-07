@@ -95,6 +95,14 @@ body:not(.portrait) #btnHere .here-more{display:inline;opacity:.85;font-weight:7
 @keyframes herePulse{0%{box-shadow:0 0 0 0 rgba(255,96,96,.55)}60%{box-shadow:0 0 0 12px rgba(255,96,96,0)}100%{box-shadow:0 0 0 0 rgba(255,96,96,0)}}
 @media (prefers-reduced-motion:reduce){body:not(.portrait) #btnHere{animation:none}}
 @media (max-width:960px){body:not(.portrait) #btnHere .here-more{display:none} body:not(.portrait) #btnHere{padding:0 14px}}
+/* v0.10.140 좁은 가로 화면(667x375 = 아이폰 SE·8 가로 실측) — 가운데 「📍 이 자리」(111px)가 경광등을 24px 덮었다.
+   경광등 줄 왼쪽(라바콘·제어함 단추와 같은 세로줄)에 📍 그림만 남긴 48px 동그라미로 세운다. 왼쪽은 조이스틱 자리라 더 못 간다 */
+@media (orientation:landscape) and (max-width:720px){
+  body:not(.portrait) #btnHere{left:auto;right:calc(312px + var(--sa-r));transform:none;width:48px;padding:0;justify-content:center}
+  body:not(.portrait) #btnHere > span:not(.ico){display:none}
+}
+/* 계기 칸이 넓어지면(어린이 교실 등 · 최대 560px) 오른쪽 위 지도(130px)를 덮었다(667 폭 39px) — 지도 자리만큼 비운다 */
+body:not(.portrait) #hudbar{max-width:min(560px,calc(100vw - 162px - var(--sa-l) - var(--sa-r)))}
 /* 세로 폰: 방향지시등 줄 = 좌 · 비상등 · 우 · 하차 · 스포츠 · 긴급(그 아래가 경광등·단속). 스포츠도 현장·관문·추격 단추가 뜨는 동안은 비켜 준다 */
 @media (orientation:portrait){
   html body.portrait .sigs{gap:5px}
@@ -300,6 +308,9 @@ details.more summary::-webkit-details-marker{display:none}
 details.more summary .dim{font-size:11px;color:var(--dim)}
 details.more[open] summary{border-radius:12px 12px 0 0}
 details.more .cars{margin:12px 0 8px}
+/* v0.10.140 폰에서 「⚙ 차량」을 펴면 순찰차 카드 6장이 한 줄에 끼어 장마다 42~57px · 높이 1,068px(글자가 한 자씩 세로로) — 375 실측. 줄을 넘기고 한 장 최소 폭을 준다 */
+details.more .cars{flex-wrap:wrap}
+details.more .cars .carpick{flex:1 1 128px;min-width:0}
 .tbtn.hand{display:none;position:fixed;right:calc(16px + var(--sa-r));bottom:calc(200px + var(--sa-b));width:76px;height:76px;background:rgba(255,210,63,.22);border-color:rgba(255,210,63,.9)}
 .tbtn.hand .ico{font-size:28px}
 body.onfoot .tbtn.hand{display:flex}
@@ -325,6 +336,15 @@ body.portrait .tbtn.hand{bottom:calc(230px + var(--sa-b))}
 }
 /* 낮은 가로 화면(폰 가로)에서는 ✋ 단추가 미니맵과 겹친다 — 미니맵 왼쪽 옆으로 옮긴다 */
 @media (orientation:landscape) and (max-height:480px){ .tbtn.hand,body.kidmode .tbtn.hand{right:calc(252px + var(--sa-r));bottom:calc(28px + var(--sa-b))} }
+/* v0.10.140 폰 가로 어린이 교실 — ✋(96px)가 가운데 「📍 이 자리」와 모서리가 겹치고, 👀 살피기는 지도 위에 떴다(740x360 실측).
+   둘을 오른쪽 아래 빈 칸(무전 단추 왼쪽 · 배속 단추 아래)에 76px 로 위아래 세운다 */
+@media (orientation:landscape) and (max-height:480px){
+  body.kidmode:not(.portrait) .tbtn.hand{right:calc(160px + var(--sa-r));bottom:calc(14px + var(--sa-b));width:76px;height:76px}
+  body.kidmode:not(.portrait) .tbtn.look{right:calc(160px + var(--sa-r));bottom:calc(96px + var(--sa-b));width:76px;height:76px}
+  body.kidmode:not(.portrait) .tbtn.hand .ico,body.kidmode:not(.portrait) .tbtn.look .ico{font-size:30px}
+}
+/* 자전거 교실 전용 단추(.bkbtn)는 자전거 교실에서만 — 「.tbtn.look」 규칙이 같이 걸려 어린이 교실 가로 화면에 두 번째 👀 가 떴다(세로는 1196줄이 막고 있었다) */
+body:not(.bikemode) .tbtn.bkbtn{display:none!important}
 /* ---------- 게임 감각: 점수 팝 · 위반 포착 플래시 · 별 터짐 ---------- */
 #pops{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .pop{position:absolute;left:50%;top:38%;transform:translate(-50%,0);font-size:34px;font-weight:900;color:var(--ok);text-shadow:0 2px 8px rgba(0,0,0,.6);animation:popUp 1.3s ease-out forwards;white-space:nowrap}
@@ -723,6 +743,8 @@ body.totmode #kidSteps,body.totmode .tbtn.small.speed,body.totmode .tbtn.small.v
 body.totmode .tbtn.totnext{display:flex}
 /* 잠긴 큰 단추 — 토수니 손을 잡기 전에는 건너기를 누를 수 없다(스펙: 혼자 건너기 엔딩 없음) */
 .tbtn.totbtn.locked{background:rgba(255,255,255,.55);border-color:#cfd6e2;color:#6b7280}
+/* v0.10.140 360 폭 — 큰 단추(최소 210px)가 오른쪽 ▶ 다음 마당 단추를 5px 덮었다. 좁은 폰은 최소 폭을 줄인다 */
+@media (max-width:400px){body.totmode:not(.totwalkpad) .tbtn.totbtn{min-width:180px;padding:0 18px}}
 
 /* 🚨 추격 패널 — 상용 추격전의 감각: **거리 게이지**와 **검거 게이지**를 눈으로 본다(소유자 2026-09-12 「상용 퀄리티 높은 게임처럼」).
    추격전에서만 뜬다(body.chasing). 숫자만 있던 줄로는 「지금 너무 붙었나」를 0.5초에 읽을 수 없었다. */
@@ -821,6 +843,34 @@ body.totmode #totWhere span.focus{outline:4px solid #fff;outline-offset:3px}
 #totWhere span.a2{background:#9fd8ff}
 #totWhere span.cc{color:#1b1b1b}
 @media (max-width:380px){body.totmode #totWhere span{font-size:15px;padding:7px 10px;min-height:44px}}
+/* v0.10.140 세로 화면 — 큰 신호등(top 14 · 117px)이 하트와 마당 점(56~91)을 덮었다(375x812 실측).
+   신호등이 뜬 동안만(body.totsig — tot.js setSignal/hideSignal) 신호등을 마당 점 아래로, 큰 글씨를 그 아래로 내린다 */
+/* left:50% + translateX(-50%) 로 놓으면 상자 폭이 화면의 절반(375 폭에서 187px)으로 묶인다 — 말풍선이 5줄로 접혀 아래 칩까지 내려왔다.
+   폭을 글 길이(max-content)로 두고 max-width 로만 묶는다 */
+#totSay,#totBig{width:max-content}
+body.totmode.totfree.portrait #totSay{max-width:calc(100vw - 120px)}   /* 걸어 보는 마당은 오른쪽에 걷기 단추가 선다(360x640 에서 33px 겹침) */
+body.totmode.portrait.totsig #totSig{top:calc(98px + var(--sa-t))}
+body.totmode.portrait.totsig #totBig{top:calc(224px + var(--sa-t))}
+/* v0.10.140 폰 가로(740x360 실측) — 세로용 자리를 그대로 쓰면 가운데에 다 겹쳤다:
+   말풍선(totSay)이 큰 글씨(totBig) 아래 절반을 덮고, 인도·차도·횡단보도 칩이 마당 점을 덮고, 진급 막대(xpCol)가 칩 위에 떴다.
+   → 마당 점은 왼쪽 위 · 칩은 왼쪽 세로 한 줄 · 큰 글씨는 위 가운데 · 말풍선은 큰 단추 바로 위(오른쪽 작은 단추 줄을 비켜 폭 44vw) */
+@media (orientation:landscape) and (max-height:480px){
+  body.totmode:not(.portrait) #totDots{left:calc(14px + var(--sa-l));transform:none;top:calc(10px + var(--sa-t));gap:8px}
+  body.totmode:not(.portrait) #totDots span{font-size:22px}
+  body.totmode:not(.portrait) #totBig{top:calc(60px + var(--sa-t));padding:6px 18px;max-width:44vw}
+  /* 큰 신호등은 오른쪽(하트 아래 · 작은 단추 줄 위)에 작게 — 가운데면 큰 글씨를, 왼쪽이면 걷기 단추를 덮었다 */
+  body.totmode:not(.portrait) #totSig{left:auto;right:calc(14px + var(--sa-r));transform:none;top:calc(58px + var(--sa-t));gap:10px;padding:5px 12px;border-width:2px;border-radius:18px}
+  body.totmode:not(.portrait) #totSigLamp{width:66px;height:66px;font-size:34px}
+  body.totmode:not(.portrait) #totSigNum{font-size:44px;min-width:52px}
+  body.totmode:not(.portrait) #totBig b{font-size:36px}
+  body.totmode:not(.portrait) #totBig i{font-size:17px;margin-top:2px}
+  body.totmode:not(.portrait) #totSay{bottom:calc(122px + var(--sa-b));max-width:44vw;font-size:18px;padding:8px 16px;line-height:1.35}
+  body.totmode:not(.portrait) #totWhere{left:calc(14px + var(--sa-l));transform:none;top:calc(56px + var(--sa-t));bottom:auto;flex-direction:column;flex-wrap:nowrap;align-items:stretch;width:auto;max-width:none}
+  body.totmode:not(.portrait) #totWhere span{font-size:16px;min-height:44px;padding:6px 12px}
+  body.totmode:not(.portrait) #xpCol{display:none!important}
+  body.totmode:not(.portrait) #totStars{top:calc(10px + var(--sa-t));font-size:28px}   /* 하트는 화면 폭(4.4vw)을 따라 커져 844 폭에서 신호등을 6px 덮었다 */
+  body.totmode:not(.portrait) #btnCtlHelp{display:none!important}   /* 조작 설명(?)은 영아 교실에 쓸 데가 없다(세로 화면도 안 보인다) — 667 폭에서 4줄 말풍선과 겹쳤다 */
+}
 #totKeys{display:none;position:fixed;left:calc(12px + var(--sa-l));top:calc(12px + var(--sa-t));z-index:25;max-width:30vw;
   font-size:12px;font-weight:800;color:#e9f0ff;background:rgba(12,16,26,.6);border-radius:10px;padding:6px 10px;line-height:1.5;pointer-events:none}
 body.totmode.desktop #totKeys{display:block}
@@ -855,6 +905,14 @@ body.bikemode #bikeHud{display:block}
 .tbtn.bkbtn.mount{right:calc(128px + var(--sa-r));bottom:calc(40px + var(--sa-b));width:70px;height:70px;background:rgba(40,150,90,.92)}
 .tbtn.bkbtn.bell{right:calc(122px + var(--sa-r));bottom:calc(126px + var(--sa-b));width:58px;height:58px;background:rgba(230,170,40,.92)}
 .tbtn.bkbtn.bell .ico{font-size:24px}
+/* v0.10.140 폰 가로(740x360 실측) — 👀 살피기가 ⏸·☰·지도를, 🔔 벨이 시점·? 단추를 덮었다(세로용 높이 150·126px 를 그대로 썼다).
+   가로에서는 네 단추를 오른쪽 아래 한 줄로(작은 단추 줄 186px 아래) — 브레이크가 맨 오른쪽(오른손 엄지) */
+@media (orientation:landscape) and (max-height:480px){
+  body.bikemode:not(.portrait) .tbtn.bkbtn.brake{right:calc(16px + var(--sa-r));bottom:calc(14px + var(--sa-b))}
+  body.bikemode:not(.portrait) .tbtn.bkbtn.look{right:calc(128px + var(--sa-r));bottom:calc(20px + var(--sa-b));width:70px;height:70px}
+  body.bikemode:not(.portrait) .tbtn.bkbtn.mount{right:calc(208px + var(--sa-r));bottom:calc(20px + var(--sa-b));width:64px;height:64px}
+  body.bikemode:not(.portrait) .tbtn.bkbtn.bell{right:calc(282px + var(--sa-r));bottom:calc(24px + var(--sa-b));width:56px;height:56px}
+}
 body.bikemode .tbtn.bkbtn{display:flex}
 body.bikemode .tbtn.hand,body.bikemode .tbtn.runbtn,body.bikemode .tbtn.footbtn,body.bikemode .tbtn.revbtn,body.bikemode .tbtn.boxbtn,
 body.bikemode .cluster.right,body.bikemode .sigs,body.bikemode #kidSteps,body.bikemode .face,body.bikemode .pad-mid{display:none!important}

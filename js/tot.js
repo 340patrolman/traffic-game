@@ -124,11 +124,11 @@ TG.Tot = function (game) {
   }
   function setSignal(green, sec) {
     var w = el('totSig'); if (!w) return;
-    w.style.display = 'flex'; w.classList.toggle('go', !!green);
+    w.style.display = 'flex'; w.classList.toggle('go', !!green); document.body.classList.add('totsig');   // css 가 큰 글씨를 신호등 아래로 내린다(세로 화면)
     var n = el('totSigNum'); if (n) n.textContent = (sec === null || sec === undefined) ? '' : Math.max(0, Math.ceil(sec));
     var f = el('totSigFace'); if (f) f.textContent = green ? '🚶' : '🧍';
   }
-  function hideSignal() { var w = el('totSig'); if (w) w.style.display = 'none'; }
+  function hideSignal() { var w = el('totSig'); if (w) w.style.display = 'none'; document.body.classList.remove('totsig'); }
   function setButton(txt, locked) {
     var b = el('btnTot'); if (!b) return;
     b.style.display = txt ? 'flex' : 'none';
