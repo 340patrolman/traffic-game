@@ -717,7 +717,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         for (var sk = 0; sk < SL.length; sk++) { var S0 = SL[sk]; if (S0.axis !== rdB.axis || S0.idx !== rdB.idx || S0.d !== ap.d) continue; var dd0 = (S0.s - sB) * sgB; if (dd0 > -S0.len / 2 - 4 && dd0 < toB) { toB = dd0; stB = S0; } }
         if (car.isBus || car.brtViol) wantB = 0;
         else if (curB === 0 && nB >= 2) wantB = 1;
-        if (!car.isBus && wantB === 1 && stB && toB < stB.len / 2 + 45) { if (nB >= 3) wantB = 2; else car.stShift = 1.9; }
+        // (v0.10.141) 승강장 앞뒤에서 2차로 차를 3차로로 몰던 것(편도 2차로는 1.9m 비킴)을 뺐다 — 일반차로 전체가 차선째 비킨다(아래 city.brtJog)
         if (wantB !== curB && !car.inZone) {
           car.lcShift += city.laneOff(rdB.axis, rdB.idx, wantB) - city.laneOff(rdB.axis, rdB.idx, curB); car.laneIdx = wantB;
           if (!car.isBus) { car.signal = wantB > curB ? 'R' : 'L'; car.signalT = 2; }
@@ -735,6 +735,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         }
         if (car.dwellKey && (!stB || car.dwellKey !== stB.key)) { car.dwellKey = null; car.dwellT = 0; car.dwellNeed = 0; }
       } else if (car.dwellKey) { car.dwellKey = null; car.dwellT = 0; }
+    }
+    // 🚧 승강장 구간 일반차로 비킴(v0.10.141 · js/brt.js city.brtJog): 버스가 아닌 차가 일반차로(1번 이상)에 있으면 차선이 비킨 만큼 같이 비킨다(이륜차·PM 맨 오른쪽 차로 포함)
+    if (city.brtJog && !onLink && ap && car.mode === 'drive' && !car.isBus && car.laneIdx >= 1 && !car.edgeRider) {
+      var rdJ = city.roadOf(ap.node, ap.d), jgC = city.brtJog(rdJ.axis, rdJ.idx, ap.d, rdJ.axis === 'v' ? car.pos.z : car.pos.x);
+      if (jgC > 0) car.stShift = (car.stShift || 0) + jgC;
     }
     // 🚸 정류장 횡단보도(v0.10.69 · js/brt.js): 보행 녹색이면 정지선 앞에 선다(앞범퍼 기준) — 급제동으로도 못 서는 차는 빠져나간다(v0.9.46 규칙)
     if (city.brtXwStop && !onLink && ap && car.mode === 'drive') {

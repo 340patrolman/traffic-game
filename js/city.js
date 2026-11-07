@@ -360,7 +360,8 @@ TG.buildCity = function (cfg) {
       var brtL = BRT ? brtAt(lf.axis, lf.idx, lf.axis === 'v' ? z : x) : null;   // 🚌 중앙버스전용차로 구간(1차로 = 청색 실선 안쪽)
       return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + '(왕복 ' + (lf.lanes * 2) + '차로)' + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
                shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center,
-               brt: brtL ? brtL.name : null, brtLane: !!brtL && lf.lateral > 0.25 && lf.lateral < 3.75 };
+               brt: brtL ? brtL.name : null, brtLane: !!brtL && lf.lateral > 0.25 && lf.lateral < 3.75,
+               jog: (brtL && city.brtJog) ? city.brtJog(lf.axis, lf.idx, lf.dir, lf.axis === 'v' ? z : x) : 0 };   // 🚧 승강장 구간 일반차로 비킴(js/brt.js) — 차선 유지 보조·차로 판정이 뺀다
     }
     if (terrain) {
       var q = terrain.nearest(x, z, true);

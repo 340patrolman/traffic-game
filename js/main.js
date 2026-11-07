@@ -3027,7 +3027,8 @@
     if (eL) eL.classList.toggle('on', !!(sigOnHud && player.signal === 'L')); if (eR) eR.classList.toggle('on', !!(sigOnHud && player.signal === 'R'));
     // 8-2) 플레이어 차로 변경 판정(4차로 격자): 차로 인덱스가 바뀌면 방향지시등 없음 → 감점, 정지선 30m 안(실선) → 감점. 경광등 추격 중은 특례
     if (frame.kind === 'grid' && frame.lanes >= 2 && T.speed > 3) {
-      var laneNow = city.laneIndexAt(frame.axis, frame.idx, frame.lateral), roadKey = frame.axis + frame.idx;
+      var latJ = frame.lateral > 3.75 ? Math.max(3.8, frame.lateral - (frame.jog || 0)) : frame.lateral;   // 🚧 승강장 구간에서 차선째 비킨 것은 차로 변경이 아니다(v0.10.141)
+      var laneNow = city.laneIndexAt(frame.axis, frame.idx, latJ), roadKey = frame.axis + frame.idx;
       if (rules.laneKey === roadKey && rules.laneIdx !== undefined && laneNow !== rules.laneIdx && !player.siren) {
         // 실선 구간 = 진행 방향 앞 교차로의 정지선까지 30m 안(뒤쪽 교차로는 무관)
         var dLc = TG.headingToDir(player.heading), nLc = city.nodeAhead(player.pos.x, player.pos.z, dLc, 0), fLc = TG.DIR_VEC[dLc];

@@ -232,9 +232,9 @@
     if (!fr.onRoad || fr.kind === 'off') return 0;
     var roadH, lat = fr.lateral, centers = [];
     if (fr.kind === 'grid') {
-      if (city.nearIntersectionZone(this.pos.x, this.pos.z)) return 0;
+      if (city.nearIntersectionZone(this.pos.x, this.pos.z) && !(fr.jog > 0)) return 0;   // 🚧 교차로 바로 뒤 승강장(반포역 하행)은 비킴이 교차로 안에서 시작한다 — 그때는 놓지 않는다
       roadH = fr.dir * Math.PI / 2;
-      for (var k = 0; k < fr.lanes; k++) centers.push(city.laneOff(fr.axis, fr.idx, k));
+      for (var k = 0; k < fr.lanes; k++) centers.push(city.laneOff(fr.axis, fr.idx, k) + (k >= 1 ? (fr.jog || 0) : 0));   // 🚧 승강장 구간은 일반차로가 비킨 자리가 차로 중앙(v0.10.141)
     } else {
       if (fr.tx === undefined) return 0;
       roadH = Math.atan2(fr.tx, fr.tz);

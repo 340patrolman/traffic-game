@@ -10,15 +10,23 @@
 //   노선이 많은 정류장일수록 버스가 몰려 서고(줄줄이 정차), 버스를 쫓아 차도로 뛰어드는 사람이 잦다. 인과를 주장하지 않는다(분석이 스스로 밝힌 한계).
 //  배치: 한국 버스는 오른쪽 문이라 승강장은 **버스 진행 방향 오른쪽** — [일반 차로][승강장][버스 1차로 | 중앙선 | 버스 1차로][승강장][일반 차로].
 //   방향마다 승강장이 엇갈려 선다. 게임 격자는 도로 폭이 고정이라 승강장이 2차로 안쪽 1.9m 를 차지한다 — 그 앞뒤에서 2차로 차는 옆으로 비킨다(traffic.js).
-TG.Brt = function (G, city, cfg, scene) {
-  var self = this, B = city.brt || null;
-  self.on = !!(B && B.lanes && B.lanes.length);
-  self.stations = [];
-  self.stats = { buses: 0, rushers: 0, crowd: 0, boards: 0, bumps: 0, flows: 0, greenX: 0, redX: 0, alight: 0, xwStops: 0, reenact: 0 };
-  if (!self.on) { self.update = function () {}; self.reset = function () {}; self.stationNear = function () { return null; }; return; }
-  var L = cfg.BRT_PLAT_LEN || 30, W = 1.9, LAT = 3.9 + W / 2;   // 승강장 길이·폭·중앙선에서 승강장 가운데까지
-  var rng = TG.makeRNG(4077);
-  function sgnOf(d) { return (d === 0 || d === 1) ? 1 : -1; }          // 진행 방향이 격자 좌표를 키우는가
+// 🚧 승강장 자리 · 엇갈림 · 일반차로 비킴(v0.10.141 · 소유자 2026-11-07 「중앙차로 정류장 설계가 잘못되어 1차로로 직진하면 사고가 날 수밖에 없는 구조 ·
+//   구조적으로 약간씩 왕복이 엇갈리게 설계될 수밖에 없다」).
+//  종전: 승강장이 일반차로 첫 차로(2차로) 안쪽 1.9m 를 차지하는데 차선은 곧게 그어져 있었다 — AI 는 옆으로 비켰지만 플레이어(차선 유지 보조)는 그대로 승강장으로 들어갔다.
+//   반포역은 두 방향 승강장이 7m 차이로 나란히 서서 단면 하나에 승강장 둘이 들어갔다.
+//  지금: ① 두 방향 승강장이 겹치면 각자 **제 횡단보도의 상류 쪽**(버스가 서고 나서 횡단보도를 지난다)으로 옮겨 엇갈리게 한다.
+//   ② 승강장 구간에서 그 방향 **일반차로 전체가 바깥으로 JOG 만큼 비킨다**(앞뒤 테이퍼 · 바깥 길가장자리 여유 2.75m 안) — 차선·AI·차선 유지 보조·차로 변경 판정이 같은 값(city.brtJog)을 쓴다.
+//   ③ 승강장 바깥 긴 변과 상류 끝은 충돌선(city.walls) — 그래도 들이받으면 사람 대신 연석에 막힌다. 횡단보도 쪽 끝은 출입구라 비운다.
+//  차선을 그리는 world.js 가 TG.Brt 보다 먼저 돌므로 자리 계산은 이 함수 하나에서 한 번만 한다(city.brtPlaced 에 남긴다).
+TG.BRT_JOG = 2.4;       // 일반차로가 비키는 폭(승강장 1.9 + 여유) — 게임 설계값(실제 정류장 구간 차로 폭·편이 값은 공개 자료로 확인 안 됨)
+TG.BRT_TAPER = 32;      // 비킴 앞뒤 테이퍼 길이(m) — 50km/h 에서 2.4m 를 옮기는 완만한 길이로 잡은 설계값
+TG.brtPlace = function (city, cfg) {
+  if (city.brtPlaced) return city.brtPlaced;
+  var B = city.brt || null, out = [];
+  city.brtPlaced = out;
+  if (!(B && B.lanes && B.lanes.length)) return out;
+  var L = cfg.BRT_PLAT_LEN || 30, W = 1.9, LAT = 3.9 + W / 2;
+  function sgnOf(d) { return (d === 0 || d === 1) ? 1 : -1; }
   function rightOf(d) { var f = TG.DIR_VEC[d]; return [-f[1], f[0]]; }
   function pt(axis, idx, s, lat) { return axis === 'v' ? [city.xs[idx] + lat, s] : [s, city.zs[idx] + lat]; }
   (city.brt.stations || []).forEach(function (S, k) {
@@ -32,14 +40,57 @@ TG.Brt = function (G, city, cfg, scene) {
       xwC = Math.abs(S.xw - ncN) < hbN + 6 ? ncN + (S.xw >= ncN ? 1 : -1) * (hbN + 2.25) : S.xw;
       if (Math.abs(xwC - S.s) - L / 2 <= 26) { var sdX = xwC >= S.s ? 1 : -1; sUse = xwC - sdX * (L / 2 + 2.5); } else xwC = null;
     }
-    var c = pt(S.axis, S.idx, sUse, latS);
-    self.stations.push({ key: 'st' + k, name: S.name, id: S.id, ars: S.ars, axis: S.axis, idx: S.idx, d: S.d, s: sUse, sData: S.s, lat: latS, x: c[0], z: c[1],
-      routes: S.routes || 0, wide: S.wide || 0, day: S.day || 0, len: L, fatal: S.fatal || null, dwell: null,
-      // (v0.10.69) 동선 — 횡단보도 자리(OSM · 없으면 승강장 앞끝 5m 로 어림) · 지하철 출입구(OSM) · 시간대별 승하차(서울시 교통카드 2026.6)
-      xw: xwC != null ? xwC : sUse + sgnOf(S.d) * (L / 2 + 5), xwGuess: xwC == null, xwSig: S.xwSig !== undefined ? !!S.xwSig : true, exits: S.exits || [], h: S.h || null });
-    var st0 = self.stations[self.stations.length - 1]; st0.xwSide = st0.xw >= st0.s ? 1 : -1;
+    out.push({ key: 'st' + k, name: S.name, id: S.id, ars: S.ars, axis: S.axis, idx: S.idx, d: S.d, s: sUse, sData: S.s, lat: latS,
+      routes: S.routes || 0, wide: S.wide || 0, day: S.day || 0, len: L, fatal: S.fatal || null, dwell: null, xwC: xwC,
+      xwSig: S.xwSig !== undefined ? !!S.xwSig : true, exits: S.exits || [], h: S.h || null });
   });
-  city.brtStations = self.stations;   // traffic.js(정차·비킴)가 읽는다
+  // ① 엇갈림: 같은 도로 두 방향 승강장이 겹치면(단면 하나에 승강장 둘) 각자 제 횡단보도 상류 쪽으로 — 그래도 겹치면 나중 것을 하류로 밀어 4m 띄운다
+  for (var i = 0; i < out.length; i++) for (var j = i + 1; j < out.length; j++) {
+    var A = out[i], Bq = out[j];
+    if (A.axis !== Bq.axis || A.idx !== Bq.idx || A.d === Bq.d || Math.abs(A.s - Bq.s) >= L + 4) continue;
+    [A, Bq].forEach(function (P) { if (P.xwC != null) P.s = P.xwC - sgnOf(P.d) * (L / 2 + 2.5); });
+    var gap = Math.abs(A.s - Bq.s);
+    if (gap < L + 4) { Bq.s += sgnOf(Bq.d) * (L + 4 - gap); if (Bq.xwC != null && Math.abs(Bq.xwC - Bq.s) > L / 2 + 3) Bq.xwC = null; }
+    A.stag = Bq.stag = true;
+  }
+  out.forEach(function (P) {
+    var c = pt(P.axis, P.idx, P.s, P.lat); P.x = c[0]; P.z = c[1];
+    // (v0.10.69) 동선 — 횡단보도 자리(OSM · 없으면 승강장 앞끝 5m 로 어림) · 지하철 출입구(OSM) · 시간대별 승하차(서울시 교통카드 2026.6)
+    P.xw = P.xwC != null ? P.xwC : P.s + sgnOf(P.d) * (L / 2 + 5); P.xwGuess = P.xwC == null; P.xwSide = P.xw >= P.s ? 1 : -1;
+    // ③ 충돌선: 일반차로 쪽 긴 변 + 횡단보도 반대쪽 끝(사람이 드나드는 횡단보도 쪽 끝은 비운다)
+    //  충돌선은 유리 난간에서 0.35m 안쪽 — 차 판정 원(반지름 1.69m)이 차 폭 절반(0.93m)보다 넓어, 난간에 붙으면 차체가 닿지 않아도 「구조물 충돌」이 났다
+    var sg = P.lat > 0 ? 1 : -1, lo = P.lat + sg * (W / 2 - 0.35), li = P.lat - sg * W / 2, a0 = P.s - L / 2 + 0.35, a1 = P.s + L / 2 - 0.35, far = P.xwSide > 0 ? a0 : a1;
+    var seg = function (s0, l0, s1, l1) { var p0 = pt(P.axis, P.idx, s0, l0), p1 = pt(P.axis, P.idx, s1, l1); city.walls.push({ x1: p0[0], z1: p0[1], x2: p1[0], z2: p1[1], brt: true }); };
+    seg(a0, lo, a1, lo); seg(far, li, far, lo);
+  });
+  // ② 일반차로 비킴: 진행 방향 d 의 차로가 그 방향 승강장 앞뒤에서 바깥(오른쪽)으로 JOG 만큼(앞뒤 TAPER 는 부드럽게)
+  var JOG = TG.BRT_JOG, TAP = TG.BRT_TAPER, HOLD = 8;   // 승강장 앞뒤 8m 는 다 비킨 채로 — 3m 면 차선 유지 보조가 덜 따라온 차(판정 원 1.69m)가 승강장 끝 벽선에 닿았다(순찰 「구조물 충돌 −8」 실측)
+  function ease(t) { t = TG.clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+  city.brtJog = function (axis, idx, d, s) {
+    var best = 0;
+    for (var k = 0; k < out.length; k++) {
+      var P = out[k]; if (P.axis !== axis || P.idx !== idx || P.d !== d) continue;
+      var u = Math.abs(s - P.s), h = L / 2 + HOLD; if (u > h + TAP) continue;
+      var v = u <= h ? JOG : JOG * ease((h + TAP - u) / TAP); if (v > best) best = v;
+    }
+    return best;
+  };
+  city.brtJogSide = function (axis, sd) { return axis === 'v' ? (sd < 0 ? 0 : 2) : (sd > 0 ? 1 : 3); };   // 도로 중심선 기준 부호 sd 쪽을 달리는 방향
+  city.brtStations = out;
+  return out;
+};
+TG.Brt = function (G, city, cfg, scene) {
+  var self = this, B = city.brt || null;
+  self.on = !!(B && B.lanes && B.lanes.length);
+  self.stations = [];
+  self.stats = { buses: 0, rushers: 0, crowd: 0, boards: 0, bumps: 0, flows: 0, greenX: 0, redX: 0, alight: 0, xwStops: 0, reenact: 0 };
+  if (!self.on) { self.update = function () {}; self.reset = function () {}; self.stationNear = function () { return null; }; return; }
+  var L = cfg.BRT_PLAT_LEN || 30, W = 1.9, LAT = 3.9 + W / 2;   // 승강장 길이·폭·중앙선에서 승강장 가운데까지
+  var rng = TG.makeRNG(4077);
+  function sgnOf(d) { return (d === 0 || d === 1) ? 1 : -1; }          // 진행 방향이 격자 좌표를 키우는가
+  function rightOf(d) { var f = TG.DIR_VEC[d]; return [-f[1], f[0]]; }
+  function pt(axis, idx, s, lat) { return axis === 'v' ? [city.xs[idx] + lat, s] : [s, city.zs[idx] + lat]; }
+  self.stations = TG.brtPlace(city, cfg);   // traffic.js(정차·비킴)가 city.brtStations 를 읽는다
 
   // ---------- 그림: 청색 실선은 world.js(차선과 같은 자리) · 여기서는 승강장·붉은 포장·「버스전용」 글자 ----------
   var gb = new TG.GeoBuilder(), paint = new TG.GeoBuilder(), glass = new TG.GeoBuilder(), signs = new TG.GeoBuilder();
