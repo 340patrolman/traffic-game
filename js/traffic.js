@@ -966,7 +966,20 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     var L = 4 + car.v * 0.45, tgt = null;
     for (var m = car.idx; m < path.length; m++) { var pp = path[m]; if (Math.hypot(pp.x - car.pos.x, pp.z - car.pos.z) >= L || m === path.length - 1) { tgt = pp; break; } }
     if (tgt) {
-      var tx = tgt.x + rx * car.extra, tz = tgt.z + rz * car.extra, dh = TG.wrapAngle(Math.atan2(tx - car.pos.x, tz - car.pos.z) - car.heading), maxYaw = Math.max(0.9, car.v * 0.42);
+      var tx = tgt.x + rx * car.extra, tz = tgt.z + rz * car.extra;
+      // (v0.10.143) 곧은 격자 도로에서 다음 경로점이 멀면(서초구 1:1 은 블록이 길어 수백 m~1.2km) 그 점을 곧장 겨누면 옆 이동(차로 변경·승강장 비킴)이
+      //  각도로 거의 안 잡혀 **차로 번호만 바뀌고 몸은 옛 차로에 남았다**(실측: 1:1 지도 AI 표본 21% 가 1m 넘게 · 이륜차가 맨 오른쪽 차로인데 2차로를 달림).
+      //  그때는 **도로 중심선 기준**으로 「앞 L m 지점 · 경로점의 가로 자리 + 옆 이동」을 겨눈다. 격자 도로 띠 안에서만(교차로 부근·링크·굽은 길은 종전대로 —
+      //  경로 선분 방향을 쓰던 첫 시도는 1:1 의 듬성한 경로가 길 모양을 안 따라 차를 도로 밖으로 냈다).
+      if (!onLink && ap && (car.mode === 'drive' || car.mode === 'yield') && Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z) > L * 1.6 && !city.nearIntersectionZone(car.pos.x, car.pos.z)) {
+        var rdA = city.roadOf(ap.node, ap.d), cA = rdA.axis === 'v' ? city.xs[rdA.idx] : city.zs[rdA.idx], hA = city.halfOf(rdA.axis, rdA.idx), fA = TG.DIR_VEC[ap.d], rA = [-fA[1], fA[0]];
+        var cPerp = (rdA.axis === 'v' ? car.pos.x : car.pos.z) - cA, tPerp = (rdA.axis === 'v' ? tgt.x : tgt.z) - cA;
+        if (Math.abs(cPerp) < hA + 2 && Math.abs(tPerp) < hA + 2) {
+          var wPerp = tPerp + (rdA.axis === 'v' ? rA[0] : rA[1]) * car.extra;
+          if (rdA.axis === 'v') { tx = cA + wPerp; tz = car.pos.z + fA[1] * L; } else { tz = cA + wPerp; tx = car.pos.x + fA[0] * L; }
+        }
+      }
+      var dh = TG.wrapAngle(Math.atan2(tx - car.pos.x, tz - car.pos.z) - car.heading), maxYaw = Math.max(0.9, car.v * 0.42);
       if (car.v > 0.05) car.heading += TG.clamp(dh, -maxYaw * dt, maxYaw * dt);
       // 정지선 앞(격자)에서는 차 방향을 도로 방향 ±35° 안에 묶는다 — 느린 속도에서 차로를 크게 옮기면(맨 우측 차로로 가는 이륜차)
       // 앞을 보는 거리가 짧아 제자리에서 빙글 돌았다(v0.10.13 검증에서 찾음). 교차로 안 회전은 정지선을 지난 뒤라 묶지 않는다.
