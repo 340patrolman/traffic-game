@@ -743,7 +743,7 @@ TG.buildTerrain = function (scene, city, cfg) {
           // 차로 경계: 편도 4차로면 3곳. 1차로 경계는 버스전용차로가 있는 도로(경부고속도로)만 청색 실선, 나머지는 흰 점선
           for (var hk = 1; hk < nHW; hk++) {
             var hb = 0.25 + cfg.LANE_W * hk;
-            if (hk === 1 && L.busLane) {   // 청색 복선: 1차로(버스전용차로)를 확보한다
+            if (hk === 1 && busAt(L, p)) {   // 청색 복선: 1차로(버스전용차로)를 확보한다 — 경부고속도로 연결로 + (v0.10.144) 순환 본선의 경부고속도로 구간
               ribbon(mark, p, q, side * (hb - 0.42), side * (hb - 0.22), LIFT, BLU);
               ribbon(mark, p, q, side * (hb + 0.08), side * (hb + 0.28), LIFT, BLU);
             }
@@ -770,7 +770,8 @@ TG.buildTerrain = function (scene, city, cfg) {
           props.box(pp[0] + p.rx * 3, pp[1] + 11.6, pp[2] + p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot }); props.box(pp[0] - p.rx * 3, pp[1] + 11.6, pp[2] - p.rz * 3, 0.14, 0.14, 6, 0x8f959c, { rotY: rot });
           props.box(pp[0] + p.rx * 5.6, pp[1] + 11.4, pp[2] + p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {}); props.box(pp[0] - p.rx * 5.6, pp[1] + 11.4, pp[2] - p.rz * 5.6, 0.5, 0.2, 0.9, 0xfff2c8, {});
         }
-        if (i % 30 === 0) for (var dirn = -1; dirn <= 1; dirn += 2) {
+        // (v0.10.144) 노면 「버스전용」 글자도 전용차로가 있는 자리에서만 — 종전엔 모든 고속도로(올림픽대로·강남순환로 포함) 1차로에 30점마다 그렸다
+        if (i % 30 === 0 && busAt(L, p)) for (var dirn = -1; dirn <= 1; dirn += 2) {
           var rot2 = Math.atan2(p.tx * dirn, p.tz * dirn), off = dirn * cfg.HW_LANES[0];
           busTextGeo.rect(p.x + p.rx * off + p.tx * dirn * 6, p.z + p.rz * off + p.tz * dirn * 6, 2.2, 4 * 2.4, rot2 + Math.PI, p.y + 0.06, 0xffffff);
         }
@@ -820,6 +821,16 @@ TG.buildTerrain = function (scene, city, cfg) {
                   W: ['사당IC', '서초대로·사당 방향', '강남순환로'], NE: ['한남대교 진출입로', '강남대로·한남대교', '올림픽대로'], NW: ['동작대교 진출입로', '동작대로·동작대교', '올림픽대로'],
                   SE: ['양재IC', '강남대로·양재 방향', '경부고속도로'], SW: ['선암IC', '동작대로·선암 방향', '강남순환로'] };
   // 순환 고속도로 구간 이름: 북쪽 호 = 올림픽대로 · 서쪽 = 강남순환로 · 동쪽·남쪽 = 경부고속도로
+  // 🚌 (v0.10.144) 버스전용차로가 있는 자리 — 소유자 「경부고속도로 버스중앙차로도 제대로 구현」.
+  //  종전에는 링크 단위(link.busLane)라 762m 짧은 연결로 「경부고속도로」에만 있고, **순환 본선 가운데 「경부고속도로」로 불리는 긴 구간**(ringRoadAt)에는 없었다.
+  //  이제 점 단위: 그 링크가 전용차로 링크이거나, 순환 본선의 경부고속도로 구간이면 1차로가 버스전용차로다(차선·AI 차로·위반·지정차로 예외·안내가 같은 함수를 쓴다).
+  function busAt(L, p) {
+    if (!L || !p) return false;
+    if (L.busLane) return true;
+    if (L !== ring) return false;
+    if (p.bus === undefined) p.bus = ringRoadAt(p.x, p.z).name === '경부고속도로';
+    return p.bus;
+  }
   function ringRoadAt(x, z) {
     if (z < -120) return { name: '올림픽대로', limit: 80 };
     if (x < CXC - RA * 0.35) return { name: '강남순환로', limit: 80 };
@@ -1046,7 +1057,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   return {
     links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, cloudMesh: cloudMesh, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
-    heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, busAt: busAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {
