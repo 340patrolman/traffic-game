@@ -398,5 +398,28 @@ TG.Peds = function (scene, city, signals, cfg, rng) {
     }
     return false;
   };
+  // (v0.10.145) 앞쪽 횡단보도 위에 사람이 있으면 **그 횡단보도 띠의 들머리**까지 거리(앞범퍼 기준 · 0.8m 남김)를 준다 — 없으면 null.
+  //  교차로를 돌아 나와 건너편 횡단보도로 들어가는 차가 사람 0.7m 앞(횡단보도 한가운데)까지 들어와 서면, 사람은 차에 막히고 차는 사람 때문에 서서 **둘 다 갇혔다**
+  //  (영아 교실 다섯 걸음 마당에서 아이가 72초 동안 못 건넘 · 상시 검증 실측). 차는 횡단보도에 들어가기 **전에** 선다(제27조 보행자 보호 취지).
+  this.crossEntryAhead = function (x, z, fx, fz, maxAlong, maxLat, front) {
+    var list = self.walker ? peds.concat([self.walker]) : peds, best = null, dd = TG.headingToDir(Math.atan2(fx, fz)), f = TG.DIR_VEC[dd];
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i]; if (!p || !p.pos || p.state === 'plat') continue;
+      var dx = p.pos.x - x, dz = p.pos.z - z, along = dx * fx + dz * fz;
+      //  옆 폭은 **횡단보도의 차도 구간 전체**로 본다 — 차 진행선 좌우 6.5m 만 보면, 반대편 차로를 건너오던 아이를 늦게 봐서 차가 이미 횡단보도 안에 들어가 있었다
+      if (along <= 0 || along > maxAlong || !city.onRoad(p.pos.x, p.pos.z)) continue;
+      var nd = city.nearestNode ? city.nearestNode(p.pos.x, p.pos.z) : null; if (!nd) continue;
+      var axL = city.axisOfDir(dd), hL = city.halfOf(axL, axL === 'v' ? nd.i : nd.j), latL = (p.pos.x - nd.x) * -f[1] + (p.pos.z - nd.z) * f[0];
+      if (Math.abs(latL) > hL + 0.3) continue;   // 차도 밖(연석 위)에 선 사람은 세지 않는다 — 다 세면 통행이 멈춘다
+      var aP = (p.pos.x - nd.x) * f[0] + (p.pos.z - nd.z) * f[1], aC = (x - nd.x) * f[0] + (z - nd.z) * f[1] + (front || 0), entry = null;
+      var oD = (dd + 2) % 4, nE = city.crossNear(nd, oD), fE = city.crossFar(nd, oD);   // 교차로를 지나서(나가는 쪽) 횡단보도 = 맞은편 접근로의 횡단보도
+      if (aP > nE - 0.6 && aP < fE + 0.6) entry = nE;
+      else { var nA = city.crossNear(nd, dd), fA = city.crossFar(nd, dd); if (aP > -fA - 0.6 && aP < -nA + 0.6) entry = -fA; }   // 들어오는 쪽 횡단보도
+      if (entry === null) continue;
+      var dist = entry - 0.8 - aC;
+      if (dist > 0 && (best === null || dist < best)) best = dist;
+    }
+    return best;
+  };
   this.spawn = spawn; this.remove = remove;
 };

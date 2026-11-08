@@ -872,6 +872,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (self.peds && !onLink) {
       // 사람까지 거리도 **앞범퍼**에서 잰다 — 중심에서 재면 긴 차일수록 사람을 차체 안에 두고 선다(앞범퍼 2m 앞에서 선다).
       var hlP = car.len / 2, pd = self.peds.nearestAhead(car.pos.x, car.pos.z, fx, fz, (pedIgnore ? 6 : 18) + hlP, pedIgnore ? 2.2 : 6.5);
+      // (v0.10.145) 그 사람이 횡단보도 위면 사람 바로 앞이 아니라 **횡단보도 들머리 앞**에서 선다(peds.crossEntryAhead) — 사람 0.7m 앞에 서면 서로 막혀 갇혔다
+      if (!pedIgnore && self.peds.crossEntryAhead) { var ceA = self.peds.crossEntryAhead(car.pos.x, car.pos.z, fx, fz, 18 + hlP, 6.5, hlP); if (ceA !== null) target = Math.min(target, stopProfile(ceA, cfg.AI_DECEL)); }
       if (pd !== null) { pd -= hlP; target = Math.min(target, stopProfile(pd - 0.7, pedIgnore ? cfg.AI_EMERGENCY : cfg.AI_DECEL)); if (pd < 3.7) { emergency = true; if (car.v > 4 && !car.pedHorn && !self.quiet && self.player && Math.hypot(car.pos.x - self.player.pos.x, car.pos.z - self.player.pos.z) < 50) { car.pedHorn = true; TG.audio.horn(false); } } else car.pedHorn = false; }   // 급제동 경적
     }
     var lead = leadOf(car, fx, fz);
@@ -987,7 +989,9 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       //  각도로 거의 안 잡혀 **차로 번호만 바뀌고 몸은 옛 차로에 남았다**(실측: 1:1 지도 AI 표본 21% 가 1m 넘게 · 이륜차가 맨 오른쪽 차로인데 2차로를 달림).
       //  그때는 **도로 중심선 기준**으로 「앞 L m 지점 · 경로점의 가로 자리 + 옆 이동」을 겨눈다. 격자 도로 띠 안에서만(교차로 부근·링크·굽은 길은 종전대로 —
       //  경로 선분 방향을 쓰던 첫 시도는 1:1 의 듬성한 경로가 길 모양을 안 따라 차를 도로 밖으로 냈다).
-      if (!onLink && ap && (car.mode === 'drive' || car.mode === 'yield') && Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z) > L * 1.6 && !city.nearIntersectionZone(car.pos.x, car.pos.z)) {
+      // (v0.10.145) **주행(drive) 중에만** — 정차 유도(yield) 중인 차에 걸면 이미 갓길에 선 차가 연석 쪽으로 머리를 틀어(방향 3.19 → 3.81) 「정차 완료」가 안 났다
+      //  (상시 검증 「단속 정차→하차」·「정차 캠」이 v0.10.143 부터 두 번 연속 실패 · 켜고 끄며 가름).
+      if (!onLink && ap && car.mode === 'drive' && Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z) > L * 1.6 && !city.nearIntersectionZone(car.pos.x, car.pos.z)) {
         var rdA = city.roadOf(ap.node, ap.d), cA = rdA.axis === 'v' ? city.xs[rdA.idx] : city.zs[rdA.idx], hA = city.halfOf(rdA.axis, rdA.idx), fA = TG.DIR_VEC[ap.d], rA = [-fA[1], fA[0]];
         var cPerp = (rdA.axis === 'v' ? car.pos.x : car.pos.z) - cA, tPerp = (rdA.axis === 'v' ? tgt.x : tgt.z) - cA;
         if (Math.abs(cPerp) < hA + 2 && Math.abs(tPerp) < hA + 2) {
