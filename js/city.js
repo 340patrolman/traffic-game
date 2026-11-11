@@ -381,7 +381,7 @@ TG.buildCity = function (cfg) {
         // (v0.10.144) busLane 은 전용차로가 있는 자리(terrain.busAt)에서만 — 종전엔 모든 고속도로 1차로가 「버스전용차로」였다(올림픽대로에서도 안내가 떴다)
         return { kind: 'link', name: name, lateral: lat, limit: lim2, half: p.half, shoulder: terrain.shoulderOf(p),
                  shoulderMin: oneLane ? cfg.STOP_SHOULDER_MIN : cfg.HW_LANES[2] + 1.9, onRoad: q.dist <= p.half, lanes: oneLane ? 1 : 3,
-                 y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7 && !!(terrain.busAt ? terrain.busAt(q.link, p) : q.link.busLane), oneWay: q.link.oneWay, tx: dirA ? q.tx : -q.tx, tz: dirA ? q.tz : -q.tz, oneLane: oneLane };
+                 y: q.y, link: q.link, i: q.i, dirA: dirA, busLane: !oneLane && lat > 0.3 && lat < 3.7 && !!(terrain.busOn ? terrain.busOn(q.link, p) : q.link.busLane), busLaneOff: !oneLane && lat > 0.3 && lat < 3.7 && !!(terrain.busAt && terrain.busOn && terrain.busAt(q.link, p) && !terrain.busOn(q.link, p)), oneWay: q.link.oneWay, tx: dirA ? q.tx : -q.tx, tz: dirA ? q.tz : -q.tz, oneLane: oneLane };
       }
     }
     return { kind: 'off', name: '도로 밖', lateral: 0, limit: 999, half: 0, shoulder: 0, shoulderMin: 0, onRoad: false, lanes: 0, y: terrain ? terrain.groundAt(x, z) : 0 };

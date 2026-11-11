@@ -136,10 +136,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     return lo + Math.floor(rng() * Math.max(1, n - lo));
   }
   this.minCargoLane = minCargoLane;
-  function busPt(link, p) { return !!(self.terrain && self.terrain.busAt ? self.terrain.busAt(link, p) : link.busLane); }   // (v0.10.144) 그 자리 1차로가 버스전용차로인가(순환 본선 경부고속도로 구간 포함)
+  function busPt(link, p) { return !!(self.terrain && self.terrain.busAt ? self.terrain.busAt(link, p) : link.busLane); }   // (v0.10.144) 그 자리 1차로가 버스전용차로인가(순환 본선 경부고속도로 구간 포함) — **그려진 자리**(시간과 무관)
+  function busOnPt(link, p) { return !!(self.terrain && self.terrain.busOn ? self.terrain.busOn(link, p) : busPt(link, p)); }   // (v0.10.146) **지금 시행 중**인가 — 경부고속도로 서울 구간은 07~21시(laws.json buslane.hours · 소유자 현장 지식)
   function laneFor(car, link, pt) {
     if (link.kind !== 'highway') return 0;
-    var n = self.terrain.laneOffsets(link.pts[0]).length, busl = busPt(link, pt || link.pts[0]);
+    var n = self.terrain.laneOffsets(link.pts[0]).length, busl = busOnPt(link, pt || link.pts[0]);
     if (busl && (car.isBus || car.busLaneViolator)) return 0;
     // 지정차로: 버스전용차로가 없는 고속도로(올림픽대로·순환 본선)에서 승합·화물은 1차로에 들어갈 수 없다.
     // 중앙 기준 오른쪽 차로로 통행한다(소유자: 「올림픽대로에서는 지정차로 위반 — 1차로는 진입할 수 없음.
@@ -177,7 +178,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       // (v0.10.144) 순환 본선에서 경부고속도로 구간에 들고 날 때 차로를 다시 고른다 — 들 때: 버스·전용차로 위반 성향은 1차로, 다른 차는 1차로를 비운다 /
       //  날 때: 승합·화물은 지정차로(오른쪽)로. 지금 자리에서 72m(18점)에 걸쳐 옮긴다(lanePrev·blend — 갈아탈 때와 같은 방식).
       if (L.closed && L.kind === 'highway' && !rt.merge) {
-        var bNow = busPt(L, p);
+        var bNow = busOnPt(L, p);
         if (rt.busSec === undefined) rt.busSec = bNow;
         else if (rt.busSec !== bNow) {
           rt.busSec = bNow;
@@ -373,8 +374,8 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         var p = L.P(i), type = opts.type || TG.pick(rng, L.kind === 'highway' ? HW_TYPES : CITY_TYPES); if ((type === 'bike' || type === 'moto' || type === 'pm') && !opts.type) type = 'sedan';   // 고속도로·연결로(고속도로등)에는 이륜차·자전거·PM 을 놓지 않는다 — 도로교통법 제63조
         var lane = 0, sgn = dirA ? 1 : -1, heading = Math.atan2(p.tx * sgn, p.tz * sgn), isBus = type === 'bus';
         var nHW = self.terrain.laneOffsets(L.pts[0]).length;
-        var isCargoT = type === 'truck' || type === 'pickup', busP = busPt(L, p);   // (v0.10.144) 그 자리에 전용차로가 있는가(순환 본선 경부고속도로 구간 포함)
-        var lvRoll = opts.laneViolator !== undefined ? !!opts.laneViolator : ((isBus || isCargoT) && !busP && rng() < cfg.LANE_VIOLATOR_RATE);
+        var isCargoT = type === 'truck' || type === 'pickup', busP = busOnPt(L, p), busPhys = busPt(L, p);   // (v0.10.144) 그 자리에 전용차로가 있는가 · (v0.10.146) busP = 지금 시행 중 / busPhys = 그려진 자리
+        var lvRoll = opts.laneViolator !== undefined ? !!opts.laneViolator : ((isBus || isCargoT) && !busPhys && rng() < cfg.LANE_VIOLATOR_RATE);
         if (L.kind === 'highway') lane = (opts.lane !== undefined) ? opts.lane
           : (isBus || isCargoT) ? (busP ? (isBus ? 0 : 1 + Math.floor(rng() * Math.max(1, nHW - 1))) : cargoLane({ laneViolator: lvRoll }, nHW))   // 지정차로(별표9) · 전용차로 있는 경부는 버스만 1차로
           : (rng() < cfg.BUSLANE_VIOLATOR_RATE && busP ? 0 : 1 + Math.floor(rng() * 2));
@@ -682,14 +683,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     } else { car.prevAp = null; car.prevDistStop = undefined; }
     // 전용차로·지정차로 판정은 **차가 실제로 달리는 링크(car.route.link)** 로 한다. 위치로 잡은 프레임(cur)은 램프가 본선 포장 안을 지날 때
     // 본선을 돌려준다 — 그러면 램프 위 0번 차로를 본선 1차로로 읽어 **준법 차량을 위반으로 기록**했다(v0.9.45 검증 2회차에서 잡힘).
-    var lpNow = car.path[car.idx] && car.path[car.idx].lp, busNow = !!(car.route && car.route.link && busPt(car.route.link, lpNow || car.route.link.pts[0]));   // (v0.10.144) 지금 자리 기준(순환 본선 경부고속도로 구간 포함)
+    var lpNow = car.path[car.idx] && car.path[car.idx].lp, busNow = !!(car.route && car.route.link && busOnPt(car.route.link, lpNow || car.route.link.pts[0])), busPhysNow = !!(car.route && car.route.link && busPt(car.route.link, lpNow || car.route.link.pts[0]));   // (v0.10.144) 지금 자리 기준 · (v0.10.146) busNow = 시행 중(위반 기록) / busPhysNow = 그려진 자리(경부는 지정차로를 판정하지 않는다)
     if (onLink && cur.kind === 'highway' && car.route && car.route.link && busNow && !car.route.merge && car.route.lane === 0 && !car.isBus && car.mode === 'drive') {
       if (self.witness(car)) { car.busLaneT += dt; if (car.busLaneT > cfg.BUSLANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'buslane', null, true); } }
     } else car.busLaneT = 0;
     // 지정차로 위반: 버스전용차로가 없는 고속도로(올림픽대로·순환 본선)에서 화물·대형승합이 왼쪽 차로(편도 4차로면 1·2차로)로 달린다.
     // 경부고속도로(전용차로 있음)는 소유자 지시대로 판정하지 않는다.
     var RLn = car.route && car.route.link;
-    if (onLink && RLn && RLn.kind === 'highway' && !busNow && !car.route.merge && (car.isCargo || car.isBus) && car.mode === 'drive' &&
+    if (onLink && RLn && RLn.kind === 'highway' && !busPhysNow && !car.route.merge && (car.isCargo || car.isBus) && car.mode === 'drive' &&
         car.route.lane < minCargoLane(RLn.nLanes || (RLn.nLanes = self.terrain.laneOffsets(RLn.pts[0]).length))) {
       if (self.witness(car)) { car.laneT += dt; if (car.laneT > cfg.LANE_WITNESS_SEC && !car.violation) { self.stats.violations++; flag(car, 'lane', null, true); } }
     } else car.laneT = 0;

@@ -222,11 +222,19 @@
     requestAnimationFrame(loop);
   }
 
+  // ⏰ 전용차로 운영 시간(v0.10.146 · 소유자 2026-11-11 「경부고속도로 서울구간 양재-한남은 07시부터 21시까지 · 도로공사구간은 전일제」):
+  //  laws.json buslane.hours 의 「게임 지도 구간」 값을 지형에 넘긴다 — 시간 숫자는 코드에 없다. 못 읽으면(file://) 종일 시행(종전 동작).
+  function busHoursFrom(j) {
+    try {
+      var b = (j.violations || []).filter(function (v) { return v.id === 'buslane'; })[0], H = b && b.hours, g = H && H[H.game];
+      if (g && terrain && terrain.setBusHours) terrain.setBusHours(g.allDay ? { allDay: true } : { from: g.from, to: g.to });
+    } catch (e) { }
+  }
   function loadLaws() {
     if (location.protocol.indexOf('http') !== 0) { log('file:// 모드 — data/laws.json 을 읽을 수 없어 범칙금·벌점은 「확인 중」으로 표시됩니다'); return; }
     var tries = 0;
     (function go() {
-      fetch('data/laws.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (j) { G.laws = j; log('laws.json 로딩: ' + j.violations.length + '항목 (' + j.updated + ')'); })
+      fetch('data/laws.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (j) { G.laws = j; busHoursFrom(j); log('laws.json 로딩: ' + j.violations.length + '항목 (' + j.updated + ')'); })
         .catch(function (e) { tries++; if (tries <= 2) { setTimeout(go, 1200 * tries); return; } log('laws.json 로딩 실패: ' + e.message); if (hud && hud.hint) hud.hint('⚠ 법령 자료를 읽지 못했다 — 범칙금·벌점이 「확인 중」으로 보인다(다시 열면 다시 읽는다)'); });
     })();
   }
@@ -3013,6 +3021,8 @@
     rules.busHintCd -= dt;
     if (frame.kind === 'grid' && frame.brtLane && !player.siren && kmh > 10 && rules.busHintCd <= 0) { hud.hint('🚌 중앙버스전용차로 — 청색 실선 안 1차로는 버스만(제15조 제3항) · 순찰차도 긴급한 용도가 아니면 2차로로'); rules.busHintCd = 15; }
     if (frame.kind === 'link' && frame.busLane && !player.siren && kmh > 10 && rules.busHintCd <= 0) { hud.hint('1차로는 버스전용차로 — 순찰차도 긴급 상황이 아니면 2차로로'); rules.busHintCd = 15; }
+    // (v0.10.146) 운영 시간 밖(경부고속도로 서울 구간 07~21시 밖) — 청색 실선은 그려져 있지만 지금은 전용차로가 아니다(한 번만 알린다 · 1분 간격)
+    if (frame.kind === 'link' && frame.busLaneOff && kmh > 10 && rules.busHintCd <= 0) { var bh9 = terrain.busHours && terrain.busHours(); hud.hint('💭 지금은 버스전용차로 운영 시간' + (bh9 && bh9.from != null ? '(' + bh9.from + '~' + bh9.to + '시)' : '') + ' 밖 — 1차로를 달려도 된다'); rules.busHintCd = 60; }
     // 7) 물에 빠짐 → 마지막 도로 위치로
     rules.saveT -= dt;
     if (frame.onRoad && T.speed < 25 && rules.saveT <= 0) { rules.saveT = 0.5; rules.lastRoad = { x: player.pos.x, z: player.pos.z, h: player.heading }; }

@@ -831,6 +831,16 @@ TG.buildTerrain = function (scene, city, cfg) {
     if (p.bus === undefined) p.bus = ringRoadAt(p.x, p.z).name === '경부고속도로';
     return p.bus;
   }
+  // ⏰ (v0.10.146) 전용차로 **운영 시간** — 소유자 2026-11-11 「경부고속도로 서울구간 양재-한남은 07시부터 21시까지이고 도로공사구간은 전일제」.
+  //  busAt = 전용차로가 **그려진 자리**(청색 복선·노면 글자 — 시간과 무관) / busOn = **지금 시행 중**인가(AI 1차로 비우기·위반 기록·안내).
+  //  시간 값은 코드에 없다 — data/laws.json buslane.hours 에서 main 이 넣는다(못 읽으면 종일 시행 = 종전 동작). 시계는 기기 시계(신호 시간표와 같다) · 검사는 setBusClock 으로 고정.
+  var busHours = null, busClock = null;
+  function busOn(L, p, date) {
+    if (!busAt(L, p)) return false;
+    if (!busHours || busHours.allDay) return true;
+    var d = date || (busClock ? busClock() : new Date()), h = d.getHours() + d.getMinutes() / 60;
+    return h >= busHours.from && h < busHours.to;
+  }
   function ringRoadAt(x, z) {
     if (z < -120) return { name: '올림픽대로', limit: 80 };
     if (x < CXC - RA * 0.35) return { name: '강남순환로', limit: 80 };
@@ -1057,7 +1067,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   return {
     links: links, ring: ring, circuit: circuit, gate: gate, buildGateSigns: buildGateSigns, connE: connE, connN: connN, conns: conns, rampsE: rE, rampsN: rN, walls: walls, cloudMesh: cloudMesh, skyMesh: skyMesh, waterMat: waterMat, bounds: { x0: X0 + 20, x1: X1 - 20, z0: Z0 + 20, z1: Z1 - 20 },
     trees: { placed: placed, skipped: treeSkip }, treeOK: treeOK,   // 검증: 포장 위에 심긴 나무가 있는지 본다
-    heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, busAt: busAt, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
+    heightAt: surfaceAt, groundAt: groundAt, nearestPaved: nearestPaved, ringRoadAt: ringRoadAt, busAt: busAt, busOn: busOn, setBusHours: function (h) { busHours = h || null; }, setBusClock: function (f) { busClock = f || null; }, busHours: function () { return busHours; }, icInfo: IC_INFO, hBase: hBase, isWater: isWater, riverZ: riverZ, yjZ: yjZ, scenery: scenery, nearest: nearest, onDeck: onDeck, laneOffsets: laneOffsets, shoulderOf: shoulderOf, limitOf: limitOf,
     setFlood: setFlood, get flood() { return flood; }, yjZ: yjZ, riverZ: riverZ, nearStream: nearStream, jamsu: jamsu,
     // 도시 노드에서 나가는 출구: {link, dirA:true}
     exitFor: function (node, dir) {
