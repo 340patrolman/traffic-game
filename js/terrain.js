@@ -424,7 +424,8 @@ TG.buildTerrain = function (scene, city, cfg) {
   // ---------- 공간 해시(모든 링크) ----------
 
   var CELL = 24, grid = {};
-  links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]); } });
+  links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]);
+    var pq = L.pts[q]; Object.defineProperty(pq, '_nx', { value: q < L.N - 1 ? L.pts[q + 1] : (L.closed ? L.pts[0] : null), enumerable: false, writable: true }); Object.defineProperty(pq, '_pv', { value: q > 0 ? L.pts[q - 1] : (L.closed ? L.pts[L.N - 1] : null), enumerable: false, writable: true }); } });   /* (v0.10.151) 앞·뒤 표본 — surfaceAt 이 표본 사이 높이를 잇는다 */
   // 가장 가까운 링크 지점. 램프는 링·연결로보다 우선순위가 낮다(겹치는 곳에서 본선 기준).
   // lowest: 지형을 깎을 때 쓰는 모드. 겹치는 도로가 있으면 **가장 낮은 노면**을 기준으로 삼는다.
   // (고가 연결로가 순환고속도로 위를 지나가는 곳에서 지형이 고가 높이까지 올라와 본선을 파묻던 원인)
@@ -534,12 +535,17 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 지금 높이(yHint)에 가장 가까운 노면을 고른다 — 램프 위의 차는 램프에, 밑을 지나는 차는 본선에 붙는다.
   // 전에는 지형용 groundAt(가장 낮은 노면)을 그대로 썼기 때문에 램프 위의 차가 아래 본선 높이로 내려앉아
   // 노면에 파묻히고 카메라가 포장 밑으로 들어가 화면이 검게 나왔다.
+  function yLerp(p, x, z) {   // 표본 p 와 앞(뒤) 표본 사이를 곧게 이은 높이
+    var y = p.y, al = (x - p.x) * p.tx + (z - p.z) * p.tz, nb = al >= 0 ? p._nx : p._pv;
+    if (nb && isFinite(nb.y)) { var dn = Math.hypot(nb.x - p.x, nb.z - p.z); if (dn > 0.5 && dn < 12 && Math.abs(nb.y - y) < 3) y += (nb.y - y) * Math.min(1, Math.abs(al) / dn); }
+    return y;
+  }
   function surfaceAt(x, z, yHint) {
     var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
     var hint = (yHint === undefined || yHint === null || !isFinite(yHint)) ? null : yHint;
     // 1차: 지금 높이와 같은 층(±3m)의 도로만 후보로 본다. 2차: 못 찾으면 층을 가리지 않는다.
     for (var pass = 0; pass < 2; pass++) {
-      var best = null, bs = 1e9, useHint = pass === 0 && hint !== null;
+      var best = null, bs = 1e9, useHint = pass === 0 && hint !== null, IN9 = [];
       for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
         var list = grid[(cx + ox) + ',' + (cz + oz)]; if (!list) continue;
         for (var m = 0; m < list.length; m++) {
@@ -548,14 +554,24 @@ TG.buildTerrain = function (scene, city, cfg) {
           if (useHint && Math.abs(p.y - hint) > 3.0) continue;
           var sc = Math.abs(lat) + Math.abs(alo) * 0.2;   // 중심선에 가까운 도로가 내가 달리고 있는 도로
           if (sc < bs) { bs = sc; best = p; }
+          if (Math.abs(lat) < p.half && Math.abs(alo) <= 4.2) { var w9 = Math.min(1, (p.half - Math.abs(lat)) / 1.5); if (!(alo >= 0 ? p._nx : p._pv)) w9 *= Math.max(0, 1 - Math.abs(alo) / 4.2); IN9.push([p, w9]); }   // 그 포장 안에 실제로 들어와 있는 표본(겹친 포장 — 합류부) · 무게 = 가장자리·끝에서 0 으로(들고 날 때 안 튀게)
         }
       }
       // 노면 「위」를 준다 — 포장은 p.y + 0.02(램프 0.04) 에 깔린다. 전에는 지형 기준(p.y − 0.12)을 줘서
       // 바퀴가 아스팔트 30cm 아래에 잠겼다(소유자: 「차량이 도로에 묻혀서 달리고 있음」).
-      if (best) return best.y + 0.02;
+      // (v0.10.151) 표본 사이는 포장 메시처럼 **곧게 잇는다** — 전에는 가장 가까운 표본 높이를 그대로 줘서 경사(고속도로·램프 기울기 0.1)에서 4m 마다 최대 42cm 계단
+      //  (축약·트윈 지도 12cm 넘는 계단 357곳 · 포장 아래 20cm — 소유자 「도로 속으로 들어가거나 길 위를 퉁퉁 튄다」 · 실측 scratch bump.py)
+      if (best) { var yb = yLerp(best, x, z);
+        // 합류부처럼 포장이 겹친 곳(램프 둘 + 본선)은 표본마다 높이가 20cm 쯤 달라, 가까운 표본이 바뀔 때마다 튀었다 → 같은 층(±1m)에서 **가장 위 포장**(눈에 보이는 면)에 선다
+        var y0 = yb; for (var q9 = 0; q9 < IN9.length; q9++) { if (IN9[q9][0] === best) continue; var dq = yLerp(IN9[q9][0], x, z) - y0; if (dq <= 0 || dq >= 0.6) continue; var yq = y0 + dq * IN9[q9][1] * (1 - Math.max(0, (dq - 0.35) / 0.25)); if (yq > yb) yb = yq; }   /* 높이 차 35cm 까지는 그대로 · 60cm 면 0(따로 뜬 길 — 가까운 중심선 것만) */
+        return yb + 0.02; }
       if (!useHint) break;
     }
-    return groundAt(x, z);
+    // (v0.10.151) 시내 격자 도로 위인데 가까운 연결로 때문에 땅이 눌린 자리(groundAt = 연결로 노면 − 0.12 · 연결로 끝에서 36m 까지 번진다) — 차는 격자 포장(0) 위에 선다.
+    //  서초구 1:1 에서 바깥 큰길이 연결로와 만나는 교차로 둘레 110곳·차로 3.6km 가 12cm 가라앉아 있었다(실측 scratch dip.py — 소유자 「도로 속으로 들어간다」)
+    var g9 = groundAt(x, z);
+    if (g9 < 0 && g9 > -0.3 && city && city.onRoad && city.onRoad(x, z)) return 0;
+    return g9;
   }
   function isWater(x, z) { return hBase(x, z) + river(x, z) < -0.9 + (flood ? 1.2 : 0); }
   function nearStream(x, z) { return Math.abs(z - yjZ(x)) < 20 && x > -80 && x < 420; }
