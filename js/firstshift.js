@@ -32,7 +32,7 @@ TG.FirstShift = function (game) {
   function show() {
     var s = STEPS[st.i], c = EL('coachLine');
     if (c) { c.hidden = false; c.textContent = s.say; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
-    game.hud.hintNow(s.say);
+    if (!c) game.hud.hintNow(s.say);   // (v0.10.148) 길잡이 줄(coachLine)이 있으면 같은 말을 위 알림 띠에 또 띄우지 않는다 — 두 상자에 겹쳐 보였다
     pulse(s.btn);
   }
   function next() { st.i++; st.t = 0; if (st.i >= STEPS.length) return finish(); show(); }
@@ -44,8 +44,29 @@ TG.FirstShift = function (game) {
     if (game.story && game.mode === 'patrol') setTimeout(function () { if (game.state === 'play' && game.mode === 'patrol' && !game.story.on()) game.story.start(); }, 6000);
   }
   // 앞 55m 같은 차로에 느린 흰 차 — 운전하며 휴대전화를 본다(위반 표시가 떠 있다)
+  function arm(car) {
+    car.cruise = 6; car.tutorial = true;
+    car.violation = { type: 'phone', t: game.traffic.time, node: null, seen: true };
+    if (car.marker) car.marker.visible = true;
+    return car;
+  }
+  // (v0.10.148) 연결로(link) 위 — 서초구 1:1 기본 지도는 출발 자리(반포대로·반포대교)가 격자 도로가 아니라 연결로라
+  //  격자 교차로 기준 spawn 이 늘 실패해 첫 출근이 「가속을 눌러 출발!」에서 4분 동안 멈췄다(헤드리스 실측 · 12초마다 0단계로) → 같은 연결로·같은 방향 55~95m 앞에
+  function spawnOnLink(fr) {
+    var L = fr.link, tr = game.traffic; if (!L || !L.pts || !L.N || fr.i == null) return null;
+    var i0 = fr.i, st9 = fr.dirA ? 1 : -1, s0 = L.pts[i0] && L.pts[i0].s; if (s0 == null) return null;
+    for (var want = 55; want <= 95; want += 10) {
+      var j = i0; while (j > 0 && j < L.N - 1 && Math.abs(L.pts[j].s - s0) < want) j += st9;
+      if (j < 2 || j > L.N - 3) break;
+      var car = tr.spawn({ atLink: { link: L, i: j, dirA: !!fr.dirA }, v: 6, cruise: 6, straight: true, type: 'sedan', trait: 'phone', violator: false });
+      if (car) return arm(car);
+    }
+    return null;
+  }
   function spawnTarget() {
     var P = game.player, city = game.city, tr = game.traffic;
+    var fr = city.frameAt(P.pos.x, P.pos.z, P.heading);
+    if (fr && fr.kind === 'link') return spawnOnLink(fr);
     var d = TG.headingToDir(P.heading), dv = TG.DIR_VEC[d];
     var ahead = 55, x, z;
     for (var k = 0; k < 6; k++) { x = P.pos.x + dv[0] * ahead; z = P.pos.z + dv[1] * ahead; if (!city.nearIntersectionZone(x, z)) break; ahead += 10; }   // 교차로 부근에는 세우지 않는다
@@ -55,10 +76,7 @@ TG.FirstShift = function (game) {
     if (d === 0 || d === 2) x = P.pos.x; else z = P.pos.z;
     var car = tr.spawn({ at: { x: x, z: z, d: d, node: nd }, v: 6, cruise: 6, straight: true, type: 'sedan', trait: 'phone', violator: false });
     if (!car) return null;
-    car.cruise = 6; car.tutorial = true;
-    car.violation = { type: 'phone', t: tr.time, node: null, seen: true };
-    if (car.marker) car.marker.visible = true;
-    return car;
+    return arm(car);
   }
   this.update = function (dt) {
     if (!st || game.state !== 'play') return;
