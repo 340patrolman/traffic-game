@@ -2728,6 +2728,7 @@
   G.addScore = addScore; G.selectTarget = function (s) { selectTarget(s); };
   function penalize(key, text, teach) {
     if (!SCORED[G.mode] && key !== 'crash' && key !== 'pedestrian') { if (teach) hud.hint(teach); return; }   // 자유 주행·서킷: 사고 외 감점 없음(안내만)
+    if (G.first && G.first.on && G.first.on() && key !== 'crash' && key !== 'pedestrian') { hud.notice(text + ' — 첫 출근은 감점 없이 알려만 준다', 'info', 2600); if (teach) hud.hint(teach); return; }   // (v0.10.150) 첫 출근 길잡이 동안은 사고 외 감점 없음 — 「첫 판은 실패할 수 없다」(firstshift.js) · 길잡이대로 가속하자마자 과속 −15 로 시작했다(812×375 실측)
     addScore(C.SCORE[key], key); hud.notice(text + ' (' + C.SCORE[key] + ')', 'bad', 2600);
     if (G.crew && (key === 'crash' || key === 'speeding')) G.crew.say(key, 2.8, 40);   // 사수가 짧게 짚는다 if (teach) hud.hint(teach); TG.audio.bad();
     if (G.praise) G.praise.miss();   // 콤보만 끊는다 — 감점은 위에서 이미 했고, 여기서 더 벌하지 않는다
