@@ -3,6 +3,7 @@
 # 문서는 사이트에 올리지 않는다(저장소에는 그대로 있다 — AI·개발자는 저장소에서 읽는다). 게임 화면(html)에는 noindex 를 단다.
 exclude:
   - CLAUDE.md
+  - CLAUDE-HISTORY.md
   - ROADMAP.md
   - README.md
   - DATA_WANTED.md
