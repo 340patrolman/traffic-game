@@ -620,6 +620,8 @@ body.scene-near .tbtn.tow{display:flex}
 .bootcard .primary.big{margin-top:20px;width:100%;min-height:64px;font-size:19px;border-radius:16px}
 .bootcard .dim.small{margin-top:10px;font-size:12px;line-height:1.5;word-break:keep-all}
 .bootcard .ghost{margin-top:10px;width:100%;min-height:44px;font-size:13px}
+/* v0.10.149 폰 가로(높이 520px 아래) — 세로로 쌓으면 경찰 마크 윗부분과 맨 아래 단추가 화면 밖으로 나갔다(812×375 실측) · 왼쪽 = 마크·이름 / 오른쪽 = 단추 */
+@media (max-height:520px) and (min-aspect-ratio:4/3){.overlay.boot{overflow-y:auto}.bootcard{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:26px;align-items:center;max-width:min(94vw,780px);padding:10px 18px}.bootcard .em{grid-column:1;grid-row:1/span 2;align-self:end;width:clamp(56px,16vh,84px);margin:0 auto 4px}.bootcard .logo{grid-column:1;grid-row:3;font-size:clamp(28px,9vh,40px)}.bootcard .sub{grid-column:1;grid-row:4/span 2;align-self:start;font-size:13px}.bootcard #btnBoot{grid-column:2;grid-row:1/span 2;margin-top:0}.bootcard>.dim.small:not(#bootVer){grid-column:2;grid-row:3;margin-top:6px}.bootcard #btnBootQuiet{grid-column:2;grid-row:4;margin-top:6px}.bootcard #btnBootFresh{grid-column:2;grid-row:5;margin-top:6px}.bootcard #bootVer{grid-column:1/span 2;grid-row:6}}
 
 /* ---------- 기본 배치와 좁은 화면 대응 ----------
    소유자: 「미니맵은 오른쪽 상단 윗부분이 기본값 · 필요시 이동」 · 「조작버튼도 최대한 가려지지 않게」 ·
@@ -1301,6 +1303,8 @@ body.portrait.hudmore #hudbar .hb-topspeed{display:inline-flex!important}
 @media (prefers-reduced-motion:reduce){#title .workbtn{animation:none}}
 #title .mgroup .mpick{min-height:44px}
 @media (max-width:380px){#title .workbtn{font-size:23px;padding:14px 14px 11px}}
+/* v0.10.149 폰 가로 첫 메뉴 — 세로로 쌓여 「출근하기」가 화면 아래 끝에 걸리고 계급·오늘의 임무·다른 근무는 밀어야 보였다(812×375 실측) · 왼쪽 = 이름·이번 장 / 오른쪽 = 출근하기·계급·더 보기 */
+@media (max-height:520px) and (min-aspect-ratio:4/3){#title .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;align-items:start;width:min(96vw,860px);max-height:96vh;padding:12px 18px}#title .card>*{grid-column:2}#title .card>.badge,#title .card>h1,#title .card>.sub,#title .card>#chapterCard{grid-column:1}#title .card>.badge{grid-row:1}#title .card>h1{grid-row:2;font-size:min(6.2vw,44px)}#title .card>.sub{grid-row:3}#title .card>#chapterCard{grid-row:4/span 6}#title .card>#btnStart{grid-row:1/span 3;margin-top:4px}#title .workbtn{font-size:24px;padding:12px 16px 10px}}
 
 /* 🎬 정차 캠(#3) — 위아래 영화 띠 + 세 항목 등급이 하나씩 켜진다 */
 body.stopcam #hud > *:not(#stopBars):not(#stopGrade),body.stopcam #touch,body.stopcam #minimap,body.stopcam #xpCol{opacity:0;transition:opacity .15s}   /* 등급 카드·영화 띠는 #hud 안에 있다 — 통째로 숨기면 같이 사라졌다(기준선 찍다가 찾음) */
