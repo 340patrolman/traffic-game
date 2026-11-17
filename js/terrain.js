@@ -703,6 +703,23 @@ TG.buildTerrain = function (scene, city, cfg) {
     }
   });
   var rampPts = []; links.forEach(function (Lr) { if (Lr.oneWay || Lr.id === 'gate') for (var ri = 0; ri < Lr.N; ri++) rampPts.push(Lr.pts[ri]); });   // 관문 길도 포함 — 순환도로 방호벽이 출구를 막고 있었다
+  function shoreEdge(p, side) {   // 이 표본의 그쪽 가장자리 밖 8m 안이 물이고, 4m 안에 다른 포장이 없는가(물가 가드레일 자리)
+    var any = false, d;
+    for (d = 1.5; d <= 8; d += 2.1) if (isWater(p.x + p.rx * side * (p.half + d), p.z + p.rz * side * (p.half + d))) { any = true; break; }
+    if (!any) return false;
+    var wet = false;
+    for (d = -0.4; d <= 8; d += 0.7) {   /* 0.3 = 벽이 서는 선 — 그 안쪽 −0.4 부터 본다 · 그 선부터 다른 도로 포장(가장자리 0.5m 여유)에 걸리면 안 세운다 */
+      var x = p.x + p.rx * side * (p.half + d), z = p.z + p.rz * side * (p.half + d), cs = roadCands(x, z), paved = !!(city && city.onRoad && city.onRoad(x, z));
+      for (var c9 = 0; c9 < cs.length && !paved; c9++) if (cs[c9].p.link !== p.link && cs[c9].dist <= cs[c9].half + 0.5) paved = true;
+      if (paved) { if (d < 4) return false; break; }
+      if (d > 0 && isWater(x, z)) wet = true;
+    }
+    return wet;
+  }
+  function shoreClear(L, i, x, z) {   // 벽 자리가 제 길의 포장 안쪽으로 파고들지 않는가(급커브 안쪽에서는 이웃 표본의 포장 안으로 들어온다 — 그런 토막은 세우지 않는다)
+    for (var j = -3; j <= 4; j++) { var pj = L.P(i + j), lat = (x - pj.x) * pj.rx + (z - pj.z) * pj.rz, alo = (x - pj.x) * pj.tx + (z - pj.z) * pj.tz; if (Math.abs(alo) <= 2.6 && Math.abs(lat) < pj.half - 0.2) return false; }
+    return true;
+  }
   function rampGap(L, p, side) {
     if (!L.closed) return false;
     // 램프가 본선 옆을 지나거나 합류하는 구간에서는 방호벽·난간을 비운다(실제 IC 도 합류부에 방호벽이 끊긴다).
@@ -820,6 +837,18 @@ TG.buildTerrain = function (scene, city, cfg) {
         }
         ribbon(props, p, q, -half - 0.3, half + 0.3, -0.9, 0xa9a59c);
         if (i % 5 === 0) { var pc = Pt(p, 0, 0); props.box(pc[0], pc[1] - 4, pc[2], half * 1.2, 8, 1.6, 0x9d9a91, { rotY: Math.atan2(p.tx, p.tz) }); }
+      }
+      // (v0.10.153) 물가 가드레일 — 포장 바로 밖이 물(한강·하천)인데 방호벽·난간이 없던 가장자리. 전에는 고속도로 본선(램프 옆은 비움)과 양방향 다리에만 벽이 있어,
+      //  강가를 도는 램프·연결로에서 포장을 1.7m 만 벗어나도 4.6m 아래 강바닥으로 뚝 떨어진 뒤 「물 복귀」로 되돌려졌다(트윈 onNW 자동 주행 실측 · 서초구 1:1 도 본선 22점·램프 13점이 열려 있었다 — scratch shore.py).
+      //  다른 포장(합류하는 램프·시내 도로)이 4m 안에 붙어 있는 가장자리에는 세우지 않는다 — 벽이 길을 막으면 안 된다.
+      if (!noseZone) for (var sw = -1; sw <= 1; sw += 2) {
+        if ((hw || (p.bridge && !L.oneWay)) && !rampGap(L, p, sw)) continue;
+        if (!shoreEdge(p, sw) || !shoreEdge(q, sw)) continue;
+        var sp0 = Pt(p, sw * (half + 0.3), 0), sp1 = Pt(q, sw * (half + 0.3), 0);   /* 포장 가장자리 바로 밖 — 안쪽(반폭 −0.4)에 세우면 충돌 원(반지름 1.7m)이 커브에서 걸렸다(트윈 offNE·onNW 실측) */
+        if (!shoreClear(L, i, sp0[0], sp0[2]) || !shoreClear(L, i, sp1[0], sp1[2]) || !shoreClear(L, i, (sp0[0] + sp1[0]) / 2, (sp0[2] + sp1[2]) / 2)) continue;
+        wallQuad(props, p, q, sw * (half + 0.3), 0.5, 0.82, 0xd9dde2);
+        if (i % 2 === 0) props.box(sp0[0], sp0[1] + 0.4, sp0[2], 0.12, 0.8, 0.12, 0x8f959c, {});
+        walls.push({ x1: sp0[0], z1: sp0[2], x2: sp1[0], z2: sp1[2], lk: L.id, y: p.y, kind: 'shore' });
       }
       // 제한속도 표지(200m 마다, 양방향; 램프 제외)
       if (!ramp && i % 50 === 25) for (var dn = -1; dn <= 1; dn += 2) {
