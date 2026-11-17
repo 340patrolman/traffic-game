@@ -425,7 +425,7 @@ TG.buildTerrain = function (scene, city, cfg) {
 
   var CELL = 24, grid = {};
   links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var key = Math.floor(L.pts[q].x / CELL) + ',' + Math.floor(L.pts[q].z / CELL); (grid[key] = grid[key] || []).push(L.pts[q]);
-    var pq = L.pts[q]; Object.defineProperty(pq, '_nx', { value: q < L.N - 1 ? L.pts[q + 1] : (L.closed ? L.pts[0] : null), enumerable: false, writable: true }); Object.defineProperty(pq, '_pv', { value: q > 0 ? L.pts[q - 1] : (L.closed ? L.pts[L.N - 1] : null), enumerable: false, writable: true }); } });   /* (v0.10.151) 앞·뒤 표본 — surfaceAt 이 표본 사이 높이를 잇는다 */
+    var pq = L.pts[q]; Object.defineProperty(pq, '_nx', { value: q < L.N - 1 ? L.pts[q + 1] : (L.closed ? L.pts[0] : null), enumerable: false, writable: true }); Object.defineProperty(pq, '_pv', { value: q > 0 ? L.pts[q - 1] : (L.closed ? L.pts[L.N - 1] : null), enumerable: false, writable: true }); if (L.id === 'gate') Object.defineProperty(pq, '_fe', { value: 1, enumerable: false }); } });   /* (v0.10.151) 앞·뒤 표본 — surfaceAt 이 표본 사이 높이를 잇는다 */
   // 가장 가까운 링크 지점. 램프는 링·연결로보다 우선순위가 낮다(겹치는 곳에서 본선 기준).
   // lowest: 지형을 깎을 때 쓰는 모드. 겹치는 도로가 있으면 **가장 낮은 노면**을 기준으로 삼는다.
   // (고가 연결로가 순환고속도로 위를 지나가는 곳에서 지형이 고가 높이까지 올라와 본선을 파묻던 원인)
@@ -536,9 +536,23 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 전에는 지형용 groundAt(가장 낮은 노면)을 그대로 썼기 때문에 램프 위의 차가 아래 본선 높이로 내려앉아
   // 노면에 파묻히고 카메라가 포장 밑으로 들어가 화면이 검게 나왔다.
   function yLerp(p, x, z) {   // 표본 p 와 앞(뒤) 표본 사이를 곧게 이은 높이
-    var y = p.y, al = (x - p.x) * p.tx + (z - p.z) * p.tz, nb = al >= 0 ? p._nx : p._pv;
-    if (nb && isFinite(nb.y)) { var dn = Math.hypot(nb.x - p.x, nb.z - p.z); if (dn > 0.5 && dn < 12 && Math.abs(nb.y - y) < 3) y += (nb.y - y) * Math.min(1, Math.abs(al) / dn); }
-    return y;
+    // 비율 = 두 표본의 가로선 사이 어디인가(굽은 길 안쪽 차로는 표본 간격이 4m 보다 좁다 — 4m 로 나누면 표본이 바뀔 때마다 4~13cm 어긋났다 · 경부 연결로 바깥 차로 실측).
+    // 이웃 표본의 가로선마저 지났으면 **그 이웃에서 다시** 잇는다(급커브 안쪽 — 어느 표본이 뽑혔든 같은 답 · 전에는 이웃 높이에 멈춰 표본마다 25cm 계단)
+    for (var hop = 0; hop < 4; hop++) {
+      var y = p.y, al = (x - p.x) * p.tx + (z - p.z) * p.tz, nb = al >= 0 ? p._nx : p._pv;
+      if (nb && isFinite(nb.y)) {
+        var dn = Math.hypot(nb.x - p.x, nb.z - p.z); if (!(dn > 0.5 && dn < 12 && Math.abs(nb.y - y) < 3)) return y;
+        var aln = (x - nb.x) * nb.tx + (z - nb.z) * nb.tz, between = al >= 0 ? aln <= 0 : aln >= 0;
+        if (between) { var den = Math.abs(al) + Math.abs(aln); return y + (nb.y - y) * (den > 1e-6 ? Math.abs(al) / den : 0); }
+        if (hop === 3) return nb.y;
+        p = nb; continue;
+      }
+      // 링크의 끝 표본 너머 — 뒤쪽 기울기를 그대로 이어 간다(전에는 끝 높이로 평평하게 5m — 내려가는 램프 끝에서 0.5m 떠 있다가 뚝 떨어졌다 · onW 끝 실측)
+      if (p._fe) return y;   /* 막다른 관문 길(gate) 끝은 끝 높이 그대로 — 이어지는 길이 없고 평평한 광장이다(독립 검수 2026-11-17 · 겹친 포장 쪽도 평평하게 두는 안은 재 보니 덜컹이 9 → 20 으로 늘어 안 씀) */
+      var ob = al >= 0 ? p._pv : p._nx; if (ob && isFinite(ob.y)) { var do9 = Math.hypot(ob.x - p.x, ob.z - p.z); if (do9 > 0.5 && do9 < 12 && Math.abs(ob.y - y) < 3) y += (y - ob.y) * Math.min(1.25, Math.abs(al) / do9); }
+      return y;
+    }
+    return p.y;
   }
   function surfaceAt(x, z, yHint) {
     var cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
@@ -552,7 +566,11 @@ TG.buildTerrain = function (scene, city, cfg) {
           var p = list[m], lat = (x - p.x) * p.rx + (z - p.z) * p.rz, alo = (x - p.x) * p.tx + (z - p.z) * p.tz;
           if (Math.abs(lat) > p.half + 1.5 || Math.abs(alo) > 5) continue;
           if (useHint && Math.abs(p.y - hint) > 3.0) continue;
-          var sc = Math.abs(lat) + Math.abs(alo) * 0.2;   // 중심선에 가까운 도로가 내가 달리고 있는 도로
+          // (v0.10.152) **그 포장 안에 들어와 있는 도로가 먼저** — 전에는 중심선까지의 거리만 봐서, 폭 17m 고속도로의 바깥 차로(중심에서 12.5m)에서는
+          //  옆을 나란히 가는 램프(중심선 7.2m · 제 포장 5.8m 밖)가 「더 가까운 도로」로 뽑혀 차가 본선 포장 위에서 램프 높이를 탔다(합류부마다 15~31cm 덜컹 · 자동 주행 실측).
+          //  안 = 제 폭에 견준 자리(0~1) · 밖(허용 1.5m) = 2 + 벗어난 거리 · 지금 높이와 다른 면은 조금 밀어낸다(겹친 고가에서 오락가락하지 않게)
+          var al1 = Math.abs(lat), sc = (al1 <= p.half ? al1 / p.half : 2 + (al1 - p.half)) + Math.abs(alo) * 0.02 + (hint !== null ? Math.min(2, Math.abs(p.y - hint)) * 0.5 : 0);
+          if (!(alo >= 0 ? p._nx : p._pv)) sc += 1;   // 끝 표본 너머는 이어지는 다른 도로에 양보
           if (sc < bs) { bs = sc; best = p; }
           if (Math.abs(lat) < p.half && Math.abs(alo) <= 4.2) { var w9 = Math.min(1, (p.half - Math.abs(lat)) / 1.5); if (!(alo >= 0 ? p._nx : p._pv)) w9 *= Math.max(0, 1 - Math.abs(alo) / 4.2); IN9.push([p, w9]); }   // 그 포장 안에 실제로 들어와 있는 표본(겹친 포장 — 합류부) · 무게 = 가장자리·끝에서 0 으로(들고 날 때 안 튀게)
         }
