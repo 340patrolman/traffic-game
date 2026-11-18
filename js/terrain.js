@@ -421,6 +421,65 @@ TG.buildTerrain = function (scene, city, cfg) {
     scene.add(back);
   }
 
+  // ---------- (v0.10.154) 포개진 포장은 한 면으로 ----------
+  // 램프 높이는 「본선 포장 안 = 본선 높이 · 나머지 = 분기점에서 일정 기울기」로 맞췄지만 기준이 본선 하나뿐이었다.
+  // 그래서 ① 한 분기점에서 갈라지는 진입·진출 램프가 평면으로 20m 쯤 포개진 채 서로 반대 기울기로 벌어지고(서초IC 0.6~0.7m)
+  // ② 램프 첫머리가 연결로 포장 안에서 이미 기울고 ③ 관문 길이 본선 가장자리와 어긋났다. 위에 그려진 포장이 보이고
+  // 아래 길을 탄 차는 그 밑으로 20cm 잠겼다(소유자 「도로 속으로 들어간다」 · 축약·트윈 · scratch sink.py·ovl.py).
+  // 맞추는 쪽은 램프·관문 길뿐 — 본선·연결로는 그대로 기준. 램프끼리는 가운데 높이에서 만난다. 다른 층(1.5m 넘게 차이)은 손대지 않는다.
+  // 포개짐이 끝난 뒤로는 6표본(24m)에 걸쳐 원래 기울기로 풀어 준다. 1:1 서초구 지도(평지)는 차이가 6cm 아래라 사실상 그대로.
+  (function oneSurface() {
+    function MOV(L) { return L.oneWay || L.id === 'gate'; }
+    var HC = 24, hg = {};
+    links.forEach(function (L) { for (var q = 0; q < L.N; q++) { var p = L.pts[q], k = Math.floor(p.x / HC) + ',' + Math.floor(p.z / HC); (hg[k] = hg[k] || []).push(p); } });
+    function surf(q, x, z) {   /* q 의 링크 노면을 (x, z) 에서 — 앞이나 뒤 표본과 곧게 잇는다 */
+      var L = q.link, al = (x - q.x) * q.tx + (z - q.z) * q.tz, nb = L.P(q.i + (al >= 0 ? 1 : -1));
+      if (nb === q) return q.y;
+      var dn = Math.hypot(nb.x - q.x, nb.z - q.z); return dn > 0.5 ? q.y + (nb.y - q.y) * Math.min(1, Math.abs(al) / dn) : q.y;
+    }
+    var plan = [];
+    links.forEach(function (L) {
+      if (!MOV(L)) return;
+      var D = [], any = false;
+      for (var i = 0; i < L.N; i++) {
+        var p = L.pts[i], cx = Math.floor(p.x / HC), cz = Math.floor(p.z / HC), fix = [], mov = [];
+        for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
+          var lst = hg[(cx + ox) + ',' + (cz + oz)]; if (!lst) continue;
+          for (var m = 0; m < lst.length; m++) {
+            var q = lst[m]; if (q.link === L) continue;
+            var lat = (p.x - q.x) * q.rx + (p.z - q.z) * q.rz, alo = (p.x - q.x) * q.tx + (p.z - q.z) * q.tz;
+            var ov = q.half + p.half - Math.abs(lat);   /* 두 포장이 옆으로 겹치는 폭 — 중심선이 남의 포장 밖이어도 가장자리끼리는 겹친다 */
+            if (Math.abs(alo) > 2.2 || ov <= 0) continue;
+            var ys = surf(q, p.x, p.z); if (Math.abs(ys - p.y) > 1.5) continue;
+            (MOV(q.link) ? mov : fix).push([ys, Math.min(1, ov / 3)]);   /* 무게 = 겹친 폭 0 → 3m 에서 0 → 1 (중심선만 보면 포장이 아직 겹친 가장자리에 10~20cm 가 남았다) */
+          }
+        }
+        var src = fix.length ? fix : mov; if (!src.length) continue;
+        var sw = 0, sy = 0, wm = 0;
+        for (var t = 0; t < src.length; t++) { sw += src[t][1]; sy += src[t][0] * src[t][1]; if (src[t][1] > wm) wm = src[t][1]; }
+        if (sw <= 0) continue;
+        var tgt = sy / sw; if (!fix.length) tgt = (tgt + p.y) / 2;
+        if (mov.length && L.oneWay) tgt += L.kind === 'onramp' ? 0.01 : -0.01;   /* 포개진 진입·진출 램프가 한 평면이 되면 화면에서 깜빡인다(z-fighting · 독립 검수) — 2cm 벌린다 */
+        D[i] = (tgt - p.y) * wm; any = true;
+      }
+      if (any) plan.push([L, D]);
+    });
+    var K = 6;   /* 포개짐 밖으로 풀어 주는 길이(표본) */
+    plan.forEach(function (it) {
+      var L = it[0], D = it[1], out = [];
+      for (var i = 0; i < L.N; i++) {
+        if (D[i] !== undefined) { out.push(D[i]); continue; }
+        var a = -1, b = -1;
+        for (var k = 1; k <= 2 * K; k++) { if (a < 0 && i - k >= 0 && D[i - k] !== undefined) a = i - k; if (b < 0 && i + k < L.N && D[i + k] !== undefined) b = i + k; }
+        /* 맞춘 구간 둘 사이가 2K 안이면 곧게 잇고, 그보다 멀면 양쪽에서 각자 K 에 걸쳐 풀어 준다 —
+           K 만 보면 7~12표본 틈에서 「풀어 주기」와 「잇기」가 한 틈 안에서 만나 7~10cm 턱이 생겼다(독립 검수) */
+        if (a >= 0 && b >= 0 && b - a <= 2 * K) out.push(D[a] + (D[b] - D[a]) * (i - a) / (b - a));
+        else out.push((a >= 0 && i - a < K ? D[a] * (1 - (i - a) / K) : 0) + (b >= 0 && b - i < K ? D[b] * (1 - (b - i) / K) : 0));
+      }
+      for (var j = 0; j < L.N; j++) L.pts[j].y += out[j];
+    });
+  })();
+
   // ---------- 공간 해시(모든 링크) ----------
 
   var CELL = 24, grid = {};
@@ -738,7 +797,7 @@ TG.buildTerrain = function (scene, city, cfg) {
       // 전에는 포장까지 건너뛰어서, 본선 중심선 연장 위에 있는 램프 구간이 통째로 안 그려졌다(가로 거리만 보는 판정 탓).
       // 겹쳐 그려도 램프 노면은 2cm 위라 어른거리지 않는다. 「도로가 중간에 끊긴다」의 진짜 원인이 이 건너뛰기였다.
       var overMain = ramp && p.inMain;                     // 본선 포장 안 = 본선이 이미 깔았다
-      ribbon(road, p, q, -half, half, ramp ? 0.04 : 0.02, 0xffffff, 8);   // 포장은 언제나 그린다(겹쳐도 2cm 위)
+      ribbon(road, p, q, -half, half, (ramp || L.id === 'gate') ? 0.04 : 0.02, 0xffffff, 8);   // 포장은 언제나 그린다(겹쳐도 2cm 위 · 관문 길은 v0.10.154 부터 본선 높이에 맞춰지므로 램프처럼 4cm — 같은 평면이면 깜빡인다)
       // 분기점 뒤 **도류대(gore)** 를 포장으로 메운다 — 소유자(2026-09-16): 「아직도 중간에 끊어져 있어」.
       // 두 갈래가 갈라지자마자 가운데가 잔디로 드러나 운전석에서는 길이 끊긴 것처럼 보였다(실측: S IC 는 분기 20m 뒤부터 포장 없음).
       if (ramp && L.id.indexOf('on') === 0 && p.s < 70) {
@@ -769,7 +828,7 @@ TG.buildTerrain = function (scene, city, cfg) {
         var covered = wq && wq.link !== L && wq.dist <= wq.p.half + 1 && Math.abs(wq.p.y - p.y) < 1.5;   // 다른 도로 포장 위
         if (!covered && p.y - groundAt(wox, woz) > 0.5) wallQuad(props, p, q, ws * half, -4, 0.02, 0x6b6a5e);
       }
-      var LIFT = ramp ? 0.07 : 0.05;
+      var LIFT = (ramp || L.id === 'gate') ? 0.07 : 0.05;
       if (ramp) {
         var ru = (i + 0.5) / L.N, inMerge = L.mergeFrom > 0 ? ru > L.mergeFrom : ru < 0.42, dsh = (i % 2) === 0;
         // 넓어진 이음부(taperHalf 구간)에서는 램프 가장자리선을 긋지 않는다 —
