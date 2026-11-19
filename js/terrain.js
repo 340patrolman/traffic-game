@@ -437,10 +437,16 @@ TG.buildTerrain = function (scene, city, cfg) {
       if (nb === q) return q.y;
       var dn = Math.hypot(nb.x - q.x, nb.z - q.z); return dn > 0.5 ? q.y + (nb.y - q.y) * Math.min(1, Math.abs(al) / dn) : q.y;
     }
+    function bankY(QL, x, z, y0) {   /* 링크 QL 의 노면 높이를 (x, z) 에서 — 가장 가까운 가로선의 표본으로 */
+      var cx = Math.floor(x / HC), cz = Math.floor(z / HC), bq = null, ba = 1e9;
+      for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) { var lst = hg[(cx + ox) + ',' + (cz + oz)]; if (!lst) continue;
+        for (var m = 0; m < lst.length; m++) { var q = lst[m]; if (q.link !== QL) continue; var a = Math.abs((x - q.x) * q.tx + (z - q.z) * q.tz); if (a < ba) { ba = a; bq = q; } } }
+      if (!bq || ba > 2.2) return null; var ys = surf(bq, x, z); return Math.abs(ys - y0) > 1.5 ? null : ys;
+    }
     var plan = [];
     links.forEach(function (L) {
       if (!MOV(L)) return;
-      var D = [], any = false;
+      var D = [], BK = [], W = [], any = false;
       for (var i = 0; i < L.N; i++) {
         var p = L.pts[i], cx = Math.floor(p.x / HC), cz = Math.floor(p.z / HC), fix = [], mov = [];
         for (var ox = -1; ox <= 1; ox++) for (var oz = -1; oz <= 1; oz++) {
@@ -451,7 +457,7 @@ TG.buildTerrain = function (scene, city, cfg) {
             var ov = q.half + p.half - Math.abs(lat);   /* 두 포장이 옆으로 겹치는 폭 — 중심선이 남의 포장 밖이어도 가장자리끼리는 겹친다 */
             if (Math.abs(alo) > 2.2 || ov <= 0) continue;
             var ys = surf(q, p.x, p.z); if (Math.abs(ys - p.y) > 1.5) continue;
-            (MOV(q.link) ? mov : fix).push([ys, Math.min(1, ov / 3)]);   /* 무게 = 겹친 폭 0 → 3m 에서 0 → 1 (중심선만 보면 포장이 아직 겹친 가장자리에 10~20cm 가 남았다) */
+            (MOV(q.link) ? mov : fix).push([ys, Math.min(1, ov / 3), q]);   /* 무게 = 겹친 폭 0 → 3m 에서 0 → 1 (중심선만 보면 포장이 아직 겹친 가장자리에 10~20cm 가 남았다) */
           }
         }
         var src = fix.length ? fix : mov; if (!src.length) continue;
@@ -460,13 +466,23 @@ TG.buildTerrain = function (scene, city, cfg) {
         if (sw <= 0) continue;
         var tgt = sy / sw; if (!fix.length) tgt = (tgt + p.y) / 2;
         if (mov.length && L.oneWay) tgt += L.kind === 'onramp' ? 0.01 : -0.01;   /* 포개진 진입·진출 램프가 한 평면이 되면 화면에서 깜빡인다(z-fighting · 독립 검수) — 2cm 벌린다 */
-        D[i] = (tgt - p.y) * wm; any = true;
+        D[i] = (tgt - p.y) * wm; W[i] = fix.length ? wm : 1; any = true;   /* 램프끼리 포갠 표본은 다듬기에서 못 박는다 — 2cm 벌림이 뒤집히면 다시 깜빡인다(독립 검수) */
+        /* (v0.10.155) 옆 기울기 — 램프가 비스듬히(45°쯤) 본선에 들고 나는 곳은 본선의 오르막이 램프 폭을 따라 한쪽으로 기운다.
+           평평한 램프 포장은 가운데만 본선과 맞고 양 가장자리가 ±12cm 어긋나, 본선 바깥 차로를 달리는 차가 램프 포장에 걸치며 덜컹했다
+           (축약 서북 진입로·동북 진출로 · 자동 주행 실측 scratch drive_ring.py). 램프 폭을 다섯 점으로 재어 본선 면의 옆 기울기를 따른다(최대 8%) */
+        if (fix.length) {
+          var fq = fix[0]; for (var t2 = 1; t2 < fix.length; t2++) if (fix[t2][1] > fq[1]) fq = fix[t2];
+          var nn = 0, so = 0, soo = 0, sy2 = 0, soy = 0;
+          for (var o9 = -2; o9 <= 2; o9++) { var oo = o9 * p.half / 2, yo = bankY(fq[2].link, p.x + p.rx * oo, p.z + p.rz * oo, p.y); if (yo === null) continue; nn++; so += oo; soo += oo * oo; sy2 += yo; soy += oo * yo; }
+          var den9 = nn * soo - so * so;
+          if (nn >= 3 && den9 > 1e-6) BK[i] = Math.max(-0.08, Math.min(0.08, (nn * soy - so * sy2) / den9)) * wm;
+        }
       }
-      if (any) plan.push([L, D]);
+      if (any) plan.push([L, D, BK, W]);
     });
     var K = 6;   /* 포개짐 밖으로 풀어 주는 길이(표본) */
-    plan.forEach(function (it) {
-      var L = it[0], D = it[1], out = [];
+    function relax(L, D) {
+      var out = [];
       for (var i = 0; i < L.N; i++) {
         if (D[i] !== undefined) { out.push(D[i]); continue; }
         var a = -1, b = -1;
@@ -476,7 +492,25 @@ TG.buildTerrain = function (scene, city, cfg) {
         if (a >= 0 && b >= 0 && b - a <= 2 * K) out.push(D[a] + (D[b] - D[a]) * (i - a) / (b - a));
         else out.push((a >= 0 && i - a < K ? D[a] * (1 - (i - a) / K) : 0) + (b >= 0 && b - i < K ? D[b] * (1 - (b - i) / K) : 0));
       }
-      for (var j = 0; j < L.N; j++) L.pts[j].y += out[j];
+      return out;
+    }
+    plan.forEach(function (it) {
+      var L = it[0], dy = relax(L, it[1]), bk0 = relax(L, it[2]), bk = [];
+      /* 옆 기울기는 표본마다 갑자기 바뀌면 포장 사각형이 비틀려(대각선으로 접힌 삼각형 둘) 가운데가 6cm 꺼진다 — 앞뒤 3표본에 걸쳐 고르게 편다 */
+      for (var j0 = 0; j0 < L.N; j0++) { var sw0 = 0, sb0 = 0; for (var k0 = -3; k0 <= 3; k0++) { var jj = j0 + k0; if (jj < 0 || jj >= L.N) continue; var w0 = 4 - Math.abs(k0); sw0 += w0; sb0 += w0 * bk0[jj]; } bk.push(sb0 / sw0); }
+      for (var j = 0; j < L.N; j++) { L.pts[j].y += dy[j]; if (Math.abs(bk[j]) > 0.002) L.pts[j].bk = bk[j]; }
+      L._pin = it[3];
+    });
+    /* (v0.10.155) 꺾인 오르막·내리막 다듬기 — 램프가 본선 높이를 벗어나는 자리에서 기울기가 한 표본(4m) 만에 +1% → −6% 로 꺾여,
+       시속 54km 로 지나는 차가 한 프레임에 덜컹했다(축약 동북·북·서북 진출로 · 동 진입로 — 자동 주행 실측 ay 25~34).
+       실제 도로처럼 꺾인 곳을 둥글게 편다(1-2-1 여섯 번 ≈ 앞뒤 7m) · 다른 포장에 맞춘 표본은 맞춘 만큼 움직이지 않는다 · 한 표본 최대 15cm */
+    links.forEach(function (L) {
+      var pin = L._pin || []; delete L._pin;
+      if (!MOV(L) || L.N < 5) return;
+      var y0 = [], y = [];
+      for (var i = 0; i < L.N; i++) { y0.push(L.pts[i].y); y.push(L.pts[i].y); }
+      for (var it9 = 0; it9 < 6; it9++) { var y2 = y.slice(); for (var i2 = 1; i2 < L.N - 1; i2++) { var f9 = 1 - (pin[i2] || 0); if (f9 > 0) y2[i2] = y[i2] + ((y[i2 - 1] + 2 * y[i2] + y[i2 + 1]) / 4 - y[i2]) * f9; } y = y2; }
+      for (var i3 = 0; i3 < L.N; i3++) L.pts[i3].y = y0[i3] + Math.max(-0.15, Math.min(0.15, y[i3] - y0[i3]));
     });
   })();
 
@@ -572,7 +606,8 @@ TG.buildTerrain = function (scene, city, cfg) {
     for (m2 = 0; m2 < cs.length; m2++) {
       var c = cs[m2]; if (c.y > lo + 4) continue;
       if (c.dist < nld) { nld = c.dist; nearLow = c; }
-      if (c.dist <= c.half + 0.5 && (deckCap === null || c.y - 0.12 < deckCap)) deckCap = c.y - 0.12;   // 이 자리를 덮는 노면
+      var cLo = c.y - Math.abs(c.p.bk || 0) * c.half;   // (v0.10.155) 옆으로 기운 램프는 낮은 쪽 가장자리 기준(독립 검수 — 지형이 가장자리 위로 나오지 않게)
+      if (c.dist <= c.half + 0.5 && (deckCap === null || cLo - 0.12 < deckCap)) deckCap = cLo - 0.12;   // 이 자리를 덮는 노면
       var t = 1 - sstep(c.half + 4, 36, c.dist); if (t <= 0) continue;
       // 거리 가중 평균: 나란히 가는 램프와 본선 사이에서 **절벽 대신 성토 사면**이 생긴다
       var w = t * t / Math.max(1.2, c.dist);
@@ -582,7 +617,7 @@ TG.buildTerrain = function (scene, city, cfg) {
     var target = sy / sw;
     // 내가 딛고 선 노면보다 지형이 높아지지 않게 눌러 둔다 — 이걸 빼면 경사로 옆에서 지형이 노면 위로 올라와
     // 차가 흙벽에 걸려 전진도 후진도 못 한다(실측 노면보다 0.45m 위였다).
-    if (nearLow) target = Math.min(target, nearLow.y - 0.12);
+    if (nearLow) target = Math.min(target, nearLow.y - Math.abs(nearLow.p.bk || 0) * nearLow.half - 0.12);
     if (deckCap !== null) target = Math.min(target, deckCap);   // 포장이 덮은 자리는 그 포장 밑으로
     if (rv > -1.0) return h * (1 - tmax) + target * tmax;
     // 강·하천 위: 다리 노면 아래로 꺼지지 않게 한다
@@ -594,7 +629,14 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 지금 높이(yHint)에 가장 가까운 노면을 고른다 — 램프 위의 차는 램프에, 밑을 지나는 차는 본선에 붙는다.
   // 전에는 지형용 groundAt(가장 낮은 노면)을 그대로 썼기 때문에 램프 위의 차가 아래 본선 높이로 내려앉아
   // 노면에 파묻히고 카메라가 포장 밑으로 들어가 화면이 검게 나왔다.
-  function yLerp(p, x, z) {   // 표본 p 와 앞(뒤) 표본 사이를 곧게 이은 높이
+  function yLerp(p, x, z) {   // (v0.10.155) 곧게 이은 높이 + 옆 기울기(p.bk · 램프가 본선에 비스듬히 겹친 곳만 · 앞뒤 표본 사이도 곧게 · 포장 폭 밖은 가장자리 높이)
+    var y = yAlong(p, x, z), n9 = p._nx, v9 = p._pv;
+    if (!p.bk && !(n9 && n9.bk) && !(v9 && v9.bk)) return y;
+    var al = (x - p.x) * p.tx + (z - p.z) * p.tz, nb = al >= 0 ? n9 : v9, bk = p.bk || 0;
+    var hh = p.half; if (nb) { var dn = Math.hypot(nb.x - p.x, nb.z - p.z); if (dn > 0.5) { var t9 = Math.min(1, Math.abs(al) / dn); bk += ((nb.bk || 0) - bk) * t9; hh += (nb.half - hh) * t9; } }   /* 폭도 그림(Pt)처럼 앞뒤 표본 사이를 잇는다 — 폭이 넓어지는 이음부(독립 검수) */
+    var lat = (x - p.x) * p.rx + (z - p.z) * p.rz; return y + bk * Math.max(-hh, Math.min(hh, lat));
+  }
+  function yAlong(p, x, z) {   // 표본 p 와 앞(뒤) 표본 사이를 곧게 이은 높이
     // 비율 = 두 표본의 가로선 사이 어디인가(굽은 길 안쪽 차로는 표본 간격이 4m 보다 좁다 — 4m 로 나누면 표본이 바뀔 때마다 4~13cm 어긋났다 · 경부 연결로 바깥 차로 실측).
     // 이웃 표본의 가로선마저 지났으면 **그 이웃에서 다시** 잇는다(급커브 안쪽 — 어느 표본이 뽑혔든 같은 답 · 전에는 이웃 높이에 멈춰 표본마다 25cm 계단)
     for (var hop = 0; hop < 4; hop++) {
@@ -727,7 +769,7 @@ TG.buildTerrain = function (scene, city, cfg) {
   // 도로 리본(링크 전부)
   var road = new G(), mark = new G(), props = new G(), busTextGeo = new G(), signFaces = {};
   var YEL = 0xf0c000, WHT = 0xf2f2ee, BLU = 0x2f6fd6;
-  function Pt(p, off, lift) { return [p.x + p.rx * off, p.y + (lift || 0), p.z + p.rz * off]; }
+  function Pt(p, off, lift) { var b9 = p.bk ? p.bk * Math.max(-p.half, Math.min(p.half, off)) : 0; return [p.x + p.rx * off, p.y + b9 + (lift || 0), p.z + p.rz * off]; }   /* (v0.10.155) 옆 기울기(p.bk) — 포장 폭 밖(난간·도류대 메움)은 가장자리 높이 그대로 */
   function ribbon(gb, a, b, oa, ob, lift, color, uvS) {
     var A0 = Pt(a, oa, lift), B0 = Pt(a, ob, lift), A1 = Pt(b, oa, lift), B1 = Pt(b, ob, lift);
     gb.quad(A0, B0, B1, A1, [0, 1, 0], color, uvS ? [[oa / uvS, a.s / uvS], [ob / uvS, a.s / uvS], [ob / uvS, b.s / uvS], [oa / uvS, b.s / uvS]] : null);
@@ -826,7 +868,7 @@ TG.buildTerrain = function (scene, city, cfg) {
         var wox = p.x + p.rx * ws * (half + 7), woz = p.z + p.rz * ws * (half + 7);
         var wq = nearest(wex, wez, true);
         var covered = wq && wq.link !== L && wq.dist <= wq.p.half + 1 && Math.abs(wq.p.y - p.y) < 1.5;   // 다른 도로 포장 위
-        if (!covered && p.y - groundAt(wox, woz) > 0.5) wallQuad(props, p, q, ws * half, -4, 0.02, 0x6b6a5e);
+        if (!covered && p.y + (p.bk || 0) * ws * half - groundAt(wox, woz) > 0.5) wallQuad(props, p, q, ws * half, -4, 0.02, 0x6b6a5e);   /* 기운 램프는 그 가장자리 높이로(v0.10.155) */
       }
       var LIFT = (ramp || L.id === 'gate') ? 0.07 : 0.05;
       if (ramp) {
