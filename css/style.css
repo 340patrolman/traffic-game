@@ -2100,3 +2100,71 @@ label.opt.has-pic{gap:9px}
 #gTags .gt-ring{position:absolute;border:2px dashed #ffe9a8;border-radius:12px;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
 #gTags .gt-chip{position:absolute;padding:3px 7px;border-radius:8px;background:#ffe9a8;color:#2a1d00;font-size:12px;line-height:1.25;font-weight:800;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.5)}
 #gTags .gt-chip.tight{opacity:.92}
+
+/* ───────── 📖 그림 사전 — 단추·설정·근무 빠짐없이(v0.10.159) ─────────
+   ① 메뉴 단추에도 그림(.bpic — 단추 안 왼쪽, 줄 단추는 위) ② 음량 줄 그림 ③ #gbView 사전(갈래 띠 + 칸마다 「누르면 → 이렇게」 그림)
+   ④ 한 칸 크게(.gbd) ⑤ 움직여 보기 13장면(차 직접 누르기 · 지도 크게 · 단추 옮기기) */
+.spic .vb{opacity:.16}
+.spic[data-v=vol1] .vb1,.spic[data-v=vol2] .vb1,.spic[data-v=vol2] .vb2,.spic[data-v=vol3] .vb{opacity:1}
+.spic[data-v=vol0] .vk{transform:translateX(-46px)}.spic[data-v=vol1] .vk{transform:translateX(-22px)}.spic[data-v=vol3] .vk{transform:translateX(40px)}
+.spic[data-v=vol0] .v-vol0{display:inline}
+/* 누르면 → 이렇게 된다 */
+.cp .cfg,.cp .cres,.cp .cbr,.cp .crg,.cp .cbt{animation-duration:3.2s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
+.cp .cfg{transform:translate(44px,84px)}
+.cp .cres{transform-box:view-box;transform-origin:88px 34px;animation-name:c-res}
+.an-t .cfg{animation-name:c-fg-t}.an-t .cbr{animation-name:c-br-t}
+.an-h .cfg{animation-name:c-fg-h}.an-h .cbr{animation-name:c-br-h}.an-h .crg{animation-name:c-rg}.an-h .cres{animation-name:c-res-h}
+.an-d .cfg{animation-name:c-fg-d}.an-d .cbt{animation-name:c-bt-d}.an-d .cbr{animation-name:c-br-h}.an-d .cres{transform-origin:86px 11px;animation-name:c-res-h}
+.an-p .cres{animation:none}.an-p .cbt{transform-box:view-box;transform-origin:26px 34px;animation:c-pulse 2.4s ease-in-out infinite}
+@keyframes c-fg-t{0%{transform:translate(44px,84px);opacity:0}15%{opacity:1}30%{transform:translate(27px,48px)}36%,40%{transform:translate(27px,51px)}46%{transform:translate(27px,48px)}75%{opacity:1}92%,100%{transform:translate(44px,84px);opacity:0}}
+@keyframes c-br-t{0%,34%,88%,100%{fill:rgba(255,255,255,.16)}38%,74%{fill:rgba(255,211,107,.62)}}
+@keyframes c-res{0%,38%{opacity:.38;transform:scale(.94)}48%{opacity:1;transform:scale(1.07)}54%,86%{opacity:1;transform:scale(1)}100%{opacity:.38;transform:scale(.94)}}
+@keyframes c-fg-h{0%{transform:translate(44px,84px);opacity:0}12%{opacity:1}26%{transform:translate(27px,48px)}30%,74%{transform:translate(27px,51px)}80%{transform:translate(27px,48px);opacity:1}92%,100%{transform:translate(44px,84px);opacity:0}}
+@keyframes c-br-h{0%,28%,84%,100%{fill:rgba(255,255,255,.16)}32%,78%{fill:rgba(255,211,107,.62)}}
+@keyframes c-rg{0%,30%{stroke-dashoffset:120;opacity:1}68%,84%{stroke-dashoffset:0;opacity:1}92%,100%{stroke-dashoffset:0;opacity:0}}
+@keyframes c-res-h{0%,64%{opacity:.38;transform:scale(.94)}72%{opacity:1;transform:scale(1.07)}78%,92%{opacity:1;transform:scale(1)}100%{opacity:.38;transform:scale(.94)}}
+@keyframes c-fg-d{0%{transform:translate(44px,84px);opacity:0}12%{opacity:1}26%{transform:translate(27px,48px)}32%,42%{transform:translate(27px,51px)}72%,84%{transform:translate(77px,51px);opacity:1}94%,100%{transform:translate(77px,84px);opacity:0}}
+@keyframes c-bt-d{0%,42%{transform:none}72%,92%{transform:translate(50px,0)}100%{transform:none}}
+@keyframes c-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@media (prefers-reduced-motion:reduce){.cp *{animation:none!important}.cp .cfg{display:none}}
+/* 메뉴 단추 안 그림 */
+.spic.bpic{display:inline-block;vertical-align:middle;width:56px;height:34px;margin:0 9px 0 0;flex:0 0 auto}
+button.has-bpic.bp-side{display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:0}
+button.has-bpic.bp-top{display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:5px}
+button.has-bpic.bp-top .spic.bpic{width:50px;height:30px;margin:0}
+/* 사전 */
+#gbView{background:rgba(6,8,14,.8);z-index:11;padding:8px}
+.gb{width:min(96vw,900px)!important;max-height:94vh;display:flex;flex-direction:column;padding:10px 12px!important;overflow:hidden}
+.gb-top{flex:0 0 auto;display:flex;align-items:center;gap:8px}.gb-top>b{font-size:17px;white-space:nowrap}.gb-top span{flex:1 1 0;min-width:0;font-size:11.5px;opacity:.85;line-height:1.3;word-break:keep-all}.gb-top button{width:auto;flex:0 0 auto;min-height:40px;margin:0;padding:4px 10px}
+.gb-tabs{flex:0 0 auto;display:flex;gap:5px;overflow-x:auto;padding:7px 0 5px;scrollbar-width:none}.gb-tabs::-webkit-scrollbar{display:none}
+.gb-tabs button{width:auto;margin:0;flex:0 0 auto;min-height:40px;padding:3px 8px;font-size:15px;line-height:1.1;word-break:keep-all}.gb-tabs small{display:block;font-size:10px;opacity:.8;font-weight:600}
+.gb-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+.gb-body h4{margin:10px 0 6px;font-size:15px}.gb-body h4 small{opacity:.7;font-weight:600}
+.gb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
+.gb-it{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:6px;border-radius:11px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;text-align:left;font:inherit;cursor:pointer;min-height:44px}
+.gb-it b{font-size:13.5px;line-height:1.25;word-break:keep-all}.gb-it small{font-size:11px;opacity:.75;line-height:1.3;word-break:keep-all}
+.gb-it i{font-style:normal;font-size:10.5px;align-self:flex-start;padding:1px 5px;border-radius:5px;background:rgba(156,210,255,.18);color:#cfe6ff}
+.gb-it u{display:none;text-decoration:none;position:absolute;right:8px;top:8px;font-size:10.5px;padding:1px 5px;border-radius:5px;background:#ffd36b;color:#3a2a10;font-weight:800}
+.gb-it.now u{display:block}.gb-it.now{border-color:#ffd36b}
+.gb-pic{display:block;width:100%;aspect-ratio:120/72;border-radius:8px;overflow:hidden}.gb-pic svg{display:block;width:100%;height:100%}
+.spic.gb-pic{width:100%;height:auto;border:0;position:static}
+.gb-end{margin:12px 2px 2px;font-size:12px;opacity:.75}
+/* 한 칸 크게 */
+.gbd h3 small{font-size:12px;opacity:.7;font-weight:600;margin-left:4px}
+.gbd-pic{width:min(100%,360px);margin:0 auto 8px;aspect-ratio:120/72;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.25)}.gbd-pic svg{display:block;width:100%;height:100%}
+.gbd dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:14px;line-height:1.45}.gbd dt{font-weight:800;white-space:nowrap;opacity:.85}.gbd dd{margin:0;word-break:keep-all}
+@media (max-width:420px){.gbd dl{grid-template-columns:1fr}.gbd dd{margin-bottom:4px}.gb-grid{grid-template-columns:repeat(2,1fr)}}
+label.opt.has-pic>span{flex:0 0 auto;white-space:nowrap}label.opt.has-pic select{min-width:0;width:0;flex:1 1 auto}
+.gd-mm{background:linear-gradient(90deg,transparent 44%,#8796b0 44% 52%,transparent 52%),linear-gradient(0deg,transparent 58%,#8796b0 58% 66%,transparent 66%),linear-gradient(135deg,#22324a,#2c4060)}.gd-mm::after{content:'';position:absolute;left:calc(48% - 7px);top:calc(62% - 7px);width:14px;height:14px;border-radius:50%;background:#4d8dff;border:2px solid #fff}
+.gd-book{display:block;width:100%;margin:2px 0 6px;min-height:44px}
+.gd-book small{font-weight:600;opacity:.8;margin-left:6px}
+/* 움직여 보기 — 새 장면 */
+.s-mmbig .gd-mm.hold{transform:scale(2.1);transform-origin:top right;transition:transform .45s ease;z-index:4}
+.s-tapcar .gd-tc{outline:4px solid #ffd36b;outline-offset:4px}
+.s-move .gd-b.sr.hold{animation:gd-mv 3s .2s ease-in-out both;z-index:4;box-shadow:0 0 0 4px #ffd36b}
+.s-move .gd-f.press{animation:gd-mvf 3s .2s ease-in-out both}
+.gd-ph.port.s-move .gd-b.sr.hold{animation-name:gd-mv2}.gd-ph.port.s-move .gd-f.press{animation-name:gd-mvf2}
+@keyframes gd-mv{0%,18%{transform:scale(1.1)}70%,100%{transform:translate(-300px,-150px) scale(1.1)}}
+@keyframes gd-mvf{0%,18%{transform:translateY(6px)}70%,100%{transform:translate(-300px,-144px)}}
+@keyframes gd-mv2{0%,18%{transform:scale(1.1)}70%,100%{transform:translate(-160px,-260px) scale(1.1)}}
+@keyframes gd-mvf2{0%,18%{transform:translateY(6px)}70%,100%{transform:translate(-160px,-254px)}}
