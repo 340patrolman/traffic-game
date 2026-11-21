@@ -31,6 +31,19 @@ canvas#game{display:block;width:100%;height:100%}
 #tap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,12,20,.6);pointer-events:auto;cursor:pointer}
 #tap div{font-size:clamp(18px,4vw,28px);font-weight:900;background:var(--bg);padding:18px 28px;border-radius:18px;border:1px solid rgba(255,255,255,.2)}
 .foot{position:fixed;right:10px;bottom:calc(6px + var(--sa-b));font-size:10px;color:var(--dim)}
+/* (v0.10.157) 세로·가로 모두 — 소유자 「화면을 가로로도 세로로도」. 세로 폰에서 아래 단추 글자가 한 자씩 세로로 쪼개져(「일/시/정/지」) 자막을 덮었다 */
+#bar{max-width:calc(100vw - 16px)}
+#bar button,#bar a{white-space:nowrap;flex-shrink:0}
+#sub,#step{word-break:keep-all;overflow-wrap:break-word}
+#step{max-width:94vw;text-align:center}
+@media (max-width:560px){
+  #bar{gap:6px} #bar button,#bar a{font-size:12.5px;padding:8px 10px}
+  #step{white-space:normal}
+  #sub{bottom:calc(70px + var(--sa-b));max-width:94vw;padding:8px 14px}
+  .foot{display:none}
+}
+@media (max-width:370px){ #bar{flex-wrap:wrap;justify-content:center;width:calc(100vw - 16px)} #sub{bottom:calc(112px + var(--sa-b))} }
+@media (max-height:420px){ #sub{bottom:calc(64px + var(--sa-b));font-size:clamp(15px,2.4vw,22px)} #step{top:calc(44px + var(--sa-t))} }
 </style>
 </head>
 <body>
@@ -50,31 +63,31 @@ canvas#game{display:block;width:100%;height:100%}
   <div class="u">340patrolman.github.io/traffic-game</div>
 </div></div>
 <div id="tap"><div>▶ 터치하면 시작합니다</div></div>
-<script src="lib/three.min.js?v=0.10.156"></script>
-<script src="lib/GLTFLoader.js?v=0.10.156"></script>
-<script src="data/units.js?v=0.10.156"></script>
-<script src="js/config.js?v=0.10.156"></script>
-<script src="js/rng.js?v=0.10.156"></script>
-<script src="js/save.js?v=0.10.156"></script>
-<script src="js/simmode.js?v=0.10.156"></script>
-<script src="js/perf.js?v=0.10.156"></script>
-<script src="js/emblem.js?v=0.10.156"></script>
-<script src="js/humans-data.js?v=0.10.156"></script>
-<script src="js/humans.js?v=0.10.156"></script>
-<script src="js/textures.js?v=0.10.156"></script>
-<script src="js/audio.js?v=0.10.156"></script>
-<script src="js/city.js?v=0.10.156"></script>
-<script src="js/world.js?v=0.10.156"></script>
-<script src="js/terrain.js?v=0.10.156"></script>
-<script src="js/weather.js?v=0.10.156"></script>
-<script src="js/signals.js?v=0.10.156"></script>
-<script src="js/vehmesh.js?v=0.10.156"></script>
-<script src="js/patrolev.js?v=0.10.156"></script>
-<script src="js/vehicle.js?v=0.10.156"></script>
-<script src="js/traffic.js?v=0.10.156"></script>
-<script src="js/peds.js?v=0.10.156"></script>
-<script src="js/character.js?v=0.10.156"></script>
-<script src="js/qr.js?v=0.10.156"></script>
-<script src="js/promo.js?v=0.10.156"></script>
+<script src="lib/three.min.js?v=0.10.157"></script>
+<script src="lib/GLTFLoader.js?v=0.10.157"></script>
+<script src="data/units.js?v=0.10.157"></script>
+<script src="js/config.js?v=0.10.157"></script>
+<script src="js/rng.js?v=0.10.157"></script>
+<script src="js/save.js?v=0.10.157"></script>
+<script src="js/simmode.js?v=0.10.157"></script>
+<script src="js/perf.js?v=0.10.157"></script>
+<script src="js/emblem.js?v=0.10.157"></script>
+<script src="js/humans-data.js?v=0.10.157"></script>
+<script src="js/humans.js?v=0.10.157"></script>
+<script src="js/textures.js?v=0.10.157"></script>
+<script src="js/audio.js?v=0.10.157"></script>
+<script src="js/city.js?v=0.10.157"></script>
+<script src="js/world.js?v=0.10.157"></script>
+<script src="js/terrain.js?v=0.10.157"></script>
+<script src="js/weather.js?v=0.10.157"></script>
+<script src="js/signals.js?v=0.10.157"></script>
+<script src="js/vehmesh.js?v=0.10.157"></script>
+<script src="js/patrolev.js?v=0.10.157"></script>
+<script src="js/vehicle.js?v=0.10.157"></script>
+<script src="js/traffic.js?v=0.10.157"></script>
+<script src="js/peds.js?v=0.10.157"></script>
+<script src="js/character.js?v=0.10.157"></script>
+<script src="js/qr.js?v=0.10.157"></script>
+<script src="js/promo.js?v=0.10.157"></script>
 </body>
 </html>

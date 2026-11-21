@@ -1801,3 +1801,108 @@ body.totmode #clvChip{display:none!important}
 #clvUp .cu-rclr{margin-top:8px;text-align:right}#clvUp .cu-rclr button{min-height:36px;padding:0 10px;border-radius:10px;border:1px solid #64748b;background:transparent;color:#94a3b8;font:inherit;font-size:12px;cursor:pointer}
 #clvUp .cu-rnote{margin:8px 0 0;font-size:11.5px;color:#94a3b8;line-height:1.45}
 #clvUp .cu-rnow{margin-top:8px;font-size:13px;color:#7dd3fc}
+
+/* ===== 🚗 핸들·페달(v0.10.157 · 기본 조작) =====
+   소유자(2026-11-21): 「비슷한 상용 게임과 사용 방법이 비슷한 게 좋겠다 — 화면 버튼 구성과 위치 전부 네 판단대로」.
+   모바일 운전 게임의 공통 문법: 왼손 = 좌·우 조향 · 오른손 = 브레이크·가속 페달(가속이 가장 바깥·가장 큼) · 그 위에 그 게임의 핵심 행동(여기선 단속·경광등).
+   자주 안 쓰는 장비는 🧰 한 단추 안(main.js 가 DOM 째 옮긴다) · 그때그때 뜨는 단추(라바콘·견인·관문·비스트·발생보고)는 경광등 왼쪽에 한 줄로 이어진다.
+   차에서 내리면(onfoot) 이 배치는 꺼지고 걷기용 조이스틱이 돌아온다. 위치는 left/right/bottom 만 쓴다(길게 눌러 옮긴 자리 = 인라인 left/top 이 이긴다). */
+#drv,#btnTools,#toolTray{display:none}
+html body.pedalctl:not(.onfoot) #drv{display:block}
+html body.pedalctl:not(.onfoot) #btnTools{display:flex}
+html body.pedalctl:not(.onfoot).toolsopen #toolTray{display:grid}
+html body.pedalctl:not(.onfoot) #stickZone{display:none!important}
+html body.replaying #drv,html body.replaying #btnTools,html body.replaying #toolTray{display:none!important}
+.drvb{position:fixed;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.drvb.steer{width:84px;height:84px;border-radius:22px;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.5);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.drvb.steer b{font-size:34px;line-height:1;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.6)}
+.drvb.steer.held{background:rgba(255,233,168,.42);border-color:#ffe9a8}
+.drvb.pedal{border-radius:14px;justify-content:flex-end;padding-bottom:7px;gap:0;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.drvb.pedal i{position:absolute;left:12px;right:12px;top:10px;bottom:34px;border-radius:7px;background:repeating-linear-gradient(0deg,rgba(255,255,255,.30) 0 3px,transparent 3px 10px)}
+.drvb.pedal span{font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000}
+.drvb.pedal small{font-size:9.5px;font-weight:700;color:#ffd2d2;opacity:.9}
+.drvb.pg{width:80px;height:128px;background:rgba(60,200,110,.22);border:2px solid rgba(110,230,150,.85)}
+.drvb.pb{width:78px;height:96px;background:rgba(255,80,80,.20);border:2px solid rgba(255,120,120,.85)}
+.drvb.pedal.held{transform:scale(.95) perspective(300px) rotateX(10deg)}
+.drvb.pg.held{background:rgba(60,200,110,.5)} .drvb.pb.held{background:rgba(255,80,80,.5)}
+.tbtn.tools{width:56px;height:56px;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.55)}
+.tbtn.tools .ico{font-size:22px} .tbtn.tools span:last-child{font-size:10.5px;font-weight:700}
+.tbtn.tools.on{background:rgba(255,233,168,.35);border-color:#ffe9a8}
+#toolTray{position:fixed;pointer-events:auto;gap:8px;padding:8px;border-radius:16px;background:rgba(10,16,28,.84);border:1px solid rgba(255,255,255,.22);box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:6}
+html body #toolTray>.tbtn{position:static!important;width:56px!important;height:56px!important;margin:0!important;transform:none!important;left:auto!important;top:auto!important;right:auto!important;bottom:auto!important;
+  padding:0!important;border-radius:50%!important;animation:none!important;font-size:10.5px!important;flex-direction:column!important;gap:1px!important;white-space:nowrap}
+html body #toolTray>.tbtn .ico{font-size:20px!important}
+html body #toolTray>.tbtn .here-more{display:none!important}
+/* 옛 배치(조이스틱·세로 v0.9.98·좁은 폰 v0.10.60)가 top·left 를 함께 걸어 둔 것을 푼다 — 길게 눌러 옮긴 것(.moved · 인라인 자리)은 건드리지 않는다 */
+html body.pedalctl:not(.onfoot) .sigs:not(.moved),html body.pedalctl:not(.onfoot) #btnFoot:not(.moved),html body.pedalctl:not(.onfoot) #btnTools:not(.moved),
+html body.pedalctl:not(.onfoot) #btnSiren:not(.moved),html body.pedalctl:not(.onfoot) #btnEnforce:not(.moved),html body.pedalctl:not(.onfoot).callon #btnEmerg:not(.moved),
+html body.pedalctl:not(.onfoot) .cluster.right{top:auto!important;height:auto!important}
+html body.pedalctl:not(.onfoot) #btnSiren:not(.moved),html body.pedalctl:not(.onfoot) #btnEnforce:not(.moved),html body.pedalctl:not(.onfoot).callon #btnEmerg:not(.moved),html body.pedalctl:not(.onfoot) .cluster.right{left:auto!important}
+/* 가로 화면(폰·태블릿·PC 터치) */
+html body.pedalctl:not(.onfoot):not(.portrait) .drvb.steer.l{left:calc(16px + var(--sa-l));bottom:calc(16px + var(--sa-b))}
+html body.pedalctl:not(.onfoot):not(.portrait) .drvb.steer.r{left:calc(112px + var(--sa-l));bottom:calc(16px + var(--sa-b))}
+html body.pedalctl:not(.onfoot):not(.portrait) .sigs{left:calc(16px + var(--sa-l));bottom:calc(112px + var(--sa-b));gap:6px}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnTools{position:fixed;left:calc(16px + var(--sa-l));bottom:calc(164px + var(--sa-b))}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnFoot{left:calc(82px + var(--sa-l));right:auto;bottom:calc(164px + var(--sa-b));width:56px!important;height:56px!important}
+html body.pedalctl:not(.onfoot):not(.portrait) .drvb.pg{right:calc(16px + var(--sa-r));bottom:calc(16px + var(--sa-b))}
+html body.pedalctl:not(.onfoot):not(.portrait) .drvb.pb{right:calc(106px + var(--sa-r));bottom:calc(16px + var(--sa-b))}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnEnforce{position:fixed;right:calc(16px + var(--sa-r));bottom:calc(156px + var(--sa-b));width:72px!important;height:72px!important;margin:0!important}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnSiren{position:fixed;right:calc(98px + var(--sa-r));bottom:calc(160px + var(--sa-b));width:64px!important;height:64px!important;margin:0!important}
+html body.pedalctl:not(.onfoot):not(.portrait) .cluster.right{display:flex!important;flex-direction:row-reverse!important;align-items:flex-end!important;gap:8px!important;right:calc(172px + var(--sa-r))!important;bottom:calc(160px + var(--sa-b))!important}
+html body.pedalctl:not(.onfoot):not(.portrait).callon .cluster.right{right:calc(236px + var(--sa-r))!important}
+html body.pedalctl:not(.onfoot) .cluster.right>.tbtn:not(#btnSiren):not(#btnEnforce):not(#btnHere){position:static!important;width:56px!important;height:56px!important;margin:0!important}
+html body.pedalctl:not(.onfoot):not(.portrait).callon #btnEmerg{position:fixed;right:calc(172px + var(--sa-r));bottom:calc(160px + var(--sa-b));width:56px!important;height:56px!important;margin:0!important}
+html body.pedalctl:not(.onfoot):not(.portrait) #toolTray{left:calc(146px + var(--sa-l));bottom:calc(156px + var(--sa-b));grid-auto-flow:column;grid-template-rows:56px}   /* 🧰·하차 오른쪽으로 한 줄(위는 계기 칸·임무 카드) */
+@media (orientation:landscape) and (max-width:720px){ html body.pedalctl:not(.onfoot):not(.portrait) #toolTray{grid-auto-flow:row;grid-template-rows:none;grid-template-columns:repeat(3,56px);left:calc(210px + var(--sa-l));bottom:calc(16px + var(--sa-b))} }
+/* 낮은 가로 화면(높이 370 이하) — 경광등·단속을 4~6px 내려 오른쪽 위 지도와 띄운다 */
+@media (orientation:landscape) and (max-height:370px){
+  html body.pedalctl:not(.onfoot):not(.portrait) #btnEnforce{bottom:calc(150px + var(--sa-b))}
+  html body.pedalctl:not(.onfoot):not(.portrait) #btnSiren{bottom:calc(152px + var(--sa-b))}
+  html body.pedalctl:not(.onfoot):not(.portrait) .cluster.right{bottom:calc(152px + var(--sa-b))!important}
+  html body.pedalctl:not(.onfoot):not(.portrait).callon #btnEmerg{bottom:calc(152px + var(--sa-b))}
+  html body.pedalctl:not(.onfoot):not(.portrait) #btnTools,html body.pedalctl:not(.onfoot):not(.portrait) #btnFoot{bottom:calc(158px + var(--sa-b))}
+}
+/* 가로: 작은 단추는 오른쪽 위 지도 왼쪽 한 줄(시점 · ☰) — 일시정지(❚❚)·조작 설명(?)·배속은 ☰ 안에 있다(상용 게임은 ☰ 하나가 곧 일시정지) */
+html body.pedalctl:not(.onfoot):not(.portrait) #btnPause,html body.pedalctl:not(.onfoot):not(.portrait) #btnCtlHelp,html body.pedalctl:not(.onfoot):not(.portrait) #btnSpeed{display:none!important}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnMenu{top:calc(8px + var(--sa-t));right:calc(var(--mmR,146px) + var(--sa-r));width:44px;height:44px}
+html body.pedalctl:not(.onfoot):not(.portrait) #btnView{top:calc(8px + var(--sa-t));right:calc(var(--mmR,146px) + 52px + var(--sa-r));height:44px}
+/* 세로 화면(폰) — 조작은 아래 35% 안(v0.9.98 기준) */
+html body.pedalctl:not(.onfoot).portrait .drvb.steer{width:74px;height:74px;border-radius:20px}
+html body.pedalctl:not(.onfoot).portrait .drvb.steer b{font-size:30px}
+html body.pedalctl:not(.onfoot).portrait .drvb.steer.l{left:calc(12px + var(--sa-l));bottom:calc(22px + var(--sa-b))}
+html body.pedalctl:not(.onfoot).portrait .drvb.steer.r{left:calc(94px + var(--sa-l));bottom:calc(22px + var(--sa-b))}
+html body.pedalctl:not(.onfoot).portrait .sigs{left:calc(12px + var(--sa-l))!important;bottom:calc(106px + var(--sa-b))!important;gap:5px!important}
+html body.pedalctl:not(.onfoot).portrait #btnTools{position:fixed;left:calc(12px + var(--sa-l));bottom:calc(156px + var(--sa-b));width:52px;height:52px}
+html body.pedalctl:not(.onfoot).portrait #btnFoot{position:fixed;left:calc(72px + var(--sa-l))!important;right:auto!important;bottom:calc(156px + var(--sa-b))!important;width:52px!important;height:52px!important;margin:0!important}
+html body.pedalctl:not(.onfoot).portrait .drvb.pg{width:72px;height:116px;right:calc(12px + var(--sa-r));bottom:calc(22px + var(--sa-b))}
+html body.pedalctl:not(.onfoot).portrait .drvb.pb{width:68px;height:88px;right:calc(92px + var(--sa-r));bottom:calc(22px + var(--sa-b))}
+html body.pedalctl:not(.onfoot).portrait #btnEnforce{position:fixed;right:calc(12px + var(--sa-r));bottom:calc(150px + var(--sa-b));width:64px!important;height:64px!important;margin:0!important}
+html body.pedalctl:not(.onfoot).portrait #btnSiren{position:fixed;right:calc(84px + var(--sa-r));bottom:calc(152px + var(--sa-b));width:58px!important;height:58px!important;margin:0!important}
+html body.pedalctl:not(.onfoot).portrait .cluster.right{display:flex!important;flex-direction:row-reverse!important;align-items:flex-end!important;gap:8px!important;right:calc(12px + var(--sa-r))!important;bottom:calc(222px + var(--sa-b))!important}
+html body.pedalctl:not(.onfoot).portrait .cluster.right>.tbtn:not(#btnSiren):not(#btnEnforce){width:52px!important;height:52px!important}
+html body.pedalctl:not(.onfoot).portrait.callon #btnEmerg{position:fixed;left:auto!important;right:calc(150px + var(--sa-r))!important;bottom:calc(152px + var(--sa-b))!important;width:52px!important;height:52px!important;margin:0!important}
+html body.pedalctl:not(.onfoot).portrait #toolTray{left:calc(12px + var(--sa-l));bottom:calc(216px + var(--sa-b));grid-template-columns:repeat(3,52px)}
+html body.pedalctl:not(.onfoot).portrait #toolTray>.tbtn{width:52px!important;height:52px!important}
+@media (max-width:340px){
+  html body.pedalctl:not(.onfoot).portrait .drvb.steer{width:64px;height:64px}
+  html body.pedalctl:not(.onfoot).portrait .drvb.steer.r{left:calc(82px + var(--sa-l))}
+  html body.pedalctl:not(.onfoot).portrait .drvb.pg{width:64px;right:calc(8px + var(--sa-r))}
+  html body.pedalctl:not(.onfoot).portrait .drvb.pb{width:60px;right:calc(78px + var(--sa-r))}
+}
+
+/* (v0.10.157) 가로 화면에서 운전하는 동안 글(알림·💭 안내·목표 줄·첫 출근 길잡이)은 **아래 가운데**로 — 소유자: 「시간 표시가 화면을 가린다 · 신호등·표지판을 못 볼 수도 있다」.
+   위쪽 가운데(지평선 위 20~50%)는 신호등·표지판이 보이는 자리라 비운다. 맨 아래(범퍼 바로 앞 도로)가 가장 덜 중요하다 — 「📍 이 자리」 알약은 🧰 안으로 옮겼다.
+   한 자리에 하나만: 알림 > 안내 > 목표. 첫 출근 길잡이가 떠 있으면 알림은 그 위로 */
+html body.pedalctl:not(.onfoot):not(.portrait) .notice,html body.pedalctl:not(.onfoot):not(.portrait) #hint,html body.pedalctl:not(.onfoot):not(.portrait) #target,
+html body.pedalctl:not(.onfoot):not(.portrait) .coachline{top:auto!important;bottom:calc(14px + var(--sa-b))!important;max-width:min(calc(100vw - 430px),540px)!important;white-space:normal!important;text-align:center}
+html body.pedalctl:not(.onfoot):not(.portrait) .coachline{font-size:16px!important;padding:8px 14px!important}
+html body.pedalctl:not(.onfoot):not(.portrait).noticeon #hint,html body.pedalctl:not(.onfoot):not(.portrait).noticeon #target,html body.pedalctl:not(.onfoot):not(.portrait).hinton #target{opacity:0!important}
+html body.pedalctl:not(.onfoot):not(.portrait):has(#coachLine:not([hidden])) .notice,html body.pedalctl:not(.onfoot):not(.portrait):has(#coachLine:not([hidden])) #hint{bottom:calc(66px + var(--sa-b))!important}
+@media (orientation:landscape) and (max-width:720px){
+  html body.pedalctl:not(.onfoot):not(.portrait) .notice,html body.pedalctl:not(.onfoot):not(.portrait) #hint,html body.pedalctl:not(.onfoot):not(.portrait) #target,
+  html body.pedalctl:not(.onfoot):not(.portrait) .coachline{max-width:calc(100vw - 420px)!important;font-size:12px!important}
+}
+/* 계급 막대(🎖 순경 · 진급 n/10점)는 가로에서도 계기 칸을 눌렀을 때 · 칭찬·진급 순간에만 — 왼쪽 위 신호등 자리를 늘 덮었다 */
+html body.pedalctl:not(.onfoot):not(.portrait):not(.hudmore):not(.praising) #xpCol{display:none!important}
+/* 청소년 자전거 교실 가로 — 계급 막대가 조이스틱 위에 10px 걸쳤다(교실에서는 쓰지 않는 막대) */
+html body.bikemode:not(.portrait):not(.hudmore) #xpCol{display:none!important}

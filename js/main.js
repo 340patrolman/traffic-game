@@ -687,16 +687,51 @@
     document.querySelectorAll('.mpick[data-mode]').forEach(function (b) { input.bindTap(b, function () { var m = b.getAttribute('data-mode'); if (lockedTap(b, m)) return; applyMode(m); if (MODES[m] && G.state === 'title') start(settings.car); }); });   // 서랍 안 근무·교실은 누르면 바로 시작한다(고르고 또 누르지 않게)
     applyMode(settings.mode || 'patrol');
     // 조작 배치: 조이스틱(원형 스틱 + 버튼) / 게임패드(십자키 + △○×□ + L1·R1). 타이틀 버튼 · 일시정지 선택 · 설명 창에서 고른다
+    // (v0.10.157) 🚗 핸들·페달이 기본 — 소유자 「비슷한 상용 게임과 사용 방법이 비슷한 게 좋겠다 · 화면 버튼 구성과 위치 전부 네 판단대로」.
+    //  모바일 운전 게임은 거의 다 「왼손 조향 · 오른손 페달」이다. 조이스틱을 고른 적이 있어도 한 번은 새 배치로 옮기고(ctl2) 알린다 — 메뉴에서 되돌릴 수 있다.
     function applyCtl(name) {
-      settings.ctl = name === 'pad' ? 'pad' : 'stick'; TG.save.set('settings', settings);
+      settings.ctl = name === 'pad' ? 'pad' : name === 'stick' ? 'stick' : 'pedal'; TG.save.set('settings', settings);
       document.body.classList.toggle('padctl', settings.ctl === 'pad');
+      document.body.classList.toggle('pedalctl', settings.ctl === 'pedal'); toolTrayFit(); toolsOpen(false);
+      if (TG.hudpos) TG.hudpos.apply();
       document.querySelectorAll('.cpick[data-ctl]').forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-ctl') === settings.ctl); });
       var oc = $('optCtl'); if (oc) oc.value = settings.ctl;
     }
     G.applyCtl = applyCtl;
     document.querySelectorAll('.cpick[data-ctl]').forEach(function (b) { input.bindTap(b, function () { applyCtl(b.getAttribute('data-ctl')); }); });
     if ($('optCtl')) $('optCtl').addEventListener('change', function () { applyCtl($('optCtl').value); });
-    applyCtl(settings.ctl || 'stick');
+    // 🧰 장비 상자 — 자주 안 쓰는 단추를 한 단추 안에 접는다. 핸들·페달일 때만 단추들을 상자로 옮기고, 다른 배치로 바꾸면 제자리로 돌려놓는다(DOM 위치째).
+    //  「이 자리」도 상자 안 — 아래 가운데는 안내 글 자리가 됐다(위쪽 가운데의 신호등·표지판을 가리지 않으려고 · 소유자 2026-11-21).
+    var TRAY = ['btnPA', 'btnCam', 'btnRadio', 'btnEmerg', 'btnSport', 'btnHere'], trayHome = {};
+    function toolTrayFit() {
+      var tray = $('toolTray'); if (!tray) return;
+      var on = document.body.classList.contains('pedalctl') && !document.body.classList.contains('onfoot');
+      TRAY.forEach(function (id) {
+        var el = $(id); if (!el) return;
+        if (!trayHome[id]) trayHome[id] = { p: el.parentNode, n: el.nextSibling };
+        var want = on && !(id === 'btnEmerg' && document.body.classList.contains('callon'));
+        if (want && el.parentNode !== tray) tray.appendChild(el);
+        else if (!want && el.parentNode === tray) trayHome[id].p.insertBefore(el, trayHome[id].n && trayHome[id].n.parentNode === trayHome[id].p ? trayHome[id].n : null);
+      });
+      tray.setAttribute('data-n', tray.children.length);
+    }
+    var toolsT = 0;
+    function toolsOpen(on) { document.body.classList.toggle('toolsopen', !!on); toolsT = on ? 8 : 0; var b = $('btnTools'); if (b) b.classList.toggle('on', !!on); }
+    G.toolsOpen = toolsOpen;
+    input.bindTap($('btnTools'), function () { toolsOpen(!document.body.classList.contains('toolsopen')); });
+    if ($('toolTray')) $('toolTray').addEventListener('pointerup', function () { setTimeout(function () { toolsOpen(false); }, 160); });   // 하나 고르면 접힌다
+    window.addEventListener('resize', function () { G.mmR9 = 0; setTimeout(toolTrayFit, 30); });
+    G.toolsTick = function (dt) {
+      if (toolsT > 0) { toolsT -= dt; if (toolsT <= 0) toolsOpen(false); }   // 8초 동안 안 쓰면 저절로 접힌다
+      var call = !!(G.dispatch && G.dispatch.emergency && G.dispatch.emergency()) || !!G.emergOn;
+      document.body.classList.toggle('callon', call);   // 112 긴급 신고 중(또는 긴급 운행 중)에는 🚨 긴급을 상자 밖으로 꺼낸다
+      var B9 = document.body.classList, fk = [B9.contains('pedalctl'), B9.contains('onfoot'), call, B9.contains('portrait')].join();
+      if (fk !== G.trayKey) { G.trayKey = fk; toolTrayFit(); if (B9.contains('onfoot')) toolsOpen(false); }
+      var mm9 = $('minimap'); if (mm9 && mm9.offsetWidth) { var rr9 = Math.round(window.innerWidth - mm9.getBoundingClientRect().left + 8); if ((!G.mmR9 || rr9 > G.mmR9) && rr9 > 40 && rr9 < window.innerWidth / 2) { G.mmR9 = rr9; document.body.style.setProperty('--mmR', rr9 + 'px'); } }   // ☰·시점은 지도 바로 왼쪽(지도 크기가 기기마다 다르다 · 신호 앞에서 지도가 접혀도 단추는 제자리 — 커질 때만 따라간다)   // 내리면(도보) 앰프·단속 등을 제자리로 — 걸으면서도 쓴다
+      if (G.ctlMoved && G.state === 'play' && !onFoot() && document.body.classList.contains('pedalctl')) { G.ctlMoved = false; hud.notice('🚗 조작이 바뀌었습니다 — 왼손 ◀ ▶ 핸들 · 오른손 페달 · 🧰 장비 상자. 조이스틱은 메뉴 › 조작에서', 'info', 6000); }
+    };
+    if (!settings.ctl2) { if (settings.ctl === 'stick') G.ctlMoved = true; if (settings.ctl !== 'pad') settings.ctl = 'pedal'; settings.ctl2 = true; }
+    applyCtl(settings.ctl || 'pedal');
     function showCtlHelp(on) { var e = $('ctlHelp'); if (!e) return; e.style.display = on ? 'flex' : 'none'; if (G.state === 'play') setPaused(on, 'help'); }
     G.showCtlHelp = showCtlHelp;
     input.bindTap($('btnCtlHelp'), function () { showCtlHelp(true); }); input.bindTap($('btnCtlHelp2'), function () { showCtlHelp(true); }); input.bindTap($('btnCtlHelpClose'), function () { showCtlHelp(false); });
@@ -787,7 +822,7 @@
     if (optVb) { optVb.checked = settings.vibrate !== false; optVb.addEventListener('change', function () { settings.vibrate = optVb.checked; TG.save.set('settings', settings); if (optVb.checked) buzz(40); }); }
     // 배속 단추와 판: 1.0~3.0배 · 0.1 단위와 0.5 단위 · 1배 되돌리기. 키보드 [ ] (Shift 와 함께 0.5) · \ = 1배
     // 세로 화면 한 줄 계기 칸(v0.9.98): 누르면 온디맨드 칸(남은 시간·단속·최고 속도·정지거리·랩)을 펼치고 다시 누르면 접는다
-    input.bindTap($('hudbar'), function () { if (document.body.classList.contains('portrait')) document.body.classList.toggle('hudmore'); });
+    input.bindTap($('hudbar'), function () { if (document.body.classList.contains('portrait') || document.body.classList.contains('pedalctl')) document.body.classList.toggle('hudmore'); });   // (v0.10.157) 핸들·페달 가로 화면도 계급 막대는 계기 칸을 눌렀을 때만
     // 메뉴 안으로 모은 작은 단추들(시점 · 조작 설명 · 배속)
     // 🗺 지도 보이기(v0.10.47) — 자동(신호 앞에서 접힘) · 늘 펼침 · 아이콘만
     function paintMm() { var m = settings.mm || 'auto'; document.querySelectorAll('.mmpick').forEach(function (b) { b.classList.toggle('sel', b.getAttribute('data-mm') === m); }); }
@@ -853,7 +888,7 @@
     // 화면에 보이는 것은 **모두** 옮길 수 있다(소유자: 「여기서 보이는 모든 버튼들과 화면에서 움직일 수 있게 해줘」).
     // 계기 칸(hudbar)까지 넣는다. 조이스틱(#stickBase)만 뺀다 — 누른 자리로 스스로 옮겨 가는 물건이라 저장한 자리와 싸운다.
     if (TG.hudpos) TG.hudpos.register(['hudbar', 'minimap', 'btnSiren', 'btnEnforce', 'btnPA', 'btnCam', 'btnRadio', 'btnBeast', 'btnLook', 'btnSigL', 'btnSigR', 'btnSport', 'btnEmerg', 'btnHaz',
-                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'target', 'kidSteps']);
+                        'btnPause', 'btnMenu', 'btnView', 'btnSpeed', 'btnCtlHelp', 'btnFoot', 'btnHand', 'btnRun', 'btnRev', 'btnBox', 'btnCone', 'btnTow', 'btnGate', 'btnTools', 'target', 'kidSteps']);
 
     // 음량(기본 30% — 은은하게). 마스터 게인에 바로 반영
     if (typeof settings.volume !== 'number') settings.volume = 0.3;
@@ -3504,7 +3539,7 @@
       if (!G.paused) { TG.perf.sample(raw); TG.perf.update(dt); playStep(dt); }
       else if (G.pauseReasons.ticket) enforcement.tickTicket(dt);
       G.hudhT = (G.hudhT || 0) + dt;
-      if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); portraitHudTick(); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
+      if (G.hudhT > 0.5) { G.hudhT = 0; hudHeightVar(); portraitHudTick(); if (G.toolsTick) G.toolsTick(0.5); }   // 구간 이름이 길어지면 계기 칸이 한 줄 늘어난다
     } else if (G.state === 'intro') {
       var isnd = document.getElementById('introSound'); if (isnd) isnd.style.display = (TG.audio.running || G.bootGated) ? 'none' : 'block';   // 시작 화면에서 소리를 이미 골랐으면 「터치하면 소리」 안내를 띄우지 않는다(누르면 건너뛴다)
       signals.update(dt); if (rail) rail.update(dt); traffic.player = player; peds.player = player;

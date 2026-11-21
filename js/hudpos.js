@@ -9,12 +9,13 @@
 //      ② 세로·가로 화면은 크기가 달라서(css) 자리도 **따로** 기억한다. ③ 저장은 이 기기에만(`tg_hudPos`).
 TG.hudpos = (function () {
   var POS = TG.save.get('hudPos', {}) || {}, items = [], HOLD = 420, MOVE = 12, held = null;
-  function orient() { return document.body.classList.contains('portrait') ? 'port2' : 'land'; }   // v0.9.98 세로 배치를 새로 짜서 옛 세로 자리(port)는 버린다
+  function orient() { return (document.body.classList.contains('portrait') ? 'port2' : 'land') + (document.body.classList.contains('pedalctl') ? 'P' : ''); }   // v0.9.98 세로 배치를 새로 짜서 옛 세로 자리(port)는 버린다 · (v0.10.157) 핸들·페달 배치는 자리를 따로 기억한다(조이스틱 배치에서 옮긴 자리가 새 배치를 흩뜨리지 않게)
   function key(el) { return el.id + ':' + orient(); }
   function freeW(el) { return Math.max(0, window.innerWidth - (el.offsetWidth || 40)); }
   function freeH(el) { return Math.max(0, window.innerHeight - (el.offsetHeight || 40)); }
+  function inTray(el) { return !!(el.closest && el.closest('#toolTray')); }   // 🧰 장비 상자 안의 단추는 상자가 자리를 정한다
   function apply(el) {
-    var p = POS[key(el)];
+    var p = inTray(el) ? null : POS[key(el)];
     if (!p) { el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; el.classList.remove('moved'); return; }
     el.classList.add('moved');   // position:fixed · margin 0 (css) — 줄에서 빠져나와 제 자리에 선다
     el.style.left = Math.round(TG.clamp(p.fx, 0, 1) * freeW(el)) + 'px';
@@ -39,6 +40,7 @@ TG.hudpos = (function () {
     items.push(el);
     el.addEventListener('pointerdown', function (e) {
       if (e.tgPass) return;                                   // 내가 되쏜 탭 — 그대로 지나간다
+      if (inTray(el)) return;                                  // 상자 안에서는 옮기지 않고 단추 기능만
       if (!window.PointerEvent) return;                        // 구형 브라우저: 옮기기를 포기하고 단추 기능만 남긴다
       e.preventDefault(); e.stopPropagation();
       var r = el.getBoundingClientRect();
