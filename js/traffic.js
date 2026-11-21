@@ -555,7 +555,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     }
     if (car.idx > 40) { path.splice(0, car.idx); car.idx = 0; }
     var cur = path[Math.min(car.idx, path.length - 1)], onLink = !!cur.lp;
-    var target = onLink ? cruiseFor(car, cur.kind) : car.cruise, emergency = false;
+    var target = onLink && !car.tutorial ? cruiseFor(car, cur.kind) : car.cruise, emergency = false;   // (v0.10.156) 첫 출근 대상 차는 연결로에서도 제 속도(firstshift.js 가 정한다)
     if (car.flee) {
       // 도주 운전: 2~4초 주기로 급가속과 급제동을 번갈아 한다(골목에서 특히 심하다).
       car.fleeT = (car.fleeT || 0) + dt;

@@ -29,10 +29,14 @@ TG.FirstShift = function (game) {
     show();
   };
   this.stop = function () { st = null; pulse(null); var c = EL('coachLine'); if (c) c.hidden = true; };
+  function coach(text) {
+    var c = EL('coachLine');
+    if (c) { c.hidden = false; c.textContent = text; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
+    else game.hud.hintNow(text);   // (v0.10.148) 길잡이 줄(coachLine)이 있으면 같은 말을 위 알림 띠에 또 띄우지 않는다 — 두 상자에 겹쳐 보였다
+  }
   function show() {
-    var s = STEPS[st.i], c = EL('coachLine');
-    if (c) { c.hidden = false; c.textContent = s.say; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
-    if (!c) game.hud.hintNow(s.say);   // (v0.10.148) 길잡이 줄(coachLine)이 있으면 같은 말을 위 알림 띠에 또 띄우지 않는다 — 두 상자에 겹쳐 보였다
+    var s = STEPS[st.i]; st.slow = false;
+    coach(s.say);
     pulse(s.btn);
   }
   function next() { st.i++; st.t = 0; if (st.i >= STEPS.length) return finish(); show(); }
@@ -84,7 +88,16 @@ TG.FirstShift = function (game) {
     var P = game.player, E = game.enforcement, s = STEPS[st.i];
     if (st.total > 240) { TG.save.set('firstshift', true); self.stop(); return; }    // 너무 오래 걸리면 조용히 놓아 준다
     // 대상은 **멀면 기어가고** 가까이 오면 20km/h 쯤 — 블록 끝으로 가 버려 설 자리를 잃지 않게(첫 판은 실패할 수 없다)
-    if (st.car && st.car.tutorial) { var gap = Math.hypot(st.car.pos.x - P.pos.x, st.car.pos.z - P.pos.z); st.car.cruise = gap > 35 ? 1.2 : 5.5; if (st.car.violation == null && E.target !== st.car && st.i < 3) st.car.violation = { type: 'phone', t: game.traffic.time, node: null, seen: true }; }
+    // (v0.10.156) 「가속을 눌러 출발!」만 듣고 70~80km/h 로 다가가면 브레이크를 늦게·약하게 밟는 사람은 뒤에서 들이받았다(헤드리스 실측 scratch fs.py —
+    //  30m 부터 꽉 밟으면 0 · 22m 부터 반쯤이면 충돌). 대상을 빠르게 해 봤더니 더 오래 가속해 더 빨리 다가가 오히려 나빴다 → 속도는 그대로 두고 **말로 늦춘다**:
+    //  빨리 다가가는 동안(60m 안 · 내가 22km/h 넘게 빠름) 길잡이 줄이 「⬇ 천천히」로 바뀌고 사수가 한 번 말한다. 늦추면 그 단계 말로 돌아간다.
+    if (st.car && st.car.tutorial) {
+      var gap = Math.hypot(st.car.pos.x - P.pos.x, st.car.pos.z - P.pos.z), fast = gap < 60 && P.speedKmh() / 3.6 > st.car.v + 6;
+      st.car.cruise = gap > 35 ? 1.2 : 5.5;
+      if (fast && !st.slow) { st.slow = true; coach('⬇ 천천히 — 앞 흰 차 뒤 20m 쯤 두고 따라가'); if (!st.slowSaid) { st.slowSaid = true; radio('천천히. 그 차 뒤 20미터쯤 두고 따라가'); } }
+      else if (!fast && st.slow && P.speedKmh() / 3.6 < st.car.v + 3) { st.slow = false; show(); }
+      if (st.car.violation == null && E.target !== st.car && st.i < 3) st.car.violation = { type: 'phone', t: game.traffic.time, node: null, seen: true };
+    }
     if (s.id === 'go') {
       if (P.speedKmh() > 12 || st.t > 7) {
         st.car = spawnTarget();
