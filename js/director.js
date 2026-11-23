@@ -4,7 +4,7 @@
 //   · 한가함이 IDLE 초(+흔들림)를 넘으면 내 앞 35~50m, **내 차로가 아닌 차로**에 습관이 있는 차(휴대전화·음주 비틀)를 하나 낸다.
 //   · 기록(「위반 의심」)은 교통 AI 의 평소 목격 규칙이 한다 — 감독은 차를 놓기만 한다.
 //   · 정차 유도·추격·112 출동·하차 중처럼 **맡은 일이 있으면 한가한 것이 아니다**(4초마다 계측에 'busy' 를 남긴다).
-//  켜지 않는 때: 순찰 근무가 아닐 때 · 🧪 시뮬레이션 · 첫 출근 · 고속도로·연결로 위(격자 도로에서만 놓는다).
+//  켜지 않는 때: 순찰 근무가 아닐 때 · 🧪 시뮬레이션 · 첫 출근. 연결로·고속도로 위는 v0.10.160 부터 placeLink(같은 연결로 앞).
 //  숫자(IDLE·거리)는 **게임 설계값**이다.
 TG.Director = function (game) {
   var self = this, lastT = 0, busyT = 0, wasBusy = false, jit = 0, pending = null, pendT = 0, nth = 0;
@@ -62,7 +62,8 @@ TG.Director = function (game) {
     var P = game.player, city = game.city, tr = game.traffic;
     if (!P || !city || !tr) return null;
     var fr = city.frameAt(P.pos.x, P.pos.z, P.heading);
-    if (!fr || fr.kind === 'link') return null;                       // 격자 도로에서만
+    if (fr && fr.kind === 'link') return placeLink(fr);
+    if (!fr) return null;
     var d = TG.headingToDir(P.heading), f = TG.DIR_VEC[d], r = [-f[1], f[0]];
     var hf = Math.sin(P.heading) * f[0] + Math.cos(P.heading) * f[1];
     if (hf < 0.9) return null;                                         // 도로와 나란히 달릴 때만
@@ -106,6 +107,28 @@ TG.Director = function (game) {
     }
     return null;
   }
+  // 🛣 v0.10.160 연결로·고속도로 위(종전엔 격자 도로에서만 놓았다 — 서초구 1:1 지도는 연결로가 27km 라 그 위에서는 사건이 끊겼다).
+  //  같은 연결로·같은 방향으로 내 앞 34~46m 에 휴대전화·음주 비틀 차를 놓는다. 여러 차로면 내 차로 옆 차로, 한 차로면 같은 차로(내 속도보다 조금 빠르게 가니 막지 않는다).
+  //  과속 습관은 놓지 않는다 — 목격 문턱이 「제한 + 20」이라 시내 과속 습관 속도로는 고속도로에서 안 잡힌다. 꼬리물기·유턴·불법 주정차는 격자 도로 장면이다.
+  var LINK_POOL = [{ type: 'sedan', trait: 'phone' }, { type: 'suv', trait: 'phone' }, { type: 'sedan', trait: 'drunk' }];
+  function placeLink(fr) {
+    var P = game.player, tr = game.traffic, L = fr.link; if (!P || !tr || !L || !L.pts || !L.N || fr.i == null) return null;
+    if (fr.onRoad === false) return null;
+    var pool = (self.bias === 'drunk' && BIAS.drunk) || LINK_POOL, pick = pool[nth % pool.length];
+    if (fr.oneLane && pick.trait !== 'phone') pick = LINK_POOL[0];   // 독립 검수: 한 차로에서는 내 차로 앞이다 — 음주 비틀 차는 목표 속도가 0.54~1.10배로 흔들려 뒤에서 들이받기 쉽다 → 휴대전화 차만   // 🛴 PM 은 연결로(고속도로등)에 놓지 않는다(도로교통법 제63조) — 「pm」 장도 연결로에서는 기본 묶음
+    var st = fr.dirA ? 1 : -1; if (!L.pts[fr.i]) return null;
+    var hw = L.kind === 'highway', lane;
+    if (!fr.oneLane && hw) { var HL = TG.CONFIG && TG.CONFIG.HW_LANES || [2, 5.5, 9, 12.5], my = 0, bd = 1e9; HL.forEach(function (o, k) { var dd = Math.abs(o - fr.lateral); if (dd < bd) { bd = dd; my = k; } }); lane = my <= 1 ? my + 1 : my - 1; if (lane === 0 && fr.busLane) lane = 2; }
+    var v = Math.max(8, Math.abs(P.vF || 0) + 0.5);   // 목격될 때까지 이 속도(traffic.js dirLink) · 목격 뒤에는 그 길 보통 속도
+    for (var want = 34; want <= 46; want += 6) {
+      var j = fr.i, n = 0, acc = 0, pa = L.P(j);   // 독립 검수: 닫힌 고리는 이음매에서 s 가 0 으로 돌아가 거리 차가 틀렸다 → 점 사이 거리를 더해 잰다
+      while (n++ < L.N && acc < want) { j += st; if (L.closed) j = (j + L.N) % L.N; else if (j < 2 || j > L.N - 3) break; var pb = L.P(j); acc += Math.hypot(pb.x - pa.x, pb.z - pa.z); pa = pb; }
+      if (!L.closed && (j < 2 || j > L.N - 3)) return null;
+      var car = tr.spawn({ atLink: { link: L, i: j, dirA: !!fr.dirA }, lane: lane, v: v, cruise: v, straight: true, type: pick.type, trait: pick.trait, violator: false });
+      if (car) { car.directed = true; car.dirLink = true; car.traitT = 6; car.drunkSeen = 2.5; nth++; return car; }
+    }
+    return null;
+  }
   this.update = function (dt) {
     if (game.directorOff || !(game.mode === 'patrol' || game.mode === 'open') || game.state !== 'play' || sim() || (game.first && game.first.on && game.first.on())) { lastT = now(); return; }   // 검사 모드는 기본으로 끈다(다른 검사에 차가 끼어들지 않게)
     if (busy()) {
@@ -121,6 +144,7 @@ TG.Director = function (game) {
       pendT += dt;
       if (pending.violation && pending.violation.seen) { pending = null; return; }
       if (pendT < 9 && game.traffic.cars.indexOf(pending) >= 0) return;
+      if (pending) pending.dirLink = false;                             // 연결로에 놓은 차는 이제 그 길 보통 속도로(독립 검수)
       pending = null;                                                   // 놓쳤다 — 다음 기회에 다시 놓는다
     }
     if (self.idle() < self.IDLE + jit) return;
