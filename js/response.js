@@ -64,6 +64,7 @@ TG.Response = function (game) {
     var farBack = near.incident.kind === 'crash' ? 62 : 22;
     // 비스듬히(약 15도) 세우면 40m 뒤에서 옆으로 10m 벌어진다 — 사고 현장은 옆 여유를 넓게 본다.
     behind = along > 3 && along < farBack && Math.abs(dx2 * -pf2[1] + dz2 * pf2[0]) < (near.incident.kind === 'crash' ? 16 : 9);
+    if (inc.notice <= 0 && game.drill && !game.drill.done) inc.notice = 7;   // 🦺 연습 중에는 연습 길잡이가 말한다(v0.10.161)
     if (inc.notice <= 0) {
       inc.notice = 7;
       game.hud.notice('⚠ ' + kindTxt + ' 발견', 'alert', 2600);
@@ -75,7 +76,8 @@ TG.Response = function (game) {
     var crash = near.incident.kind === 'crash', sc = game.iscene || null;
     var safe = !crash || !sc || sc.ready(near);
     var shield = !crash || !sc ? { ok: true } : (sc.shieldOf(near) || { ok: true });
-    var ok = pl.siren && behind && pl.speedKmh() < 2 && near.radioed && safe;
+    var towDrill = !!(game.drill && game.drill.kind === 'tow' && !game.drill.done);   // 🦺 견인 연습은 끌어내야 끝난다(뒤에 서서 무전만으로 끝나면 안 된다 · 검수 지적)
+    var ok = pl.siren && behind && pl.speedKmh() < 2 && near.radioed && safe && !towDrill;
 
     inc.t = ok ? inc.t + dt : 0;
     if (inc.t > 2) {
@@ -89,7 +91,7 @@ TG.Response = function (game) {
       if (game.praise) { game.praise.cheer('help', 45, { feed: '현장 안전조치 🛠', voice: true }); game.praise.medal('scene-safe', '현장을 지켰다', 30); }   // 보람 — 어려운 사람을 돕는 쪽이 제일 크게 쳐 준다
       TG.audio.say(kindTxt + ' 안전조치 완료. 견인 요청했습니다', { kind: 'officer', queue: true });
       setTimeout(function () { if (game.traffic.clearIncidents) game.traffic.clearIncidents(); }, 6000);
-    } else if (pl.siren && behind && pl.speedKmh() < 2 && !near.radioed && inc.notice < 5.6) {
+    } else if (!towDrill && pl.siren && behind && pl.speedKmh() < 2 && !near.radioed && inc.notice < 5.6) {
       game.hud.hint('📡 무전으로 상황을 전파하고 견인·구급을 요청하세요');
     } else if (crash && sc && shield && !shield.ok && shield.along > 3 && shield.along < 22 && inc.notice < 5.2) {
       var L2 = game.laws && game.laws.incidentScene;

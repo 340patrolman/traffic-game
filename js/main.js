@@ -216,7 +216,7 @@
     // ⚠ $ 는 bindUI() 안 지역 도우미다 — 여기서 쓰면 ReferenceError 가 나고,
     //    그 밑의 requestAnimationFrame(loop) 가 아예 안 돌아 **?test=1 · ?nointro=1 에서는 게임 루프가 안 돈다**.
     //    검사는 T.step() 으로 손수 감아 돌리므로 이것을 한 판도 잡지 못했다(v0.9.84 브라우저 페인에서 발견).
-    if (noIntro || isTest) { var bg0 = document.getElementById('boot'); if (bg0) bg0.style.display = 'none'; showTitle(); }
+    if (noIntro || isTest) { var bg0 = document.getElementById('boot'); if (bg0) bg0.style.display = 'none'; showTitle(); if (!isTest && drillParam() && G.startDrill) { hud.showTouch(true); G.startDrill(drillParam()); } }
     else bootGate();
 
     requestAnimationFrame(loop);
@@ -381,6 +381,9 @@
   var CLASS_URL = 'https://340patrolman.github.io/traffic-game/', CLASS_KO = { bike: '🚲 청소년 교실(중·고등 · 자전거)', kid: '🧒 어린이 교실(초등 · 보행)', tot: '👶 영아 교실(4세 · 얼음땡)' };
   function classParam() { var m = /[?&]class=(bike|kid|tot)/.exec(location.search); return m ? m[1] : null; }
   G.classUrl = function (k) { return CLASS_URL + '?class=' + k; };
+  // 🦺 현장 안전 연습 바로 열기 주소 — ?drill=tow|scene (T-Book 「🎮 게임에서 해보기」 단추가 이것을 쓴다 · v0.10.161)
+  var DRILL_KO = { tow: '🪝 견인고리·견인줄 연습', scene: '🚧 사고 현장 후방 안전조치 연습' };
+  function drillParam() { var m = /[?&]drill=(tow|scene)/.exec(location.search); return m ? m[1] : null; }
   function bootGate() {
     var EL = function (id) { return document.getElementById(id); };   // $ 는 init 안 지역 도우미라 여기서는 못 쓴다
     var box = EL('boot'); if (!box) { startIntro(); return; }
@@ -388,7 +391,8 @@
     if (em && !em.src && TG.tex && TG.tex.emblemPNG) { em.src = TG.tex.emblemPNG(function (u) { em.src = u; }); }
     var vr = EL('bootVer'), cl0 = classParam(), at0 = TG.PlaceKey ? TG.PlaceKey.param() : null;
     if (at0) TG.PlaceKey.load();
-    if (vr) vr.textContent = (cl0 ? CLASS_KO[cl0] + ' 바로 열기 · ' : '') + (at0 && !cl0 ? '🚓 ' + (at0.nm || '고른 자리') + '에서 근무 · ' : '') + 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
+    var dr0 = cl0 ? null : drillParam();
+    if (vr) vr.textContent = (cl0 ? CLASS_KO[cl0] + ' 바로 열기 · ' : '') + (dr0 ? DRILL_KO[dr0] + ' 바로 열기 · ' : '') + (at0 && !cl0 && !dr0 ? '🚓 ' + (at0.nm || '고른 자리') + '에서 근무 · ' : '') + 'v' + TG.VERSION + ' · 지도: ' + (city.mapName || '서울 서초구') + (city.mapBeta ? ' (베타)' : '');
     box.style.display = 'flex';
     function go(sound) {
       box.style.display = 'none';
@@ -399,6 +403,7 @@
         buzz(14);                                            // 진동도 같은 제스처에서 한 번 깨운다
       } else { TG.audio.setMuted(true); settings.sound = false; TG.save.set('settings', settings); }
       var cls9 = classParam(); if (cls9 && G.startClassMode) { hud.showTouch(true); showTitle(); G.startClassMode(cls9); return; }
+      var dr9 = drillParam(); if (dr9 && G.startDrill) { hud.showTouch(true); showTitle(); G.startDrill(dr9); return; }   // 🦺 ?drill= 로 열면 인트로 없이 그 연습
       var wi9 = G.whatIf && G.whatIf.param(); if (wi9) { hud.showTouch(true); showTitle(); var at8 = TG.PlaceKey ? TG.PlaceKey.param() : null; if (at8) TG.PlaceKey.load(function () { var h8 = TG.PlaceKey.find(at8), from8 = at8.nm || (at8.tgis ? 'INT-' + at8.tgis : '고른 자리'), nt8 = '';
         if (h8 && h8.n) { var to8 = city.nodeName(city.nodes[h8.n.i][h8.n.j]); if (to8 !== from8) nt8 = from8 + '에서 넘어옴 → 게임 교차로 ' + to8 + (h8.by === 'tgis' ? '(같은 T-GIS 교차로코드 ' + h8.n.tgis + ')' : '(' + Math.round(h8.m) + 'm)') + '로 돌림'; }
         else nt8 = from8 + '에서 넘어옴 — 게임의 서초 간선 교차로 25곳 밖' + (h8 && h8.near ? '(가장 가까운 ' + h8.near.name + ' ' + Math.round(h8.m) + 'm)' : '') + ' · 교차로를 골라 주세요';
@@ -974,7 +979,8 @@
       if (!car) { hud.notice('🪝 견인: 근처에 사고·고장 현장이 없습니다', 'warn', 2200); return; }
       var r = G.iscene.towAct(car);
       if (r.ok) {
-        hud.notice('🪝 견인줄 연결 — 20km/h 이하로 갓길·안전지대까지 천천히', 'good', 3200);
+        var tk9 = G.iscene.towLimit ? G.iscene.towLimit() : null;   // 시행규칙 §20 2호(laws 의 tow.speedKmh) — 자료를 못 읽었으면 숫자를 말하지 않는다
+        hud.notice('🪝 견인줄 연결 — ' + (tk9 ? '시속 ' + tk9 + 'km 이내로 ' : '') + '갓길·안전지대까지 천천히', 'good', 3200);
         hud.hint((L && L.tow && L.tow.far) || '');
         TG.audio.say('견인줄을 연결했습니다. 갓길로 이동합니다', { kind: 'officer', queue: true });
         return;
@@ -1305,6 +1311,8 @@
   function startGreen() { try { if (!player || !city.nodeAhead) return; var d = TG.headingToDir(player.heading), N = city.nodeAhead(player.pos.x, player.pos.z, d, 0); if (!N) return; var ax = d % 2 === 0 ? 'v' : 'h', st = signals.state(N, ax); if (st && st.s === 'green' && st.remain >= 12) return; signals.set(N, ax, 'green'); } catch (e) {} }
   function start(carId, modeOverride) {
     TG.audio.resume(); if (TG.study) TG.study.close();
+    G.drill = G.drillNext || null; G.drillNext = null;   // 🦺 현장 안전 연습(G.startDrill 이 건다) — 그 밖의 시작은 늘 비운다
+    if (G.wxDrill) { G.wxDrill = false; if (weather && weather.set) weather.set(settings.weather === 'auto' || settings.weather === 'random' ? weather.pick(settings.weather) : settings.weather); }   // 연습이 밤으로 바꿔 둔 하늘을 되돌린다
     document.body.classList.add('ingame');   // 근무 중에만 조작 단추를 보인다(타이틀·부팅에서는 숨김 · v0.10.58)
     if (G.drunkProc) G.drunkProc.close();
     // 앞 모드의 안내 문구가 그대로 남아 있었다 — 추격전 힌트가 순찰 근무 화면 위에 떠 있었다(화면 점검에서 발견).
@@ -1470,10 +1478,10 @@
     if (G.hood) G.hood.begin();
     var chapNow = !!G.chapterNext; G.chapterNext = false; G.chapterRun = null; G.lastRunChapter = chapNow;
     if (chapNow && G.campaign) G.campaign.begin();   // 📖 출근하기로 연 판 = 지금 장
-    var firstNow = !!(G.first && !onFoot() && G.first.eligible());
+    var firstNow = !!(G.first && !onFoot() && !G.drill && G.first.eligible());
     if (firstNow) G.first.start();
     else if (G.crew && !G.chapterRun) G.crew.say('start', 4.5, 0);   // 첫 출근이면 사건 사슬은 첫 단속이 끝난 뒤에 연다(firstshift.js)
-    if (G.story && (G.mode === 'patrol' || G.mode === 'open') && !firstNow && !(TG.mode && TG.mode.sim)) setTimeout(function () { if (G.state === 'play' && G.mode === 'patrol' && !(G.first && G.first.on())) G.story.start(); }, 6000);
+    if (G.story && (G.mode === 'patrol' || G.mode === 'open') && !firstNow && !G.drill && !(TG.mode && TG.mode.sim)) setTimeout(function () { if (G.state === 'play' && G.mode === 'patrol' && !(G.first && G.first.on())) G.story.start(); }, 6000);
     log('근무 시작: ' + player.spec.name + ' / ' + G.mode);
     if (G.mode === 'walk') officerSay('도보 순찰 시작합니다. 보행 신호 확인하고 안전하게 건너세요');
   }
@@ -1738,7 +1746,7 @@
   //  순찰 근무 도중 상황실이 **수배·절도·음주 도주차**를 알려 온다 — 추격전 모드의 규칙(무전·경광등·안전거리 · 보호구역이면 중단)을 그대로 쓴다.
   //  끝나도 근무는 계속된다. 맡은 일이 있거나 격자 도로가 아니면 기다린다. 한 근무에 두 번까지. 시각은 게임 설계값이다.
   function hotEvent(dt) {
-    if (G.hotOff || !(G.mode === 'patrol' || G.mode === 'open') || G.state !== 'play' || chase || (TG.mode && TG.mode.sim)) return;
+    if (G.hotOff || G.drill || !(G.mode === 'patrol' || G.mode === 'open') || G.state !== 'play' || chase || (TG.mode && TG.mode.sim)) return;
     if (G.first && G.first.on && G.first.on()) return;
     if ((G.hotN || 0) >= 2) return;
     G.hotT = (G.hotT || 90) - dt; if (G.hotT > 0) return;
@@ -2549,6 +2557,53 @@
       }
     }
   }
+  // ---------- 🦺 현장 안전 연습 바로 열기(v0.10.161) — ?drill=tow | ?drill=scene ----------
+  // T-Book 「🪝 견인고리·견인줄」 카드의 「🎮 게임에서 해보기」 단추가 ?drill=tow 로 연다(단추는 있었는데 게임이 주소를 받지 않아 첫 화면만 떴다).
+  //  tow   = 본선 바깥 차로에 선 고장차를 견인고리·견인줄로 갓길까지(T-Book 현장 네 걸음)
+  //  scene = 밤 · 한 개 차로를 차지한 사고 → 순찰차 방패 · 무전 · 라바콘 **2개 차로** · 불꽃신호기
+  // 길잡이 글은 laws.json incidentScene(T-Book 문구)에서 읽는다. 연습 동안에는 사건 감독·112 신고·사건 사슬·다른 현장·첫 출근 길잡이를 쉬게 한다.
+  G.startDrill = function (kind) {
+    kind = kind === 'scene' ? 'scene' : 'tow';
+    if (city.xs.length < 5 || city.zs.length < 5 || Math.abs(city.zs[3] - city.zs[2]) > 200) { start(settings.car, 'patrol'); hud.notice('🦺 이 연습은 기본 지도(5×5)에서 열립니다 — 지금 지도에서는 순찰로 시작합니다', 'warn', 4200); return false; }
+    G.drillNext = { kind: kind, t: 2.5, key: '', done: false, car: null };
+    start(settings.car, 'patrol');
+    if (G.dispatch) G.dispatch.nextT = 1e9;
+    var xs = city.xs, zs = city.zs, vi = 2, ln = city.lanesOf('v', vi);   // 반포대로 축(편도 4차로) 북행 · 맨 바깥 차로에 현장
+    if (kind === 'scene' && weather && weather.set) { weather.set('night'); G.wxDrill = true; }   // 야간 사고 처리 — 불꽃신호기까지 해 본다
+    var car = traffic.spawnIncident(kind === 'scene' ? 'crash' : 'broken', { x: xs[vi] + city.laneOff('v', vi, ln - 1), z: zs[2] + (kind === 'scene' ? 26 : 48), heading: Math.PI });   // 견인은 블록 가운데(끌어내는 동안 정지선을 넘지 않게)
+    if (car && kind === 'tow') car.airLost = false;   // 연습은 끌 수 있는 차로(대형차면 에어를 묻는 걸음은 그대로 밟는다)
+    player.teleport(xs[vi] + city.laneOff('v', vi, Math.max(0, ln - 2)), zs[3] + 44, Math.PI); camInit = false;
+    if (G.drill) G.drill.car = car;
+    hud.notice(kind === 'tow' ? '🦺 연습 — 앞에 선 고장차를 견인고리·견인줄로 갓길까지 끌어냅니다' : '🦺 연습 — 밤 사고 현장: 뒤차의 속도를 줄이고 현장을 지킵니다', 'info', 5200);
+    return !!car;
+  };
+  function drillTick(dt) {
+    var D = G.drill; if (!D || D.done || !G.iscene || !player) return;
+    var car = D.car, L = (G.laws && G.laws.incidentScene) || {}, key = '', text = '';
+    if (!car || !car.incident || traffic.cars.indexOf(car) < 0) { D.done = true; return; }
+    if (car.incident.handled) {
+      D.done = true;
+      hud.notice(D.kind === 'tow' ? '🦺 연습 끝 — 견인고리·견인줄로 차로를 비웠습니다' : '🦺 연습 끝 — 뒤차의 속도를 줄이고 현장을 지켰습니다', 'good', 5200);
+      if (hud.hintNow) hud.hintNow('그대로 순찰을 이어 가도 되고, ⏸ 메뉴에서 나가도 됩니다');
+      return;
+    }
+    if (D.kind === 'tow') {
+      var st = G.iscene.towState(), mine = st && st.car === car ? st : null, S4 = (L.tow && L.tow.steps) || [], big = G.iscene.bigOf(car);
+      var n = mine && mine.connected ? 4 : mine && mine.hooked ? 3 : (big && !(mine && mine.asked)) ? 1 : 2;
+      key = 'tow' + n; text = '🪝 ' + n + '/4 · ' + (S4[n - 1] || '') + (n === 4 ? '' : ' — 🪝 견인(J)');
+    } else {
+      var sh = G.iscene.shieldOf(car) || {}, nx = G.iscene.next(car), M = L.msgs || {}, T2 = L.twoLane || {};
+      var behind = sh.along > 3 && sh.along < 45 && Math.abs(sh.lat) < 16 && sh.stopped;   // 🚧 단추·완료 판정이 먹는 45m 안
+      if (!player.siren) { key = 'siren'; text = '🚨 경광등을 켠다 — 그다음 현장 뒤에 선다'; }
+      else if (!behind) { key = 'shield'; text = '🚓 ' + (M.shield || '현장 뒤에 선다'); }
+      else if (!car.radioed) { key = 'radio'; text = '📡 무전으로 상황을 전파하고 견인·구급을 요청한다'; }
+      else if (nx.step === 'cone') { key = 'cone' + nx.closed; text = '🚧 ' + (nx.closed ? (T2.rule || '') + ' — ' + (T2.why || '') : (M.cone || '')) + ' (' + nx.closed + '/' + nx.need + ' 차로 · 🚧 K)'; }
+      else if (nx.step === 'flare') { key = 'flare'; text = '🔥 ' + (M.flare || '') + ' (🚧 단추가 🔥 로 바뀐다)'; }
+      else { key = 'hold'; text = '✅ ' + (M.keep || ''); }
+    }
+    D.t -= dt;
+    if (key !== D.key || D.t <= 0) { D.key = key; D.t = 6; if (hud.hintNow) hud.hintNow(text); else hud.hint(text); }   // 밀린 안내 뒤에 줄 서지 않고 바로 보인다
+  }
   // 학습 모드 「체험하기」: 순찰 근무로 시작한 뒤 해당 상황을 만든다
   var BRT_MODES = ['patrol', 'open', 'free', 'chase', 'duty', 'walk', 'crazy'];
   G.startScenario = function (id) {
@@ -2782,7 +2837,7 @@
   };
   function onTrafficEvent(kind, car) {
     if (kind === 'incident') {   // 상황실 신고 → 현장으로
-      if (G.crew) G.crew.say('incident', 5, 60);
+      if (G.crew && !(G.drill && G.drill.kind === 'tow')) G.crew.say('incident', 5, 60);   // 견인 연습에서는 「뒤에 방패」 무전이 길잡이(앞에 댄다)와 어긋난다
       if (G.metrics) G.metrics.ev('incident');
       hud.notice('📻 상황실 — 전방 도로에 ' + (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 신고. 확인 바랍니다', 'alert', 4600);
       TG.audio.alert(); TG.audio.say('순찰차, 전방 도로 ' + (car.incident.kind === 'crash' ? '교통사고' : '고장차량') + ' 확인 바랍니다', { kind: 'narrator', queue: true });
@@ -3121,7 +3176,7 @@
     }
     // 8-4) 고장차량·교통사고 현장: 순찰 근무에서 70~110초마다 하나(처리 중이면 새로 만들지 않는다)
     rules.incT = (rules.incT === undefined ? 25 : rules.incT) - dt;
-    if (rules.incT <= 0 && (G.mode === 'patrol' || G.mode === 'open')) {
+    if (rules.incT <= 0 && !G.drill && (G.mode === 'patrol' || G.mode === 'open')) {
       rules.incT = 70 + Math.random() * 40;
       var hasInc = traffic.cars.some(function (c) { return c.incident && !c.incident.handled; });
       if (!hasInc && T.speed > 4) traffic.spawnIncident(Math.random() < 0.4 ? 'crash' : 'broken');
@@ -3346,12 +3401,13 @@
     if (facil) facil.update(dt, traffic, player, onCamCatch);   // 무인 교통단속 장비
     collisions(dt);
     if (G.state !== 'play') return;
-    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director) G.director.update(dt); if (G.onto && G.onto.tick) { G.onto.tick(dt); if (G.onto.queueTick) G.onto.queueTick(dt); } if (G.daily) G.daily.tick(dt); hotEvent(dt);
+    enforcement.update(dt); if (response) response.update(dt); if (G.dispatch) G.dispatch.update(dt); if (G.story) G.story.update(dt); if (G.director && !G.drill) G.director.update(dt); if (G.onto && G.onto.tick) { G.onto.tick(dt); if (G.onto.queueTick) G.onto.queueTick(dt); } if (G.daily) G.daily.tick(dt); hotEvent(dt);
     if (G.brt && G.brt.on && BRT_MODES.indexOf(G.mode) >= 0) G.brt.update(dt, onFoot() && G.walker ? G.walker : player);   // 🚌 버스·승강장 사람(교실에서는 돌리지 않는다)
     if (G.iscene) {
       G.iscene.update(dt);
+      if (G.drill) drillTick(dt);
       var tw = G.iscene.towUpdate(dt);
-      if (tw && tw.cut) { hud.notice('🪝 견인줄이 끊어졌습니다 — 20km/h 이하로 천천히 끌어야 합니다', 'bad', 3200); TG.audio.bad(); }
+      if (tw && tw.cut) { var tk8 = G.iscene.towLimit ? G.iscene.towLimit() : null; hud.notice('🪝 견인줄이 끊어졌습니다 — ' + (tk8 ? '시속 ' + tk8 + 'km 이내로 ' : '') + '천천히 끌어야 합니다', 'bad', 3200); TG.audio.bad(); }
       else if (tw && tw.towing && tw.safe) {
         var tcar = G.iscene.towState().car, L3 = (G.laws && G.laws.incidentScene) || null;
         G.iscene.towDone();
@@ -3577,6 +3633,7 @@
   function installTestHooks() {
     TG.test = {
       start: function (car) { start(car || 'sedan'); },
+      drill: function (k) { return G.startDrill(k); },
       state: function () {
         var fr = player ? city.frameAt(player.pos.x, player.pos.z, player.heading) : null;
         return { state: G.state, paused: G.paused, score: G.score, stops: G.stats ? G.stats.stops : 0, cars: traffic.cars.length, peds: peds.peds.length,
@@ -3701,11 +3758,11 @@
   G.endMapLink = endMapLink;
   function bootMap(done) {
     if (location.protocol.indexOf('http') !== 0) { log('file:// — 지도 파일을 읽지 않고 기본 지도(서초구)로 시작합니다'); done(); return; }
-    var qs = new URLSearchParams(location.search), want = qs.get('map') || (isTest ? 'seocho' : TG.save.get('map', null));   // 검사는 지도를 안 적으면 늘 기본 지도(검사 좌표가 그 지도 기준이다)
+    var qs = new URLSearchParams(location.search), want = qs.get('map') || (isTest || drillParam() ? 'seocho' : TG.save.get('map', null));   // 검사는 지도를 안 적으면 늘 기본 지도(검사 좌표가 그 지도 기준이다)
     // (v0.10.64 · 소유자 「1:1 지도가 메인이지만 선택할 수 있게」) 예전 판에서 기본 지도가 저장된 기기는 **한 번만** 메인(1:1)으로 옮긴다 — 그 뒤 고른 것은 그대로 기억한다
-    if (!isTest && !qs.get('map') && want === 'seocho' && !TG.save.get('mapMain', null)) { want = null; TG.save.set('map', null); }
-    if (!isTest) TG.save.set('mapMain', 1);
-    if (!isTest && !qs.get('map') && TG.PlaceKey && TG.PlaceKey.param()) want = 'seocho-full';   // 🔗 ?at= (지도 「여기서 근무해 보기」) — 지도를 안 적었으면 메인 지도에서
+    if (!isTest && !drillParam() && !qs.get('map') && want === 'seocho' && !TG.save.get('mapMain', null)) { want = null; TG.save.set('map', null); }
+    if (!isTest && !drillParam()) TG.save.set('mapMain', 1);
+    if (!isTest && !drillParam() && !qs.get('map') && TG.PlaceKey && TG.PlaceKey.param()) want = 'seocho-full';   // 🔗 ?at= (지도 「여기서 근무해 보기」) — 지도를 안 적었으면 메인 지도에서
     if (qs.get('enter') === 'gate') G.enterGate = true;   // 관문으로 건너온 판 — 시작 자리를 관문 앞으로
     fetch('data/maps/index.json').then(function (r) { return r.json(); }).then(function (idx) {
       TG.MAPS = idx;

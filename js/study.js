@@ -91,7 +91,7 @@ TG.study = (function () {
       html += '<div class="sitem"><div class="num">🚧</div><div class="body"><b>게임에서 하는 일</b>' +
         '<div class="law">' + esc(IS.creed || '') + '</div>' +
         '<div class="sit">사고 현장 45m 안에서 🚧 단추(K)를 누르면 라바콘으로 차로를 차단한다 — ' + esc((IS.cones && IS.cones.layout) || '') +
-        ' · ' + esc((IS.cones && IS.cones.extent) || '') + '. 편도 4차로 이상은 두 개 차로를 막는다(' + esc((IS.cones && IS.cones.multi) || '') + ').' +
+        ' · ' + esc((IS.cones && IS.cones.extent) || '') + '. ' + esc((IS.twoLane && IS.twoLane.rule) || '') + ' — ' + esc((IS.twoLane && IS.twoLane.why) || '') + '(' + esc((IS.cones && IS.cones.multi) || '') + ' · 게임에서는 편도 3차로 이상이면 두 개 차로).' +
         ' 야간·악천후에는 🔥 불꽃신호기까지 점화해야 안전조치가 끝난다 — ' + esc((IS.flare && IS.flare.when) || '') + '</div>' +
         '<div class="tip">' + esc((IS.shield && IS.shield.how) || '') + '</div>' +
         '<div class="tip">' + esc((IS.keepLane && IS.keepLane.rule) || '') + ' · ' + esc((IS.keepLane && IS.keepLane.why) || '') + '</div>' +

@@ -15,12 +15,14 @@ TG.IncidentScene = function (game) {
 
   function laws() { return (game.laws && game.laws.incidentScene) ? game.laws.incidentScene : null; }
   function msg(k) { var L = laws(); return (L && L.msgs && L.msgs[k]) ? L.msgs[k] : ''; }
-  // 이 도로에서 몇 개 차로를 막아야 하는가 — 편도 4차로 이상이면 2개(다차로 차단), 아니면 1개.
-  // T-Book 「4차로 이상 본선: 견인차 도착 전까지 사고차량 차로 폐쇄 보존」 · 「다차로 차단 시 추가 4개 필요」.
-  function needOf(lanes) { return lanes >= 4 ? 2 : 1; }
+  // 이 도로에서 몇 개 차로를 막아야 하는가 — **1개 차로 사고라면 2개 차로**(v0.10.161).
+  // T-Book v25.01 「1개 차로 사고라면 2개 차로를 막는다 · 목적은 속도를 줄이는 것 · 소통보다 안전」(소유자 현장 기준 2026-11-24 — laws 의 twoLane).
+  // 편도 2차로는 둘 다 막으면 길이 닫히므로 1개(closeLane 도 한 차로는 남긴다). 종전은 편도 4차로 이상에서만 2개였다.
+  function needOf(lanes) { return lanes >= 3 ? 2 : 1; }
   self.needOf = needOf;
 
-  function dark() { return !!(game.weather && (game.weather.dark || game.weather.kind === 'rain' || game.weather.kind === 'snow')); }
+  // (v0.10.161) 날씨 이름은 weather.name 이다 — kind 로 읽어 비·눈에는 불꽃신호기를 요구하지 않고 있었다(T-Book 「눈·비·안개·야간 시 … 불꽃신호기 추가 설치」).
+  function dark() { return !!(game.weather && (game.weather.dark || game.weather.name === 'rain' || game.weather.name === 'snow')); }
   self.darkNow = dark;
 
   // 현장 차량이 선 도로를 읽는다. 격자 도로에서만 쓴다(연결로 현장은 다음 판).
@@ -189,6 +191,8 @@ TG.IncidentScene = function (game) {
   // **에어(압축공기) 확인은 소유자 현장 지시**다 — 티북에 없다(laws 의 tow.airSource 에 그렇게 적어 두었다).
   var TOW = null;   // { car, rope, asked, connected, len }
   function bigOf(car) { return car && (car.isBus || car.isTruck || car.type === 'bus' || car.type === 'truck'); }
+  function towLimit() { var L = laws(); return (L && L.tow && L.tow.speedKmh) || null; }
+  self.towLimit = towLimit;
   self.towState = function () { return TOW; };
   self.bigOf = bigOf;
   // 순찰차가 고장차 **앞**에 같은 방향으로 서 있는가(끌려면 앞에서 당긴다)
@@ -225,7 +229,7 @@ TG.IncidentScene = function (game) {
   }
   // 🪝 단추는 **세 걸음**을 차례로 밟는다(소유자 실물 사진대로):
   //   ① 대형차면 **에어(압축공기) 확인** → ② **트렁크에서 견인고리를 꺼내 범퍼 홀에 돌려 끼운다**
-  //   → ③ 순찰차를 **앞에** 대고 **견인줄 연결** → 20km/h 이하로 갓길·안전지대까지.
+  //   → ③ 순찰차를 **앞에** 대고 **견인줄 연결** → 시속 25km 이내(laws 의 tow.speedKmh · 시행규칙 §20 2호)로 갓길·안전지대까지.
   self.towAct = function (car) {
     var L = laws(), pl = game.player;
     if (!car) return { ok: false, why: 'no-car' };
@@ -279,8 +283,8 @@ TG.IncidentScene = function (game) {
     if (TOW.hook) { TOW.hook.position.set(hk.x, 0.42, hk.z); TOW.hook.rotation.y = car.heading; }
     var mx = (hx + hk.x) / 2, mz = (hz + hk.z) / 2, len = Math.max(0.2, Math.hypot(hk.x - hx, hk.z - hz));
     TOW.rope.position.set(mx, 0.40, mz); TOW.rope.scale.set(1, 1, len); TOW.rope.rotation.y = Math.atan2(hk.x - hx, hk.z - hz);
-    // 끌고 갈 수 있는 속도(과속하면 줄이 끊긴다 — 20km/h)
-    if (pl.speedKmh() > 22) { self.towCut(); return { cut: true }; }
+    // 끌고 갈 수 있는 속도(넘기면 줄이 끊긴다) — laws 의 tow.speedKmh(시행규칙 §20 2호 매시 25km 이내). 자료를 못 읽었으면 종전 게임 설계값 20. 여유 2km/h 는 게임 설계값.
+    if (pl.speedKmh() > (towLimit() || 20) + 2) { self.towCut(); return { cut: true }; }
     // 갓길·안전지대에 닿았는가
     var fr = city.frameAt(car.pos.x, car.pos.z, car.heading);
     var safeNow = !fr || fr.kind !== 'grid' ? true : Math.abs(fr.lateral) >= city.shoulderMin(fr.axis, fr.idx) - 0.4;
