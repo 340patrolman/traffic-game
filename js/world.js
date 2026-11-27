@@ -167,26 +167,28 @@
     // 노면 표시: 중앙 황색 복선, 차로 경계(4차로면 3.7 점선), 가장자리 실선
     var mk = new GeoBuilder(), Y = 0.07, YEL = 0xf0c000, WHT = 0xf2f2ee;
     if (city.brt && TG.brtPlace) TG.brtPlace(city, cfg);   // 🚧 중앙차로 승강장 자리·일반차로 비킴(v0.10.141 · js/brt.js) — 차선을 긋기 전에 정한다
-    function seg(axis, fixed, a0, a1, lanes, idx) {
+    function seg(axis, fixed, a0, a1, lanes, idx, trim) {
       var len = a1 - a0, mid = (a0 + a1) / 2; if (len <= 0) return;
       var edge = 0.25 + cfg.LANE_W * lanes;   // 마지막 차로 밖 가장자리 실선
-      function line(off, wdt, col) { if (axis === 'v') mk.rect(fixed + off, mid, wdt, len, 0, Y, col); else mk.rect(mid, fixed + off, len, wdt, 0, Y, col); }
+      // (v0.10.163) 실측 정지선이 횡단보도에서 떨어진 접근 쪽은 차선을 정지선에서 끝낸다. trim = { '-1': [a0 쪽, a1 쪽], '1': [...] }
+      var T0 = trim || {}, lo = function (sd) { return a0 + ((T0[sd] || [0])[0] || 0); }, hi = function (sd) { return a1 - ((T0[sd] || [0, 0])[1] || 0); };
+      function line(off, wdt, col) { var sd = off < 0 ? -1 : 1, p0 = lo(sd), p1 = hi(sd), m0 = (p0 + p1) / 2, l0 = p1 - p0; if (l0 <= 0) return; if (axis === 'v') mk.rect(fixed + off, m0, wdt, l0, 0, Y, col); else mk.rect(m0, fixed + off, l0, wdt, 0, Y, col); }
       // 🚧 승강장 구간에서 일반차로가 바깥으로 비킨다(city.brtJog) — 그 쪽(sd) 선은 비킨 만큼 옮겨 2m 조각으로 긋는다
       var jogOf = function (sd, s) { return (city.brtJog && idx !== undefined) ? city.brtJog(axis, idx, city.brtJogSide(axis, sd), s) : 0; };
       var hasJog = function (sd) { if (!city.brtJog) return false; for (var q = a0; q <= a1; q += 6) if (jogOf(sd, q) > 0) return true; return jogOf(sd, a1) > 0; };
       var jogLine = function (sd, base, wdt, col, onlyJog) {   // base 에서 jog 만큼 바깥으로 옮긴 실선(onlyJog 면 비킨 곳에만)
-        for (var q = a0; q < a1 - 0.01; q += 2) { var q1 = Math.min(a1, q + 2), jg = jogOf(sd, (q + q1) / 2); if (onlyJog && jg < 0.05) continue; var o = sd * (base + jg), m3 = (q + q1) / 2;
+        for (var q = lo(sd); q < hi(sd) - 0.01; q += 2) { var q1 = Math.min(hi(sd), q + 2), jg = jogOf(sd, (q + q1) / 2); if (onlyJog && jg < 0.05) continue; var o = sd * (base + jg), m3 = (q + q1) / 2;
           if (axis === 'v') mk.rect(fixed + o, m3, wdt, q1 - q, 0, Y, col); else mk.rect(m3, fixed + o, q1 - q, wdt, 0, Y, col); }
       };
       var jogS = { '-1': hasJog(-1), '1': hasJog(1) };
-      line(-0.22, 0.15, YEL); line(0.22, 0.15, YEL);
+      [-0.22, 0.22].forEach(function (o) { if (axis === 'v') mk.rect(fixed + o, mid, 0.15, len, 0, Y, YEL); else mk.rect(mid, fixed + o, len, 0.15, 0, Y, YEL); });   // 중앙선은 정지선 간격과 상관없이 끝까지
       [-1, 1].forEach(function (sd) { if (jogS[sd]) { jogLine(sd, edge, 0.14, WHT, false); jogLine(sd, 0.25 + cfg.LANE_W, 0.14, WHT, true); } else line(sd * edge, 0.14, WHT); });   // 비킨 곳은 첫 일반차로 안쪽에도 흰 실선(승강장 쪽은 들어가지 않는 자리)
       // 🚌 중앙버스전용차로(v0.10.68 · city.brt): 1차로와 2차로 사이를 **청색 복선**으로 — 1차로를 버스에 확보한다(시행규칙 별표6 504 청색 실선)
       var brtOn = function (s0) { return !!(city.brtAt && idx !== undefined && city.brtAt(axis, idx, s0)); };
       if (lanes >= 2 && city.brt) {
         var BLU = 0x2a6ff0, b1 = 0.25 + cfg.LANE_W, c0 = null;
-        var blue = function (p0, p1) { var l2 = p1 - p0, m2 = (p0 + p1) / 2; if (l2 <= 0) return;
-          [-1, 1].forEach(function (sd) { [b1 - 0.32, b1 + 0.18].forEach(function (o) { if (axis === 'v') mk.rect(fixed + sd * o, m2, 0.2, l2, 0, Y, BLU); else mk.rect(m2, fixed + sd * o, l2, 0.2, 0, Y, BLU); }); }); };
+        var blue = function (p0, p1) {
+          [-1, 1].forEach(function (sd) { var q0 = Math.max(p0, lo(sd)), q1 = Math.min(p1, hi(sd)), l2 = q1 - q0, m2 = (q0 + q1) / 2; if (l2 <= 0) return; [b1 - 0.32, b1 + 0.18].forEach(function (o) { if (axis === 'v') mk.rect(fixed + sd * o, m2, 0.2, l2, 0, Y, BLU); else mk.rect(m2, fixed + sd * o, l2, 0.2, 0, Y, BLU); }); }); };
         for (var sb = a0; sb <= a1 + 0.01; sb += 4) { var onB = sb <= a1 && brtOn(sb); if (onB && c0 === null) c0 = sb; if ((!onB || sb + 4 > a1) && c0 !== null) { blue(c0, onB ? a1 : sb); c0 = null; } }
       }
       for (var lk = 1; lk < lanes; lk++) {   // 차로 사이 점선(4m 선, 4m 공백) — 편도 차로 수 −1 개
@@ -194,22 +196,30 @@
         for (var s = a0 + 1; s < a1 - 2; s += 8) {
           if (lk === 1 && brtOn(s + 2)) continue;   // 전용차로 구간은 청색 복선이 대신한다
           var jm = jogS['-1'] ? jogOf(-1, s + 2) : 0, jp = jogS['1'] ? jogOf(1, s + 2) : 0;   // 비킨 곳은 점선도 같이 옮긴다
-          if (axis === 'v') { mk.rect(fixed - bnd - jm, s + 2, 0.14, 4, 0, Y, WHT); mk.rect(fixed + bnd + jp, s + 2, 0.14, 4, 0, Y, WHT); }
-          else { mk.rect(s + 2, fixed - bnd - jm, 4, 0.14, 0, Y, WHT); mk.rect(s + 2, fixed + bnd + jp, 4, 0.14, 0, Y, WHT); }
+          [-1, 1].forEach(function (sd) {   // 정지선 너머로는 긋지 않는다(걸치면 잘라서)
+            var q0 = Math.max(s, lo(sd)), q1 = Math.min(s + 4, hi(sd)), l4 = q1 - q0; if (l4 < 0.6) return;
+            var o = sd < 0 ? -bnd - jm : bnd + jp, m4 = (q0 + q1) / 2;
+            if (axis === 'v') mk.rect(fixed + o, m4, 0.14, l4, 0, Y, WHT); else mk.rect(m4, fixed + o, l4, 0.14, 0, Y, WHT);
+          });
         }
       }
     }
+    // 접근로 d 로 nd 에 닿는 쪽의 차선을 얼마나 일찍 끝낼지(정지선 간격이 1.2m 를 넘는 곳만 · 그 밖은 종전 그대로)
+    function tr(nd, d) { var t = city.stopDist(nd, d) - city.crossFar(nd, d); return t > 1.2 ? t : 0; }
+    // 세로길: 남행(d 0)은 −x 쪽이 접근해 a1 끝 · 북행(d 2)은 +x 쪽이 a0 끝. 가로길: 동행(d 1)은 +z 쪽이 a1 끝 · 서행(d 3)은 −z 쪽이 a0 끝.
+    function trimV(n0, n1) { return { '-1': [0, n1 ? tr(n1, 0) : 0], '1': [n0 ? tr(n0, 2) : 0, 0] }; }
+    function trimH(n0, n1) { return { '1': [0, n1 ? tr(n1, 1) : 0], '-1': [n0 ? tr(n0, 3) : 0, 0] }; }
     for (var i2 = 0; i2 < xs.length; i2++) {
       var nd0 = city.nodes[i2][0], ndL = city.nodes[i2][zs.length - 1];
-      if (city.hasStub('v', i2, 0)) seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2], i2);
-      for (var j2 = 0; j2 < zs.length - 1; j2++) seg('v', xs[i2], zs[j2] + city.crossFar(city.nodes[i2][j2], 2), zs[j2 + 1] - city.crossFar(city.nodes[i2][j2 + 1], 0), city.lanesV[i2], i2);
-      if (city.hasStub('v', i2, 1)) seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2], i2);
+      if (city.hasStub('v', i2, 0)) seg('v', xs[i2], zs[0] - EXT, zs[0] - city.crossFar(nd0, 0), city.lanesV[i2], i2, trimV(null, nd0));
+      for (var j2 = 0; j2 < zs.length - 1; j2++) seg('v', xs[i2], zs[j2] + city.crossFar(city.nodes[i2][j2], 2), zs[j2 + 1] - city.crossFar(city.nodes[i2][j2 + 1], 0), city.lanesV[i2], i2, trimV(city.nodes[i2][j2], city.nodes[i2][j2 + 1]));
+      if (city.hasStub('v', i2, 1)) seg('v', xs[i2], zs[zs.length - 1] + city.crossFar(ndL, 2), zs[zs.length - 1] + EXT, city.lanesV[i2], i2, trimV(ndL, null));
     }
     for (var j3 = 0; j3 < zs.length; j3++) {
       var nd1 = city.nodes[0][j3], ndR = city.nodes[xs.length - 1][j3];
-      if (city.hasStub('h', j3, 0)) seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3], j3);
-      for (var i3 = 0; i3 < xs.length - 1; i3++) seg('h', zs[j3], xs[i3] + city.crossFar(city.nodes[i3][j3], 3), xs[i3 + 1] - city.crossFar(city.nodes[i3 + 1][j3], 1), city.lanesH[j3], j3);
-      if (city.hasStub('h', j3, 1)) seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3], j3);
+      if (city.hasStub('h', j3, 0)) seg('h', zs[j3], xs[0] - EXT, xs[0] - city.crossFar(nd1, 1), city.lanesH[j3], j3, trimH(null, nd1));
+      for (var i3 = 0; i3 < xs.length - 1; i3++) seg('h', zs[j3], xs[i3] + city.crossFar(city.nodes[i3][j3], 3), xs[i3 + 1] - city.crossFar(city.nodes[i3 + 1][j3], 1), city.lanesH[j3], j3, trimH(city.nodes[i3][j3], city.nodes[i3 + 1][j3]));
+      if (city.hasStub('h', j3, 1)) seg('h', zs[j3], xs[xs.length - 1] + city.crossFar(ndR, 3), xs[xs.length - 1] + EXT, city.lanesH[j3], j3, trimH(ndR, null));
     }
     // 교차로: 접근로마다 정지선(접근 도로의 우측 반폭) + 횡단보도(접근 도로 전폭)
     for (var ni = 0; ni < xs.length; ni++) for (var nj = 0; nj < zs.length; nj++) {

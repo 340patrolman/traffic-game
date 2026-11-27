@@ -691,10 +691,16 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         }
         car.running = null;
         // 횡단보도 진입 시 보행자가 걷고 있으면 보행자 보호의무 위반
-        if (!car.violation && car.v > 1.5 && pedOnCrosswalk(ap)) { self.stats.violations++; flag(car, 'pedestrian', ap.node, self.witness(car)); car.cooldown = cfg.VIOLATOR_COOLDOWN; }
+        // (v0.10.163) 정지선이 횡단보도에서 떨어진 접근로는 판정을 그만큼 늦춘다(앞범퍼가 실제로 횡단보도에 드는 때) — 독립 검수: 준법 차가 위반으로 찍힐 수 있었다
+        car.pedChk = { ap: ap, off: Math.max(0, city.stopDist(ap.node, ap.d) - city.crossFar(ap.node, ap.d) - cfg.STOP_GAP + 4.0) };
       }
       car.prevDistStop = distStop; car.prevAp = ap;
     } else { car.prevAp = null; car.prevDistStop = undefined; }
+    if (car.pedChk) {   // 횡단보도 진입 시 보행자가 걷고 있으면 보행자 보호의무 위반
+      var pq = car.pedChk.ap, fq = TG.DIR_VEC[pq.d], dsq = (pq.x - car.pos.x) * fq[0] + (pq.z - car.pos.z) * fq[1];
+      if (dsq <= -car.pedChk.off) { car.pedChk = null; if (!car.violation && car.v > 1.5 && pedOnCrosswalk(pq)) { self.stats.violations++; flag(car, 'pedestrian', pq.node, self.witness(car)); car.cooldown = cfg.VIOLATOR_COOLDOWN; } }
+      else if (dsq > 3) car.pedChk = null;
+    }
     // 전용차로·지정차로 판정은 **차가 실제로 달리는 링크(car.route.link)** 로 한다. 위치로 잡은 프레임(cur)은 램프가 본선 포장 안을 지날 때
     // 본선을 돌려준다 — 그러면 램프 위 0번 차로를 본선 1차로로 읽어 **준법 차량을 위반으로 기록**했다(v0.9.45 검증 2회차에서 잡힘).
     var lpNow = car.path[car.idx] && car.path[car.idx].lp, busNow = !!(car.route && car.route.link && busOnPt(car.route.link, lpNow || car.route.link.pts[0])), busPhysNow = !!(car.route && car.route.link && busPt(car.route.link, lpNow || car.route.link.pts[0]));   // (v0.10.144) 지금 자리 기준 · (v0.10.146) busNow = 시행 중(위반 기록) / busPhysNow = 그려진 자리(경부는 지정차로를 판정하지 않는다)

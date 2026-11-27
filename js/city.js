@@ -37,11 +37,14 @@ TG.buildCity = function (cfg) {
   // ---- 도로 기하 도우미 ----
   function axisOfDir(d) { return (d === 0 || d === 2) ? 'v' : 'h'; }
   function halfOf(axis, idx) { return axis === 'v' ? halfV[idx] : halfH[idx]; }
+  var TGIS = mapv('tgis', null);   // 서울시 교통안전시설물 실측(정지선 간격·노면 화살표)
   function lanesOf(axis, idx) { return axis === 'v' ? lanesV[idx] : lanesH[idx]; }
   // 노드에서 방위 d 로 달리는 차의 '진행 도로'(축·인덱스) 와 '가로지르는 도로'
   function roadOf(node, d) { return axisOfDir(d) === 'v' ? { axis: 'v', idx: node.i } : { axis: 'h', idx: node.j }; }
   function crossHalf(node, d) { return axisOfDir(d) === 'v' ? halfH[node.j] : halfV[node.i]; }   // 교차로 상자의 진행 방향 반폭
-  function stopDist(node, d) { return crossHalf(node, d) + cfg.STOP_GAP; }
+  // 정지선: 실측 간격(횡단보도 바깥 끝 → 정지선 · 지도 tgis 칸 gap · v0.10.163)이 있으면 그만큼(0.8~4.5m), 없으면 종전 STOP_GAP(간격 0.8m).
+  //  교차로까지의 절대 거리는 옮기지 않는다 — 우리 교차로는 실제보다 좁아서 그대로 옮기면 횡단보도와 정지선 사이가 벌어진다.
+  function stopDist(node, d) { var e = TGIS && TGIS.nodes && TGIS.nodes[node.i + ',' + node.j], g = e && e[d] ? e[d].gap : null; return (typeof g === 'number') ? crossFar(node, d) + TG.clamp(g, 0.8, 4.5) : crossHalf(node, d) + cfg.STOP_GAP; }
   function crossNear(node, d) { return crossHalf(node, d) + 0.5; }
   function crossFar(node, d) { return crossHalf(node, d) + 4.0; }
   // 차로 중심(중앙선에서 우측 +): 1차로 2.0, 그다음부터 차로폭씩. 갓길은 마지막 차로 밖.
@@ -56,7 +59,7 @@ TG.buildCity = function (cfg) {
   //   1차로 = 실제에 좌회전 전용(L·LU)이 있으면 L(유턴 표시가 있으면 +U) · 직진과 같이 쓰면 SL · 끝 차로 = 우회전 전용이 있고 편도 4차로 이상이면 R, 아니면 SR · 나머지 S.
   //  자료가 없는 접근로는 null — 종전 규칙(보호 좌회전이면 1차로 좌회전 · 끝 차로 우회전) 그대로.
   //  회전 전용 차로를 실제처럼 더 붙이는 것(접근로 넓히기)은 다음 층이다.
-  var TGIS = mapv('tgis', null), useCache = {};
+  var useCache = {};
   function laneUse(node, d) {
     if (!TGIS || !TGIS.nodes || !node) return null;
     var key = node.i + ',' + node.j + ',' + d; if (useCache[key] !== undefined) return useCache[key];

@@ -232,8 +232,26 @@ def bake(mid):
                     use.append(Counter(ks).most_common(1)[0][0])
                 st = [al for (mx, mz), p in ST for al, la in [((mx - x) * tg[0] + (mz - z) * tg[1], (mx - x) * rgt[0] + (mz - z) * rgt[1])] if 6 < al < 60 and -3 < la < 24]
                 cw = [al for wx, wz in WK for al, la in [((wx - x) * tg[0] + (wz - z) * tg[1], (wx - x) * rgt[0] + (wz - z) * rgt[1])] if 4 < al < 50 and abs(la) < 24]
+                # 횡단보도 바깥 끝 → 정지선 간격(m): 이 팔을 가로지르는 횡단보도 띠(가로 8m 이상 · 세로 9m 이하 · 팔 가운데 14m 안) 가운데
+                #  교차로에 가장 가까운 것의 바깥 끝에서, 그 뒤 15m 안의 정지선(팔에 가로놓인 선 · 접근 쪽)까지. 두 개 다 잡힐 때만.
+                bands = []
+                for d_, parts in walks:
+                    rel = [((px - x) * tg[0] + (pz - z) * tg[1], (px - x) * rgt[0] + (pz - z) * rgt[1]) for part in parts for px, pz in part]
+                    al0, al1 = min(a for a, l in rel), max(a for a, l in rel); la0, la1 = min(l for a, l in rel), max(l for a, l in rel)
+                    if (la1 - la0) >= 8 and (al1 - al0) <= 9 and abs((la0 + la1) / 2) < 14 and 8 < (al0 + al1) / 2 < 55:
+                        bands.append((al0, al1))
+                gap = None
+                if bands:
+                    far = min(bands)[1]
+                    g2 = []
+                    for (mx, mz), p in ST:
+                        al = (mx - x) * tg[0] + (mz - z) * tg[1]; la = (mx - x) * rgt[0] + (mz - z) * rgt[1]
+                        dx = p[0][-1][0] - p[0][0][0]; dz = p[0][-1][1] - p[0][0][1]; L = math.hypot(dx, dz) or 1
+                        if abs((dx * tg[0] + dz * tg[1]) / L) < 0.5 and far - 0.5 < al < far + 15 and -2 < la < 24:
+                            g2.append(al - far)
+                    gap = round(min(g2), 1) if g2 else None
                 ent = {'use': use if len(use) >= 2 else None, 'stop': round(min(st), 1) if st else None, 'cw': round(min(cw), 1) if cw else None,
-                       'bear': round(math.degrees(math.atan2(tg[0], tg[1])) % 360)}
+                       'gap': gap, 'bear': round(math.degrees(math.atan2(tg[0], tg[1])) % 360)}
                 node[str(d)] = ent
             out['nodes']['%d,%d' % (i, j)] = node
     # 구간 가운데 편도 차로 수(30·50·70% 세 단면의 가운데 값) — [구간][방향 +, 방향 -]
@@ -257,7 +275,7 @@ def bake(mid):
         'source': '서울특별시 교통안전시설물(서울 열린데이터광장 · 교통운영과) — 차선 A058_L(OA-15537) · 방향표시 A055_P(OA-15536) · 횡단보도 A004_A(OA-15554)',
         'license': '이용허락범위 제한 없음(서울 열린데이터광장 표기) — 출처 표시',
         'collected': '2026-11-28 · 차선·횡단보도 마지막 기록 2021 · 방향표시 2026-09',
-        'note': '격자 교차로 접근로(진행 방향 d: 0 남·1 동·2 북·3 서)마다 use = 정지선 앞 노면 화살표(1차로부터) · stop/cw = 교차로 가운데에서 m · bear = 실제 팔 방위(도) · midV/midH = 구간 가운데 편도 차로 수 [+방향, -방향]. 실제 교차로는 격자처럼 곧지 않다 — 이 값은 격자 교차로에 대응하는 실제 자리에서 잰 것이다.',
+        'note': '격자 교차로 접근로(진행 방향 d: 0 남·1 동·2 북·3 서)마다 use = 정지선 앞 노면 화살표(1차로부터) · gap = 횡단보도 바깥 끝에서 정지선까지(m · 게임 정지선 자리에 쓴다) · stop/cw = 교차로 가운데에서 m(참고) · bear = 실제 팔 방위(도) · midV/midH = 구간 가운데 편도 차로 수 [+방향, -방향]. 실제 교차로는 격자처럼 곧지 않다 — 이 값은 격자 교차로에 대응하는 실제 자리에서 잰 것이다.',
         'fix': old.get('fix', {}),
         'nodes': out['nodes']}
     # 지도 파일의 다른 칸은 손대지 않는다(손으로 맞춘 들여쓰기 그대로) — 맨 끝 "tgis" 칸만 갈아 끼운다. 교차로 하나가 한 줄.
