@@ -50,6 +50,39 @@ TG.buildCity = function (cfg) {
   function shoulderMin(axis, idx) { return laneOff(axis, idx, lanesOf(axis, idx) - 1) + 1.9; }
   function laneIndexAt(axis, idx, lateral) { return TG.clamp(Math.round((lateral - cfg.LANE_OFF) / cfg.LANE_W), 0, lanesOf(axis, idx) - 1); }
   function sideOff(axis, idx) { return halfOf(axis, idx) + SW / 2; }   // 보도 중앙선(행인이 걷는 선)
+  // 🛣 (v0.10.162) 실제 차로별 통행 방향 — 서울시 교통안전시설물 노면 화살표(A055_P)를 지도 파일 tgis 칸에 구워 둔 것(tools/tgis-bake.py).
+  //  소유자(2026-11-28): 「실제 도로 교차로 여건이 너무 차이가 난다 — T-GIS 를 참고해서 반영하자」.
+  //  실제 접근로는 회전 전용 차로가 더 붙어 차로 수가 우리 길보다 많다(서초구 1:1 접근로 71곳 중 58곳). 이 판은 **우리 차로 수 그대로** 실제 화살표의 뜻을 옮긴다:
+  //   1차로 = 실제에 좌회전 전용(L·LU)이 있으면 L(유턴 표시가 있으면 +U) · 직진과 같이 쓰면 SL · 끝 차로 = 우회전 전용이 있고 편도 4차로 이상이면 R, 아니면 SR · 나머지 S.
+  //  자료가 없는 접근로는 null — 종전 규칙(보호 좌회전이면 1차로 좌회전 · 끝 차로 우회전) 그대로.
+  //  회전 전용 차로를 실제처럼 더 붙이는 것(접근로 넓히기)은 다음 층이다.
+  var TGIS = mapv('tgis', null), useCache = {};
+  function laneUse(node, d) {
+    if (!TGIS || !TGIS.nodes || !node) return null;
+    var key = node.i + ',' + node.j + ',' + d; if (useCache[key] !== undefined) return useCache[key];
+    var nd = TGIS.nodes[node.i + ',' + node.j], e = nd && nd[d], real = e && e.use, out = null;
+    if (real && real.length >= 2) {
+      var rd = roadOf(node, d), n = lanesOf(rd.axis, rd.idx), has = function (f) { return real.some(f); };
+      var lPure = has(function (u) { return u.indexOf('L') >= 0 && u.indexOf('S') < 0; }), lAny = has(function (u) { return u.indexOf('L') >= 0; });
+      var rPure = has(function (u) { return u.indexOf('R') >= 0 && u.indexOf('S') < 0 && u.indexOf('L') < 0; }), rAny = has(function (u) { return u.indexOf('R') >= 0; });
+      var uAny = has(function (u) { return u.indexOf('U') >= 0; });
+      out = [];
+      for (var k = 0; k < n; k++) out.push('S');
+      // 중앙버스전용차로 길(강남대로·신반포로·동작대로)은 1차로가 버스 직진이고 좌회전은 그 다음 차로다 — 실제 화살표도 [S][L][L]… 로 시작한다
+      var busFirst = real.length >= 3 && real[0] === 'S' && real[1].indexOf('L') >= 0;
+      if (n === 1) out[0] = 'S' + (lAny ? 'L' : '') + (rAny ? 'R' : '');
+      else if (busFirst && n >= 3) { out[1] = lPure ? 'L' : 'SL'; if (rAny) out[n - 1] = (rPure && n >= 4) ? 'R' : 'SR'; }
+      else if (busFirst) { if (rAny) out[n - 1] = 'SR'; }
+      else {
+        if (lAny) out[0] = lPure ? 'L' : 'SL';
+        if (rAny) out[n - 1] = (rPure && n >= 4) ? 'R' : 'SR';   // 우회전 전용은 편도 4차로 이상에서만 — 우리 차로가 실제보다 적어 3차로에서 막으면 직진이 한 차로뿐이 된다(독립 검수)
+        if (out.every(function (u) { return u.indexOf('S') < 0; })) out[n - 1] = 'SR';
+      }
+      if (uAny && !busFirst && out[0].indexOf('U') < 0) out[0] += 'U';
+    }
+    useCache[key] = out;
+    return out;
+  }
 
   // ---- 블록 채우기 ----
   var buildings = [], trees = [], lamps = [], signs = [], roadTexts = [], parks = [], blocks = [], landmarks = [];
@@ -399,7 +432,7 @@ TG.buildCity = function (cfg) {
     laneFrame: laneFrame, frameAt: frameAt, nodeAhead: nodeAhead, nodeFrom: nodeFrom, distToNearestNode: distToNearestNode, nearIntersectionZone: nearIntersectionZone,
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,
     nearestNode: nearestNode, axisOfDir: axisOfDir, halfOf: halfOf, lanesOf: lanesOf, roadOf: roadOf, crossHalf: crossHalf, stopDist: stopDist, crossNear: crossNear, crossFar: crossFar,
-    laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff, laneIndexAt: laneIndexAt,
+    laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff, laneIndexAt: laneIndexAt, laneUse: laneUse,
     attachTerrain: function (t) { terrain = t; city.terrain = t; bounds.x0 = t.bounds.x0; bounds.x1 = t.bounds.x1; bounds.z0 = t.bounds.z0; bounds.z1 = t.bounds.z1; for (var i = 0; i < t.walls.length; i++) walls.push(t.walls[i]); },
     exitFor: function (node, dir) { return terrain ? terrain.exitFor(node, dir) : null; },
   };

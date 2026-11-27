@@ -15,6 +15,22 @@
     var uv = uvS ? [[0, 0], [w / uvS, 0], [w / uvS, d / uvS], [0, d / uvS]] : null;
     this.quad(pt(-hw, hd), pt(hw, hd), pt(hw, -hd), pt(-hw, -hd), [0, 1, 0], color, uv);
   };
+  // 🛣 (v0.10.162) 노면 방향 화살표 한 개 — kind 는 'S'·'L'·'R'·'U' 의 묶음(예 'SL'). 가운데 (cx,cz) · f = 진행 방향 · r = 진행 오른쪽.
+  //  길이 약 4.4m · 선 폭 0.3m(실제 노면표시보다 조금 작게 — 게임 차로 3.5m 에 맞춤). 앞을 뾰족하게 하는 머리는 두 줄 빗금.
+  function laneArrow(mk, cx, cz, f, r, kind, y, col) {
+    function P(a, l) { return [cx + f[0] * a - r[0] * l, cz + f[1] * a - r[1] * l]; }            // a = 앞 · l = 왼쪽
+    function hd(da, dl) { var vx = f[0] * da - r[0] * dl, vz = f[1] * da - r[1] * dl; return Math.atan2(vx, vz); }
+    function bar(a0, l0, a1, l1) { var m = P((a0 + a1) / 2, (l0 + l1) / 2), L = Math.hypot(a1 - a0, l1 - l0); mk.rect(m[0], m[1], 0.3, L, hd(a1 - a0, l1 - l0), y, col); }
+    function head(a, l, da, dl) {   // (a,l) 끝 · (da,dl) 가리키는 쪽
+      for (var sg = -1; sg <= 1; sg += 2) { var c = Math.cos(2.55 * sg), s2 = Math.sin(2.55 * sg), ba = da * c - dl * s2, bl = da * s2 + dl * c; bar(a, l, a + ba * 1.0, l + bl * 1.0); }
+    }
+    var S = kind.indexOf('S') >= 0, L = kind.indexOf('L') >= 0, R = kind.indexOf('R') >= 0, U = kind.indexOf('U') >= 0;
+    bar(-2.2, 0, S ? 2.2 : 0.4, 0);
+    if (S) head(2.2, 0, 1, 0);
+    if (L) { bar(0.4, 0, 0.4, 1.3); head(0.4, 1.3, 0, 1); }
+    if (U) { var ua = L ? -0.8 : 0.4; bar(ua, 0, ua, 1.2); bar(ua, 1.2, ua - 1.3, 1.2); head(ua - 1.3, 1.2, -1, 0); }   // 좌회전과 같이 있으면 유턴 고리는 한 칸 뒤에(독립 검수 — LU 가 유턴만 보였다)
+    if (R) { bar(0.4, 0, 0.4, -1.3); head(0.4, -1.3, 0, -1); }
+  }
   GeoBuilder.prototype.vquad = function (x, y, z, w, h, rotY, color, uvScale) {
     var fx = Math.sin(rotY), fz = Math.cos(rotY), rx = -fz, rz = fx, hw = w / 2, hh = h / 2;
     var L = [x + rx * hw, z + rz * hw], R = [x - rx * hw, z - rz * hw];
@@ -205,6 +221,12 @@
         var sd = city.stopDist(node, d), cn = city.crossNear(node, d), cf = city.crossFar(node, d), cm = (cn + cf) / 2, cl = cf - cn;
         mk.rect(node.x - f[0] * sd + r[0] * (half / 2 + 0.1), node.z - f[1] * sd + r[1] * (half / 2 + 0.1), half - 0.2, 0.45, rot, Y, WHT);
         for (var lat = -half + 0.5; lat < half; lat += 1.0) mk.rect(node.x - f[0] * cm + r[0] * lat, node.z - f[1] * cm + r[1] * lat, 0.5, cl, rot, Y, WHT);
+        // 🛣 (v0.10.162) 노면 방향 화살표 — 실제 차로별 통행 방향(city.laneUse · 서울시 교통안전시설물 A055_P). 정지선 뒤 7m · 27m 두 줄.
+        var LU = city.laneUse ? city.laneUse(node, d) : null;
+        if (LU) for (var lk = 0; lk < LU.length; lk++) {
+          var lo = city.laneOff(rd.axis, rd.idx, lk);
+          for (var ar = 0; ar < 2; ar++) laneArrow(mk, node.x - f[0] * (sd + 7 + ar * 20) + r[0] * lo, node.z - f[1] * (sd + 7 + ar * 20) + r[1] * lo, f, r, LU[lk], Y + 0.003, WHT);
+        }
       }
     }
     addMesh(mk.build(), basicVC, false, false);

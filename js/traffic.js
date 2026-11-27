@@ -105,6 +105,19 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (car && car.forceTurn && !car.turnUsed) { var ftD = car.forceTurn === 'R' ? (d + 3) % 4 : car.forceTurn === 'L' ? (d + 1) % 4 : d; if (city.nodeFrom(N, ftD)) { car.turnUsed = true; return car.forceTurn; } }   // 재현 장면(v0.10.69): 다음 교차로 한 번만
     if (car && car.straight && city.nodeFrom(N, d)) return 'S';
     if (car && car.wantsExit && exit) return 'X';
+    // 🛣 (v0.10.162) 실제 노면 화살표가 있는 접근로는 **지금 내 차로가 허락하는 방향만** 고른다(city.laneUse — 서울시 교통안전시설물 A055_P).
+    //  좌회전 전용 차로의 차는 좌회전 신호가 있으면 돌고, 우회전은 화살표가 허락한 차로에서만. 좌회전 현시가 없는 교차로면 L 은 못 고르고 아래 「갈 곳 없음」 규칙으로 물러선다.
+    var useN = city.laneUse ? city.laneUse(N, d) : null;
+    if (useN && car && !car.isBike && !car.isPM) {
+      var rdU = city.roadOf(N, d), myU = useN[TG.clamp(car.laneIdx || 0, 0, useN.length - 1)], ou = [];
+      if (myU === 'R' && (car.isBus || car.isMoto || car.rightLane || car.type === 'truck' || car.type === 'pickup')) myU = 'SR';   // 끝 차로로 가라고 정한 차종(버스·이륜차·화물 지정차로)은 우회전 전용 차로에서도 직진할 수 있게(독립 검수 — 늘 우회전만 하던 것)
+      var protU = !!(signals.hasLeftFor && signals.hasLeftFor(N, d));
+      if (myU.indexOf('S') >= 0 && city.nodeFrom(N, d)) ou.push(['S', 0.62]);
+      if (myU.indexOf('S') >= 0 && exit && !car.isBus && !car.isMoto) ou.push(['X', 0.5]);
+      if (myU.indexOf('R') >= 0 && city.nodeFrom(N, (d + 3) % 4)) ou.push(['R', myU === 'R' ? 1 : 0.28]);
+      if (myU.indexOf('L') >= 0 && protU && city.nodeFrom(N, (d + 1) % 4) && !car.isBus) ou.push(['L', myU.indexOf('S') < 0 ? 1 : 0.4]);
+      if (ou.length) { var su = 0; ou.forEach(function (o) { su += o[1]; }); var xu = rng() * su; for (var iu = 0; iu < ou.length; iu++) { xu -= ou[iu][1]; if (xu <= 0) return ou[iu][0]; } return ou[ou.length - 1][0]; }
+    }
     if (city.nodeFrom(N, d)) opts.push(['S', 0.62]);
     if (exit && !car.isBus && !car.isMoto && !car.isBike && !car.isPM) opts.push(['X', 0.5]);   // 이륜차·자전거·PM 은 고속도로로 나가지 않는다
     var rdN = city.roadOf(N, d), nLn = city.lanesOf(rdN.axis, rdN.idx);
@@ -792,8 +805,12 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && !car.brtLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
       var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
+      var useL = city.laneUse ? city.laneUse(ap.node, ap.d) : null, mL = ap.maneuver === 'U' ? 'L' : ap.maneuver === 'X' ? 'S' : ap.maneuver;
       if (nL >= 2) {
         var oldL = TG.clamp(car.laneIdx, 0, nL - 1), newL = oldL + (oldL === 0 ? 1 : oldL === nL - 1 ? -1 : (rng() < 0.5 ? -1 : 1));   // 옆 차로로만 한 칸
+        if (useL && mL && useL[newL] && useL[newL].indexOf(mL) < 0) nL = 0;   // (v0.10.162) 정한 방향을 허락하지 않는 차로(좌회전 전용 등)로는 옮기지 않는다
+      }
+      if (nL >= 2) {
         var offOld = city.laneOff(rdL.axis, rdL.idx, oldL), offNew = city.laneOff(rdL.axis, rdL.idx, newL);
         car.laneIdx = newL; car.lcShift += offNew - offOld; car.lcCd = 14 + rng() * 22;
         if (car.noSignalViolator) { car.signal = null; self.stats.violations++; flag(car, 'nosignal', ap.node, self.witness(car)); }
