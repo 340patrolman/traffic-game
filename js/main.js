@@ -469,7 +469,7 @@
       }
     }
   }
-  function showTitle() { titleSeed(); document.body.classList.remove('ingame'); document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.classLv) { G.classLv.hideChip(); G.classLv.paintMenu(); } if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
+  function showTitle() { traffic.parkedCar = null; titleSeed(); document.body.classList.remove('ingame'); document.body.classList.remove('onfoot'); document.body.classList.remove('kidmode'); document.body.classList.remove('dutymode'); document.body.classList.remove('dutyopen'); G.state = 'title'; if (G.classLv) { G.classLv.hideChip(); G.classLv.paintMenu(); } if (G.campaign) G.campaign.paint(); if (G.paintCampPick) G.paintCampPick(); paintLocks(); hud.showTitle(TG.save.get('best', null), (G.praise ? '🎖 ' + G.praise.rank().name + ' · 진급 점수 ' + G.praise.points() + '점' + (G.praise.next() ? '(' + G.praise.next().name + ' ' + G.praise.next().pt + '점)' : '') + (G.career ? ' · ' : '') : '') + (G.career ? G.career.line() : '') + (G.daily ? '\n' + G.daily.line() : '') + (G.praise && G.praise.restPreview && G.praise.restPreview() > 0 ? '\n☕ 휴식 보너스 ' + G.praise.restPreview() + '점 — 다음 근무 경험치 1.5배' : '') + (G.jam && G.jam.line ? '\n' + G.jam.line() : '')); camInit = false; }
   function introCamera(t) {
     // 0~5s: 순환고속도로 위를 낮게 난다 → 5~9s: 도시 위로 스윕 → 9~13s: 경광등 켠 순찰차 주위를 돈다
     var ring = terrain.ring, N = ring.N;
@@ -1332,7 +1332,7 @@
     player = new TG.PlayerCar(scene, city, C, carSpec(carId));
     player.setView(settings.cam); weather.attachPlayer(player.mesh, player.len); if (vfx) flares = vfx.attachFlares(player.mesh, player.wid, player.len, 0.72);
     TG.audio.setPowertrain(player.spec.powertrain || 'ice');
-    G.player = player; traffic.player = player; peds.player = player;
+    G.player = player; traffic.player = player; peds.player = player; traffic.parkedCar = null;
     while (traffic.cars.length) traffic.remove(traffic.cars[0]);
     while (peds.peds.length) peds.remove(peds.peds[0]);
     if (TG.mode && TG.mode.sim) {
@@ -1540,7 +1540,7 @@
 
     walker = new TG.Walker(scene, city, terrain, C, { kid: kid }); G.walker = walker;
     if (G.mode === 'tot' && walker.rig && walker.rig.group) { walker.rig.group.scale.setScalar(0.8); if (TG.Humans && TG.Humans.fit) TG.Humans.fit(walker.rig, 1.03); }   // 4세 약 1.03m   // 4세는 더 작고 동글동글하게
-    traffic.player = walker; peds.player = walker; peds.walker = walker;
+    traffic.player = walker; peds.player = walker; peds.walker = walker; traffic.parkedCar = player;   // (v0.10.164) 세워 둔 순찰차(앞차 판정 · 좌회전 포켓 막힘 판정)
     G.timeLeft = C.WALK_SECONDS + (kid ? 120 : 0);
     if (G.mode === 'bike') {
       // 🚲 청소년 교실(자전거) — 서초역 사거리 블록. 장면마다 자리를 옮기는 「마당」 방식이다(js/bike.js).
@@ -1680,7 +1680,7 @@
     var dx = player.pos.x + pr[0] * (player.wid * 0.5 + 0.35), dz = player.pos.z + pr[1] * (player.wid * 0.5 + 0.35);   // 문 바로 옆 — 연출이 여기서 걸어 나간다
     walker = new TG.Walker(scene, city, terrain, C, {}); G.walker = walker;
     walker.teleport(dx, dz, player.heading + Math.PI / 2);
-    traffic.player = walker; peds.player = walker; peds.walker = walker;
+    traffic.player = walker; peds.player = walker; peds.walker = walker; traffic.parkedCar = player;   // (v0.10.164) 세워 둔 순찰차(앞차 판정 · 좌회전 포켓 막힘 판정)
     walk = { dests: [], idx: 0, cross: null, jay: false, crossings: 0, arrived: 0, hintCd: 0, hitCd: 0, afoot: true, warnCd: 0 };
     G.afoot = true; camInit = false;
     document.body.classList.add('onfoot'); document.body.classList.add('afoot');
@@ -1697,7 +1697,7 @@
     var d = Math.hypot(walker.pos.x - player.pos.x, walker.pos.z - player.pos.z);
     if (d > 3.2) { hud.notice('순찰차 운전석 옆(3m 안)으로 가서 탑니다 — ' + Math.round(d) + 'm', 'warn', 2200); return false; }
     walker.dispose(); walker = null; G.walker = null; walk = null;
-    traffic.player = player; peds.player = player; peds.walker = null;
+    traffic.player = player; peds.player = player; peds.walker = null; traffic.parkedCar = null;
     G.afoot = false; camInit = false;
     document.body.classList.remove('onfoot'); document.body.classList.remove('afoot');
     footBtnLabel(false);
@@ -1803,7 +1803,7 @@
     // 전에는 이미 내려 있는 상태로 시작해 근무의 앞부분이 통째로 없었다.
     player.teleport(node.x + city.laneOff('v', node.i, 0), node.z + city.halfH[node.j] + 100, Math.PI);
     player.setSiren(true); hud.setSiren(true);
-    traffic.player = player; peds.player = player; peds.walker = null;
+    traffic.player = player; peds.player = player; peds.walker = null; traffic.parkedCar = null;
     C.TRAFFIC_MAX = BASE_TRAFFIC + 26;
     G.timeLeft = C.DUTY_SECONDS;
     walk = null; walker = null; G.walker = null;
@@ -3130,6 +3130,11 @@
     if (frame.kind === 'grid' && frame.lanes >= 2 && T.speed > 3) {
       var latJ = frame.lateral > 3.75 ? Math.max(3.8, frame.lateral - (frame.jog || 0)) : frame.lateral;   // 🚧 승강장 구간에서 차선째 비킨 것은 차로 변경이 아니다(v0.10.141)
       var laneNow = city.laneIndexAt(frame.axis, frame.idx, latJ), roadKey = frame.axis + frame.idx;
+      if (frame.pkC) {   // 🛣 (v0.10.164) 좌회전 포켓 구간: 차선이 벌어진 만큼 따라간 것은 차로 변경이 아니다 — 포켓(0)과 접근 차로 1 은 원래 1차로, 그다음은 한 칸씩
+        laneNow = Math.max(0, player.pkLane(frame) - 1);
+        if (!rules.pkHold) rules.laneIdx = laneNow;   // 구간에 드는 첫 프레임(막혔다 풀린 것 포함)도 셈을 다시 잡는다
+        rules.pkHold = true;
+      } else if (rules.pkHold) { rules.pkHold = false; rules.laneIdx = laneNow; player.pkLock = null; }   // 포켓 구간을 막 벗어남(정지선 너머) — 다시 그은 차로 자리에서 셈을 다시 잡는다(차로 변경이 아니다 · 독립 검수)
       if (rules.laneKey === roadKey && rules.laneIdx !== undefined && laneNow !== rules.laneIdx && !player.siren) {
         // 실선 구간 = 진행 방향 앞 교차로의 정지선까지 30m 안(뒤쪽 교차로는 무관)
         var dLc = TG.headingToDir(player.heading), nLc = city.nodeAhead(player.pos.x, player.pos.z, dLc, 0), fLc = TG.DIR_VEC[dLc];

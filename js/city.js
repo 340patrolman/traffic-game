@@ -60,7 +60,8 @@ TG.buildCity = function (cfg) {
   //  자료가 없는 접근로는 null — 종전 규칙(보호 좌회전이면 1차로 좌회전 · 끝 차로 우회전) 그대로.
   //  회전 전용 차로를 실제처럼 더 붙이는 것(접근로 넓히기)은 다음 층이다.
   var useCache = {};
-  function laneUse(node, d) {
+  function laneUse(node, d) { var PK = pocket(node, d); return PK ? PK.use : laneUse0(node, d); }
+  function laneUse0(node, d) {
     if (!TGIS || !TGIS.nodes || !node) return null;
     var key = node.i + ',' + node.j + ',' + d; if (useCache[key] !== undefined) return useCache[key];
     var nd = TGIS.nodes[node.i + ',' + node.j], e = nd && nd[d], real = e && e.use, out = null;
@@ -84,6 +85,77 @@ TG.buildCity = function (cfg) {
       if (uAny && !busFirst && out[0].indexOf('U') < 0) out[0] += 'U';
     }
     useCache[key] = out;
+    return out;
+  }
+  // 🛣 (v0.10.164) 좌회전 포켓 — 실제 접근로처럼 정지선 앞에 **차로를 하나 더** 긋는다.
+  //  소유자(2026-11-28): 「실제 도로 교차로 여건이 너무 차이가 난다」. 서울시 교통안전시설물 노면 화살표로 보면 서초구 1:1 접근로 대부분이 우리 길보다 차로가 많다(회전 전용 차로).
+  //  **길 폭·연석·보도·횡단보도는 그대로다** — 정지선 앞 POCKET_STORE m(+ 테이퍼 POCKET_TAPER m)만 그 방향 차로를 갓길까지 써서 n+1 개로 다시 긋는다.
+  //  맨 안쪽(1차로) 새 차로가 좌회전(유턴) 전용이고 원래 차로들은 한 칸씩 바깥으로 비킨다(차로 k → 접근 차로 k+1). 차로 폭 = (3.5n + 2.25)/(n+1) — 편도 2·3·4차로가 3.08·3.19·3.25m.
+  //  대상: 실제 화살표 차로 수 > 우리 차로 수 · 실제에 좌회전 전용 차로가 있다 · 왼쪽 길이 있다 · 편도 2차로 이상 · 중앙버스전용차로 길·구간이 아니다 · 블록이 충분히 길다.
+  //  실제 회전 차로는 평균 +1.9개 많다 — 이 판은 +1 까지만(길 폭을 넓히지 않는 한도).
+  var pkCache = {}, PK_ST = cfg.POCKET_STORE || 35, PK_TP = cfg.POCKET_TAPER || 35;
+  function pkEase(t) { t = TG.clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+  function pocket(node, d) {
+    if (!TGIS || !TGIS.nodes || !node) return null;
+    var key = node.i + ',' + node.j + ',' + d; if (pkCache[key] !== undefined) return pkCache[key];
+    pkCache[key] = null;
+    var nd = TGIS.nodes[node.i + ',' + node.j], e = nd && nd[d], real = e && e.use;
+    if (!real || real.length < 2) return null;
+    if (real.length >= 3 && real[0] === 'S' && real[1].indexOf('L') >= 0) return null;   // 중앙버스전용차로 길(1차로 버스 직진)
+    var rd = roadOf(node, d), n = lanesOf(rd.axis, rd.idx);
+    if (n < 2 || real.length <= n) return null;
+    var lOnly = real.filter(function (u) { return (u.indexOf('L') >= 0 || u.indexOf('U') >= 0) && u.indexOf('S') < 0 && u.indexOf('R') < 0; }).length;
+    if (!lOnly || !nodeFrom(node, (d + 1) % 4)) return null;
+    var up = nodeFrom(node, (d + 2) % 4); if (!up) return null;
+    var sd = stopDist(node, d), segLen = Math.hypot(up.x - node.x, up.z - node.z) - crossFar(up, d) - sd;
+    if (segLen < PK_ST + PK_TP + 20) return null;
+    var f = TG.DIR_VEC[d];
+    for (var q = 0; q <= PK_ST + PK_TP + 10; q += 5) { var px = node.x - f[0] * (sd + q), pz = node.z - f[1] * (sd + q); if (brtAt(rd.axis, rd.idx, rd.axis === 'v' ? pz : px)) return null; }
+    var A = n + 1, has = function (fn) { return real.some(fn); };
+    var rAny = has(function (u) { return u.indexOf('R') >= 0; }), rPure = has(function (u) { return u.indexOf('R') >= 0 && u.indexOf('S') < 0 && u.indexOf('L') < 0; });
+    var uAny = has(function (u) { return u.indexOf('U') >= 0; });
+    var use = []; for (var k = 0; k < A; k++) use.push('S');
+    var lPure = has(function (u) { return u.indexOf('L') >= 0 && u.indexOf('S') < 0 && u.indexOf('R') < 0; });
+    use[0] = (lPure ? 'L' : '') + (uAny ? 'U' : '');   // 실제가 유턴 전용뿐이면 포켓도 유턴 전용(좌회전은 그리지 않는다)
+    var needS = Math.max(1, Math.min(A - 2, n - 1)), sCount = function () { return use.filter(function (u) { return u.indexOf('S') >= 0; }).length; };
+    // 이중 좌회전(좌회전 차로 둘)은 아직 긋지 않는다 — 두 차가 나란히 도는 회전 궤적이 없어 교차로에서 겹친다(독립 검수 · 다음 층)
+    if (rAny) { use[A - 1] = (rPure && n >= 4) ? 'R' : 'SR'; if (sCount() < needS) use[A - 1] = 'SR'; }   // 우회전 전용은 종전처럼 편도 4차로 이상에서만(버스·이륜차가 직진하는 끝 차로와 화살표가 어긋나지 않게)
+    var w = (cfg.LANE_W * n + 2.25) / A;
+    pkCache[key] = { n: n, A: A, w: w, use: use, st: PK_ST, tp: PK_TP, axis: rd.axis, idx: rd.idx };
+    return pkCache[key];
+  }
+  function pocketOff(PK, a) { return 0.25 + PK.w * (TG.clamp(a, 0, PK.A - 1) + 0.5); }        // 접근 차로 a 의 가운데(0 = 좌회전 포켓)
+  function pocketT(PK, s) { return s <= PK.st ? 1 : pkEase((PK.st + PK.tp - s) / PK.tp); }      // s = 정지선에서 거꾸로 잰 거리 · 1 = 다 벌어짐 · 0 = 원래 차로
+  // 원래 차로 laneIdx 에 있는 차가 이 접근로 포켓 구간에서 옆으로 옮겨 갈 양(inPk = 좌회전 포켓으로 들어간 1차로 차).
+  //  base = 포켓이 없을 때 그 차가 갈 옆 자리(경로점 차로 + 차로 변경 이동량). 목표 자리로 **맞추는** 값이라 경로점 차로가 laneIdx 와 어긋난 차도 길 밖으로 밀리지 않는다.
+  //  edge = 접근 차로 가운데에서 더 오른쪽(이륜차 등).
+  function pocketJog(node, d, laneIdx, inPk, s, base, edge) {
+    var PK = pocket(node, d); if (!PK) return 0;
+    var k = TG.clamp(laneIdx || 0, 0, PK.n - 1), a = inPk ? 0 : k + 1;
+    return (pocketOff(PK, a) + (edge || 0) - base) * pocketT(PK, s);
+  }
+  // 원래 차로 laneIdx 의 차가 이 접근로에서 고를 수 있는 방향 — 포켓이 있으면 1차로 차는 포켓(0) 또는 접근 차로 1, 다른 차로는 한 칸 바깥 접근 차로
+  function useFor(node, d, laneIdx) {
+    var PK = pocket(node, d);
+    if (PK) return (laneIdx || 0) <= 0 ? PK.use[0] + PK.use[1] : PK.use[TG.clamp(laneIdx + 1, 0, PK.A - 1)];
+    var U = laneUse0(node, d); return U ? U[TG.clamp(laneIdx || 0, 0, U.length - 1)] : null;
+  }
+  // 이 자리가 어느 접근로 포켓 구간인가(그 방향 반쪽 · 교차로 상자 밖)
+  function pocketAt(x, z) {
+    if (!TGIS || !TGIS.nodes) return null;
+    var i = nearestIdx(xs, x), j = nearestIdx(zs, z), dx = x - xs[i], dz = z - zs[j], onV = Math.abs(dx) <= halfV[i], onH = Math.abs(dz) <= halfH[j];
+    if (onV === onH) return null;
+    var d, node, s;
+    if (onV) { d = dx < 0 ? 0 : 2; node = nodeAhead(x, z, d, 0); if (!node) return null; s = Math.abs(node.z - z) - stopDist(node, d); }
+    else { d = dz > 0 ? 1 : 3; node = nodeAhead(x, z, d, 0); if (!node) return null; s = Math.abs(node.x - x) - stopDist(node, d); }
+    var PK = pocket(node, d); if (!PK || s < -2 || s > PK.st + PK.tp) return null;
+    if (city.pocketBlocked && city.pocketBlocked(node, d, PK)) return null;   // 그 구간에 서 있는 것이 있어 AI 가 원래 차로로 달리는 동안은 플레이어 보조·판정도 원래 차로(traffic.js 가 붙인다)
+    return { node: node, d: d, PK: PK, s: s, t: pocketT(PK, Math.max(0, s)) };
+  }
+  // 포켓 구간의 차로 가운데들(플레이어 차선 유지 보조 · 차로 판정): [포켓, 원래 1차로, 2차로, …] — t 만큼 벌어진 자리
+  function pocketCenters(pz) {
+    var PK = pz.PK, t = pz.t, out = [laneOff(PK.axis, PK.idx, 0) + (pocketOff(PK, 0) - laneOff(PK.axis, PK.idx, 0)) * t];
+    for (var k = 0; k < PK.n; k++) out.push(laneOff(PK.axis, PK.idx, k) + (pocketOff(PK, k + 1) - laneOff(PK.axis, PK.idx, k)) * t);
     return out;
   }
 
@@ -390,14 +462,15 @@ TG.buildCity = function (cfg) {
   var terrain = null;
   function frameAt(x, z, heading) {
     if (inGridArea(x, z) || (x > xs[0] - 20 && x < xs[xs.length - 1] + 20 && z > zs[0] - 20 && z < zs[zs.length - 1] + 20)) {   // 격자 판정 상자는 **지도의 격자에서** 잰다(기본 지도 -20~340 에 못 박혀 있었다)
-      var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z);
+      var lf = laneFrame(x, z, heading), school = inSchoolZone(x, z), pz = pocketAt(x, z), pkC = (pz && pz.d === lf.dir && pz.t > 0.02) ? pocketCenters(pz) : null;
       // 제한속도(안전속도 5030 취지): 4차로 간선 50, 2차로 40, 어린이보호구역 30
       var lim = school ? 30 : (lf.lanes >= 2 ? 50 : 40);
       var brtL = BRT ? brtAt(lf.axis, lf.idx, lf.axis === 'v' ? z : x) : null;   // 🚌 중앙버스전용차로 구간(1차로 = 청색 실선 안쪽)
       return { kind: 'grid', name: (lf.axis === 'v' ? roadNamesV[lf.idx] : hName(lf.idx, x)) + '(왕복 ' + (lf.lanes * 2) + '차로)' + (school ? ' · 어린이보호구역' : ''), lateral: lf.lateral, limit: lim, half: lf.half, school: school,
                shoulder: shoulderOff(lf.axis, lf.idx), shoulderMin: shoulderMin(lf.axis, lf.idx), onRoad: onRoad(x, z), lanes: lf.lanes, y: 0, dir: lf.dir, axis: lf.axis, idx: lf.idx, center: lf.center,
                brt: brtL ? brtL.name : null, brtLane: !!brtL && lf.lateral > 0.25 && lf.lateral < 3.75,
-               jog: (brtL && city.brtJog) ? city.brtJog(lf.axis, lf.idx, lf.dir, lf.axis === 'v' ? z : x) : 0 };   // 🚧 승강장 구간 일반차로 비킴(js/brt.js) — 차선 유지 보조·차로 판정이 뺀다
+               jog: (brtL && city.brtJog) ? city.brtJog(lf.axis, lf.idx, lf.dir, lf.axis === 'v' ? z : x) : 0,
+               pkC: pkC, pkT: pkC ? pz.t : 0, pkK: pkC ? pz.node.i + ',' + pz.node.j + ',' + pz.d : null };   // 🛣 (v0.10.164) 좌회전 포켓 구간의 차로 가운데들(0 = 포켓) — 차선 유지 보조·차로 판정이 쓴다   // 🚧 승강장 구간 일반차로 비킴(js/brt.js) — 차선 유지 보조·차로 판정이 뺀다
     }
     if (terrain) {
       var q = terrain.nearest(x, z, true);
@@ -436,6 +509,7 @@ TG.buildCity = function (cfg) {
     collideCircle: collideCircle, heightAt: heightAt, inGridArea: inGridArea,
     nearestNode: nearestNode, axisOfDir: axisOfDir, halfOf: halfOf, lanesOf: lanesOf, roadOf: roadOf, crossHalf: crossHalf, stopDist: stopDist, crossNear: crossNear, crossFar: crossFar,
     laneOff: laneOff, shoulderOff: shoulderOff, shoulderMin: shoulderMin, sideOff: sideOff, laneIndexAt: laneIndexAt, laneUse: laneUse,
+    pocket: pocket, pocketOff: pocketOff, pocketT: pocketT, pocketJog: pocketJog, pocketAt: pocketAt, useFor: useFor,
     attachTerrain: function (t) { terrain = t; city.terrain = t; bounds.x0 = t.bounds.x0; bounds.x1 = t.bounds.x1; bounds.z0 = t.bounds.z0; bounds.z1 = t.bounds.z1; for (var i = 0; i < t.walls.length; i++) walls.push(t.walls[i]); },
     exitFor: function (node, dir) { return terrain ? terrain.exitFor(node, dir) : null; },
   };

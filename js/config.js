@@ -1,6 +1,6 @@
 // 순찰길 — 모든 튜닝 수치는 여기. 단위: 미터, 초, m/s. 법령 수치는 절대 여기 두지 않는다(data/laws.json).
 window.TG = window.TG || {};
-TG.VERSION = '0.10.163';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
+TG.VERSION = '0.10.164';   // 화면(타이틀 · 일시정지)과 콘솔에 그대로 나온다. 판올림 때 index.html·promo.html 의 ?v= 와 sw.js 의 CACHE·FILES 도 같이 올린다
 TG.CONFIG = {
   SEED: 340,
 
@@ -18,6 +18,8 @@ TG.CONFIG = {
   SHOULDER_OFF: 4.6,   // 2차로 도로 갓길(정차 유도 위치) 중심
   SHOULDER4_OFF: 8.6,  // 4차로 도로 갓길 중심
   SIDEWALK_W: 3,       // 보도 폭
+  POCKET_STORE: 35,    // (v0.10.164) 좌회전 포켓: 정지선에서 이만큼은 차로가 하나 더 있다(대기 구간 · 게임 설계값)
+  POCKET_TAPER: 35,    //   그 뒤 이 길이에 걸쳐 차선이 벌어진다(테이퍼 · 게임 설계값 — 실제 교차로마다 다르다 · 25m 는 AI 가 옆으로 덜 따라가 정지선에서 0.9m 처졌다)
   STOP_GAP: 4.8,       // 교차로 상자 끝 → 횡단보도(0.5~4.0) → 정지선(4.8)
   WORLD_MARGIN: 40,    // 바깥 여백(잔디)
 

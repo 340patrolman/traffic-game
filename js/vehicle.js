@@ -226,6 +226,19 @@
 
   // 차선 유지 보조: 조향을 놓고 있으면 가장 가까운 차로 중앙·도로 방향으로 부드럽게 돌아간다.
   // 교차로 근처·도로 밖·후진·크게 벗어난 상태(갓길 정차 등)·운전자가 조향 중이면 개입하지 않는다. 일시정지 메뉴에서 끌 수 있다.
+  // 🛣 (v0.10.164) 좌회전 포켓 구간에서 내가 가는 접근 차로(0 = 포켓 · k+1 = 원래 k 차로). 구간에 들 때 가장 가까운 원래 차로로 정하고 끝까지 유지한다 —
+  //  「가장 가까운 차로」를 매번 고르면 벌어지는 차선을 늦게 따라가는 사이 옆 차로로 바뀌었다(1차로 직진이 포켓으로 · 감점). 손으로 2.6m 넘게 옮기면 다시 정한다.
+  //  포켓은 좌회전 깜빡이를 켰거나(1차로에서) 이미 포켓 가운데 가까이(0.6m) 있을 때만.
+  P.pkLane = function (fr) {
+    if (!fr || !fr.pkC) { this.pkLock = null; return 0; }
+    var C0 = fr.pkC, lat = fr.lateral, L = this.pkLock;
+    if (!L || L.key !== fr.pkK || Math.abs(lat - C0[L.a]) > 2.6) {
+      var a = 1; for (var q = 2; q < C0.length; q++) if (Math.abs(C0[q] - lat) < Math.abs(C0[a] - lat)) a = q;
+      if (a === 1 && (this.signal === 'L' || (fr.pkT > 0.9 && Math.abs(lat - C0[0]) < 0.6))) a = 0;
+      L = this.pkLock = { key: fr.pkK, a: a };
+    } else if (L.a === 1 && this.signal === 'L') L.a = 0;
+    return L.a;
+  };
   P.laneAssist = function (want) {
     if (this.assist === false || Math.abs(want) > 0.12 || this.vF < 2) return 0;
     var city = this.city, cfg = this.cfg, fr = city.frameAt(this.pos.x, this.pos.z, this.heading);
@@ -234,7 +247,8 @@
     if (fr.kind === 'grid') {
       if (city.nearIntersectionZone(this.pos.x, this.pos.z) && !(fr.jog > 0)) return 0;   // 🚧 교차로 바로 뒤 승강장(반포역 하행)은 비킴이 교차로 안에서 시작한다 — 그때는 놓지 않는다
       roadH = fr.dir * Math.PI / 2;
-      for (var k = 0; k < fr.lanes; k++) centers.push(city.laneOff(fr.axis, fr.idx, k) + (k >= 1 ? (fr.jog || 0) : 0));   // 🚧 승강장 구간은 일반차로가 비킨 자리가 차로 중앙(v0.10.141)
+      if (fr.pkC) centers = [fr.pkC[this.pkLane(fr)]];   // 🛣 (v0.10.164) 좌회전 포켓 구간: 들어올 때 차로를 끝까지 따라간다(아래 pkLane)
+      else for (var k = 0; k < fr.lanes; k++) centers.push(city.laneOff(fr.axis, fr.idx, k) + (k >= 1 ? (fr.jog || 0) : 0));   // 🚧 승강장 구간은 일반차로가 비킨 자리가 차로 중앙(v0.10.141)
     } else {
       if (fr.tx === undefined) return 0;
       roadH = Math.atan2(fr.tx, fr.tz);

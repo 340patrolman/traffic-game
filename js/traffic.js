@@ -109,7 +109,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     //  좌회전 전용 차로의 차는 좌회전 신호가 있으면 돌고, 우회전은 화살표가 허락한 차로에서만. 좌회전 현시가 없는 교차로면 L 은 못 고르고 아래 「갈 곳 없음」 규칙으로 물러선다.
     var useN = city.laneUse ? city.laneUse(N, d) : null;
     if (useN && car && !car.isBike && !car.isPM) {
-      var rdU = city.roadOf(N, d), myU = useN[TG.clamp(car.laneIdx || 0, 0, useN.length - 1)], ou = [];
+      var rdU = city.roadOf(N, d), myU = city.useFor ? city.useFor(N, d, car.laneIdx || 0) : useN[TG.clamp(car.laneIdx || 0, 0, useN.length - 1)], ou = [];   // (v0.10.164) 좌회전 포켓이 있으면 1차로 차는 포켓(좌회전)·접근 차로 1 둘 다
       if (myU === 'R' && (car.isBus || car.isMoto || car.rightLane || car.type === 'truck' || car.type === 'pickup')) myU = 'SR';   // 끝 차로로 가라고 정한 차종(버스·이륜차·화물 지정차로)은 우회전 전용 차로에서도 직진할 수 있게(독립 검수 — 늘 우회전만 하던 것)
       var protU = !!(signals.hasLeftFor && signals.hasLeftFor(N, d));
       if (myU.indexOf('S') >= 0 && city.nodeFrom(N, d)) ou.push(['S', 0.62]);
@@ -461,7 +461,36 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
     for (var i = 0; i < cars.length; i++) { var o = cars[i]; if (o === car) continue; var of = forwardOf(o); consider(o, o.len, o.v, of[0] * fx + of[1] * fz); }
     var pl = self.player;
     if (pl) { var pf = pl.forward(); consider(pl, pl.len, Math.max(0, pl.vF), pf[0] * fx + pf[1] * fz); }
+    var pk0 = self.parkedCar;   // (v0.10.164) 내려서 걸을 때 세워 둔 순찰차
+    if (pk0 && pk0 !== pl) { var kf = pk0.forward(); consider(pk0, pk0.len, 0, kf[0] * fx + kf[1] * fz); }
     return best;
+  }
+  // 🛣 (v0.10.164) 좌회전 포켓 구간(정지선 −3 ~ 포켓 끝 +12m · 그 방향 반쪽)에 달리지 않는 차·멈춘 순찰차·차로 차단·사고 구간이 있는가
+  //  (독립 검수) 그 방향 차도(중앙선 ~ 연석 바깥 0.8m) 안만 본다 — 보도·옆 길의 것은 상관없다. 타고 있는 순찰차는 **바깥 접근 차로 가운데보다 0.5m 넘게 오른쪽(갓길)** 에 멈췄을 때만(차로에서 신호 대기하는 것은 다른 차와 같다) ·
+  //   내려서 걸을 때는 세워 둔 순찰차(traffic.parkedCar)를 본다. 한 번 막히면 6초는 막힌 채로(가다 서다 하는 차 때문에 접근로 전체가 번갈아 바뀌지 않게).
+  var pkBlk = { t: -1, m: {}, until: {} };
+  function pkBlocked(node, d, PK) {
+    if (pkBlk.t !== self.time) { pkBlk.t = self.time; pkBlk.m = {}; }
+    var key = node.i + ',' + node.j + ',' + d; if (pkBlk.m[key] !== undefined) return pkBlk.m[key];
+    var f = TG.DIR_VEC[d], r = [-f[1], f[0]], sd = city.stopDist(node, d), zl = PK.st + PK.tp + 12, b = false;
+    var half = city.halfOf(PK.axis, PK.idx), outer = city.pocketOff(PK, PK.A - 1) + 0.5;
+    var latOf = function (px, pz) { var al = (node.x - px) * f[0] + (node.z - pz) * f[1] - sd, la = (px - node.x) * r[0] + (pz - node.z) * r[1]; return (al > -3 && al < zl && la > 0 && la < half + 0.8) ? la : null; };
+    for (var i = 0; i < cars.length && !b; i++) { var o = cars[i]; if (o.mode !== 'drive' && o.mode !== 'release' && latOf(o.pos.x, o.pos.z) !== null) b = true; }
+    var pl = self.player, pc = self.parkedCar;
+    if (!b && pc && latOf(pc.pos.x, pc.pos.z) !== null) b = true;
+    if (!b && !pc && pl && pl.vF !== undefined && Math.abs(pl.vF) < 1) { var lp = latOf(pl.pos.x, pl.pos.z); if (lp !== null && lp > outer) b = true; }
+    var C = self.control;
+    if (!b && C && C.closed) for (var c = 0; c < C.closed.length && !b; c++) if (C.closed[c].node === node && C.closed[c].d === d) b = true;
+    if (!b && C && C.zones) for (var zq = 0; zq < C.zones.length && !b; zq++) { var Z = C.zones[zq]; if (Z.d !== d || Z.axis !== PK.axis || Z.idx !== PK.idx) continue;
+      var za = (node.x - Z.x) * f[0] + (node.z - Z.z) * f[1] - sd; if (za < zl && za + (Z.back || 110) > -3) b = true; }
+    if (b) pkBlk.until[key] = self.time + 6; else if ((pkBlk.until[key] || -1) > self.time) b = true;
+    pkBlk.m[key] = b; return b;
+  }
+  city.pocketBlocked = pkBlocked;
+  // 대기 구간(정지선 앞 POCKET_STORE)에 든 차는 들어올 때 정한 대로 — 차로 바꾸기 규칙과 옆 이동이 같은 값을 쓴다(독립 검수: 두 곳이 어긋나 한 차로를 더 건너갔다)
+  function pkOffFor(car, ap, PK, distStop) {
+    if (car.pkAp === ap && distStop < PK.st) return car.pkOff;
+    car.pkAp = ap; car.pkOff = pkBlocked(ap.node, ap.d, PK); return car.pkOff;
   }
   function stopProfile(dist, decel) { var d = dist - 1.0; return d <= 0.3 ? 0 : Math.sqrt(2 * decel * d); }
   // 이 접근로의 횡단보도 위에 보행자가 있는가(차도 위, 횡단보도 띠 안)
@@ -674,7 +703,11 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
           }
         }
         // 보호 좌회전 접근로의 1차로는 좌회전 전용 — 직진 차는 2차로로 옮긴다(좌회전 신호를 기다리는 차 뒤에 막히지 않게)
-        if (ap.maneuver !== 'L' && ap.maneuver !== 'U' && car.laneIdx === 0 && distStop < 60 && distStop > 8 && car.mode === 'drive' && signals.hasLeftFor(ap.node, ap.d)) {
+        // (v0.10.164) 좌회전 포켓 접근로는 1차로 직진 차가 포켓 옆(접근 차로 1)으로 저절로 비킨다 — 그 차로마저 좌회전 전용(이중 좌회전)일 때만 2차로로 옮긴다(테이퍼 앞에서)
+        var PKs = city.pocket ? city.pocket(ap.node, ap.d) : null, mS = ap.maneuver === 'X' ? 'S' : ap.maneuver;
+        if (PKs && pkOffFor(car, ap, PKs, distStop)) PKs = null;   // 막힌 동안은 원래 차로 — 종전 규칙
+        if (ap.maneuver !== 'L' && ap.maneuver !== 'U' && car.laneIdx === 0 && distStop > 8 && car.mode === 'drive' &&
+            (PKs ? (mS && PKs.use[1].indexOf(mS) < 0) : (distStop < 60 && signals.hasLeftFor(ap.node, ap.d)))) {
           var rdP = city.roadOf(ap.node, ap.d);
           if (city.lanesOf(rdP.axis, rdP.idx) >= 2) { car.lcShift += city.laneOff(rdP.axis, rdP.idx, 1) - city.laneOff(rdP.axis, rdP.idx, 0); car.laneIdx = 1; car.signal = 'R'; car.signalT = 2; }
         }
@@ -778,6 +811,17 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
       var rdJ = city.roadOf(ap.node, ap.d), jgC = city.brtJog(rdJ.axis, rdJ.idx, ap.d, rdJ.axis === 'v' ? car.pos.z : car.pos.x);
       if (jgC > 0) car.stShift = (car.stShift || 0) + jgC;
     }
+    // 🛣 (v0.10.164) 좌회전 포켓(city.pocket): 정지선 앞 구간에서 차선이 벌어진 만큼 옆으로 옮긴다 — 1차로 좌회전·유턴 차는 포켓으로, 나머지는 한 칸 바깥 접근 차로로.
+    //  그 구간 갓길·차로에 서 있는 것(사고·고장·주차·정차 유도 차 · 멈춘 순찰차 · 차로 차단)이 있으면 그동안은 원래 차로대로 달린다(바깥 접근 차로가 갓길 자리다).
+    car.pkIn = false;
+    if (city.pocket && !onLink && ap && car.mode === 'drive' && !car.edgeRider && !car.inZone && distStop > -1) {
+      var PKj = city.pocket(ap.node, ap.d);
+      if (PKj && !pkOffFor(car, ap, PKj, distStop)) {
+        car.pkIn = (car.laneIdx || 0) === 0 && (ap.maneuver === 'L' || ap.maneuver === 'U') && !car.isBus;
+        var edgeJ = (car.rightLane && (car.laneIdx || 0) >= PKj.n - 1) ? 0.7 : 0;   // 이륜차·자전거·PM 은 맨 오른쪽 접근 차로 안에서도 가장자리 쪽
+        car.stShift = (car.stShift || 0) + city.pocketJog(ap.node, ap.d, car.laneIdx || 0, car.pkIn, distStop, ap.lane + (car.lcShift || 0) + (car.stShift || 0), edgeJ);
+      }
+    }
     // 🚸 정류장 횡단보도(v0.10.69 · js/brt.js): 보행 녹색이면 정지선 앞에 선다(앞범퍼 기준) — 급제동으로도 못 서는 차는 빠져나간다(v0.9.46 규칙)
     if (city.brtXwStop && !onLink && ap && car.mode === 'drive') {
       var rdX = city.roadOf(ap.node, ap.d), sX = rdX.axis === 'v' ? car.pos.z : car.pos.x, dX = city.brtXwStop(rdX.axis, rdX.idx, ap.d, sX);
@@ -808,13 +852,14 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
         target = Math.min(target, 8.4);   // 약 30km/h 서행
       }
     }
-    if (!onLink && car.mode === 'drive' && ap && distStop > 18 && distStop < 75 && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && !car.brtLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
+    if (!onLink && car.mode === 'drive' && ap && distStop > (city.pocket && city.pocket(ap.node, ap.d) ? city.pocket(ap.node, ap.d).st + city.pocket(ap.node, ap.d).tp + 5 : 18) && distStop < (city.pocket && city.pocket(ap.node, ap.d) ? 130 : 75) && car.lcCd <= 0 && car.v > 4 && !car.isBus && !car.rightLane && !car.rightGroup && !car.brtLane && car.trait !== 'overtake' && (car.lcForce || rng() < dt * 0.35)) {   // 앞지르기 습관 차량은 추월할 때만 차로를 바꾼다
       car.lcForce = false;
       var rdL = city.roadOf(ap.node, ap.d), nL = city.lanesOf(rdL.axis, rdL.idx);
       var useL = city.laneUse ? city.laneUse(ap.node, ap.d) : null, mL = ap.maneuver === 'U' ? 'L' : ap.maneuver === 'X' ? 'S' : ap.maneuver;
       if (nL >= 2) {
         var oldL = TG.clamp(car.laneIdx, 0, nL - 1), newL = oldL + (oldL === 0 ? 1 : oldL === nL - 1 ? -1 : (rng() < 0.5 ? -1 : 1));   // 옆 차로로만 한 칸
-        if (useL && mL && useL[newL] && useL[newL].indexOf(mL) < 0) nL = 0;   // (v0.10.162) 정한 방향을 허락하지 않는 차로(좌회전 전용 등)로는 옮기지 않는다
+        var uNew = useL ? (city.useFor ? city.useFor(ap.node, ap.d, newL) : useL[newL]) : null;
+        if (uNew && mL && uNew.indexOf(mL) < 0) nL = 0;   // (v0.10.162) 정한 방향을 허락하지 않는 차로(좌회전 전용 등)로는 옮기지 않는다 · (v0.10.164) 포켓 접근로는 접근 차로로 본다
       }
       if (nL >= 2) {
         var offOld = city.laneOff(rdL.axis, rdL.idx, oldL), offNew = city.laneOff(rdL.axis, rdL.idx, newL);
@@ -1103,7 +1148,7 @@ TG.Traffic = function (scene, city, signals, cfg, rng) {
   };
 
   var spawnT = 0;
-  this.resetSpawn = function () { spawnT = 0; nextId = 1; self.time = 0; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계·차 번호·시계를 처음으로(차 번호로 화물 차로를 가른다 — 안 되돌리면 판마다 차로가 달라졌다)
+  this.resetSpawn = function () { spawnT = 0; nextId = 1; self.time = 0; pkBlk = { t: -1, m: {}, until: {} }; };   // 🧪 시뮬레이션: 근무 시작마다 스폰 시계·차 번호·시계를 처음으로(차 번호로 화물 차로를 가른다 — 안 되돌리면 판마다 차로가 달라졌다)
   this.update = function (dt, budget) {
     self.time += dt; spawnT -= dt;
     if (spawnT <= 0) { spawnT = 0.5; if (cars.length < budget) spawn(); }

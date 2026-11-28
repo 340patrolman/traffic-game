@@ -205,7 +205,25 @@
       }
     }
     // 접근로 d 로 nd 에 닿는 쪽의 차선을 얼마나 일찍 끝낼지(정지선 간격이 1.2m 를 넘는 곳만 · 그 밖은 종전 그대로)
-    function tr(nd, d) { var t = city.stopDist(nd, d) - city.crossFar(nd, d); return t > 1.2 ? t : 0; }
+    function tr(nd, d) { var t = city.stopDist(nd, d) - city.crossFar(nd, d), PK = city.pocket ? city.pocket(nd, d) : null; if (PK) return t + PK.st + PK.tp; return t > 1.2 ? t : 0; }   // (v0.10.164) 좌회전 포켓 접근로는 포켓 구간 앞에서 끝내고 아래 paintPocket 이 잇는다
+    // 🛣 (v0.10.164) 좌회전 포켓 차선: 테이퍼(1m 조각으로 벌어진다) + 대기 구간. 가장자리 실선은 갓길 쪽으로 · 포켓 오른쪽 선은 중앙선에서 나와 실선 · 나머지 차로 사이는 점선(4m 선 · 4m 공백).
+    //  옆 자리는 AI 가 쓰는 것과 같은 함수(city.pocketT · pocketOff)로 잰다 — 그림과 차가 어긋나지 않게.
+    function paintPocket(node, d, PK) {
+      var f = TG.DIR_VEC[d], r = [-f[1], f[0]], sd = city.stopDist(node, d), Z = PK.st + PK.tp;
+      var P = function (s, l) { return [node.x - f[0] * (sd + s) + r[0] * l, node.z - f[1] * (sd + s) + r[1] * l]; };
+      var piece = function (s0, l0, s1, l1) { var a = P(s0, l0), b = P(s1, l1), vx = b[0] - a[0], vz = b[1] - a[1], L = Math.hypot(vx, vz); if (L < 0.05) return; mk.rect((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.14, L, Math.atan2(vx, vz), Y, WHT); };
+      // 한 줄: 테이퍼 앞(lFrom) → 대기 구간(lTo). dash 면 정지선에서 거꾸로 8m 마다 4m 만 긋는다
+      var lineP = function (lFrom, lTo, dash) {
+        var on = function (s) { return !dash || ((Z - s) % 8) < 4; };
+        for (var s = Z; s > PK.st + 0.01; s -= 1) { var s1 = Math.max(PK.st, s - 1), sm = (s + s1) / 2; if (!on(sm)) continue;
+          piece(s, lFrom + (lTo - lFrom) * city.pocketT(PK, s), s1, lFrom + (lTo - lFrom) * city.pocketT(PK, s1)); }
+        if (!dash) { piece(PK.st, lTo, 0, lTo); return; }
+        for (var q = PK.st; q > 0.01; q -= 1) { var q1 = Math.max(0, q - 1); if (on((q + q1) / 2)) piece(q, lTo, q1, lTo); }
+      };
+      lineP(0.25 + cfg.LANE_W * PK.n, 0.25 + PK.w * PK.A, false);   // 가장자리
+      lineP(0.25, 0.25 + PK.w, false);                              // 포켓 | 1차로(원래)
+      for (var k = 2; k < PK.A; k++) lineP(0.25 + cfg.LANE_W * (k - 1), 0.25 + PK.w * k, true);
+    }
     // 세로길: 남행(d 0)은 −x 쪽이 접근해 a1 끝 · 북행(d 2)은 +x 쪽이 a0 끝. 가로길: 동행(d 1)은 +z 쪽이 a1 끝 · 서행(d 3)은 −z 쪽이 a0 끝.
     function trimV(n0, n1) { return { '-1': [0, n1 ? tr(n1, 0) : 0], '1': [n0 ? tr(n0, 2) : 0, 0] }; }
     function trimH(n0, n1) { return { '1': [0, n1 ? tr(n1, 1) : 0], '-1': [n0 ? tr(n0, 3) : 0, 0] }; }
@@ -232,9 +250,10 @@
         mk.rect(node.x - f[0] * sd + r[0] * (half / 2 + 0.1), node.z - f[1] * sd + r[1] * (half / 2 + 0.1), half - 0.2, 0.45, rot, Y, WHT);
         for (var lat = -half + 0.5; lat < half; lat += 1.0) mk.rect(node.x - f[0] * cm + r[0] * lat, node.z - f[1] * cm + r[1] * lat, 0.5, cl, rot, Y, WHT);
         // 🛣 (v0.10.162) 노면 방향 화살표 — 실제 차로별 통행 방향(city.laneUse · 서울시 교통안전시설물 A055_P). 정지선 뒤 7m · 27m 두 줄.
-        var LU = city.laneUse ? city.laneUse(node, d) : null;
+        var LU = city.laneUse ? city.laneUse(node, d) : null, PKw = city.pocket ? city.pocket(node, d) : null;
+        if (PKw) paintPocket(node, d, PKw);
         if (LU) for (var lk = 0; lk < LU.length; lk++) {
-          var lo = city.laneOff(rd.axis, rd.idx, lk);
+          var lo = PKw ? city.pocketOff(PKw, lk) : city.laneOff(rd.axis, rd.idx, lk);
           for (var ar = 0; ar < 2; ar++) laneArrow(mk, node.x - f[0] * (sd + 7 + ar * 20) + r[0] * lo, node.z - f[1] * (sd + 7 + ar * 20) + r[1] * lo, f, r, LU[lk], Y + 0.003, WHT);
         }
       }
